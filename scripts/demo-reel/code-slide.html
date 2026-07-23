@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Ember brand config</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+<style>
+	:root { color-scheme: dark; }
+	html, body {
+		margin: 0;
+		padding: 0;
+		width: 1440px;
+		height: 900px;
+		background: #0a0a0a;
+		font-family: 'SF Mono', Menlo, 'JetBrains Mono', monospace;
+		color: #e5e5e5;
+		overflow: hidden;
+	}
+	.wrap {
+		display: grid;
+		grid-template-rows: auto 1fr;
+		height: 100%;
+		padding: 36px 48px 28px;
+		box-sizing: border-box;
+	}
+	header {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		padding-bottom: 18px;
+		border-bottom: 1px solid #262626;
+		margin-bottom: 22px;
+	}
+	header .path {
+		font-size: 14px;
+		font-weight: 500;
+		letter-spacing: 0.02em;
+		color: #a3a3a3;
+	}
+	header .path .dim { color: #525252; }
+	header .label {
+		font-size: 11px;
+		letter-spacing: 0.22em;
+		text-transform: uppercase;
+		color: #10b981;
+	}
+	pre {
+		margin: 0;
+		font-size: 15px;
+		line-height: 1.55;
+		overflow: hidden;
+	}
+	code.hljs {
+		background: transparent !important;
+		padding: 0 !important;
+		font-family: inherit;
+	}
+</style>
+</head>
+<body>
+<div class="wrap">
+	<header>
+		<div class="path"><span class="dim">src/lib/brand/</span>config.ts</div>
+		<div class="label">Brand config · Ember</div>
+	</header>
+<pre><code class="language-typescript">ember: {
+  id: 'ember',
+  name: 'Ember',
+  tagline: 'Gather around something real',
+  domain: 'outdoor lifestyle &amp; fire',
+
+  bc: {
+    channelId: 1846324,
+    categoryPrefix: 'Ember',
+  },
+
+  categories: {
+    'fire-pits':    { bcName: 'Ember Fire Pits',    displayName: 'Fire Pits' },
+    'camp-stoves':  { bcName: 'Ember Camp Stoves',  displayName: 'Camp Stoves' },
+    'grills':       { bcName: 'Ember Grills',       displayName: 'Grills' },
+    'accessories':  { bcName: 'Ember Accessories',  displayName: 'Accessories' },
+  },
+
+  theme: {
+    primary:     '#c2410c',   // terracotta
+    secondary:   '#9a3412',
+    accent:      '#65a30d',   // olive
+    surfaceBg:   '#faf5f0',
+    fontDisplay: "'Libre Baskerville', Georgia, serif",
+    fontBody:    "'Source Sans 3', system-ui, sans-serif",
+  },
+
+  prompt: {
+    storeName: 'Ember',
+    storeDescription:
+      'an outdoor lifestyle brand centered on fire, gathering, ' +
+      'and the backyard experience',
+    productDomain: 'outdoor fire and cooking products',
+    personaDefinitions: {
+      gatherer:   'Dreaming about the backyard they want...',
+      hunter:     'Buying for a specific occasion — Memorial Day cookout...',
+      researcher: 'Deep in specs. BTU output, fuel efficiency, burn time...',
+      gifter:     'Fire pit as a housewarming or holiday gift...',
+    },
+    voiceGuidance:
+      'Warm and rugged. Evocative but honest. ' +
+      '"Double-wall stainless, smokeless burn, 19-inch diameter" ' +
+      'beats "the ultimate outdoor experience."',
+  },
+},</code></pre>
+</div>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

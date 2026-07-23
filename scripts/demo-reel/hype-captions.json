@@ -1,0 +1,78 @@
+{
+  "voice": "ash",
+  "model": "gpt-4o-mini-tts",
+  "instructions": "You are a 2010s action movie trailer voice-over artist — deep, gravelly, resonant, menacing. Speak with heavy gravitas and ominous dramatic pauses, especially on loaded words. Slow down dramatically on key phrases. Sound like you are narrating the fate of the universe. Low and intense. Hold the pauses.",
+  "scenes": [
+    {
+      "image": "demo-01-haven-home.png",
+      "bigText": "IN A WORLD...",
+      "narration": "In a world... where every webpage... is written by a machine.",
+      "vfx": "zoom-in",
+      "sfx": "buildup"
+    },
+    {
+      "image": "demo-03-observe-baseline.png",
+      "bigText": "THEY WERE WATCHING.",
+      "narration": "They thought... they were just shopping.",
+      "vfx": "glitch",
+      "sfx": "impact"
+    },
+    {
+      "image": "demo-04-search-hunter.png",
+      "bigText": "LOOK WHAT HAPPENS NEXT!",
+      "narration": "Look. What happens. Next.",
+      "vfx": "shake",
+      "sfx": "whoosh-up"
+    },
+    {
+      "image": "demo-05-observe-shift.png",
+      "bigText": "THE PERSONA... SHIFTS.",
+      "narration": "The persona... shifts.",
+      "vfx": "flash",
+      "sfx": "bass-drop"
+    },
+    {
+      "image": "demo-09-volt-home.png",
+      "bigText": "ONE ENGINE.",
+      "narration": "One engine.",
+      "vfx": "zoom-in",
+      "sfx": "laser"
+    },
+    {
+      "image": "demo-11-ember-home.png",
+      "bigText": "ONE CODEBASE.",
+      "narration": "One codebase.",
+      "vfx": "zoom-in",
+      "sfx": "laser"
+    },
+    {
+      "image": "demo-10-volt-headphones.png",
+      "bigText": "IT CREATES... A WARM... BRAND... VOICE.",
+      "narration": "It creates... a warm... brand... voice.",
+      "vfx": "shake",
+      "sfx": "wub-drop"
+    },
+    {
+      "image": "demo-12-ember-config.png",
+      "bigText": "THE SECRET?",
+      "narration": "The secret?",
+      "vfx": "zoom-in",
+      "sfx": "impact"
+    },
+    {
+      "image": "demo-12-ember-config.png",
+      "bigText": "CONFIGURATION.",
+      "narration": "Configuration.",
+      "vfx": "flash",
+      "sfx": "bass-drop"
+    },
+    {
+      "image": "demo-01-haven-home.png",
+      "bigText": "AISLES",
+      "subText": "Configuration is the moat.  —  Could not license Immigrant Song.",
+      "narration": "Aisles. Configuration... is the moat.",
+      "vfx": "zoom-out",
+      "sfx": "final"
+    }
+  ]
+}

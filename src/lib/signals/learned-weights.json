@@ -1,0 +1,7 @@
+{
+  "fittedAt": null,
+  "totalSessions": 0,
+  "minSamples": 10,
+  "perPersonaSampleCount": { "gatherer": 0, "hunter": 0, "researcher": 0, "gifter": 0 },
+  "rules": {}
+}

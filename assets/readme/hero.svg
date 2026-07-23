@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520"
+     role="img" aria-labelledby="title desc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="title">Aisles — an AI-native storefront engine</title>
+  <desc id="desc">Aisles reads the intent behind each visit from request and behavioral signals, runs 31 weighted rules to infer one of four shopper personas, and generates the category-page layout to fit. The same URL and the same products render as four different, schema-valid layouts.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c0f13"/>
+      <stop offset="1" stop-color="#090b0e"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#ff6a3d"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="520" rx="24" fill="url(#bg)"/>
+  <rect x="1" y="1" width="1198" height="518" rx="23" fill="none" stroke="#20262e" stroke-width="1"/>
+
+  <!-- ─────────────── LEFT: identity + input ─────────────── -->
+  <g transform="translate(56 0)">
+    <text x="0" y="80" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" letter-spacing="3.5" fill="#ff6a3d">AI-NATIVE STOREFRONT ENGINE</text>
+    <text x="-3" y="156" font-size="82" font-weight="800" fill="#f4f2ec" letter-spacing="-1">Aisles</text>
+
+    <text x="0" y="200" font-size="20" fill="#c3c8ce">Reads the intent behind each visit, then generates</text>
+    <text x="0" y="228" font-size="20" fill="#c3c8ce">the category page to fit it. No two shoppers see</text>
+    <text x="0" y="256" font-size="20" fill="#c3c8ce">the same store.</text>
+
+    <!-- signals in -->
+    <text x="0" y="308" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="2.5" fill="#7d858e">SIGNALS IN</text>
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#c3c8ce">
+      <!-- row 1 -->
+      <g transform="translate(0 320)">
+        <rect x="0"   y="0" width="66"  height="26" rx="13" fill="#161b21" stroke="#2a313a"/><text x="33"  y="17" text-anchor="middle">search</text>
+        <rect x="74"  y="0" width="82"  height="26" rx="13" fill="#161b21" stroke="#2a313a"/><text x="115" y="17" text-anchor="middle">referrer</text>
+        <rect x="164" y="0" width="54"  height="26" rx="13" fill="#161b21" stroke="#2a313a"/><text x="191" y="17" text-anchor="middle">UTM</text>
+        <rect x="226" y="0" width="112" height="26" rx="13" fill="#161b21" stroke="#2a313a"/><text x="282" y="17" text-anchor="middle">device · time</text>
+      </g>
+      <!-- row 2 -->
+      <g transform="translate(0 354)">
+        <rect x="0"   y="0" width="58"  height="26" rx="13" fill="#161b21" stroke="#2a313a"/><text x="29"  y="17" text-anchor="middle">dwell</text>
+        <rect x="66"  y="0" width="60"  height="26" rx="13" fill="#161b21" stroke="#2a313a"/><text x="96"  y="17" text-anchor="middle">scroll</text>
+        <rect x="134" y="0" width="48"  height="26" rx="13" fill="#161b21" stroke="#2a313a"/><text x="158" y="17" text-anchor="middle">cart</text>
+        <rect x="190" y="0" width="112" height="26" rx="13" fill="#161b21" stroke="#2a313a"/><text x="246" y="17" text-anchor="middle">return visit</text>
+      </g>
+    </g>
+
+    <!-- inference engine node -->
+    <g transform="translate(0 410)">
+      <rect x="0" y="0" width="338" height="40" rx="10" fill="#12171d" stroke="#ff6a3d" stroke-opacity="0.55"/>
+      <circle cx="22" cy="20" r="5" fill="#ff6a3d"/>
+      <text x="40" y="25" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" fill="#f4f2ec">infer()<tspan fill="#7d858e">  ·  31 weighted rules</tspan></text>
+    </g>
+
+    <!-- metadata -->
+    <text x="0" y="486" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12.5" fill="#6b737c">SvelteKit 5 · Svelte runes   ·   Claude Haiku → Sonnet   ·   Vercel AI Gateway   ·   Redis + Neon</text>
+  </g>
+
+  <!-- flow arrow: engine → outputs -->
+  <path d="M400 430 H 520 M470 430 q 40 0 40 -180 V 118" fill="none" stroke="#ff6a3d" stroke-opacity="0.5" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <path d="M520 118 H 596" fill="none" stroke="#ff6a3d" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- ─────────────── RIGHT: same URL → four layouts ─────────────── -->
+  <g transform="translate(608 0)">
+    <text x="0" y="80" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="2" fill="#7d858e">SAME URL · SAME PRODUCTS · FOUR VALID LAYOUTS</text>
+
+    <!-- persona strips: each = one inferred persona and the layout it produces -->
+    <!-- GATHERER (primary) -->
+    <g transform="translate(0 96)">
+      <rect x="0" y="0" width="536" height="86" rx="12" fill="#161c22" stroke="#e0a63c" stroke-opacity="0.5"/>
+      <rect x="0" y="0" width="5" height="86" rx="2.5" fill="#e0a63c"/>
+      <text x="22" y="30" font-size="19" font-weight="700" fill="#f4f2ec">Gatherer <tspan font-size="12" font-family="ui-monospace, monospace" fill="#7d858e">· browsing to discover</tspan></text>
+      <text x="524" y="30" text-anchor="end" font-family="ui-monospace, monospace" font-size="14" fill="#e0a63c">0.42</text>
+      <rect x="414" y="18" width="58" height="17" rx="8.5" fill="#e0a63c" fill-opacity="0.14"/><text x="443" y="30" text-anchor="middle" font-family="ui-monospace, monospace" font-size="10.5" fill="#e0a63c">PRIMARY</text>
+      <!-- wireframe: editorial header + hero + 2-col grid, landscape -->
+      <g fill="#2f3843">
+        <rect x="22"  y="46" width="200" height="9"  rx="3"/>            <!-- editorial header -->
+        <rect x="22"  y="60" width="150" height="18" rx="3"/>           <!-- hero copy -->
+        <rect x="236" y="46" width="130" height="32" rx="4" fill="#3a4552"/> <!-- hero product -->
+        <rect x="380" y="46" width="64"  height="32" rx="4"/>
+        <rect x="452" y="46" width="64"  height="32" rx="4"/>
+      </g>
+    </g>
+
+    <!-- HUNTER -->
+    <g transform="translate(0 190)">
+      <rect x="0" y="0" width="536" height="86" rx="12" fill="#12161b" stroke="#232a32"/>
+      <rect x="0" y="0" width="5" height="86" rx="2.5" fill="#4a9fe0"/>
+      <text x="22" y="30" font-size="19" font-weight="700" fill="#e7eaee">Hunter <tspan font-size="12" font-family="ui-monospace, monospace" fill="#7d858e">· buying with intent</tspan></text>
+      <text x="524" y="30" text-anchor="end" font-family="ui-monospace, monospace" font-size="14" fill="#4a9fe0">0.24</text>
+      <!-- wireframe: category header w/ sort + dense 4-col grid, quick-add -->
+      <g fill="#2a323b">
+        <rect x="22" y="46" width="180" height="8" rx="3"/>            <!-- category header -->
+        <rect x="360" y="45" width="46" height="10" rx="3"/>          <!-- sort -->
+        <rect x="414" y="45" width="46" height="10" rx="3"/>          <!-- filter -->
+        <g>
+          <rect x="22"  y="60" width="58" height="18" rx="3"/>
+          <rect x="88"  y="60" width="58" height="18" rx="3"/>
+          <rect x="154" y="60" width="58" height="18" rx="3"/>
+          <rect x="220" y="60" width="58" height="18" rx="3"/>
+          <rect x="286" y="60" width="58" height="18" rx="3"/>
+          <rect x="352" y="60" width="58" height="18" rx="3"/>
+          <rect x="418" y="60" width="58" height="18" rx="3"/>
+          <rect x="484" y="60" width="32" height="18" rx="3"/>
+        </g>
+      </g>
+    </g>
+
+    <!-- RESEARCHER -->
+    <g transform="translate(0 284)">
+      <rect x="0" y="0" width="536" height="86" rx="12" fill="#12161b" stroke="#232a32"/>
+      <rect x="0" y="0" width="5" height="86" rx="2.5" fill="#4fb37a"/>
+      <text x="22" y="30" font-size="19" font-weight="700" fill="#e7eaee">Researcher <tspan font-size="12" font-family="ui-monospace, monospace" fill="#7d858e">· comparing the specs</tspan></text>
+      <text x="524" y="30" text-anchor="end" font-family="ui-monospace, monospace" font-size="14" fill="#4fb37a">0.22</text>
+      <!-- wireframe: header + grid with spec lines, no hero -->
+      <g fill="#2a323b">
+        <rect x="22" y="46" width="150" height="8" rx="3"/>
+        <g>
+          <rect x="22"  y="60" width="40" height="18" rx="3"/><rect x="68"  y="63" width="70" height="4" rx="2"/><rect x="68"  y="71" width="52" height="4" rx="2"/>
+          <rect x="196" y="60" width="40" height="18" rx="3"/><rect x="242" y="63" width="70" height="4" rx="2"/><rect x="242" y="71" width="52" height="4" rx="2"/>
+          <rect x="370" y="60" width="40" height="18" rx="3"/><rect x="416" y="63" width="70" height="4" rx="2"/><rect x="416" y="71" width="52" height="4" rx="2"/>
+        </g>
+      </g>
+    </g>
+
+    <!-- GIFTER -->
+    <g transform="translate(0 378)">
+      <rect x="0" y="0" width="536" height="86" rx="12" fill="#12161b" stroke="#232a32"/>
+      <rect x="0" y="0" width="5" height="86" rx="2.5" fill="#b07fe0"/>
+      <text x="22" y="30" font-size="19" font-weight="700" fill="#e7eaee">Gifter <tspan font-size="12" font-family="ui-monospace, monospace" fill="#7d858e">· shopping for someone else</tspan></text>
+      <text x="524" y="30" text-anchor="end" font-family="ui-monospace, monospace" font-size="14" fill="#b07fe0">0.12</text>
+      <!-- wireframe: editorial + hero + 3-col mid-tier grid -->
+      <g fill="#2a323b">
+        <rect x="22"  y="46" width="170" height="9"  rx="3"/>
+        <rect x="22"  y="60" width="120" height="18" rx="3" fill="#333b45"/>  <!-- hero -->
+        <rect x="200" y="53" width="100" height="25" rx="4"/>
+        <rect x="312" y="53" width="100" height="25" rx="4"/>
+        <rect x="424" y="53" width="92"  height="25" rx="4"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- ─────────────── invariant band ─────────────── -->
+  <line x1="608" y1="486" x2="1144" y2="486" stroke="#20262e"/>
+  <text x="608" y="505" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" fill="#7d858e">∀ I, P · <tspan fill="#c3c8ce">f(I, P) → S ∈ V</tspan>  —  every layout is a member of a typed, finite set</text>
+</svg>

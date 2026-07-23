@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "id": "ember-outdoor-store",
+    "created": "2026-04-06T00:00:00.000Z",
+    "updated": "2026-04-06T00:00:00.000Z",
+    "author": "Nino Chavez",
+    "version": "1.0.0"
+  },
+  "identity": {
+    "name": "Ember",
+    "tagline": "Gather around something real",
+    "mission": "Outdoor lifestyle brand centered on fire, gathering, and the backyard experience. Seasonal, experiential, built to last.",
+    "audience": [
+      "homeowners with outdoor spaces 30-55",
+      "camping and overlanding enthusiasts",
+      "backyard entertainers and hosts",
+      "gift-givers for housewarming and holidays"
+    ],
+    "personality": ["warm", "rugged", "authentic", "seasonal", "communal"],
+    "positioning": "The fire pit and outdoor cooking store for people who gather. Honest materials, real performance, built for the backyard you actually use.",
+    "domain": "outdoor fire and cooking"
+  }
+}

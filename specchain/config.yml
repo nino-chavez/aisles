@@ -1,0 +1,22 @@
+project:
+  name: "Prism — AI-Native Headless Storefront"
+  description: "AI-native headless storefront reference implementation. Same catalog, different refraction per persona. BigCommerce backend, SvelteKit frontend, generative UI engine."
+
+execution:
+  strategy: squad
+  depth: standard
+  auto_suggest: true
+
+state_tracking:
+  enabled: true
+  auto_update: true
+  max_decisions: 20
+  max_resolved_blockers: 10
+  max_session_logs: 10
+
+context_management:
+  enabled: true
+  advisory_mode: true
+  warn_after_task_groups: 3
+  fresh_agent_for_depths:
+    - thorough

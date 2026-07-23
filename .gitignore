@@ -1,0 +1,25 @@
+node_modules
+.svelte-kit
+build
+.vercel
+.env
+.env.*
+!.env.example
+dist
+*.local
+.playwright-mcp/
+validation/
+.env*.local
+
+# Local agent settings
+.claude/
+
+# Local debug artifacts (sensitive — may contain session cookies)
+cookies.txt
+
+# OS junk
+.DS_Store
+
+# Audit / scratch screenshots — kept on disk, not tracked
+/*.png
+/audit-v3/

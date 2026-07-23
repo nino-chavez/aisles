@@ -1,0 +1,269 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "id": "prism-demo-store",
+    "created": "2026-04-04T00:00:00.000Z",
+    "updated": "2026-04-04T00:00:00.000Z",
+    "author": "Nino Chavez",
+    "version": "2.0.0"
+  },
+  "identity": {
+    "name": "Haven",
+    "tagline": "Furniture for how you actually live",
+    "mission": "Mid-market DTC furniture brand — design-forward, approachable, livable. Not aspirational minimalism; real homes with real taste.",
+    "audience": [
+      "homeowners 28-45 furnishing or upgrading",
+      "renters investing in key pieces",
+      "parents outfitting dorm rooms and first apartments",
+      "design-aware but not design-obsessed"
+    ],
+    "personality": [
+      "warm",
+      "confident",
+      "approachable",
+      "editorial",
+      "unhurried"
+    ],
+    "positioning": "The furniture store for people who care about design but don't want to pay designer prices. Article-tier quality, Prism-powered discovery.",
+    "domain": "DTC home furniture",
+    "links": {
+      "email": "hello@haven-demo.store"
+    }
+  },
+  "colors": {
+    "primary": {
+      "hex": "#a3522d",
+      "name": "Terracotta",
+      "usage": "Primary accent, CTAs, active states. Warm, earthy, inviting — not tech-purple or startup-blue."
+    },
+    "secondary": {
+      "hex": "#8a4425",
+      "name": "Terracotta Deep",
+      "usage": "Hover states, pressed states, active navigation"
+    },
+    "accent": {
+      "hex": "#2c6e63",
+      "name": "Eucalyptus",
+      "usage": "In-stock badges, success states, secondary CTAs. Natural green that complements terracotta."
+    },
+    "neutral": {
+      "50": "#faf9f7",
+      "100": "#f5f3f0",
+      "200": "#ebe8e3",
+      "300": "#d9d4cc",
+      "400": "#b5ada2",
+      "500": "#8c8479",
+      "600": "#6b6459",
+      "700": "#4d473e",
+      "800": "#353129",
+      "900": "#231f1a",
+      "950": "#141210"
+    },
+    "semantic": {
+      "success": { "hex": "#2c6e63", "name": "In Stock", "usage": "Available, confirmed, success states" },
+      "warning": { "hex": "#996d1a", "name": "Low Stock", "usage": "Limited availability, price alerts" },
+      "error": { "hex": "#b5403a", "name": "Unavailable", "usage": "Out of stock, errors, validation" },
+      "info": { "hex": "#4a7fa5", "name": "Info", "usage": "Informational, dev mode, neutral callouts" }
+    },
+    "surfaces": {
+      "background": "#faf9f7",
+      "foreground": "#231f1a",
+      "card": "#ffffff",
+      "cardForeground": "#353129",
+      "muted": "#f5f3f0",
+      "mutedForeground": "#6b6459",
+      "border": "#ebe8e3"
+    }
+  },
+  "typography": {
+    "display": {
+      "family": "DM Serif Display",
+      "fallbacks": ["Georgia", "serif"],
+      "classification": "serif",
+      "weights": [400],
+      "variable": false,
+      "googleFonts": "DM+Serif+Display",
+      "cssVariable": "--font-display",
+      "textTransform": "none",
+      "letterSpacing": -0.01
+    },
+    "body": {
+      "family": "DM Sans",
+      "fallbacks": ["system-ui", "sans-serif"],
+      "classification": "sans-serif",
+      "weights": [400, 500, 600, 700],
+      "variable": true,
+      "googleFonts": "DM+Sans:wght@400;500;600;700",
+      "cssVariable": "--font-body",
+      "textTransform": "none",
+      "letterSpacing": 0
+    },
+    "mono": {
+      "family": "JetBrains Mono",
+      "fallbacks": ["Menlo", "monospace"],
+      "classification": "monospace",
+      "weights": [400, 500],
+      "variable": true,
+      "googleFonts": "JetBrains+Mono:wght@400;500",
+      "cssVariable": "--font-mono",
+      "textTransform": "none",
+      "letterSpacing": 0
+    },
+    "scale": {
+      "baseSizePx": 16,
+      "ratio": "major-third",
+      "steps": [
+        { "name": "hero", "sizeRem": 3.5, "sizeMobileRem": 2.25, "lineHeight": 1.05, "weight": 400, "font": "display" },
+        { "name": "h2", "sizeRem": 2.25, "sizeMobileRem": 1.625, "lineHeight": 1.15, "weight": 400, "font": "display" },
+        { "name": "h3", "sizeRem": 1.5, "sizeMobileRem": 1.25, "lineHeight": 1.25, "weight": 400, "font": "display" },
+        { "name": "h4", "sizeRem": 1.125, "sizeMobileRem": 1, "lineHeight": 1.35, "weight": 600, "font": "body" },
+        { "name": "body-lg", "sizeRem": 1.125, "sizeMobileRem": 1, "lineHeight": 1.65, "weight": 400, "font": "body" },
+        { "name": "body", "sizeRem": 1, "sizeMobileRem": 0.9375, "lineHeight": 1.6, "weight": 400, "font": "body" },
+        { "name": "body-sm", "sizeRem": 0.875, "sizeMobileRem": 0.8125, "lineHeight": 1.5, "weight": 400, "font": "body" },
+        { "name": "label", "sizeRem": 0.75, "sizeMobileRem": 0.6875, "lineHeight": 1.4, "weight": 500, "font": "body" },
+        { "name": "code", "sizeRem": 0.8125, "sizeMobileRem": 0.75, "lineHeight": 1.5, "weight": 400, "font": "mono" }
+      ]
+    }
+  },
+  "spacing": {
+    "1": 0.25,
+    "2": 0.5,
+    "3": 0.75,
+    "4": 1,
+    "5": 1.25,
+    "6": 1.5,
+    "8": 2,
+    "10": 2.5,
+    "12": 3,
+    "16": 4,
+    "20": 5,
+    "24": 6,
+    "32": 8
+  },
+  "radius": {
+    "none": 0,
+    "sm": 0.125,
+    "md": 0.25,
+    "lg": 0.375,
+    "xl": 0.5,
+    "2xl": 0.75,
+    "full": 9999
+  },
+  "layout": {
+    "maxContentWidth": 80,
+    "breakpoints": {
+      "sm": 640,
+      "md": 768,
+      "lg": 1024,
+      "xl": 1280,
+      "2xl": 1536
+    },
+    "sectionPadding": "24",
+    "containerPadding": "6"
+  },
+  "voice": {
+    "attributes": [
+      {
+        "trait": "warm",
+        "description": "Conversational, like a knowledgeable friend — not a salesperson, not a robot",
+        "example": "This sectional fits a 12x14 living room with room to spare."
+      },
+      {
+        "trait": "confident",
+        "description": "Declarative, specific, backed by product knowledge. No hedging.",
+        "example": "Top-grain leather softens with use. It'll look better in year three than year one."
+      },
+      {
+        "trait": "editorial",
+        "description": "Reads like a shelter magazine, not a product catalog. Story over specs.",
+        "example": "The kind of sofa people rearrange the room around."
+      },
+      {
+        "trait": "unhurried",
+        "description": "No pressure. Furniture is a considered purchase. Give space to decide.",
+        "example": "Take your time. Order swatches. Measure twice."
+      }
+    ],
+    "antiPatterns": [
+      {
+        "category": "tech-speak",
+        "patterns": ["AI-powered", "algorithm", "personalized for you", "our engine", "machine learning"],
+        "severity": "error",
+        "suggestion": "The technology is invisible. The shopper sees a furniture store, not a tech demo."
+      },
+      {
+        "category": "fake-urgency",
+        "patterns": ["act now", "don't miss out", "limited time", "hurry", "selling fast"],
+        "severity": "error",
+        "suggestion": "Show real inventory counts if low. Never fabricate scarcity."
+      },
+      {
+        "category": "superlatives",
+        "patterns": ["best-in-class", "world-class", "revolutionary", "game-changing", "unparalleled"],
+        "severity": "warning",
+        "suggestion": "Describe the specific quality. 'Kiln-dried hardwood frame' beats 'best-in-class construction.'"
+      },
+      {
+        "category": "generic-lifestyle",
+        "patterns": ["elevate your space", "transform your home", "curated collection", "thoughtfully designed"],
+        "severity": "warning",
+        "suggestion": "These are furniture cliches. Be specific about what makes the piece good."
+      }
+    ],
+    "structuralPatterns": [
+      { "name": "story-first", "description": "Lead with the editorial angle, then the specs. How does this piece fit a life, not just a room?", "required": true },
+      { "name": "specific-over-general", "description": "'Solid walnut, matte lacquer, 48 inches wide' beats 'high-quality wood table.'", "required": true },
+      { "name": "breathing-room", "description": "Short paragraphs. One idea per block. Let the photography do the heavy lifting.", "required": false }
+    ],
+    "examples": [
+      {
+        "intent": "Product description",
+        "good": "Solid walnut with a waterfall edge and matte lacquer finish. Sized for smaller living rooms — 48 inches won't overwhelm the space.",
+        "bad": "This stunning, best-in-class coffee table features a thoughtfully designed silhouette crafted from premium materials to elevate any living space."
+      },
+      {
+        "intent": "Category introduction",
+        "good": "Sofas built to hold up to real life. Pet-friendly fabrics, washable covers, frames that don't creak at year five.",
+        "bad": "Discover our curated collection of world-class sofas, each thoughtfully designed to transform your living room into a sanctuary of style."
+      }
+    ],
+    "minimumScore": 75
+  },
+  "media": {
+    "logos": {
+      "primary": { "id": "haven-wordmark", "label": "Haven wordmark", "path": "assets/haven-wordmark.svg", "tags": ["wordmark", "primary"] },
+      "icon": { "id": "haven-icon", "label": "Haven icon", "path": "assets/haven-icon.svg", "tags": ["icon", "mark"] },
+      "variations": [],
+      "clearSpace": 0.5,
+      "minSizePx": 24
+    },
+    "templates": [
+      {
+        "id": "og-card",
+        "name": "Open Graph Card",
+        "description": "Social share card for product and category pages",
+        "sizes": [{ "width": 1200, "height": 630, "dpi": 72, "label": "OG Image" }],
+        "format": "png",
+        "dataFields": [
+          { "name": "title", "type": "string", "required": true },
+          { "name": "subtitle", "type": "string", "required": false },
+          { "name": "productImage", "type": "image-url", "required": false }
+        ]
+      }
+    ],
+    "creative": {
+      "basePrompt": "BRAND: Haven — mid-market DTC furniture store. Warm, editorial, livable.\nAESTHETIC: Shelter magazine meets e-commerce. Think Article, Schoolhouse, Floyd. Warm neutrals, natural light, real rooms (not staged showrooms). Terracotta and eucalyptus accents against warm off-white.\n\nKEY VISUAL LANGUAGE:\n- Natural materials: wood grain, linen texture, leather patina, marble veining\n- Warm daylight photography — golden hour, not studio strobes\n- Real rooms with personality — books on shelves, plants, a coffee mug\n- Generous negative space — let the furniture breathe\n- Overhead and three-quarter angle product shots\n- Earth tones: warm whites, tans, terracotta, olive, charcoal\n- No people in product shots (products are the hero)\n- Lifestyle shots show lived-in spaces, not catalog perfection",
+      "conceptMap": {
+        "warmth": "golden light, warm wood tones, linen textures, soft shadows",
+        "material": "close-up textures — leather grain, wood rings, fabric weave",
+        "space": "room scenes with intentional negative space, furniture as focal point",
+        "editorial": "magazine-quality composition, asymmetric balance, lifestyle context",
+        "craft": "joinery details, hand-finishing, material quality close-ups"
+      },
+      "visualKeywords": ["warm", "natural", "editorial", "minimal", "livable", "textured", "daylight", "modern"],
+      "avoid": ["sterile white backgrounds", "studio-lit product cutouts", "neon or saturated colors", "cluttered scenes", "visible branding/logos in lifestyle shots", "stock photography people", "overhead flat-lays of small objects"]
+    },
+    "assets": []
+  },
+  "defaultMode": "light"
+}

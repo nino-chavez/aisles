@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "schemaVersion": 1,
+    "id": "volt-audio-store",
+    "created": "2026-04-06T00:00:00.000Z",
+    "updated": "2026-04-06T00:00:00.000Z",
+    "author": "Nino Chavez",
+    "version": "1.0.0"
+  },
+  "identity": {
+    "name": "Volt",
+    "tagline": "Sound that moves with you",
+    "mission": "DTC audio brand — performance-first, spec-transparent, bold. Not lifestyle fluff; real audio gear for people who care about sound.",
+    "audience": [
+      "audio enthusiasts 18-40",
+      "commuters and gym-goers needing reliable wireless",
+      "gamers wanting competitive audio advantage",
+      "gift-givers looking for impressive tech gifts"
+    ],
+    "personality": ["bold", "technical", "direct", "energetic", "precise"],
+    "positioning": "The audio store that respects your ears and your wallet. Spec-transparent, no-BS sound gear.",
+    "domain": "consumer audio electronics"
+  }
+}
