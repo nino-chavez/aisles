@@ -36,8 +36,8 @@
 		</div>
 
 		<!-- Bold price overlay, anchored to the right — the featured-price hero pattern. -->
-		<div class="absolute inset-0 flex items-center justify-end p-8 sm:p-12 {isPackshot ? 'bg-gradient-to-l from-surface-bg from-30% to-transparent to-65%' : ''}">
-			<div class="flex flex-col items-end gap-2 text-right">
+		<div class="absolute inset-0 flex items-center justify-end p-8 sm:p-12 {isPackshot ? 'bg-gradient-to-l from-surface-bg from-25% to-transparent to-55%' : ''}">
+			<div class="flex flex-col items-end gap-2 text-right {isPackshot ? 'rounded-sm bg-surface-bg/90 p-5' : ''}">
 				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-surface-fg drop-shadow-sm">
 					{category}
 				</p>

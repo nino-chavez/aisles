@@ -121,7 +121,12 @@
 {/if}
 
 {#if aiLayout}
-	<LayoutRenderer layout={aiLayout} products={data.products} />
+	<!-- Sections are page-content, not chrome: they need the same gutter the
+	     static homepage and the category page give their content, or copy runs
+	     flush to the viewport edge on wide screens. -->
+	<div class="mx-auto max-w-7xl px-6 py-8">
+		<LayoutRenderer layout={aiLayout} products={data.products} />
+	</div>
 {:else}
 
 <!-- Hero -->

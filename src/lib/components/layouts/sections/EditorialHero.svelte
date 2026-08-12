@@ -38,41 +38,64 @@
 </script>
 
 {#if image}
-	<div class="relative mb-10 overflow-hidden rounded-sm bg-surface-muted">
-		<!-- Capped so a full-bleed 16:9 box can't inflate past the fold on wide viewports. -->
-		<div class="aspect-[16/9] max-h-[min(70vh,640px)] sm:aspect-[16/7]">
-			<img
-				src={image}
-				alt={headline}
-				loading="lazy"
-				class="h-full w-full {isPackshot ? 'object-contain p-6' : 'object-cover'}"
-			/>
-		</div>
+	{#if isPackshot}
+		<!-- Packshot catalogs get a split, not an overlay: a product on a flat
+		     sweep has no dead space to put text over, so any scrim legible
+		     enough to read also dims the product. -->
+		<section class="mb-10 overflow-hidden rounded-sm bg-surface-muted">
+			<div class="grid items-center gap-6 p-8 sm:p-12 lg:grid-cols-2 lg:gap-12">
+				<div class="max-w-xl">
+					{#if eyebrow}
+						<p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-surface-muted-fg">{eyebrow}</p>
+					{/if}
+					<h2 class="font-display text-3xl leading-tight tracking-tight text-surface-fg sm:text-5xl">
+						{headline}
+					</h2>
+					{#if body}
+						<p class="mt-4 text-sm leading-relaxed text-surface-muted-fg sm:text-base">{body}</p>
+					{/if}
+					{#if ctaLabel}
+						<a
+							href={ctaHref || '#'}
+							class="mt-6 inline-block text-xs font-semibold uppercase tracking-wider text-primary underline underline-offset-4 transition-opacity hover:opacity-80"
+						>
+							{ctaLabel}
+						</a>
+					{/if}
+				</div>
+				<div class="order-first aspect-[4/3] max-h-[min(60vh,520px)] lg:order-last">
+					<img src={image} alt={headline} loading="lazy" class="h-full w-full object-contain" />
+				</div>
+			</div>
+		</section>
+	{:else}
+		<div class="relative mb-10 overflow-hidden rounded-sm bg-surface-muted">
+			<!-- Capped so a full-bleed 16:9 box can't inflate past the fold on wide viewports. -->
+			<div class="aspect-[16/9] max-h-[min(70vh,640px)] sm:aspect-[16/7]">
+				<img src={image} alt={headline} loading="lazy" class="h-full w-full object-cover" />
+			</div>
 
-		<div
-			class="absolute inset-0 flex {positionClass} p-8 sm:p-12 {isPackshot
-				? 'bg-gradient-to-r from-surface-bg from-40% to-transparent to-70%'
-				: 'bg-gradient-to-r from-black/30 via-black/10 to-transparent'}"
-		>
-			<div class="{innerWidthClass} {isPackshot ? 'text-surface-fg' : 'text-white'}">
-				{#if eyebrow}
-					<p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] opacity-90">{eyebrow}</p>
-				{/if}
-				<h2 class="font-display text-3xl leading-tight tracking-tight sm:text-5xl {isPackshot ? '' : 'drop-shadow-md'}">
-					{headline}
-				</h2>
-				{#if body}
-					<p class="mt-3 text-sm leading-relaxed opacity-95 sm:text-base">{body}</p>
-				{/if}
-				{#if ctaLabel}
-					<a
-						href={ctaHref || '#'}
-						class="mt-5 inline-block text-xs font-semibold uppercase tracking-wider underline underline-offset-4 transition-opacity hover:opacity-80"
-					>
-						{ctaLabel}
-					</a>
-				{/if}
+			<div class="absolute inset-0 flex {positionClass} bg-gradient-to-r from-black/30 via-black/10 to-transparent p-8 sm:p-12">
+				<div class="{innerWidthClass} text-white">
+					{#if eyebrow}
+						<p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] opacity-90">{eyebrow}</p>
+					{/if}
+					<h2 class="font-display text-3xl leading-tight tracking-tight drop-shadow-md sm:text-5xl">
+						{headline}
+					</h2>
+					{#if body}
+						<p class="mt-3 text-sm leading-relaxed opacity-95 sm:text-base">{body}</p>
+					{/if}
+					{#if ctaLabel}
+						<a
+							href={ctaHref || '#'}
+							class="mt-5 inline-block text-xs font-semibold uppercase tracking-wider underline underline-offset-4 transition-opacity hover:opacity-80"
+						>
+							{ctaLabel}
+						</a>
+					{/if}
+				</div>
 			</div>
 		</div>
-	</div>
+	{/if}
 {/if}
