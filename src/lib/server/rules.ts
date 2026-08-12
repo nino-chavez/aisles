@@ -1,5 +1,5 @@
 /**
- * Merchandising rules — read from the shared Neon Postgres database.
+ * Merchandising rules — read from the brand-scoped Postgres database.
  *
  * Rules are created by the Aisles Admin app (BC marketplace app)
  * and read here at layout generation time. They override the AI's
@@ -13,6 +13,7 @@
  */
 
 import { getDb } from './db';
+import { getBrand } from '$lib/brand/config';
 
 export interface MerchandisingRule {
 	id: number;
@@ -35,11 +36,13 @@ export async function getActiveRules(
 ): Promise<MerchandisingRule[]> {
 	try {
 		const sql = getDb();
+		const brandId = getBrand().id;
 
 		const rows = await sql`
 			SELECT id, rule_type, persona, category_slug, product_id, config
 			FROM merchandising_rules
-			WHERE active = true
+			WHERE brand_id = ${brandId}
+				AND active = true
 				AND (persona IS NULL OR persona = ${persona})
 				AND (category_slug IS NULL OR category_slug = ${categorySlug})
 				AND (expires_at IS NULL OR expires_at > NOW())

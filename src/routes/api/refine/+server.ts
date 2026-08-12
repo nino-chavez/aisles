@@ -111,7 +111,7 @@ Generate a refined layout with a conversational response.`;
 
 		const elapsed = Date.now() - startTime;
 
-		logGeneration({
+		await logGeneration({
 			type: 'refine',
 			persona,
 			categorySlug,
@@ -122,7 +122,7 @@ Generate a refined layout with a conversational response.`;
 			outputTokens: usage?.outputTokens,
 			model,
 			sessionId,
-		}).catch(() => {});
+		});
 
 		return json({
 			layout: output?.layout,

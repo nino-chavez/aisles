@@ -10,6 +10,7 @@
 
 import { env } from '$env/dynamic/private';
 import { getDb } from './db';
+import { getBrand } from '$lib/brand/config';
 
 export interface SearchResult {
 	bcEntityId: number;
@@ -55,6 +56,7 @@ async function vectorSearch(query: string, limit: number): Promise<SearchResult[
 
 		const vecStr = `[${embedding.join(',')}]`;
 		const sql = getDb();
+		const brandId = getBrand().id;
 
 		const rows = await sql`
 			SELECT
@@ -63,10 +65,10 @@ async function vectorSearch(query: string, limit: number): Promise<SearchResult[
 				fit_gatherer, fit_hunter, fit_researcher, fit_gifter,
 				semantic_tags,
 				price_tier,
-				1 - (embedding <=> ${vecStr}::vector) as similarity
+				1 - (embedding <=> ${vecStr}::extensions.vector) as similarity
 			FROM enriched_products
-			WHERE embedding IS NOT NULL
-			ORDER BY embedding <=> ${vecStr}::vector
+			WHERE brand_id = ${brandId} AND embedding IS NOT NULL
+			ORDER BY embedding <=> ${vecStr}::extensions.vector
 			LIMIT ${limit}
 		`;
 
@@ -94,6 +96,7 @@ async function vectorSearch(query: string, limit: number): Promise<SearchResult[
 async function tagSearch(query: string, limit: number): Promise<SearchResult[]> {
 	try {
 		const sql = getDb();
+		const brandId = getBrand().id;
 		const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
 		if (terms.length === 0) return [];
 
@@ -118,7 +121,7 @@ async function tagSearch(query: string, limit: number): Promise<SearchResult[]> 
 						)
 				) as match_count
 			FROM enriched_products
-			WHERE EXISTS (
+			WHERE brand_id = ${brandId} AND EXISTS (
 				SELECT 1 FROM unnest(${likePatterns}::text[]) AS term
 				WHERE
 					bc_product_path ILIKE term

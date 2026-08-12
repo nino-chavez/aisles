@@ -35,7 +35,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const store = await getSessionStore(sessionId);
 		await finalizeSession(store, { converted });
 	} catch (err) {
-		console.warn('[finalize] failed:', err);
+		console.error('[finalize] failed:', err);
+		return json({ error: 'Failed to finalize session outcome' }, { status: 500 });
 	}
 	return new Response(null, { status: 204 });
 };

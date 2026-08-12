@@ -1,19 +1,26 @@
 /**
- * Neon Postgres client for server-side use.
+ * Postgres client for server-side use.
  *
- * Uses the Neon serverless driver which works over HTTP —
- * no persistent TCP connections needed on Vercel Functions.
+ * Cloudflare requests initialize this from the Hyperdrive binding in the
+ * server hook. Local development and Node scripts use DATABASE_URL directly.
  */
 
-import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
+import postgres, { type Sql } from 'postgres';
 import { env } from '$env/dynamic/private';
+import { requireDatabaseUrl } from './db-policy';
 
-let _sql: NeonQueryFunction<false, false> | null = null;
+let _sql: Sql | null = null;
+let configuredUrl: string | null = null;
+
+export function initDb(connectionString: string | undefined): void {
+	if (!connectionString || configuredUrl === connectionString) return;
+	_sql = postgres(connectionString, { max: 5, idle_timeout: 60 });
+	configuredUrl = connectionString;
+}
 
 export function getDb() {
 	if (!_sql) {
-		if (!env.DATABASE_URL) throw new Error('DATABASE_URL not configured');
-		_sql = neon(env.DATABASE_URL);
+		initDb(requireDatabaseUrl(env.DATABASE_URL)!);
 	}
-	return _sql;
+	return _sql!;
 }

@@ -2,22 +2,23 @@
  * LLM-powered product enrichment pipeline.
  *
  * Reads products from BigCommerce, calls Claude to extract attributes
- * and score persona-fit, writes results to Neon Postgres.
+ * and score persona-fit, writes results to Postgres.
  *
  * Run: npx tsx src/lib/server/enrichment/enrich.ts
  */
 
 import 'dotenv/config';
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { generateText, Output, embedMany } from 'ai';
 import { z } from 'zod';
+import { getBrand } from '../../brand/config';
 
 // ─── Config ────────────────────────────────────────────────────────
 
-const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-if (!DATABASE_URL) throw new Error('DATABASE_URL or POSTGRES_URL required');
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) throw new Error('DATABASE_URL required');
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY required');
@@ -30,7 +31,8 @@ if (!STORE_HASH || !STOREFRONT_TOKEN) throw new Error('BigCommerce credentials r
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 if (!OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY required');
 
-const sql = neon(DATABASE_URL);
+const sql = postgres(DATABASE_URL, { max: 5, idle_timeout: 60 });
+const brandId = getBrand().id;
 const anthropic = createAnthropic({ apiKey: ANTHROPIC_API_KEY });
 const openrouter = createOpenRouter({ apiKey: OPENROUTER_API_KEY });
 
@@ -59,21 +61,17 @@ async function logEnrichmentGeneration(entityId: number, inputTokens: number, ou
 	stats.totalCost += cost;
 	stats.count++;
 
-	try {
-		await sql`
-			INSERT INTO generation_logs (
-				type, persona, category_slug, cache_hit, generation_ms,
-				input_tokens, output_tokens, model, estimated_cost
-			) VALUES (
-				'enrichment', 'n/a', ${String(entityId)},
-				false, ${generationMs},
-				${inputTokens}, ${outputTokens},
-				${ENRICHMENT_MODEL_FULL}, ${cost}
-			)
-		`;
-	} catch {
-		// Non-critical — pipeline continues
-	}
+	await sql`
+		INSERT INTO generation_logs (
+			brand_id, type, persona, category_slug, cache_hit, generation_ms,
+			input_tokens, output_tokens, model, estimated_cost
+		) VALUES (
+			${brandId}, 'enrichment', 'n/a', ${String(entityId)},
+			false, ${generationMs},
+			${inputTokens}, ${outputTokens},
+			${ENRICHMENT_MODEL_FULL}, ${cost}
+		)
+	`;
 }
 
 // ─── Schema ────────────────────────────────────────────────────────
@@ -199,48 +197,21 @@ Generate semantic tags that capture how someone might search for this product by
 
 // ─── Database ──────────────────────────────────────────────────────
 
-async function createTable() {
-	await sql`
-		CREATE TABLE IF NOT EXISTS enriched_products (
-			id              SERIAL PRIMARY KEY,
-			bc_entity_id    INTEGER UNIQUE NOT NULL,
-			bc_product_path TEXT NOT NULL,
-			material        TEXT,
-			style           TEXT,
-			use_case        TEXT,
-			dimensions      TEXT,
-			price_tier      TEXT CHECK (price_tier IN ('budget', 'mid', 'premium', 'luxury')),
-			fit_gatherer    REAL NOT NULL DEFAULT 0.5,
-			fit_hunter      REAL NOT NULL DEFAULT 0.5,
-			fit_researcher  REAL NOT NULL DEFAULT 0.5,
-			fit_gifter      REAL NOT NULL DEFAULT 0.5,
-			semantic_tags   TEXT[] DEFAULT '{}',
-			compatible_with TEXT[] DEFAULT '{}',
-			enriched_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			enrichment_model TEXT NOT NULL,
-			created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		)
-	`;
-	// Idempotent migration for existing tables
-	await sql`ALTER TABLE enriched_products ADD COLUMN IF NOT EXISTS compatible_with TEXT[] DEFAULT '{}'`.catch(() => {});
-}
-
 async function upsertEnrichment(product: BCProductNode, enrichment: z.infer<typeof EnrichmentSchema>) {
 	const e = enrichment;
 	await sql`
 		INSERT INTO enriched_products (
-			bc_entity_id, bc_product_path,
+			brand_id, bc_entity_id, bc_product_path,
 			material, style, use_case, dimensions, price_tier,
 			fit_gatherer, fit_hunter, fit_researcher, fit_gifter,
 			semantic_tags, compatible_with, enriched_at, enrichment_model, updated_at
 		) VALUES (
-			${product.entityId}, ${product.path},
+			${brandId}, ${product.entityId}, ${product.path},
 			${e.material}, ${e.style}, ${e.useCase}, ${e.dimensions}, ${e.priceTier},
 			${e.personaFit.gatherer}, ${e.personaFit.hunter}, ${e.personaFit.researcher}, ${e.personaFit.gifter},
 			${e.semanticTags}, ${e.compatibleWith}, NOW(), ${'claude-sonnet-4-20250514'}, NOW()
 		)
-		ON CONFLICT (bc_entity_id) DO UPDATE SET
+		ON CONFLICT (brand_id, bc_entity_id) DO UPDATE SET
 			bc_product_path = EXCLUDED.bc_product_path,
 			material = EXCLUDED.material,
 			style = EXCLUDED.style,
@@ -262,9 +233,6 @@ async function upsertEnrichment(product: BCProductNode, enrichment: z.infer<type
 // ─── Main ──────────────────────────────────────────────────────────
 
 async function main() {
-	console.log('Creating table...');
-	await createTable();
-
 	console.log('Fetching products from BigCommerce...');
 	const products = await fetchProducts();
 	console.log(`Found ${products.length} products`);
@@ -312,8 +280,8 @@ async function main() {
 			const vecStr = `[${vec.join(',')}]`;
 			await sql`
 				UPDATE enriched_products
-				SET embedding = ${vecStr}::vector
-				WHERE bc_entity_id = ${products[i].entityId}
+				SET embedding = ${vecStr}::extensions.vector
+				WHERE brand_id = ${brandId} AND bc_entity_id = ${products[i].entityId}
 			`;
 			embeddingCount++;
 		}

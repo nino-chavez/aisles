@@ -5,7 +5,7 @@
  *   npx tsx scripts/fit-inference-lrs.ts
  *
  * Environment:
- *   DATABASE_URL  — Neon connection string (read from .env via dotenv)
+ *   DATABASE_URL  — direct Supabase Postgres connection string (read from .env via dotenv)
  *
  * Reads labeled outcomes from session_outcomes (where label_source != 'unknown'),
  * computes per-rule log-likelihood-ratios for each persona, and writes
@@ -22,11 +22,12 @@
  */
 
 import 'dotenv/config';
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { getBrand } from '../src/lib/brand/config';
 
 const PERSONAS = ['gatherer', 'hunter', 'researcher', 'gifter'] as const;
 type Persona = (typeof PERSONAS)[number];
@@ -59,11 +60,12 @@ async function main() {
 		process.exit(1);
 	}
 
-	const sql = neon(dbUrl);
+	const sql = postgres(dbUrl, { max: 5, idle_timeout: 60 });
+	const brandId = getBrand().id;
 	const rows = (await sql`
 		SELECT rule_matches, label_persona
 		FROM session_outcomes
-		WHERE label_source <> 'unknown' AND label_persona IS NOT NULL
+		WHERE brand_id = ${brandId} AND label_source <> 'unknown' AND label_persona IS NOT NULL
 	`) as unknown as LabeledRow[];
 
 	console.log(`Loaded ${rows.length} labeled outcomes.`);

@@ -1,9 +1,10 @@
 /**
- * Query enrichment data from Neon Postgres.
+ * Query enrichment data from brand-scoped Postgres.
  * Used by page servers to merge persona-fit scores with BC product data.
  */
 
 import { getDb } from '../db';
+import { getBrand } from '$lib/brand/config';
 import type { PersonaFitScores } from './types';
 
 export interface ProductEnrichment {
@@ -25,13 +26,14 @@ export async function getEnrichmentByEntityIds(entityIds: number[]): Promise<Map
 
 	try {
 		const sql = getDb();
+		const brandId = getBrand().id;
 		const rows = await sql`
 			SELECT
 				bc_entity_id,
 				fit_gatherer, fit_hunter, fit_researcher, fit_gifter,
 				semantic_tags, compatible_with, price_tier, style, material
 			FROM enriched_products
-			WHERE bc_entity_id = ANY(${entityIds})
+			WHERE brand_id = ${brandId} AND bc_entity_id = ANY(${entityIds})
 		`;
 
 		const map = new Map<number, ProductEnrichment>();

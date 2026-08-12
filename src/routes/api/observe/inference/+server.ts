@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { outcomesSummary } from '$lib/server/outcomes';
 import learnedWeights from '$lib/signals/learned-weights.json';
+import { getBrand } from '$lib/brand/config';
 
 const OBSERVE_KEY = 'aisles-observe';
 
@@ -14,8 +15,8 @@ const OBSERVE_KEY = 'aisles-observe';
  * conversion rate by predicted primary, shift detection rate, and whether
  * learned weights are currently active.
  *
- * Tolerant of missing DATABASE_URL — returns a minimal response with an error
- * note so dev without a DB still renders something.
+ * Operational endpoint: an unavailable database returns a visible 500 instead
+ * of a healthy-looking empty dashboard.
  */
 export const GET: RequestHandler = async ({ url }) => {
 	if (url.searchParams.get('key') !== OBSERVE_KEY) {
@@ -29,11 +30,13 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const summary = await outcomesSummary();
 		const sql = getDb();
+		const brandId = getBrand().id;
 
 		// Rule hit counts from rule_matches array
 		const ruleHitRows = await sql`
 			SELECT UNNEST(rule_matches) AS rule_name, COUNT(*)::int AS n
 			FROM session_outcomes
+			WHERE brand_id = ${brandId}
 			GROUP BY rule_name
 			ORDER BY n DESC
 			LIMIT 30
@@ -47,6 +50,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				AVG(CASE WHEN converted THEN 1.0 ELSE 0.0 END)::real AS conversion_rate,
 				COUNT(*)::int AS total
 			FROM session_outcomes
+			WHERE brand_id = ${brandId}
 		`;
 
 		// Conversion rate by predicted primary
@@ -56,6 +60,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				COUNT(*)::int AS n,
 				SUM(CASE WHEN converted THEN 1 ELSE 0 END)::int AS conv
 			FROM session_outcomes
+			WHERE brand_id = ${brandId}
 			GROUP BY primary_final
 		`;
 

@@ -10,6 +10,7 @@
  */
 
 import { getDb } from './db';
+import { getBrand } from '$lib/brand/config';
 import type { Persona, PersonaInference, PersonaProbabilities, InferenceContext } from '$lib/signals/types';
 import type { SignalStore } from '$lib/signals/store';
 import { infer, priorFor as inferPriorFor } from '$lib/signals/inference';
@@ -77,15 +78,15 @@ export function labelOutcome(
 
 /**
  * Finalize a session — runs inference against the current store state,
- * labels the outcome, and writes to Neon. Idempotent on sessionId.
+ * labels the outcome, and writes to Postgres. Idempotent on brand + sessionId.
  *
  * Called on:
  *   - Terminal conversion signals (commerce.add_to_cart in /api/signals)
  *   - Page unload beacon (/api/signals/finalize)
  *   - TTL sweep for abandoned sessions (future)
  *
- * Tolerant of missing DATABASE_URL: logs and no-ops so dev without a DB
- * still works.
+ * This is required operational telemetry. Database failures propagate so the
+ * endpoint cannot report a false-success outcome finalization.
  */
 export async function finalizeSession(
 	store: SignalStore,
@@ -133,21 +134,16 @@ export async function finalizeSession(
 		labelPersona,
 	};
 
-	try {
-		await recordOutcome(outcome);
-	} catch (err) {
-		// Don't crash the request path on DB failure — outcome logging is
-		// best-effort. Log and move on.
-		console.warn('[outcomes] finalizeSession failed:', err);
-	}
+	await recordOutcome(outcome);
 }
 
 /** Upsert one outcome row. */
 export async function recordOutcome(outcome: SessionOutcome): Promise<void> {
 	const sql = getDb();
+	const brandId = getBrand().id;
 	await sql`
 		INSERT INTO session_outcomes (
-			session_id, ended_at, duration_ms,
+			brand_id, session_id, ended_at, duration_ms,
 			primary_final, probabilities_final, entropy_final, certainty_final, prior_at_start,
 			converted, cart_add_count, cart_removal_count, product_view_count,
 			category_view_count, refine_message_count, back_nav_count,
@@ -155,7 +151,7 @@ export async function recordOutcome(outcome: SessionOutcome): Promise<void> {
 			visit_count, current_category, rule_matches,
 			label_source, label_persona
 		) VALUES (
-			${outcome.sessionId}, ${outcome.endedAt.toISOString()}, ${outcome.durationMs},
+			${brandId}, ${outcome.sessionId}, ${outcome.endedAt.toISOString()}, ${outcome.durationMs},
 			${outcome.primaryFinal}, ${JSON.stringify(outcome.probabilitiesFinal)}::jsonb,
 			${outcome.entropyFinal}, ${outcome.certaintyFinal},
 			${JSON.stringify(outcome.priorAtStart)}::jsonb,
@@ -166,7 +162,7 @@ export async function recordOutcome(outcome: SessionOutcome): Promise<void> {
 			${outcome.visitCount}, ${outcome.currentCategory}, ${outcome.ruleMatches},
 			${outcome.labelSource}, ${outcome.labelPersona}
 		)
-		ON CONFLICT (session_id) DO UPDATE SET
+		ON CONFLICT (brand_id, session_id) DO UPDATE SET
 			ended_at = EXCLUDED.ended_at,
 			duration_ms = EXCLUDED.duration_ms,
 			primary_final = EXCLUDED.primary_final,
@@ -195,19 +191,21 @@ export async function readOutcomesBatch(opts: {
 	since?: Date;
 } = {}): Promise<SessionOutcome[]> {
 	const sql = getDb();
+	const brandId = getBrand().id;
 	const limit = opts.limit ?? 10000;
 
 	const rows = opts.labeledOnly
 		? await sql`
 			SELECT * FROM session_outcomes
-			WHERE label_source <> 'unknown'
+			WHERE brand_id = ${brandId} AND label_source <> 'unknown'
 			${opts.since ? sql`AND ended_at >= ${opts.since.toISOString()}` : sql``}
 			ORDER BY ended_at DESC
 			LIMIT ${limit}
 		`
 		: await sql`
 			SELECT * FROM session_outcomes
-			${opts.since ? sql`WHERE ended_at >= ${opts.since.toISOString()}` : sql``}
+			WHERE brand_id = ${brandId}
+			${opts.since ? sql`AND ended_at >= ${opts.since.toISOString()}` : sql``}
 			ORDER BY ended_at DESC
 			LIMIT ${limit}
 		`;
@@ -249,9 +247,10 @@ export async function outcomesSummary(): Promise<{
 	byPrimary: Record<string, number>;
 }> {
 	const sql = getDb();
-	const totalRows = await sql`SELECT COUNT(*)::int AS n FROM session_outcomes`;
-	const labelRows = await sql`SELECT label_source, COUNT(*)::int AS n FROM session_outcomes GROUP BY label_source`;
-	const primaryRows = await sql`SELECT primary_final, COUNT(*)::int AS n FROM session_outcomes GROUP BY primary_final`;
+	const brandId = getBrand().id;
+	const totalRows = await sql`SELECT COUNT(*)::int AS n FROM session_outcomes WHERE brand_id = ${brandId}`;
+	const labelRows = await sql`SELECT label_source, COUNT(*)::int AS n FROM session_outcomes WHERE brand_id = ${brandId} GROUP BY label_source`;
+	const primaryRows = await sql`SELECT primary_final, COUNT(*)::int AS n FROM session_outcomes WHERE brand_id = ${brandId} GROUP BY primary_final`;
 
 	const byLabel: Record<string, number> = {};
 	for (const row of labelRows) byLabel[row.label_source as string] = Number(row.n);

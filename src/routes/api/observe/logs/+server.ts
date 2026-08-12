@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
+import { getBrand } from '$lib/brand/config';
 
 const OBSERVE_KEY = 'aisles-observe';
 
@@ -16,8 +17,8 @@ export const GET: RequestHandler = async ({ url }) => {
 	const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
 	const sessionId = url.searchParams.get('session') || null;
 
-	try {
-		const sql = getDb();
+	const sql = getDb();
+	const brandId = getBrand().id;
 		const rows = sessionId
 			? await sql`
 				SELECT
@@ -25,7 +26,7 @@ export const GET: RequestHandler = async ({ url }) => {
 					generation_ms, product_count, input_tokens, output_tokens,
 					eval_score, prompt_version, model, estimated_cost, session_id, created_at
 				FROM generation_logs
-				WHERE session_id = ${sessionId}
+				WHERE brand_id = ${brandId} AND session_id = ${sessionId}
 				ORDER BY created_at DESC
 				LIMIT ${limit}
 			`
@@ -35,6 +36,7 @@ export const GET: RequestHandler = async ({ url }) => {
 					generation_ms, product_count, input_tokens, output_tokens,
 					eval_score, prompt_version, model, estimated_cost, session_id, created_at
 				FROM generation_logs
+				WHERE brand_id = ${brandId}
 				ORDER BY created_at DESC
 				LIMIT ${limit}
 			`;
@@ -56,9 +58,5 @@ export const GET: RequestHandler = async ({ url }) => {
 			createdAt: row.created_at,
 		}));
 
-		return json({ logs });
-	} catch (err) {
-		console.warn('[observe/logs] Failed to query generation_logs:', err);
-		return json({ logs: [] });
-	}
+	return json({ logs });
 };

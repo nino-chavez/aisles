@@ -40,14 +40,14 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		if (cached) {
 			const elapsed = Date.now() - startTime;
 
-			logGeneration({
+			await logGeneration({
 				type: 'layout',
 				persona,
 				categorySlug,
 				cacheHit: true,
 				generationTimeMs: elapsed,
 				sessionId,
-			}).catch(() => {});
+			});
 
 			return json({
 				layout: cached,
@@ -94,7 +94,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		const elapsed = Date.now() - startTime;
 
-		logGeneration({
+		await logGeneration({
 			type: 'layout',
 			persona,
 			categorySlug,
@@ -105,7 +105,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			outputTokens: usage?.outputTokens,
 			model: modelId,
 			sessionId,
-		}).catch(() => {});
+		});
 
 		return json({
 			layout,

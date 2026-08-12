@@ -17,7 +17,8 @@
  */
 
 import 'dotenv/config';
-import { neon } from '@neondatabase/serverless';
+import postgres from 'postgres';
+import { getBrand } from '../src/lib/brand/config';
 
 const PERSONAS = ['gatherer', 'hunter', 'researcher', 'gifter'] as const;
 type Persona = (typeof PERSONAS)[number];
@@ -38,11 +39,12 @@ async function main() {
 		process.exit(1);
 	}
 
-	const sql = neon(dbUrl);
+	const sql = postgres(dbUrl, { max: 5, idle_timeout: 60 });
+	const brandId = getBrand().id;
 	const rows = (await sql`
 		SELECT probabilities_final, label_persona, label_source, converted
 		FROM session_outcomes
-		WHERE label_source <> 'unknown' AND label_persona IS NOT NULL
+		WHERE brand_id = ${brandId} AND label_source <> 'unknown' AND label_persona IS NOT NULL
 	`) as unknown as LabeledRow[];
 
 	if (rows.length === 0) {

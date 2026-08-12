@@ -1,6 +1,6 @@
 /**
  * Enriched product data produced by the LLM enrichment pipeline.
- * Stored in Neon Postgres, consumed by layout generation.
+ * Stored in brand-scoped Postgres, consumed by layout generation.
  */
 
 export interface PersonaFitScores {

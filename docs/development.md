@@ -37,9 +37,9 @@ BIGCOMMERCE_CHANNEL_ID=1
 KV_REST_API_URL=https://your-instance.upstash.io
 KV_REST_API_TOKEN=your_upstash_token
 
-# Neon Postgres (enrichment data + generation logs)
-DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
-POSTGRES_URL=postgresql://user:pass@host/db?sslmode=require
+# Supabase Postgres (required for local enrichment and operational telemetry)
+# Use the direct/session Postgres connection string, never a browser-visible variable.
+DATABASE_URL=postgresql://postgres:password@db.project-ref.supabase.co:5432/postgres?sslmode=require
 
 # AI (for layout generation — set these OR use Vercel AI Gateway)
 ANTHROPIC_API_KEY=sk-ant-...
@@ -50,7 +50,18 @@ OPENROUTER_API_KEY=sk-or-...
 
 **Local development without Redis**: The application runs without Redis — sessions are stored in-memory, and layouts are regenerated on every request (no caching). This is fine for development but means cold-start times are always 2–15 seconds.
 
-**Local development without Neon**: The application runs without Postgres — enrichment data is unavailable, and generation logs are silently skipped. Products will appear in default BigCommerce order without persona-fit sorting.
+**Database availability:** the storefront still renders without Postgres. Enrichment, search, and merchandising-rule reads fall back to BigCommerce/default behavior. `/api/observe/*` and session outcome finalization return an error when `DATABASE_URL` is missing or unavailable, because empty telemetry is worse than a visible failure.
+
+## Database migrations
+
+`supabase/migrations/` is the schema source. Generate new migrations through the CLI and apply them to the target Supabase project; do not add runtime `CREATE TABLE` or `ALTER TABLE` calls.
+
+Cloudflare production requests take their connection string from the `HYPERDRIVE` binding. The Hyperdrive origin uses the same direct Supabase Postgres URL. `DATABASE_URL` remains required for local work and Node analytical scripts.
+
+```bash
+supabase migration new descriptive_change
+supabase db push
+```
 
 ---
 
@@ -96,25 +107,24 @@ Dev mode works in both local development and on deployed Vercel previews. It doe
 
 ## Running the Enrichment Pipeline
 
-The enrichment pipeline reads products from BigCommerce, runs LLM scoring, and writes to Neon Postgres. Run it before using the app with a new channel or after adding new products.
+The enrichment pipeline reads products from BigCommerce, runs LLM scoring, and writes to Supabase Postgres. Run it before using the app with a new channel or after adding new products.
 
 ```bash
 # Enrich Haven (channel 1 / default)
 BIGCOMMERCE_STORE_HASH=your_hash \
 STOREFRONT_TOKEN=your_token \
 BIGCOMMERCE_CHANNEL_ID=1 \
-DATABASE_URL=your_neon_url \
+DATABASE_URL=your_supabase_postgres_url \
 ANTHROPIC_API_KEY=sk-ant-... \
 OPENROUTER_API_KEY=sk-or-... \
 npx tsx src/lib/server/enrichment/enrich.ts
 ```
 
 The script will:
-1. Create the `enriched_products` and `generation_logs` tables if they don't exist
-2. Fetch up to 50 products from the BC channel
-3. Call Claude Sonnet to extract attributes and score persona-fit for each product
-4. Generate embeddings via OpenRouter (text-embedding-3-small)
-5. Upsert results into Postgres
+1. Fetch up to 50 products from the BC channel
+2. Call Claude Sonnet to extract attributes and score persona-fit
+3. Generate embeddings via OpenRouter (text-embedding-3-small)
+4. Upsert the active brand's rows into Postgres
 
 **Expected output**:
 
@@ -136,7 +146,7 @@ Done.
 
 **Cost**: enrichment runs Claude Sonnet per product. For 24 products, expect $0.03–0.05. Run it once per channel, then only re-run when products change significantly.
 
-**Re-running**: the script uses `ON CONFLICT (bc_entity_id) DO UPDATE` — re-running overwrites existing enrichment data. Safe to run again after product updates.
+**Re-running**: the script uses `ON CONFLICT (brand_id, bc_entity_id) DO UPDATE` — re-running overwrites only the active brand's enrichment data. Safe to run again after product updates.
 
 ---
 
@@ -218,7 +228,7 @@ The project uses strict TypeScript. Run a type check before pushing if you've mo
 | `src/lib/signals/session.ts` | Session store — Redis + in-memory hybrid |
 | `src/lib/server/cache.ts` | Layout cache — Redis with 1-hour TTL |
 | `src/lib/server/catalog.ts` | Product loading — BC catalog + enrichment merge |
-| `src/lib/server/generation-log.ts` | Generation logging to Neon Postgres |
+| `src/lib/server/generation-log.ts` | Generation logging to Supabase Postgres |
 | `src/lib/server/layout-prompt.ts` | Layout prompt builder |
 | `src/lib/server/enrichment/enrich.ts` | Offline enrichment pipeline |
 | `src/routes/api/layout/+server.ts` | POST /api/layout |
@@ -247,8 +257,7 @@ The project uses strict TypeScript. Run a type check before pushing if you've mo
 | `BIGCOMMERCE_CHANNEL_ID` | No | Scripts | BC channel ID for enrichment. Defaults to `1`. |
 | `KV_REST_API_URL` | No | Server | Upstash Redis REST URL. Falls back to in-memory if unset. |
 | `KV_REST_API_TOKEN` | No | Server | Upstash Redis REST token |
-| `DATABASE_URL` | No | Server, scripts | Neon Postgres connection string |
-| `POSTGRES_URL` | No | Server, scripts | Alias for `DATABASE_URL` |
+| `DATABASE_URL` | Yes | Server, scripts | Supabase Postgres connection string; Hyperdrive is used in Cloudflare production |
 | `ANTHROPIC_API_KEY` | Yes (enrichment) | Scripts | Anthropic API key for enrichment pipeline |
 | `OPENROUTER_API_KEY` | Yes (enrichment) | Scripts | OpenRouter key for embedding generation |
 | `AI_GATEWAY_URL` | Vercel only | Server | Set automatically by Vercel AI Gateway integration |
