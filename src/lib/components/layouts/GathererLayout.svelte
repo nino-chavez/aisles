@@ -12,14 +12,14 @@
 	<!-- Editorial header -->
 	<div class="mb-12">
 		<p class="text-xs font-medium uppercase tracking-widest text-surface-muted-fg">The {category.name} Edit</p>
-		<h1 class="mt-3 text-3xl sm:text-4xl">Pieces that earn their place</h1>
+		<h1 class="mt-3 text-3xl sm:text-4xl">Chosen to earn their place</h1>
 		<p class="mt-4 max-w-lg text-surface-muted-fg leading-relaxed">
 			{#if category.slug === 'living-room'}
 				Sofas built to hold up to real life. Tables you don't have to baby. The living room you'll actually use.
 			{:else if category.slug === 'office'}
 				A workspace that works as hard as you do. Desks, chairs, and storage that make the hours better.
 			{:else}
-				Browse at your pace. Every piece here was chosen for a reason.
+				Browse at your pace. Everything here was chosen for a reason.
 			{/if}
 		</p>
 	</div>

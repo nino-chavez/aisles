@@ -314,6 +314,78 @@ const BRANDS: Record<string, BrandConfig> = {
 		},
 
 	},
+
+	kibble: {
+		id: 'kibble',
+		name: 'Kibble & Co.',
+		tagline: 'The good stuff, chosen for you — never running out',
+		domain: 'pet supplies & Auto-Refill subscriptions',
+		footerNote: 'Kibble & Co. is a fictional demo merchant. An independent demonstration by Nino Chavez — not a BigCommerce product.',
+
+		bc: {
+			channelId: 1,
+			categoryPrefix: '',
+		},
+
+		categories: {
+			'dog-food': { bcName: 'Dog Food', displayName: 'Dog Food' },
+			'supplements': { bcName: 'Supplements & Wellness', displayName: 'Supplements & Wellness' },
+			'treats': { bcName: 'Treats & Chews', displayName: 'Treats & Chews' },
+			'grooming': { bcName: 'Grooming & Care', displayName: 'Grooming & Care' },
+			'toys': { bcName: 'Toys', displayName: 'Toys' },
+			'walk-gear': { bcName: 'Walk & Gear', displayName: 'Walk & Gear' },
+			'beds-apparel': { bcName: 'Beds & Apparel', displayName: 'Beds & Apparel' },
+			'bundles': { bcName: 'Bundles', displayName: 'Bundles' },
+		},
+
+		theme: {
+			primary: '#3b5bd0',
+			secondary: '#2f49b0',
+			accent: '#37bfa2',
+			surfaceBg: '#f3f6fc',
+			surfaceFg: '#1e2150',
+			surfaceCard: '#ffffff',
+			surfaceCardFg: '#1e2150',
+			surfaceMuted: '#e9eef7',
+			surfaceMutedFg: '#5c6486',
+			surfaceBorder: '#d6deee',
+			fontDisplay: "'Plus Jakarta Sans', system-ui, sans-serif",
+			fontBody: "'Plus Jakarta Sans', system-ui, sans-serif",
+			fontMono: "'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace",
+		},
+
+		googleFontsUrl: 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap',
+
+		homepage: {
+			heroHeadline: 'The good stuff, chosen for you — never running out',
+			heroBody: 'Open Farm, Native Pet, Wild One, Finn — the independent pet brands worth trusting, kept in stock by Auto-Refill. Set a cadence, save 10-20% versus one-time, and skip, swap, or pause whenever you need to.',
+			editorialHeadline: 'We don\'t list everything. We vouch for things.',
+			editorialBody: 'Every brand on the shelf earned its place — real nutrition and gear brands, not a house label dressed up as choice. Auto-Refill runs the routine in the background so the bowl never sits empty.',
+			valueProps: [
+				{ title: 'Free US shipping', body: 'Every order ships free in the contiguous US. No minimum spend, no fine print.' },
+				{ title: 'Auto-Refill saves 10-20%', body: 'Subscribe on any product page and set a cadence — every 1, 2, or 3 months. Skip, swap, or pause anytime, right from your account.' },
+				{ title: '30-day guarantee', body: 'Not right for your pet? Send it back within 30 days. The guarantee stands whether you subscribe or buy once.' },
+			],
+		},
+
+		prompt: {
+			storeName: 'Kibble & Co.',
+			storeDescription: 'a curated pet-supply retailer built around Auto-Refill subscriptions — independent nutrition and gear brands, kept in stock automatically',
+			productDomain: 'pet food, treats, and supplies',
+			personaDefinitions: {
+				gatherer: 'Browsing without a fixed list yet — new pet, or just curious what everyone else feeds theirs. Wants curated picks, bundles, and brand stories. Think: "what\'s actually good for a new puppy?"',
+				hunter: 'Knows exactly what to reorder or buy. Compares price and size, wants the fastest path to checkout, may be setting up Auto-Refill for the first time. Think: "the 24lb bag we already use, on a refill."',
+				researcher: 'Reads every ingredient list before switching foods or supplements. Compares brands on formulation, sourcing, and vet guidance. Think: "grain-free vs. limited-ingredient for a dog with allergies."',
+				gifter: 'Shopping for someone else\'s pet — a new puppy, a friend\'s dog. Wants gift-ready bundles, broad appeal, and easy returns. Think: "a starter kit for a friend\'s new puppy."',
+			},
+			voiceGuidance: 'Plain, warm, specific — like a curator who has handled every product on the shelf. Show the math ("$97 instead of $109, every 1, 2, or 3 months") instead of hype ("unbeatable savings"). Credit the brands we carry; never blur them into a house label. No baby talk, no exclamation points, no manufactured urgency.',
+		},
+
+		incentives: {
+			freeShippingThresholdMinor: 0,
+		},
+
+	},
 };
 
 /** Get the active brand config based on BRAND_ID env var */

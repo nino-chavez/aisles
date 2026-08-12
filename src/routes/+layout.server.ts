@@ -21,6 +21,7 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 			footerNote: brand.footerNote,
 			googleFontsUrl: brand.googleFontsUrl,
 			theme: brand.theme,
+			categories: brand.categories,
 		},
 		devMode,
 	};

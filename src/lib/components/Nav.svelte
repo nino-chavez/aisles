@@ -2,21 +2,22 @@
 	import { goto } from '$app/navigation';
 	import { getEmitter } from '$lib/signals/emitter';
 
-	import { getBrand } from '$lib/brand/config';
-
-	let { cartCount = 0, picksCount = 0, onCartClick, onPicksClick, brandName = 'Haven' }: {
+	let { cartCount = 0, picksCount = 0, onCartClick, onPicksClick, brandName = 'Haven', categories = {} }: {
 		cartCount?: number;
 		picksCount?: number;
 		onCartClick?: () => void;
 		onPicksClick?: () => void;
 		brandName?: string;
+		categories?: Record<string, { bcName: string; displayName: string }>;
 	} = $props();
 
-	const brand = getBrand();
-	const navItems = Object.entries(brand.categories).map(([slug, config]) => ({
+	// Categories come from the server-loaded brand — getBrand() is server-only
+	// (BRAND_ID is not exposed to the client bundle, so a client call silently
+	// falls back to the default brand).
+	const navItems = $derived(Object.entries(categories).map(([slug, config]) => ({
 		label: config.displayName,
 		href: `/category/${slug}`,
-	}));
+	})));
 
 	let searchOpen = $state(false);
 	let searchQuery = $state('');

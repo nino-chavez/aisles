@@ -124,7 +124,7 @@
 		{@render children()}
 	{:else}
 		<div class="flex min-h-screen flex-col">
-			<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} />
+			<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} categories={data.brand?.categories ?? {}} />
 			<main class="flex-1">
 				{@render children()}
 			</main>
