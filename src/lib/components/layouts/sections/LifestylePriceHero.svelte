@@ -36,7 +36,7 @@
 		</div>
 
 		<!-- Bold price overlay, anchored to the right — the featured-price hero pattern. -->
-		<div class="absolute inset-0 flex items-center justify-end p-8 sm:p-12 {isPackshot ? 'bg-gradient-to-l from-surface-bg via-surface-bg/80 to-transparent' : ''}">
+		<div class="absolute inset-0 flex items-center justify-end p-8 sm:p-12 {isPackshot ? 'bg-gradient-to-l from-surface-bg from-30% to-transparent to-65%' : ''}">
 			<div class="flex flex-col items-end gap-2 text-right">
 				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-surface-fg drop-shadow-sm">
 					{category}

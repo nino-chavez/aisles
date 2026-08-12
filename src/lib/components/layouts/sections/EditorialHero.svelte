@@ -51,7 +51,7 @@
 
 		<div
 			class="absolute inset-0 flex {positionClass} p-8 sm:p-12 {isPackshot
-				? 'bg-gradient-to-r from-surface-bg via-surface-bg/85 to-transparent'
+				? 'bg-gradient-to-r from-surface-bg from-40% to-transparent to-70%'
 				: 'bg-gradient-to-r from-black/30 via-black/10 to-transparent'}"
 		>
 			<div class="{innerWidthClass} {isPackshot ? 'text-surface-fg' : 'text-white'}">
