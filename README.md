@@ -46,7 +46,7 @@ Every category page load runs the same three stages.
 
 ```
   Signals ─────────────▶ Inference ─────────────▶ Layout
-  request + behavioral    infer() · 38 rules       AI picks from 4 components
+  request + behavioral    infer() · 38 rules       AI picks from 11 section types
                           → persona vector          → validated → cached
 ```
 
@@ -73,9 +73,9 @@ The foundation of Aisles is a single formal guarantee on every AI-generated layo
 >
 > **∀ I, P · f(I, P) → S ∈ V**
 
-`V` is defined literally by the Zod schema in `src/lib/schema/layout.ts`. It enumerates the four component types the AI is allowed to use, their prop ranges, and how they compose:
+`V` is defined literally by the Zod schema in `src/lib/schema/layout.ts`. It currently enumerates eleven section types, with a narrower allowed subset for each persona, plus their prop ranges and composition rules:
 
-`editorial-header` · `hero-product` · `product-grid` · `category-header`
+`editorial-header` · `hero-product` · `product-grid` · `category-header` · `editorial-hero` · `lifestyle-price-hero` · `image-gallery` · `product-carousel` · `category-tile-grid` · `service-callouts-grid` · `cluster-chip-row`
 
 The invariant is enforced in three layers:
 

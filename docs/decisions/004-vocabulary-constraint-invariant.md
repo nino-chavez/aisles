@@ -56,10 +56,17 @@ The schema defines:
 
 - **Persona**: must be one of `'gatherer' | 'hunter' | 'researcher' | 'gifter'` — four values, nothing else
 - **Reasoning**: a string describing the AI's rationale (used by the Observe dashboard)
-- **Sections**: an ordered array of section objects drawn from a discriminated union of four component types
-- **Component types**: `editorial-header`, `hero-product`, `product-grid`, `category-header` — exactly four, no extensions
+- **Sections**: an ordered array of section objects drawn from a typed union
+- **Current component types**: `editorial-header`, `hero-product`, `product-grid`, `category-header`, `editorial-hero`, `lifestyle-price-hero`, `image-gallery`, `product-carousel`, `category-tile-grid`, `service-callouts-grid`, and `cluster-chip-row`; generation receives a narrower subset for each persona
 - **Component props**: typed per component (e.g., `product-grid.columns` must be `2 | 3 | 4`, `imageRatio` must be specific enum values)
 - **Product references**: the `productOrder` field contains product IDs that must exist in the catalog passed to the prompt
+
+**Decision baseline:** when this ADR was accepted on 2026-04-10, the vocabulary
+contained four component types: `editorial-header`, `hero-product`,
+`product-grid`, and `category-header`. The current eleven-member union is an
+implementation expansion after that decision. The original four-component
+baseline explains this ADR's trade-off discussion; it is not the current-state
+inventory.
 
 The schema is enforceable: `LayoutSchema.safeParse(output)` returns either `{success: true, data}` or `{success: false, error}`. There is no ambiguity. An output is either in V or it is not.
 
@@ -134,10 +141,11 @@ This must be handled explicitly. When the schema version changes, the cache must
 
 There is an inverse relationship between the size of V and the tightness of the invariant:
 
-- **Small V (current: 4 components)**: Strong guarantees. High validation success rate. Low layout variation. The AI has limited options, which makes its choices predictable but repetitive.
+- **Decision baseline (2026-04-10: 4 components)**: A small vocabulary gave the original system strong structural bounds and low layout variation.
+- **Current V (11 components)**: The current union remains finite and generation narrows it per persona. Its first-try validation rate is not measured, so the current reliability trade-off is not quantified.
 - **Large V (hypothetical: 20+ components)**: Weaker guarantees. Lower validation success rate. High layout variation. The AI has more creative freedom but produces more schema-invalid outputs.
 
-The correct size of V is an engineering decision that depends on the reliability target and the variation budget. Aisles currently errs on the side of a small V because reliability is more important than variation at this stage. As the system matures and production data accumulates, V can be expanded carefully.
+The correct size of V is an engineering decision that depends on the reliability target and the variation budget. The current eleven-member vocabulary is still bounded, but its reliability trade-off needs measurement rather than an inherited four-component claim. Future expansions should proceed carefully.
 
 Every expansion should be justified by a specific merchant or shopper need, not by a general desire for more flexibility.
 
@@ -152,7 +160,7 @@ The visual regression suite should render:
 - Across the four personas
 - At mobile, tablet, and desktop viewports
 
-This is a finite set because V is finite. It is tractable to test exhaustively, unlike a free-form AI system. The test suite runs on every deployment and blocks merges that introduce visual regressions.
+This is a finite set because V is finite. It is tractable to test exhaustively, unlike a free-form AI system. When implemented, the suite should run on every deployment and block merges that introduce visual regressions.
 
 **Current state**: no visual regression suite exists. This is a gap to close before expanding V.
 

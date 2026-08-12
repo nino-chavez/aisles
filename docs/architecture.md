@@ -24,7 +24,7 @@ The set V is defined literally by the Zod schema in `src/lib/schema/layout.ts`. 
 
 This is the invariant that makes AI-generated UI work in production rather than only in demos. It is enforced in three layers:
 
-1. **Schema as definition of V**: the Zod schema explicitly enumerates the valid component types (`editorial-header`, `hero-product`, `product-grid`, `category-header`), their allowed prop values, and their composition rules
+1. **Schema as definition of V**: the Zod schema explicitly enumerates eleven valid section types, with a narrower subset for each persona, their allowed prop values, and their composition rules
 2. **Structured LLM output**: the Vercel AI SDK passes the schema to the LLM as a token-generation constraint via `generateObject` / `streamObject`, producing schema-compliant outputs by construction
 3. **Fallback cascade**: Haiku → Sonnet → static Svelte layouts guarantee a valid S always exists, even under model failure
 
@@ -118,7 +118,10 @@ The primary persona drives layout generation. `POST /api/layout` (or `/api/layou
 
 The AI output is a `Layout` object — a validated JSON structure defining an ordered list of sections drawn from a fixed component vocabulary. The AI selects components, orders products, and writes editorial copy. It cannot invent new components.
 
-#### Layout Component Vocabulary
+#### Current Layout Component Vocabulary
+
+`LayoutSchema` accepts eleven section types. Generation uses the applicable
+persona subset from the same source.
 
 | Component | Purpose | Key Props |
 |---|---|---|
@@ -126,6 +129,13 @@ The AI output is a `Layout` object — a validated JSON structure defining an or
 | `hero-product` | Single standout product | product ref, showSpecs |
 | `product-grid` | Main product display | columns (2/3/4), imageRatio, showQuickAdd |
 | `category-header` | Functional header | title, subtitle, showSort, showFilter |
+| `editorial-hero` | Editorial hero led by one product | product, eyebrow, headline, body |
+| `lifestyle-price-hero` | Campaign hero with price framing | product, category, priceLabel |
+| `image-gallery` | Product-led image treatment | product |
+| `product-carousel` | Horizontal product selection | products, title |
+| `category-tile-grid` | Category tiles linked to products | columns, tiles |
+| `service-callouts-grid` | Service or support callouts | columns, callouts |
+| `cluster-chip-row` | Themed product-cluster links | sectionLabel, chips |
 
 #### Persona Layout Patterns (typical AI output)
 

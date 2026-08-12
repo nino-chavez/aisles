@@ -202,7 +202,7 @@ This is not an analogy — it is a structural claim about how the Aisles archite
 
 **It reframes the cold-start problem.** A streaming feed with no history defaults to trending/popular content. Aisles defaults to the gatherer persona — the most exploration-friendly layout. Both are "safe wrong answers" that self-correct as signals accumulate. The fail-fast principle applies identically.
 
-**It explains the component vocabulary.** The four layout components (`editorial-header`, `hero-product`, `product-grid`, `category-header`) are not page templates — they are feed section types. The AI acts as a feed algorithm, selecting which section types to display and in what order, just as TikTok's FYP selects which content format (short clip, live stream, carousel) to serve.
+**It explains the component vocabulary.** The current eleven layout section types — `editorial-header`, `hero-product`, `product-grid`, `category-header`, `editorial-hero`, `lifestyle-price-hero`, `image-gallery`, `product-carousel`, `category-tile-grid`, `service-callouts-grid`, and `cluster-chip-row` — are not page templates. Generation receives a narrower subset for each persona. The AI acts as a feed algorithm, selecting which permitted section types to display and in what order, just as TikTok's FYP selects which content format (short clip, live stream, carousel) to serve.
 
 ### The Critical Difference: Time-to-Decision, Not Time-on-Platform
 
