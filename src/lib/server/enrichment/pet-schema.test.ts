@@ -14,6 +14,10 @@ const migration = readFileSync(
 	resolve(import.meta.dirname, '../../../../supabase/migrations/20260812204335_kibble_pet_enrichment_fields.sql'),
 	'utf8',
 );
+const groomingMigration = readFileSync(
+	resolve(import.meta.dirname, '../../../../supabase/migrations/20260812214951_add_kibble_grooming_format.sql'),
+	'utf8',
+);
 const enrichmentRunner = readFileSync(resolve(import.meta.dirname, 'enrich.ts'), 'utf8');
 
 describe('Kibble pet enrichment contract', () => {
@@ -22,6 +26,12 @@ describe('Kibble pet enrichment contract', () => {
 		expect(PRODUCT_FORMATS).toContain('air-dried');
 		expect(PRODUCT_FORMATS).toContain('freeze-dried');
 		expect(PROTEINS).toContain('mixed');
+	});
+
+	it('represents topical grooming products without forcing a food format', () => {
+		expect(PRODUCT_FORMATS).toContain('grooming');
+		expect(groomingMigration).toContain("'supplement', 'grooming', 'hardgood'");
+		expect(groomingMigration).toContain('bc_entity_id IN (3046, 3047, 3048)');
 	});
 
 	it('uses the Kibble-relative $9-$240 price bands at every boundary', () => {

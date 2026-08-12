@@ -12,7 +12,7 @@ export interface PersonaFitScores {
 
 export const PROTEINS = ['beef', 'chicken', 'salmon', 'turkey', 'plant', 'mixed', 'none'] as const;
 export const LIFE_STAGES = ['puppy', 'adult', 'senior', 'all'] as const;
-export const PRODUCT_FORMATS = ['dry', 'wet', 'air-dried', 'freeze-dried', 'treat', 'supplement', 'hardgood'] as const;
+export const PRODUCT_FORMATS = ['dry', 'wet', 'air-dried', 'freeze-dried', 'treat', 'supplement', 'grooming', 'hardgood'] as const;
 export const DIETARY_OPTIONS = ['grain-free', 'limited-ingredient', 'prescription', 'none'] as const;
 export const PET_SIZES = ['toy', 'small', 'medium', 'large', 'any'] as const;
 

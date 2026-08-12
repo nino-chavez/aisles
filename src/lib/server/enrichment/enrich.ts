@@ -115,7 +115,7 @@ async function logFailedEnrichmentGeneration(
 const EnrichmentSchema = z.object({
 	protein: z.enum(PROTEINS).describe('Primary protein. Use mixed for multi-animal blends and none for non-food products.'),
 	lifeStage: z.enum(LIFE_STAGES).describe('Life stage this item is marketed for. Use all when not stage-specific.'),
-	format: z.enum(PRODUCT_FORMATS).describe('Product format. Air-dried is distinct from freeze-dried.'),
+	format: z.enum(PRODUCT_FORMATS).describe('Product format. Air-dried is distinct from freeze-dried. Use grooming for topical coat, skin, and paw-care products.'),
 	dietary: z.enum(DIETARY_OPTIONS).describe('Primary dietary position. Use none when no listed dietary restriction applies.'),
 	petSize: z.enum(PET_SIZES).describe('Pet size the item targets. Use any when size does not apply.'),
 	replenishmentDays: z.number().int().min(1).max(365).nullable().describe('Typical days one unit lasts. Null for products without a repeat-purchase cadence, such as toys.'),
@@ -221,7 +221,7 @@ Score persona-fit based on:
 - Gifter: giftability for a pet owner, universal appeal, and presentation value
 
 For protein, use mixed when multiple animal proteins are central to the product. For non-food items use none.
-For format, air-dried and freeze-dried are different. Do not treat them as interchangeable.
+For format, air-dried and freeze-dried are different. Use grooming for topical coat, skin, and paw-care products.
 For compatibleWith, describe shared pet profile and routine, not furniture style or dimensions.
 Generate semantic tags that capture how someone might search for this product by pet need or routine rather than keyword.`;
 

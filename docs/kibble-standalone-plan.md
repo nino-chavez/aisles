@@ -87,7 +87,7 @@ switches every reader to the pet fields; a later contract migration removes them
 
 - `protein` — beef, chicken, salmon, turkey, plant, mixed, none
 - `life_stage` — puppy, adult, senior, all
-- `format` — dry, wet, air-dried, freeze-dried, treat, supplement, hardgood
+- `format` — dry, wet, air-dried, freeze-dried, treat, supplement, grooming, hardgood
 - `dietary` — grain-free, limited-ingredient, prescription, none
 - `pet_size` — toy, small, medium, large, any
 - `replenishment_days` — typical consumption window for one unit, the field that
