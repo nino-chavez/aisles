@@ -5,12 +5,16 @@ import { model as anthropicModel, PRIMARY_MODEL } from '$lib/server/model';
 import { RefineResponseSchema } from '$lib/schema/refine';
 import { loadCategoryProducts, CATEGORY_MAP } from '$lib/server/catalog';
 import { logGeneration } from '$lib/server/generation-log';
+import { getSessionStore, hasSession } from '$lib/signals/session';
 import { getBrand } from '$lib/brand/config';
 import { getActiveRules, rulesToPromptContext } from '$lib/server/rules';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const startTime = Date.now();
 	const sessionId = cookies.get('aisles_session') || undefined;
+	const scenario = sessionId && await hasSession(sessionId)
+		? (await getSessionStore(sessionId)).getCrossSessionContext().scenarioId
+		: null;
 
 	try {
 		const { message, currentLayout, persona, categorySlug, constraints } = await request.json();
@@ -122,6 +126,7 @@ Generate a refined layout with a conversational response.`;
 			outputTokens: usage?.outputTokens,
 			model,
 			sessionId,
+			synthetic: Boolean(scenario), scenarioId: scenario,
 		});
 
 		return json({

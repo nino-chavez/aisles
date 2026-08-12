@@ -24,7 +24,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				SELECT
 					type, persona, category_slug, cache_hit,
 					generation_ms, product_count, input_tokens, output_tokens,
-					eval_score, prompt_version, model, estimated_cost, session_id, created_at
+					eval_score, prompt_version, model, estimated_cost, session_id, synthetic, scenario_id, created_at
 				FROM generation_logs
 				WHERE brand_id = ${brandId} AND session_id = ${sessionId}
 				ORDER BY created_at DESC
@@ -34,7 +34,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				SELECT
 					type, persona, category_slug, cache_hit,
 					generation_ms, product_count, input_tokens, output_tokens,
-					eval_score, prompt_version, model, estimated_cost, session_id, created_at
+					eval_score, prompt_version, model, estimated_cost, session_id, synthetic, scenario_id, created_at
 				FROM generation_logs
 				WHERE brand_id = ${brandId}
 				ORDER BY created_at DESC
@@ -55,6 +55,8 @@ export const GET: RequestHandler = async ({ url }) => {
 			model: row.model,
 			estimatedCost: row.estimated_cost,
 			sessionId: row.session_id,
+			synthetic: row.synthetic,
+			scenarioId: row.scenario_id,
 			createdAt: row.created_at,
 		}));
 

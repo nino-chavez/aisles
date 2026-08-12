@@ -26,6 +26,7 @@ export class SignalStore {
 	private visitCount = 0;
 	private currentCategory = '';
 	private brandId = 'haven';
+	private scenarioId: string | null = null;
 
 	// Loyalty state (populated from UIP evaluator at render time)
 	private walletBalanceMinor = 0;
@@ -51,6 +52,11 @@ export class SignalStore {
 	/** Set the active storefront brand. Persisted with the session for API events. */
 	setBrandId(brandId: string) {
 		this.brandId = brandId;
+	}
+
+	/** Scenario provenance is explicit so demo sessions never pass as observed behavior. */
+	setScenarioId(scenarioId: string | null) {
+		this.scenarioId = scenarioId;
 	}
 
 	/** Set loyalty state from the UIP evaluator. Called after cart eval, before inference. */
@@ -101,6 +107,7 @@ export class SignalStore {
 	getCrossSessionContext() {
 		return {
 			brandId: this.brandId,
+			scenarioId: this.scenarioId,
 			storedPersona: this.storedPersona as string | null,
 			storedCategory: this.storedCategory,
 			visitCount: this.visitCount,

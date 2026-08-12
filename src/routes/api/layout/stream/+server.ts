@@ -8,6 +8,7 @@ import { loadCategoryProducts, loadHomeProducts } from '$lib/server/catalog';
 import { getCachedLayout, cacheLayout, hashPicks } from '$lib/server/cache';
 import { logGeneration } from '$lib/server/generation-log';
 import { getActiveRules, rulesToPromptContext } from '$lib/server/rules';
+import { getSessionStore, hasSession } from '$lib/signals/session';
 
 /**
  * POST /api/layout/stream
@@ -19,6 +20,9 @@ import { getActiveRules, rulesToPromptContext } from '$lib/server/rules';
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const startTime = Date.now();
 	const sessionId = cookies.get('aisles_session') || undefined;
+	const scenario = sessionId && await hasSession(sessionId)
+		? (await getSessionStore(sessionId)).getCrossSessionContext().scenarioId
+		: null;
 
 	try {
 		const { persona, categorySlug, picksContext, probabilities, incentives } = (await request.json()) as {
@@ -55,6 +59,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				cacheHit: true,
 				generationTimeMs: elapsed,
 				sessionId,
+				synthetic: Boolean(scenario), scenarioId: scenario,
 			});
 
 			return json({
@@ -117,6 +122,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 						outputTokens: usage?.outputTokens,
 						model,
 						sessionId,
+						synthetic: Boolean(scenario), scenarioId: scenario,
 					});
 
 					controller.enqueue(

@@ -80,6 +80,7 @@ interface SessionSnapshot {
 	events: SignalEvent[];
 	crossSession: {
 		brandId?: string;
+		scenarioId?: string | null;
 		storedPersona: string | null;
 		storedCategory: string | null;
 		visitCount: number;
@@ -148,6 +149,13 @@ export async function persistSession(store: SignalStore): Promise<void> {
 	}
 }
 
+/** Replace a session atomically for deterministic scenario seeding. Never appends events. */
+export async function replaceSessionStore(store: SignalStore): Promise<void> {
+	sessions.set(store.sessionId, { store, lastAccessed: Date.now() });
+	ensureCleanup();
+	await persistSession(store);
+}
+
 /** Check if a session exists in cache or Redis. */
 export async function hasSession(sessionId: string): Promise<boolean> {
 	if (sessions.has(sessionId)) return true;
@@ -209,6 +217,7 @@ function restoreFromSnapshot(snapshot: SessionSnapshot): SignalStore {
 		currentCategory: snapshot.crossSession.currentCategory,
 	});
 	store.setBrandId(snapshot.crossSession.brandId ?? 'haven');
+	store.setScenarioId(snapshot.crossSession.scenarioId ?? null);
 
 	// Restore events with original IDs and timestamps
 	for (const event of snapshot.events) {

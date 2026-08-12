@@ -36,7 +36,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		const ruleHitRows = await sql`
 			SELECT UNNEST(rule_matches) AS rule_name, COUNT(*)::int AS n
 			FROM session_outcomes
-			WHERE brand_id = ${brandId}
+			WHERE brand_id = ${brandId} AND synthetic = FALSE
 			GROUP BY rule_name
 			ORDER BY n DESC
 			LIMIT 30
@@ -50,7 +50,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				AVG(CASE WHEN converted THEN 1.0 ELSE 0.0 END)::real AS conversion_rate,
 				COUNT(*)::int AS total
 			FROM session_outcomes
-			WHERE brand_id = ${brandId}
+			WHERE brand_id = ${brandId} AND synthetic = FALSE
 		`;
 
 		// Conversion rate by predicted primary
@@ -60,7 +60,7 @@ export const GET: RequestHandler = async ({ url }) => {
 				COUNT(*)::int AS n,
 				SUM(CASE WHEN converted THEN 1 ELSE 0 END)::int AS conv
 			FROM session_outcomes
-			WHERE brand_id = ${brandId}
+			WHERE brand_id = ${brandId} AND synthetic = FALSE
 			GROUP BY primary_final
 		`;
 

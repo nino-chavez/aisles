@@ -16,6 +16,8 @@
 		model: string | null;
 		estimatedCost: number | null;
 		createdAt: string;
+		synthetic?: boolean;
+		scenarioId?: string | null;
 	}
 
 	interface EnrichedProductRow {
@@ -54,19 +56,21 @@
 		inference: PersonaInference;
 		eventCount: number;
 		crossSession: {
+			scenarioId?: string | null;
 			storedPersona: string | null;
 			storedCategory: string | null;
 			visitCount: number;
 			currentCategory: string;
 		};
 		incentives: IncentiveSnapshot | null;
+		scenarioLabel?: string | null;
 	}
 
 	// ─── State ─────────────────────────────────────────────────────
 	const POLL_INTERVAL = 2000;
 	const OBSERVE_KEY = 'aisles-observe';
 
-	let sessionIds = $state<string[]>([]);
+	let sessions = $state<Array<{ id: string; scenarioId: string | null; scenarioLabel: string | null }>>([]);
 	let selectedSessionId = $state<string | null>(null);
 	let sessionData = $state<SessionData | null>(null);
 	let logs = $state<GenerationLog[]>([]);
@@ -121,10 +125,10 @@
 			try {
 				const res = await fetch(`/api/observe/sessions?key=${OBSERVE_KEY}`);
 				const data = await res.json();
-				sessionIds = data.sessionIds || [];
+				sessions = data.sessions || [];
 
-				if (watchLatest && sessionIds.length > 0) {
-					selectedSessionId = sessionIds[0];
+				if (watchLatest && sessions.length > 0) {
+					selectedSessionId = sessions[0].id;
 				}
 			} catch { /* ignore */ }
 		};
@@ -304,8 +308,8 @@
 					class="rounded border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-[11px] text-neutral-300 outline-none focus:border-neutral-500"
 				>
 					<option value={null}>Select session...</option>
-					{#each sessionIds as id}
-						<option value={id}>{truncateId(id)}</option>
+					{#each sessions as session}
+						<option value={session.id}>{session.scenarioLabel ? `SYNTHETIC · ${session.scenarioLabel}` : truncateId(session.id)}</option>
 					{/each}
 				</select>
 
@@ -319,6 +323,9 @@
 				</label>
 
 				{#if sessionData?.crossSession}
+					{#if sessionData.crossSession.scenarioId}
+						<span class="rounded bg-amber-950 px-2 py-1 font-mono text-[10px] font-semibold tracking-wide text-amber-300">SYNTHETIC SCENARIO · {sessionData.scenarioLabel ?? sessionData.crossSession.scenarioId}</span>
+					{/if}
 					<div class="ml-auto flex items-center gap-5 text-[12px]">
 						<div class="flex items-baseline gap-1.5">
 							<span class="text-neutral-500">visits</span>
@@ -348,7 +355,7 @@
 		{#if !selectedSessionId || !sessionData}
 			<div class="flex h-[calc(100vh-56px)] items-center justify-center">
 				<p class="text-[13px] text-neutral-500">
-					{sessionIds.length === 0 ? 'No active sessions. Browse the storefront to create one.' : 'Select a session to observe.'}
+					{sessions.length === 0 ? 'No active sessions. Browse the storefront to create one.' : 'Select a session to observe.'}
 				</p>
 			</div>
 		{:else}
