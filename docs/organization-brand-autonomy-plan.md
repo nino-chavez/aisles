@@ -32,8 +32,9 @@ have passed.
 
 `bealls-aisles` demonstrates one merchant organization operating related brands
 through a shared commerce and composition system. Bealls, Bealls Florida, and
-Home Centric can share organization-level capabilities while retaining separate
-brand contracts.
+Home Centric share an organization today while retaining separate identities
+and configurations. Each must receive a separate design contract when it adopts
+the preserve-mode architecture.
 
 That demonstration does not prove that a different merchant can provide a
 reference repository and receive a visually preserved storefront through theme
@@ -204,6 +205,7 @@ interface ZonePolicy {
   decisionMode?: DecisionMode;
   publicationMode?: PublicationMode;
   allowedComponentVariants?: readonly string[];
+  allowedCssVariants?: readonly string[];
   allowedCopyVariants?: readonly string[];
 }
 ```
