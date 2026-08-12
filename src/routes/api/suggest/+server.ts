@@ -57,7 +57,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		const pickIds = new Set(picks.map((pick: { id?: string }) => pick.id).filter(Boolean));
 		const pickedProfiles = catalogProducts
 			.filter((product) => pickIds.has(product.id))
-			.map((product) => product.petProfile);
+			.map((product) => ({ petProfile: product.petProfile, priceTier: product.priceTier }));
 
 		// Resolve picked profiles before filtering them out, then rank remaining
 		// candidates by shared pet profile and their compatible-with keywords.

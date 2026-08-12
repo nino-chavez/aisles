@@ -16,11 +16,13 @@ describe('pet compatibility scoring', () => {
 		const samePet = scorePetCompatibility({
 			compatibleWith: ['chicken', 'adult', 'grain-free', 'daily feeding'],
 			petProfile: { ...adultChicken, format: 'wet' },
-		}, [adultChicken]);
+			priceTier: 'mid',
+		}, [{ petProfile: adultChicken, priceTier: 'mid' }]);
 		const unrelated = scorePetCompatibility({
 			compatibleWith: ['puppy', 'salmon'],
 			petProfile: { ...adultChicken, protein: 'salmon', lifeStage: 'puppy', dietary: 'none', petSize: 'toy' },
-		}, [adultChicken]);
+			priceTier: 'luxury',
+		}, [{ petProfile: adultChicken, priceTier: 'mid' }]);
 
 		expect(samePet).toBeGreaterThan(unrelated);
 	});
@@ -28,8 +30,9 @@ describe('pet compatibility scoring', () => {
 	it('does not treat generic values as profile matches', () => {
 		const generic = scorePetCompatibility({
 			compatibleWith: [],
-			petProfile: { ...adultChicken, protein: 'none', lifeStage: 'all', dietary: 'none', petSize: 'any' },
-		}, [adultChicken]);
+			petProfile: { ...adultChicken, protein: 'none', lifeStage: 'all', dietary: 'none', petSize: 'any', replenishmentDays: null },
+			priceTier: null,
+		}, [{ petProfile: adultChicken, priceTier: 'mid' }]);
 		expect(generic).toBe(0);
 	});
 });
