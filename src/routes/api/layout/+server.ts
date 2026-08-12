@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { generateText, Output, gateway } from 'ai';
+import { generateText, Output } from 'ai';
+import { model, withModelFallback } from '$lib/server/model';
 import { LayoutSchema } from '$lib/schema/layout';
 import { buildLayoutPrompt, type IncentivesPromptContext } from '$lib/server/layout-prompt';
 import { loadCategoryProducts } from '$lib/server/catalog';
@@ -73,21 +74,16 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 		const prompt = buildLayoutPrompt(persona, categoryName, products, picksContext, rulesContext, probabilities, incentives ?? undefined);
 
-		// Haiku primary, Sonnet fallback — handled by AI Gateway
-		const aiResult = await generateText({
-			model: gateway('anthropic/claude-haiku-4.5'),
-			output: Output.object({ schema: LayoutSchema }),
-			prompt,
-			providerOptions: {
-				gateway: {
-					models: ['anthropic/claude-sonnet-4.6'],
-					tags: ['feature:layout', `persona:${persona}`, `category:${categorySlug}`],
-				},
-			},
-		});
+		// Haiku primary, Sonnet fallback — explicit retry in withModelFallback
+		const { result: aiResult, modelId } = await withModelFallback((id) =>
+			generateText({
+				model: model(id),
+				output: Output.object({ schema: LayoutSchema }),
+				prompt,
+			})
+		);
 		const layout = aiResult.output;
 		const usage = aiResult.usage;
-		const model = 'anthropic/claude-haiku-4.5';
 
 		if (layout) {
 			cacheLayout(persona, categorySlug, layout, ph).catch(() => {});
@@ -104,7 +100,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			productCount: products.length,
 			inputTokens: usage?.inputTokens,
 			outputTokens: usage?.outputTokens,
-			model,
+			model: modelId,
 			sessionId,
 		}).catch(() => {});
 

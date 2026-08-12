@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { generateText, Output, gateway } from 'ai';
+import { generateText, Output } from 'ai';
+import { model as anthropicModel, PRIMARY_MODEL } from '$lib/server/model';
 import { z } from 'zod';
 import { loadCategoryProducts, CATEGORY_MAP } from '$lib/server/catalog';
 import { getBrand } from '$lib/brand/config';
@@ -100,14 +101,9 @@ IMPORTANT:
 - Use the exact product IDs from the catalog`;
 
 		const result = await generateText({
-			model: gateway('anthropic/claude-haiku-4.5'),
+			model: anthropicModel(),
 			output: Output.object({ schema: SuggestionSchema }),
 			prompt,
-			providerOptions: {
-				gateway: {
-					tags: ['feature:suggest', `picks:${picks.length}`],
-				},
-			},
 		});
 
 		// Resolve suggestions to include name/price for the UI

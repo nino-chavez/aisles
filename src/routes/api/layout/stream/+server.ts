@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { streamText, Output, gateway } from 'ai';
+import { streamText, Output } from 'ai';
+import { model as anthropicModel, PRIMARY_MODEL } from '$lib/server/model';
 import { LayoutSchema, type Layout } from '$lib/schema/layout';
 import { buildLayoutPrompt, type IncentivesPromptContext } from '$lib/server/layout-prompt';
 import { loadCategoryProducts } from '$lib/server/catalog';
@@ -73,19 +74,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const rulesContext = rulesToPromptContext(rules);
 		const prompt = buildLayoutPrompt(persona, categoryName, products, picksContext, rulesContext, probabilities, incentives ?? undefined);
 
-		const model = 'anthropic/claude-haiku-4.5';
+		const model = PRIMARY_MODEL;
 
 		// Haiku primary, Sonnet fallback — handled by AI Gateway
 		const stream = streamText({
-			model: gateway('anthropic/claude-haiku-4.5'),
+			model: anthropicModel(),
 			output: Output.object({ schema: LayoutSchema }),
 			prompt,
-			providerOptions: {
-				gateway: {
-					models: ['anthropic/claude-sonnet-4.6'],
-					tags: ['feature:layout', `persona:${persona}`, `category:${categorySlug}`],
-				},
-			},
 		});
 
 		const encoder = new TextEncoder();

@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { generateText, Output, gateway } from 'ai';
+import { generateText, Output } from 'ai';
+import { model as anthropicModel, PRIMARY_MODEL } from '$lib/server/model';
 import { RefineResponseSchema } from '$lib/schema/refine';
 import { loadCategoryProducts, CATEGORY_MAP } from '$lib/server/catalog';
 import { logGeneration } from '$lib/server/generation-log';
@@ -100,19 +101,13 @@ Generate a refined layout with a conversational response.`;
 
 		// Haiku primary, Sonnet fallback — handled by AI Gateway
 		const aiResult = await generateText({
-			model: gateway('anthropic/claude-haiku-4.5'),
+			model: anthropicModel(),
 			output: Output.object({ schema: RefineResponseSchema }),
 			prompt,
-			providerOptions: {
-				gateway: {
-					models: ['anthropic/claude-sonnet-4.6'],
-					tags: ['feature:refine', `persona:${persona}`, `category:${categorySlug}`],
-				},
-			},
 		});
 		const output = aiResult.output;
 		const usage = aiResult.usage;
-		const model = 'anthropic/claude-haiku-4.5';
+		const model = PRIMARY_MODEL;
 
 		const elapsed = Date.now() - startTime;
 
