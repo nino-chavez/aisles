@@ -174,8 +174,8 @@ fitting and calibration queries exclude them by default.
 For local demos, `POST /api/observe/scenarios` accepts one of the named scenario
 IDs and replaces that deterministic session. Deployed environments require HTTP
 Basic credentials whose password matches the server-side `OBSERVE_ACCESS_TOKEN`.
-The route is limited to the Kibble brand and must not be exposed as an operator
-or provider integration endpoint.
+The route is limited to the Kibble brand and must not be reused as a provider
+integration or general administration API.
 
 ---
 

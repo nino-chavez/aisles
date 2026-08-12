@@ -192,7 +192,9 @@ branch has 38. Neither count is evidence that the weights learned from traffic.
 5. **Complete locally:** add the subscription signal family and seven Kibble-gated
    rules without adding a fifth persona.
 6. **Complete locally:** add three deterministic scenario fixtures with synthetic
-   provenance end to end. The supporting database columns are live.
+   provenance end to end. The supporting database columns are live. Scenario
+   layouts bypass the real-shopper cache, and Observe now requires a server-side
+   access token in deployed environments.
 7. **Not started by design:** fit weights only after enough real labeled sessions
    exist. Synthetic sessions never count toward that threshold.
 
@@ -217,11 +219,13 @@ least-privilege `aisles_app` role; Cloudflare Hyperdrive bound to that role; liv
 owner/runtime database smoke and schema lint; 49 BigCommerce products with zero
 custom fields, a $9–$240 price range, chicken recipes, and air-dried food; 38 local
 inference rules; public rejection of external events; deterministic scenario
-replay; synthetic exclusion from fitting and calibration; atomic enrichment
-publication; and local build, type, prompt, inference, store, schema, provenance,
-and compatibility checks.
+replay; synthetic exclusion from fitting, calibration, and the shopper layout
+cache; server-side Observe authorization; atomic enrichment publication; paid-call
+failure auditing; and local build, type, prompt, inference, store, schema,
+provenance, and compatibility checks.
 
 Not verified: the paid 49-product enrichment output, per-product score variation,
 the production Observe surface, or the production deployment. The attempted paid
 run was blocked before execution, and no catalog data was sent to Anthropic or
-OpenRouter.
+OpenRouter. Production Observe also needs an `OBSERVE_ACCESS_TOKEN` Pages secret
+before deployment.

@@ -561,7 +561,7 @@ replaces that scenario's existing session rather than appending events. It does
 not call external APIs, generate a layout, or write telemetry rows directly.
 
 Available only when `BRAND_ID=kibble` and valid HTTP Basic credentials are
-provided. It is not an authenticated provider or operator endpoint.
+provided. It is an operator-only demo endpoint, not a provider integration.
 
 **Request body**
 
