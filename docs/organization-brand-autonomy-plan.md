@@ -116,6 +116,11 @@ No preset permits component or CSS invention. Explore widens the set of
 pre-registered choices and changes publication controls; it does not grant a
 model a code-writing path.
 
+A registered component variant is a complete bounded configuration, not merely
+a component name. It declares allowed props, asset slots, link targets, copy
+fields, and CSS variant IDs. The model may select that ID; it may not construct
+raw prop combinations, image URLs, destinations, or display rules around it.
+
 Recommended starting defaults for an external merchant are:
 
 | Surface | Starting preset | Reason |
@@ -270,6 +275,8 @@ A design contract must include, at minimum:
 - Semantic tokens, including rules such as "mint means Auto-Refill"
 - Header, navigation, footer, and responsive chrome
 - Registered components and their prop schemas
+- Registered component variants with bounded props, assets, link targets, copy
+  fields, and CSS variant IDs
 - Page recipes and ordered zones by surface
 - Allowed component and copy variants
 - Required product metadata
