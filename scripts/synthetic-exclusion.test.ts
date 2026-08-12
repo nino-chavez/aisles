@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { outcomesSummary } from '../src/lib/server/outcomes';
 
 describe('learning jobs exclude synthetic outcomes', () => {
 	for (const file of ['fit-inference-lrs.ts', 'calibration-check.ts']) {
@@ -9,4 +10,9 @@ describe('learning jobs exclude synthetic outcomes', () => {
 			expect(source).toContain('synthetic = FALSE');
 		});
 	}
+
+	it('keeps outcome summary queries synthetic-free', () => {
+		const source = outcomesSummary.toString();
+		expect(source.match(/synthetic = FALSE/g)?.length).toBe(3);
+	});
 });

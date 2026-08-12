@@ -149,6 +149,13 @@ export async function persistSession(store: SignalStore): Promise<void> {
 	}
 }
 
+/** Replace a session atomically for deterministic scenario seeding. Never appends events. */
+export async function replaceSessionStore(store: SignalStore): Promise<void> {
+	sessions.set(store.sessionId, { store, lastAccessed: Date.now() });
+	ensureCleanup();
+	await persistSession(store);
+}
+
 /** Check if a session exists in cache or Redis. */
 export async function hasSession(sessionId: string): Promise<boolean> {
 	if (sessions.has(sessionId)) return true;

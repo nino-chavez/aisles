@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KIBBLE_SCENARIOS, replayKibbleScenario } from './scenarios';
+import { getSessionStore, replaceSessionStore } from './session';
 
 describe('Kibble synthetic scenarios', () => {
 	for (const id of Object.keys(KIBBLE_SCENARIOS) as Array<keyof typeof KIBBLE_SCENARIOS>) {
@@ -11,4 +12,14 @@ describe('Kibble synthetic scenarios', () => {
 			expect(first.inference).toMatchObject({ primary: second.inference.primary, probabilities: second.inference.probabilities });
 		});
 	}
+
+	it('replaces an existing seeded session instead of appending events', async () => {
+		const first = replayKibbleScenario('first-time-puppy-owner');
+		await replaceSessionStore(first.store);
+		const second = replayKibbleScenario('first-time-puppy-owner');
+		await replaceSessionStore(second.store);
+		const restored = await getSessionStore(first.store.sessionId);
+		expect(restored.getEvents()).toEqual(second.store.getEvents());
+		expect(restored.eventCount).toBe(second.store.eventCount);
+	});
 });

@@ -171,6 +171,12 @@ future server-only authenticated producer. The included named demo fixtures are
 explicitly marked synthetic in the session, logs, outcomes, and Observe screen;
 fitting and calibration queries exclude them by default.
 
+For local demos, `POST /api/observe/scenarios?key=aisles-observe` accepts one
+of the named scenario IDs and replaces that deterministic session. This fixed
+Observe key is demo-only routing protection, **not production authentication**;
+the route is limited to the Kibble brand and must not be exposed as an operator
+or provider integration endpoint.
+
 ---
 
 ## InferenceContext Field Reference

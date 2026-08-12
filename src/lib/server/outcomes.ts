@@ -255,9 +255,9 @@ export async function outcomesSummary(): Promise<{
 }> {
 	const sql = getDb();
 	const brandId = getBrand().id;
-	const totalRows = await sql`SELECT COUNT(*)::int AS n FROM session_outcomes WHERE brand_id = ${brandId}`;
-	const labelRows = await sql`SELECT label_source, COUNT(*)::int AS n FROM session_outcomes WHERE brand_id = ${brandId} GROUP BY label_source`;
-	const primaryRows = await sql`SELECT primary_final, COUNT(*)::int AS n FROM session_outcomes WHERE brand_id = ${brandId} GROUP BY primary_final`;
+	const totalRows = await sql`SELECT COUNT(*)::int AS n FROM session_outcomes WHERE brand_id = ${brandId} AND synthetic = FALSE`;
+	const labelRows = await sql`SELECT label_source, COUNT(*)::int AS n FROM session_outcomes WHERE brand_id = ${brandId} AND synthetic = FALSE GROUP BY label_source`;
+	const primaryRows = await sql`SELECT primary_final, COUNT(*)::int AS n FROM session_outcomes WHERE brand_id = ${brandId} AND synthetic = FALSE GROUP BY primary_final`;
 
 	const byLabel: Record<string, number> = {};
 	for (const row of labelRows) byLabel[row.label_source as string] = Number(row.n);
