@@ -17,7 +17,8 @@ Layout principles:
 - Show product descriptions — the story matters
 - No quick-add buttons — this shopper wants to browse, not rush
 - Copy should be warm, editorial, magazine-like (think shelter magazine)
-- Order products by visual appeal and narrative flow, not price`,
+- Order products by visual appeal and narrative flow, not price
+- New vocabulary: prefer "editorial-hero" over "hero-product" for the opening visual; "category-tile-grid" (2-3 columns) or "cluster-chip-row" for thematic browsing; skip "lifestyle-price-hero" and "service-callouts-grid" — price-led and trust-strip elements break the editorial mood`,
 
 	hunter: `HUNTER persona — a goal-oriented, efficiency-driven shopper.
 They know what they need and want to find it fast. Price and specs matter most.
@@ -30,7 +31,8 @@ Layout principles:
 - Show quick-add buttons on every card
 - No editorial copy — no hero product, no lifestyle stories
 - Sort products by price (low to high) by default
-- Copy should be minimal and functional`,
+- Copy should be minimal and functional
+- New vocabulary: "product-carousel" only as a secondary "more like this" rail after the grid, never the lead; "service-callouts-grid" for shipping/returns trust signals; skip "editorial-hero", "cluster-chip-row", and "category-tile-grid" — this shopper wants the grid, not more browsing surfaces`,
 
 	researcher: `RESEARCHER persona — a methodical, evidence-driven shopper.
 They compare options systematically, reading specs, reviews, and expert opinions.
@@ -44,7 +46,8 @@ Layout principles:
 - No quick-add buttons — they're not ready to buy yet, they're evaluating
 - No editorial fluff — factual, structured, comparison-friendly
 - Order products by relevance to query, then by rating/review count
-- Copy should be informative and precise`,
+- Copy should be informative and precise
+- New vocabulary: skip hero-style and thematic-browsing components entirely ("editorial-hero", "lifestyle-price-hero", "cluster-chip-row", "category-tile-grid") — they add narrative or navigation, not comparison data. "service-callouts-grid" only if a callout states a fact (e.g. return window), never a marketing line`,
 
 	gifter: `GIFTER persona — shopping for someone else, often with a budget and occasion.
 They need guidance on what makes a good gift, price tiers, and giftability.
@@ -58,35 +61,91 @@ Layout principles:
 - Show quick-add buttons — gifters decide faster once convinced
 - Group or call out price tiers ("Under $100", "Splurge-worthy")
 - Copy should be warm, reassuring, and focused on the recipient's experience
-- Order products by giftability score (universal appeal, presentation, value)`,
+- Order products by giftability score (universal appeal, presentation, value)
+- New vocabulary: "lifestyle-price-hero" works well as the "top pick" in place of "hero-product" when price/value is the hook; "cluster-chip-row" for named gift themes ("Under $50", "For Her"); "category-tile-grid" (2-3 columns) for occasion browsing`,
 };
 
-const COMPONENT_GUIDE = `You have exactly 4 components to work with:
+const COMPONENT_GUIDE = `You have 11 components to work with, grouped by what they're for.
 
-1. "editorial-header" — A section with eyebrow text (small caps label), a headline, and body copy.
-   Use for: Gatherer layouts to set the editorial tone. Gifter layouts to frame the occasion. Not for Hunter or Researcher.
+Single-product spotlights (a detail-page idiom — never the lead or only section on a browse page):
 
-2. "hero-product" — A large featured product with image, name, description, specs, and price.
+1. "hero-product" — A large featured product with image, name, description, specs, and price.
    Use for: Gatherer and Gifter layouts to highlight one standout product. Not for Hunter or Researcher.
 
-3. "product-grid" — A grid of product cards. Configurable:
+2. "editorial-hero" — A full-width lifestyle image (16:7) with a headline, optional eyebrow/body copy, and a link to one product. No price shown.
+   Use for: Gatherer as an opening visual to set editorial tone. Not for Hunter or Researcher.
+
+3. "lifestyle-price-hero" — A full-width lifestyle image with a bold price/savings overlay and a CTA button.
+   Use for: Gifter as the "top pick" hero, or Hunter as a deal-led opener. Not for Gatherer (no price hook) or Researcher.
+
+4. "image-gallery" — A single product's image with a thumbnail rail (the catalog supplies one image per product, so thumbnails repeat it — treat this as a zoomed detail view, not a page opener).
+   Use for: any persona, sparingly, after the shopper has already seen the product grid. Never as the first section.
+
+Browsing surfaces (a category page must lead with one of these):
+
+5. "product-grid" — A grid of product cards. Configurable:
    - columns: 2 (editorial), 3 (moderate), 4 (dense)
    - imageRatio: "landscape" (4:3, editorial) or "square" (compact)
    - showDescription: true for editorial/research, false for dense
    - showSpecs: true to show material/dimensions line
    - showQuickAdd: true for Hunter and Gifter, false for Gatherer and Researcher
 
-4. "category-header" — A compact title bar with optional product count, sort, and filter controls.
+6. "product-carousel" — A horizontally scrolling row of 3-10 product cards with a title.
+   Use for: a secondary rail below the primary grid ("You Might Also Like", "More to Explore") — never as the only browsing surface.
+
+7. "category-tile-grid" — A grid of 2-5 columns linking to themed product groupings, image-led with a caption.
+   Use for: Gatherer and Gifter to invite exploration by theme. Sparing or unused for Hunter and Researcher, who want the product list, not more browsing.
+
+Structural / header:
+
+8. "editorial-header" — A section with eyebrow text (small caps label), a headline, and body copy.
+   Use for: Gatherer layouts to set the editorial tone. Gifter layouts to frame the occasion. Not for Hunter or Researcher.
+
+9. "category-header" — A compact title bar with optional product count, sort, and filter controls.
    Use for: Hunter and Researcher layouts as the leading section. Can be used for any persona as a subtle header.
+
+Trust / navigation strips:
+
+10. "service-callouts-grid" — A strip of 3-4 icon callouts (shipping, returns, rewards, store, gift, quality, secure, support) with label and optional body text. Icon must be one of the eight fixed keys.
+    Use for: Hunter and Gifter, where logistics/trust reduce friction. Skip for Gatherer (breaks editorial mood). Use sparingly for Researcher (they want specs, not marketing).
+
+11. "cluster-chip-row" — A row of 3-8 themed link chips ("VACATION READY", "UNDER $50"), each pointing at one representative product.
+    Use for: Gatherer and Gifter, above the grid, for thematic/occasion discovery. Skip for Hunter and Researcher — chips slow down a shopper who already knows what they want.
+
+COMPOSITION RULES:
+
+Surface fit — this is a browse/category page, not a product detail page.
+- "hero-product", "editorial-hero", "lifestyle-price-hero", and "image-gallery" each spotlight ONE product at large scale. They are a detail-page idiom borrowed for a single highlight. A layout may use at most one of them, and never as the page's only section.
+- Every layout must include at least one browsing section — "product-grid", "product-carousel", or "category-tile-grid" (enforced by the schema, not optional).
+
+Scale — no single image may dominate the viewport.
+- At most one single-product hero-style section per layout (see Surface fit above).
+- "editorial-hero" and "lifestyle-price-hero" are the widest media elements available. Use one as an opener, immediately followed by a multi-product section — never let a hero stand alone as the whole page.
+
+Density per persona:
+- Gatherer: 2-column editorial grid, landscape images. "category-tile-grid" at 2-3 columns for thematic browsing. "product-carousel" only as a short (3-5) supplementary rail below the grid, never the lead.
+- Hunter: dense 3-4 column grid, square images. "category-tile-grid" at 4-5 columns if used at all. "product-carousel" only as a "more like this" rail after the grid, never the primary browsing surface.
+- Researcher: 2-3 column grid, square images, full specs. Tile grids and carousels are low priority — this shopper wants the comparison grid, not more browsing surfaces.
+- Gifter: 2-3 column grid, landscape images. "category-tile-grid" at 2-3 columns for occasion/theme browsing (e.g. "Under $100", "For Her"). "cluster-chip-row" works well for named gift themes.
+
+Page shape:
+- Every layout has 2-8 sections (enforced by the schema).
+- No two adjacent sections use the same component — vary the rhythm (enforced by the schema).
+- Every layout must include at least one browsing section (enforced by the schema, see Surface fit above).
+- Every product must appear in at least one section.
+- Every product must be purchasable (price always visible somewhere it's shown).
+
+Proof elements — when price/savings/service signals help versus when they're noise:
+- "lifestyle-price-hero" leads with price as the hook — use for Hunter and Gifter, where price drives the decision. Never for Gatherer, whose hero is "editorial-hero" (story, not price).
+- "service-callouts-grid" reduces purchase friction — use for Hunter and Gifter. Skip for Gatherer. Use sparingly for Researcher.
+- Price/savings copy in "lifestyle-price-hero" priceLabel must be built from the real price/salePrice given for that product — never invent a number or percentage.
 
 RULES:
 - Products are pre-sorted by relevance to this persona (highest fit first). Respect this order unless the layout demands otherwise.
 - If a product has a persona-fit score, use it: high-fit products should be featured prominently (hero, top of grid); low-fit products go later.
-- Every product must appear in at least one section
-- Every product must be purchasable (price always visible)
-- Use the product IDs exactly as provided — do not invent IDs
 - Sections are rendered top to bottom in the order you specify
-- Maximum 8 sections total
+- Use the product IDs exactly as provided — do not invent IDs
+- Images and links are resolved from the product ID you provide — never write a raw image URL or href; the renderer fills in the asset and route from the catalog
 - The "reasoning" field should explain your layout choices in 1-2 sentences`;
 
 interface PromptProduct {
