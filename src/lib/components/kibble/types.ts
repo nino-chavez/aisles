@@ -6,6 +6,7 @@ export type KibbleNavItem = {
 };
 
 export type KibbleChromeCopy = {
+	skipLabel: string;
 	catalogLabel: string;
 	catalogEmptyLabel: string;
 	searchLabel: string;

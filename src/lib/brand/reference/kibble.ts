@@ -46,13 +46,14 @@ const ReferenceRecipeSlotSchema = z.object({
 }).strict();
 
 const REQUIRED_CHROME = [
-	'engine-status-bar',
+	'autorefill-status-bar',
 	'merchant-wordmark',
 	'catalog-navigation',
 	'search-control',
 	'account-control',
 	'cart-control',
 	'mobile-drawer',
+	'merchant-footer',
 ] as const;
 
 const REGISTRY = {
@@ -60,7 +61,8 @@ const REGISTRY = {
 		'kc.header.desktop', 'kc.header.mobile-drawer', 'kc.hero.flagship-bundle',
 		'kc.product-card.catalog-card', 'kc.product-card.featured-tile', 'kc.product-card.sale',
 		'kc.product-card.auto-refill', 'kc.featured-grid.four-column', 'kc.visual-module.routine',
-		'kc.visual-module.category', 'kc.service-proof.three-column',
+		'kc.visual-module.category', 'kc.service-proof.three-column', 'kc.footer.four-column',
+		'kc.category-listing.fixed-grid', 'kc.error.reference-shell',
 	],
 	assetSlots: ['featured.image', 'product.image', 'tile.image'],
 	linkTargets: ['home', 'catalog-category', 'search-results', 'account', 'cart', 'saved-picks', 'product-detail', 'featured-bundle', 'browse-all', 'visual-tile'],
@@ -69,7 +71,7 @@ const REGISTRY = {
 
 export const KibbleReferenceContractSchema = z.object({
 	id: z.literal('kibble-shelf-native'),
-	version: z.literal('1.1.0'),
+	version: z.literal('1.3.0'),
 	status: z.literal('approved-reference'),
 	source: z.object({
 		repository: z.literal('bc-subscriptions'),
@@ -104,7 +106,7 @@ export const KibbleReferenceContractSchema = z.object({
 		}).strict(),
 	}).strict(),
 	chrome: z.object({
-		required: z.tuple(REQUIRED_CHROME.map((entry) => z.literal(entry)) as [z.ZodLiteral<'engine-status-bar'>, z.ZodLiteral<'merchant-wordmark'>, z.ZodLiteral<'catalog-navigation'>, z.ZodLiteral<'search-control'>, z.ZodLiteral<'account-control'>, z.ZodLiteral<'cart-control'>, z.ZodLiteral<'mobile-drawer'>]),
+		required: z.tuple(REQUIRED_CHROME.map((entry) => z.literal(entry)) as [z.ZodLiteral<'autorefill-status-bar'>, z.ZodLiteral<'merchant-wordmark'>, z.ZodLiteral<'catalog-navigation'>, z.ZodLiteral<'search-control'>, z.ZodLiteral<'account-control'>, z.ZodLiteral<'cart-control'>, z.ZodLiteral<'mobile-drawer'>, z.ZodLiteral<'merchant-footer'>]),
 		owner: z.literal('root-layout'),
 		mobileDrawerBreakpointPx: z.literal(768),
 		stickyHeader: z.literal(true),
@@ -129,7 +131,20 @@ export const KibbleReferenceContractSchema = z.object({
 			id: z.literal('kibble-home-reference-v1'),
 			implementation: z.literal('KibbleHomeReference.svelte'),
 			rootLayoutChrome: z.literal('kibble.header'),
+			rootLayoutFooter: z.literal('kibble.footer'),
 			orderedAnatomy: z.array(ReferenceRecipeSlotSchema).min(5),
+			invariants: UniqueRequiredStrings,
+		}).strict(),
+		plp: z.object({
+			id: z.literal('kibble-plp-reference-v1'),
+			implementation: z.literal('KibbleCategoryReference.svelte'),
+			variantId: z.literal('kibble.category-listing.fixed-grid'),
+			invariants: UniqueRequiredStrings,
+		}).strict(),
+		error: z.object({
+			id: z.literal('kibble-error-reference-v1'),
+			implementation: z.literal('KibbleErrorReference.svelte'),
+			variantId: z.literal('kibble.error.reference-shell'),
 			invariants: UniqueRequiredStrings,
 		}).strict(),
 	}).strict(),
@@ -176,8 +191,20 @@ export const KibbleReferenceContractSchema = z.object({
 		const variant = variantsById.get(slot.variantId);
 		if (!component) ctx.addIssue({ code: 'custom', message: `Recipe component ${slot.component} is not registered`, path: ['recipes', 'home', 'orderedAnatomy', index, 'component'] });
 		if (!variant || variant.componentId !== slot.component) ctx.addIssue({ code: 'custom', message: `Recipe variant ${slot.variantId} is not registered for ${slot.component}`, path: ['recipes', 'home', 'orderedAnatomy', index, 'variantId'] });
-		if (index === 0 && slot.owner !== 'root-layout') ctx.addIssue({ code: 'custom', message: 'Header chrome must be owned by root-layout', path: ['recipes', 'home', 'orderedAnatomy', index, 'owner'] });
-		if (index > 0 && slot.owner !== 'home-recipe') ctx.addIssue({ code: 'custom', message: 'Home content must be owned by home-recipe', path: ['recipes', 'home', 'orderedAnatomy', index, 'owner'] });
+		const isRootChrome = slot.component === 'kibble.header' || slot.component === 'kibble.footer';
+		if (isRootChrome && slot.owner !== 'root-layout') ctx.addIssue({ code: 'custom', message: 'Header and footer chrome must be owned by root-layout', path: ['recipes', 'home', 'orderedAnatomy', index, 'owner'] });
+		if (!isRootChrome && slot.owner !== 'home-recipe') ctx.addIssue({ code: 'custom', message: 'Home content must be owned by home-recipe', path: ['recipes', 'home', 'orderedAnatomy', index, 'owner'] });
+	}
+
+	for (const [recipeName, recipe] of Object.entries({ plp: contract.recipes.plp, error: contract.recipes.error })) {
+		const component = contract.components.find(({ implementation }) => implementation === recipe.implementation);
+		if (!component) {
+			ctx.addIssue({ code: 'custom', message: `${recipeName} recipe implementation is not registered`, path: ['recipes', recipeName, 'implementation'] });
+			continue;
+		}
+		if (!component.variants.some(({ id }) => id === recipe.variantId)) {
+			ctx.addIssue({ code: 'custom', message: `${recipeName} recipe variant is not registered for its implementation`, path: ['recipes', recipeName, 'variantId'] });
+		}
 	}
 });
 
@@ -187,7 +214,7 @@ const variant = (
 ) => ({ id, cssVariantIds, dynamicPropFields, assetSlots, linkTargets, actionTargets, copyFields });
 
 const contractInput = {
-	id: 'kibble-shelf-native', version: '1.1.0', status: 'approved-reference',
+	id: 'kibble-shelf-native', version: '1.3.0', status: 'approved-reference',
 	source: {
 		repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
 		commit: 'a5c9555b89d72e7898d6bc1c38c7157a1c415b06', applicationPath: 'apps/storefront-svelte',
@@ -206,7 +233,7 @@ const contractInput = {
 	components: [
 		{
 			id: 'kibble.header', implementation: 'KibbleHeader.svelte',
-			variants: [variant('kibble.header.responsive-chrome', ['kc.header.desktop', 'kc.header.mobile-drawer'], ['brandName', 'navItems', 'autoRefillState', 'statusItems', 'copy', 'cartCount', 'picksCount'], [], ['home', 'catalog-category', 'search-results', 'account', 'cart', 'saved-picks'], ['open-mobile-navigation', 'close-mobile-navigation', 'open-search', 'close-search', 'open-cart-drawer', 'open-picks-tray'], [copy('brandName', 40, ['merchant-policy']), copy('statusItems[].label', 56, ['computed-fact']), copy('navItems[].label', 32, ['merchant-policy']), copy('copy.*', 48, ['reference-copy'])])],
+			variants: [variant('kibble.header.responsive-chrome', ['kc.header.desktop', 'kc.header.mobile-drawer'], ['brandName', 'navItems', 'autoRefillState', 'statusLabel', 'statusItems', 'copy', 'cartCount', 'picksCount'], [], ['home', 'catalog-category', 'search-results', 'account', 'cart', 'saved-picks'], ['open-mobile-navigation', 'close-mobile-navigation', 'open-search', 'close-search', 'open-cart-drawer', 'open-picks-tray'], [copy('brandName', 40, ['merchant-policy']), copy('statusLabel', 32, ['reference-copy']), copy('statusItems[].label', 56, ['computed-fact']), copy('navItems[].label', 32, ['merchant-policy']), copy('copy.*', 48, ['reference-copy'])])],
 			referenceOwned: ['status-bar anatomy', 'wordmark treatment', 'navigation density', 'control shape', 'mobile drawer structure'],
 			aislesOwned: ['navigation labels and named targets', 'verified status facts', 'live counts', 'supported callbacks'],
 		},
@@ -248,18 +275,45 @@ const contractInput = {
 			referenceOwned: ['three-column anatomy', 'quiet hierarchy', 'section rule and spacing'],
 			aislesOwned: ['approved bounded proof copy', 'substantiated service claims'],
 		},
+		{
+			id: 'kibble.footer', implementation: 'KibbleFooter.svelte',
+			variants: [variant('kibble.footer.four-column', ['kc.footer.four-column'], ['brandName', 'tagline', 'footerNote', 'groups'], [], ['home', 'catalog-category'], [], [copy('brandName', 40, ['merchant-policy']), copy('tagline', 120, ['merchant-policy']), copy('footerNote', 240, ['merchant-policy']), copy('groups[].label', 32, ['merchant-policy']), copy('groups[].links[].label', 48, ['merchant-policy'])])],
+			referenceOwned: ['four-column anatomy', 'quiet navigation hierarchy', 'disclosure rule and spacing'],
+			aislesOwned: ['supported category links', 'merchant disclosure', 'bounded group labels'],
+		},
+		{
+			id: 'kibble.category-listing', implementation: 'KibbleCategoryReference.svelte',
+			variants: [variant('kibble.category-listing.fixed-grid', ['kc.category-listing.fixed-grid'], ['eyebrow', 'title', 'productCount', 'productSingular', 'productPlural', 'emptyMessage', 'products', 'productHrefs'], ['product.image'], ['product-detail'], [], [copy('eyebrow', 24, ['reference-copy']), copy('title', 64, ['merchant-policy']), copy('productSingular', 16, ['reference-copy']), copy('productPlural', 16, ['reference-copy']), copy('emptyMessage', 120, ['reference-copy']), copy('products[].name', 96, ['merchant-catalog'])])],
+			referenceOwned: ['fixed title and count header', 'four-column product grid', 'catalog-card anatomy', 'bounded empty state'],
+			aislesOwned: ['category title', 'live product order', 'live product fields', 'supported product links'],
+		},
+		{
+			id: 'kibble.error', implementation: 'KibbleErrorReference.svelte',
+			variants: [variant('kibble.error.reference-shell', ['kc.error.reference-shell'], ['status', 'message', 'eyebrow', 'headline', 'returnLabel'], [], ['home'], [], [copy('message', 240, ['merchant-policy']), copy('eyebrow', 32, ['reference-copy']), copy('headline', 72, ['reference-copy']), copy('returnLabel', 40, ['reference-copy'])])],
+			referenceOwned: ['centered status composition', 'reference type hierarchy', 'single bounded recovery action'],
+			aislesOwned: ['HTTP status', 'safe public message', 'home destination'],
+		},
 	],
 	recipes: {
 		home: {
-			id: 'kibble-home-reference-v1', implementation: 'KibbleHomeReference.svelte', rootLayoutChrome: 'kibble.header',
+			id: 'kibble-home-reference-v1', implementation: 'KibbleHomeReference.svelte', rootLayoutChrome: 'kibble.header', rootLayoutFooter: 'kibble.footer',
 			orderedAnatomy: [
 				{ slot: 'merchant-chrome', component: 'kibble.header', variantId: 'kibble.header.responsive-chrome', required: true, owner: 'root-layout' },
 				{ slot: 'opening-merchandising', component: 'kibble.hero', variantId: 'kibble.hero.flagship-bundle', required: true, owner: 'home-recipe' },
 				{ slot: 'ranked-products', component: 'kibble.featured-grid', variantId: 'kibble.featured-grid.four-column', required: true, owner: 'home-recipe' },
 				{ slot: 'catalog-entry', component: 'kibble.visual-module', variantId: 'kibble.visual-module.category', required: true, owner: 'home-recipe' },
 				{ slot: 'service-proof', component: 'kibble.service-proof', variantId: 'kibble.service-proof.three-column', required: true, owner: 'home-recipe' },
+				{ slot: 'merchant-footer', component: 'kibble.footer', variantId: 'kibble.footer.four-column', required: true, owner: 'root-layout' },
 			],
 			invariants: ['Root layout renders status and merchant navigation before page content.', 'KibbleHomeReference renders hero, products, catalog entry, then service proof.', 'The hero contains one flagship bundle, not an arbitrary collage.', 'The segmented proof strip stays inside the hero text column.', 'Product imagery preserves packaging labels.', 'Category or routine copy sits below imagery.', 'Mint appears only for Auto-Refill status or the ampersand wordmark exception.'],
+		},
+		plp: {
+			id: 'kibble-plp-reference-v1', implementation: 'KibbleCategoryReference.svelte', variantId: 'kibble.category-listing.fixed-grid',
+			invariants: ['The category header and product grid stay fixed.', 'Only ranking within the grid may vary.', 'Unsupported product routes render as non-link cards.', 'Empty-state copy comes from the pinned manifest.'],
+		},
+		error: {
+			id: 'kibble-error-reference-v1', implementation: 'KibbleErrorReference.svelte', variantId: 'kibble.error.reference-shell',
+			invariants: ['The Kibble chrome remains visible.', 'Production copy never exposes internal adapter mismatch details.', 'The only recovery action returns home.'],
 		},
 	},
 	viewports: { mobile: { minPx: 320, maxPx: 767, columns: 1 }, tablet: { minPx: 768, maxPx: 1023, columns: 2 }, desktop: { minPx: 1024, contentMaxPx: 1200, productColumns: 4 }, comparison: { widthsPx: [390, 768, 1280, 1440] } },

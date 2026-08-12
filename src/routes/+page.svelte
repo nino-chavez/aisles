@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import type { Layout } from '$lib/schema/layout';
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
+	import { KibbleHomeReference } from '$lib/components/kibble';
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -9,12 +10,13 @@
 	let aiLayout = $state<Layout | null>(null);
 	let aiError = $state<string | null>(null);
 	let overridePersona = $state<string | null>(null);
-	let currentPersona = $derived(overridePersona ?? data.persona);
+	let currentPersona = $derived(overridePersona ?? data.persona ?? 'gatherer');
 
 	// Fetch an AI-generated layout for categorySlug "home" on mount, and again
 	// whenever the inferred persona changes. Failure/timeout leaves aiLayout
 	// null, so the static markup below (the existing homepage) keeps rendering.
 	$effect(() => {
+		if (data.renderMode === 'reference-preserve') return;
 		fetchLayout(currentPersona);
 	});
 
@@ -33,6 +35,7 @@
 	});
 
 	async function fetchLayout(persona: string) {
+		if (data.renderMode === 'reference-preserve') return;
 		aiError = null;
 
 		try {
@@ -107,10 +110,23 @@
 </script>
 
 <svelte:head>
-	<title>{data.brandName} — {data.brandTagline}</title>
-	<meta name="description" content="{data.homepage.heroBody}" />
+	<title>{data.renderMode === 'reference-preserve' ? data.brandName : `${data.brandName} — ${data.brandTagline}`}</title>
+	<meta name="description" content={data.renderMode === 'reference-preserve' && data.kibbleHome ? data.kibbleHome.hero.body : data.homepage.heroBody} />
 </svelte:head>
 
+{#if data.renderMode === 'reference-preserve' && data.kibbleHome}
+	<KibbleHomeReference
+		hero={data.kibbleHome.hero}
+		products={data.kibbleHome.products}
+		productHrefs={data.kibbleHome.productHrefs}
+		categories={data.kibbleHome.categories}
+		serviceProof={data.kibbleHome.serviceProof}
+		featuredCopy={data.kibbleHome.featuredCopy}
+		browseHref={data.kibbleHome.browseHref}
+		categoryTitle={data.kibbleHome.categoryTitle}
+		categoryEyebrow={data.kibbleHome.categoryEyebrow}
+	/>
+{:else}
 <!-- Returning visitor banner — chrome, not layout content: shown regardless of aiLayout -->
 {#if data.storedPersona && data.storedCategory}
 	<div class="border-b border-surface-border bg-surface-muted">
@@ -254,5 +270,7 @@
 		{/each}
 	</div>
 </section>
+
+{/if}
 
 {/if}

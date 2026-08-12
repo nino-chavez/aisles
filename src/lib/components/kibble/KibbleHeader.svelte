@@ -7,6 +7,7 @@
 		brandName,
 		navItems,
 		autoRefillState,
+		statusLabel,
 		statusItems,
 		copy,
 		cartCount = 0,
@@ -20,7 +21,8 @@
 	}: {
 		brandName: string;
 		navItems: KibbleNavItem[];
-		autoRefillState: KibbleAutoRefillState;
+		autoRefillState?: KibbleAutoRefillState;
+		statusLabel: string;
 		statusItems: KibbleStatusItem[];
 		copy: KibbleChromeCopy;
 		cartCount?: number;
@@ -35,10 +37,12 @@
 
 	let drawerOpen = $state(false);
 	let searchOpen = $state(false);
-	const autoRefillStatus = $derived(`Auto-Refill engine · ${autoRefillState}`);
+	const autoRefillStatus = $derived(autoRefillState ? `${statusLabel} · ${autoRefillState}` : statusLabel);
 </script>
 
-	<div class="kibble-reference kc-reference-status" aria-label={autoRefillStatus}>
+<a href="#kibble-main" class="kibble-reference kc-reference-skip-link kc-reference-focus">{copy.skipLabel}</a>
+
+<div class="kibble-reference kc-reference-status" aria-label={autoRefillStatus}>
 		<div class="kc-reference-container kc-reference-status__inner">
 			<span class="kc-reference-status__item kc-reference-status__item--emphasis">{autoRefillStatus}</span>
 			{#each statusItems as item (item.label)}
@@ -48,7 +52,7 @@
 </div>
 
 <header class:kc-reference-header--searching={searchOpen} class="kibble-reference kc-reference-header">
-		<div class="kc-reference-container kc-reference-header__inner">
+	<div class="kc-reference-container kc-reference-header__inner">
 			<button
 				type="button"
 				onclick={() => (drawerOpen = true)}
@@ -123,7 +127,7 @@
 					{#if cartCount > 0}<span class="kc-reference-control-badge">{cartCount}</span>{/if}
 				</div>
 			</div>
-		</div>
+	</div>
 </header>
 
 <KibbleMobileNavigation

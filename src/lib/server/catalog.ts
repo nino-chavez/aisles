@@ -6,7 +6,16 @@
  * raw BC data becomes the product shape that layout generation consumes.
  */
 
-import { getCategories, getProductsByCategory, customFieldsToRecord, type BCProduct } from './bigcommerce';
+import {
+	getCategories,
+	getFeaturedProducts,
+	getNewestProducts,
+	getProductByEntityId,
+	getProducts,
+	getProductsByCategory,
+	customFieldsToRecord,
+	type BCProduct,
+} from './bigcommerce';
 import { getEnrichmentByEntityIds } from './enrichment/query';
 import { getBrand } from '$lib/brand/config';
 import { MAX_LAYOUT_PRODUCTS } from './layout-prompt';
@@ -22,6 +31,43 @@ export interface EnrichedProduct extends Product {
 	compatibleWith: string[];
 	priceTier: string | null;
 	petProfile: PetProfile | null;
+}
+
+export type ReferenceHomeProducts = {
+	products: Product[];
+	source: 'featured' | 'newest' | 'deterministic-catalog';
+};
+
+/**
+ * Preserve home merchandising uses BigCommerce's explicit featured order,
+ * then its newest order. If neither query can produce products, the final
+ * fallback is a stable entity-id sort over the live catalog rather than a
+ * price or persona heuristic.
+ */
+export async function loadReferenceHomeProducts(limit = 8): Promise<ReferenceHomeProducts> {
+	try {
+		const featured = uniqueProductsByEntityId((await getFeaturedProducts(limit)).map(transformProduct));
+		if (featured.length > 0) return { products: featured, source: 'featured' };
+	} catch (error) {
+		console.warn('[kibble-preserve] featured product query unavailable; trying newest products', error);
+	}
+
+	try {
+		const newest = uniqueProductsByEntityId((await getNewestProducts(limit)).map(transformProduct));
+		if (newest.length > 0) return { products: newest, source: 'newest' };
+	} catch (error) {
+		console.warn('[kibble-preserve] newest product query unavailable; using deterministic catalog order', error);
+	}
+
+	const products = uniqueProductsByEntityId((await getProducts(Math.max(limit, 30))).map(transformProduct))
+		.sort((a, b) => b.entityId - a.entityId)
+		.slice(0, limit);
+	return { products, source: 'deterministic-catalog' };
+}
+
+export async function loadCatalogProductByEntityId(entityId: number): Promise<Product | null> {
+	const product = await getProductByEntityId(entityId);
+	return product ? transformProduct(product) : null;
 }
 
 /**

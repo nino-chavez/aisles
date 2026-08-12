@@ -118,8 +118,8 @@
 			</nav>
 
 			{#if accountHref || onPicksClick || picksHref}
-			<p class="kc-reference-drawer__label" style="margin-top: 2rem;">{copy.accountLabel}</p>
-			<nav class="kc-reference-drawer__nav" aria-label="Account and saved items">
+			<p class="kc-reference-drawer__label" style="margin-top: 2rem;">{accountHref ? copy.accountLabel : copy.savedPicksLabel}</p>
+			<nav class="kc-reference-drawer__nav" aria-label={accountHref ? 'Account and saved items' : copy.savedPicksLabel}>
 				{#if accountHref}<a href={accountHref} onclick={close} class="kc-reference-drawer__link kc-reference-focus">{copy.accountLabel}</a>{/if}
 				{#if onPicksClick}
 					<button type="button" onclick={() => closeAndRun(onPicksClick)} class="kc-reference-drawer__link kc-reference-focus" style="border:0;background:transparent;font:inherit;text-align:left;cursor:pointer;">

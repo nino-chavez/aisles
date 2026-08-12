@@ -1,4 +1,7 @@
 export { default as KibbleFeaturedGrid } from './KibbleFeaturedGrid.svelte';
+export { default as KibbleErrorReference } from './KibbleErrorReference.svelte';
+export { default as KibbleFooter } from './KibbleFooter.svelte';
+export { default as KibbleCategoryReference } from './KibbleCategoryReference.svelte';
 export { default as KibbleHeader } from './KibbleHeader.svelte';
 export { default as KibbleHero } from './KibbleHero.svelte';
 export { default as KibbleHomeReference } from './KibbleHomeReference.svelte';

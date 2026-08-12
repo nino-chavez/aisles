@@ -1,29 +1,74 @@
 import type { PageServerLoad } from './$types';
+import { error } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 import { getBrand } from '$lib/brand/config';
+import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
+import { buildKibbleHomeReference } from '$lib/brand/reference/kibble-runtime';
 import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { loadSessionIncentives } from '$lib/server/incentives/session';
-import { loadHomeProducts } from '$lib/server/catalog';
+import { loadCatalogProductByEntityId, loadHomeProducts, loadReferenceHomeProducts } from '$lib/server/catalog';
 
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
-	const { devMode } = await parent();
-
-	// ─── Signal Store: same request-time inference the category page runs,
-	// so the homepage can request an AI layout for categorySlug "home" ───
+	const { devMode, renderMode } = await parent();
+	const brand = getBrand();
 	const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: 'home' });
-	const sessionIncentives = await loadSessionIncentives(store, cookies);
 	const inferenceContext = store.toInferenceContext();
 	const inference = infer(inferenceContext);
+	const storedPersona = cookies.get('aisles_persona') || null;
+	const storedCategory = cookies.get('aisles_last_category') || null;
+	cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
+	cookies.set('aisles_visits', String(visitCount), { path: '/', maxAge: 60 * 60 * 24 * 30 });
+
+	if (renderMode === 'reference-preserve') {
+		try {
+			const [referenceProducts, bundleProduct] = await Promise.all([
+				loadReferenceHomeProducts(9),
+				loadCatalogProductByEntityId(KIBBLE_PRESERVE_MANIFEST.display.featuredBundle.entityId),
+			]);
+			const kibbleHome = buildKibbleHomeReference(
+				brand,
+				referenceProducts.products,
+				referenceProducts.source,
+				bundleProduct,
+			);
+			return {
+				renderMode,
+				kibbleHome,
+				featured: [],
+				categories: Object.entries(brand.categories).map(([slug, config]) => ({
+					name: config.displayName,
+					path: `/${slug}/`,
+					slug,
+				})),
+				storedPersona,
+				storedCategory,
+				brandName: brand.name,
+				brandTagline: brand.tagline,
+				brandDomain: brand.domain,
+				homepage: brand.homepage,
+				products: referenceProducts.products,
+				inference,
+				persona: inference.primary,
+				devMode,
+				sessionId: cookies.get('aisles_session') || null,
+				incentivesPromptContext: null,
+			};
+		} catch (cause) {
+			const detail = cause instanceof Error ? cause.message : 'Unknown Kibble reference adapter error.';
+			console.error('[kibble-preserve] home failed closed:', detail);
+			throw error(503, dev ? `Kibble Preserve cannot render: ${detail}` : 'This Kibble shelf is temporarily unavailable.');
+		}
+	}
+
+	// ─── Legacy generation retains its current incentive and persona path. ───
+	const sessionIncentives = await loadSessionIncentives(store, cookies);
 
 	// Cross-category product set, sorted by persona-fit — same shape and
 	// source layout generation uses, so LayoutRenderer can resolve any
 	// product reference the generated "home" layout comes back with.
 	const homeResult = await loadHomeProducts(inference.primary);
 	const products = homeResult?.products ?? [];
-
-	// Check for returning visitor persona/category (set by a prior category visit)
-	const storedPersona = cookies.get('aisles_persona') || null;
-	const storedCategory = cookies.get('aisles_last_category') || null;
 
 	// Pick featured products (first 4 from different price ranges)
 	const sorted = [...products].sort((a, b) => b.price - a.price);
@@ -32,19 +77,15 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 		: sorted.slice(0, 4);
 
 	// Map categories for display — driven by brand config
-	const brand = getBrand();
 	const categoryList = Object.entries(brand.categories).map(([slug, config]) => ({
 		name: config.displayName,
 		path: `/${slug}/`,
 		slug,
 	}));
 
-	// Persist this visit's inferred persona. Do not touch aisles_last_category —
-	// that cookie means "last category browsed" and the homepage isn't one.
-	cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
-	cookies.set('aisles_visits', String(visitCount), { path: '/', maxAge: 60 * 60 * 24 * 30 });
-
 	return {
+		renderMode,
+		kibbleHome: null,
 		featured,
 		categories: categoryList,
 		storedPersona,

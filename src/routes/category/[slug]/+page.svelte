@@ -11,6 +11,7 @@
 	import RefinementChat from '$lib/components/RefinementChat.svelte';
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
 	import { getEmitter } from '$lib/signals/emitter';
+	import { KibbleCategoryReference } from '$lib/components/kibble';
 
 	let { data }: { data: PageData } = $props();
 
@@ -27,6 +28,10 @@
 	let lastCategory = $state(data.category.slug);
 
 	$effect(() => {
+		if (data.renderMode === 'reference-preserve') {
+			isUpgrading = false;
+			return;
+		}
 		const persona = currentPersona;
 		const slug = data.category.slug;
 
@@ -54,6 +59,7 @@
 	});
 
 	async function fetchLayout(persona: string) {
+		if (data.renderMode === 'reference-preserve') return;
 		isUpgrading = true;
 		aiError = null;
 
@@ -200,10 +206,13 @@
 </script>
 
 <svelte:head>
-	<title>{data.category.name} — {data.persona} view</title>
-	<meta name="description" content="Browse {data.category.name} — personalized for {data.persona} shoppers. {data.products.length} products available." />
+	<title>{data.renderMode === 'reference-preserve' ? data.category.name : `${data.category.name} — ${data.persona} view`}</title>
+	<meta name="description" content={data.renderMode === 'reference-preserve' ? `Browse ${data.category.name}. ${data.products.length} products available.` : `Browse ${data.category.name} — personalized for ${data.persona} shoppers. ${data.products.length} products available.`} />
 </svelte:head>
 
+{#if data.renderMode === 'reference-preserve' && data.kibbleCategory}
+	<KibbleCategoryReference {...data.kibbleCategory} />
+{:else}
 <div class="mx-auto max-w-7xl px-6 py-8">
 	<!-- Dev mode panel -->
 	{#if data.devMode}
@@ -412,4 +421,6 @@
 		currentLayout={aiLayout}
 		onLayoutUpdate={(newLayout) => { aiLayout = newLayout; }}
 	/>
+{/if}
+
 {/if}

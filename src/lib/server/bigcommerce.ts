@@ -97,6 +97,13 @@ interface ProductsResponse {
 	};
 }
 
+interface MerchandisingProductsResponse {
+	site: {
+		featuredProducts?: { edges: Array<{ node: BCProduct }> };
+		newestProducts?: { edges: Array<{ node: BCProduct }> };
+	};
+}
+
 interface CategoryProductsResponse {
 	site: {
 		category: {
@@ -169,6 +176,48 @@ export async function getProducts(limit = 30): Promise<BCProduct[]> {
 	return data.site.products.edges.map((e) => e.node);
 }
 
+/**
+ * BigCommerce-owned featured order. Mirrors the pinned Kibble storefront query.
+ * Verified 2026-08-12 against
+ * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/overview.md
+ * (`site.featuredProducts`) and the internal pinned bc-subscriptions reference.
+ */
+export async function getFeaturedProducts(limit = 8): Promise<BCProduct[]> {
+	const first = Math.min(Math.max(1, limit), 50);
+	const data = await query<MerchandisingProductsResponse>(`
+		query GetFeaturedProducts($first: Int!) {
+			site {
+				featuredProducts(first: $first) {
+					edges { node { ${PRODUCT_FRAGMENT} } }
+				}
+			}
+		}
+	`, { first });
+
+	return data.site.featuredProducts?.edges.map((edge) => edge.node) ?? [];
+}
+
+/**
+ * BigCommerce-owned newest order. Used only when no products are featured.
+ * Verified 2026-08-12 against
+ * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/overview.md
+ * (`site.newestProducts`); collection size stays within the documented 50-item limit.
+ */
+export async function getNewestProducts(limit = 8): Promise<BCProduct[]> {
+	const first = Math.min(Math.max(1, limit), 50);
+	const data = await query<MerchandisingProductsResponse>(`
+		query GetNewestProducts($first: Int!) {
+			site {
+				newestProducts(first: $first) {
+					edges { node { ${PRODUCT_FRAGMENT} } }
+				}
+			}
+		}
+	`, { first });
+
+	return data.site.newestProducts?.edges.map((edge) => edge.node) ?? [];
+}
+
 export async function getProductsByCategory(categoryEntityId: number): Promise<{ category: { name: string; description: string }; products: BCProduct[] }> {
 	const data = await query<CategoryProductsResponse>(`
 		query GetCategoryProducts($categoryId: Int!) {
@@ -229,6 +278,11 @@ export async function getProductByPath(path: string): Promise<BCProduct | null> 
 	return data.site.route.node;
 }
 
+/**
+ * Verified 2026-08-12 against
+ * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/products-and-catalog/products.md
+ * (`site.product(entityId: $entityId)`) and the internal pinned bc-subscriptions reference.
+ */
 export async function getProductByEntityId(entityId: number): Promise<BCProduct | null> {
 	interface SingleProductResponse {
 		site: { product: BCProduct | null };

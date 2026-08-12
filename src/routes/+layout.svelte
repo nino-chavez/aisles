@@ -6,6 +6,7 @@
 	import Footer from '$lib/components/Footer.svelte';
 	import CartDrawer from '$lib/components/CartDrawer.svelte';
 	import PicksTray from '$lib/components/PicksTray.svelte';
+	import { KibbleFooter, KibbleHeader } from '$lib/components/kibble';
 	import { pickCount } from '$lib/stores/picks.svelte';
 	import { initEmitter, destroyEmitter, getEmitter } from '$lib/signals/emitter';
 	import type { LayoutData } from './$types';
@@ -124,11 +125,30 @@
 		{@render children()}
 	{:else}
 		<div class="flex min-h-screen flex-col">
-			<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} categories={data.brand?.categories ?? {}} />
-			<main class="flex-1">
+			{#if data.renderMode === 'reference-preserve' && data.kibbleChrome}
+				<KibbleHeader
+					{brandName}
+					navItems={data.kibbleChrome.navItems}
+					statusLabel={data.kibbleChrome.statusLabel}
+					statusItems={data.kibbleChrome.statusItems}
+					copy={data.kibbleChrome.copy}
+					{cartCount}
+					{picksCount}
+					searchAction={data.kibbleChrome.searchAction}
+					onCartClick={openCart}
+					onPicksClick={() => picksOpen = true}
+				/>
+			{:else}
+				<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} categories={data.brand?.categories ?? {}} />
+			{/if}
+			<main id={data.renderMode === 'reference-preserve' ? 'kibble-main' : undefined} class="flex-1" tabindex="-1">
 				{@render children()}
 			</main>
-			<Footer {brandName} footerNote={brandFooterNote} tagline={brandTagline} />
+			{#if data.renderMode === 'reference-preserve' && data.kibbleChrome}
+				<KibbleFooter {...data.kibbleChrome.footer} />
+			{:else}
+				<Footer {brandName} footerNote={brandFooterNote} tagline={brandTagline} />
+			{/if}
 		</div>
 
 		<CartDrawer open={cartOpen} onclose={closeCart} />

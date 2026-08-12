@@ -40,8 +40,8 @@ describe('Kibble reference contract', () => {
 
 	it('requires the exact unique chrome anatomy and root-layout owner', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.chrome.required).toEqual([
-			'engine-status-bar', 'merchant-wordmark', 'catalog-navigation', 'search-control',
-			'account-control', 'cart-control', 'mobile-drawer',
+			'autorefill-status-bar', 'merchant-wordmark', 'catalog-navigation', 'search-control',
+			'account-control', 'cart-control', 'mobile-drawer', 'merchant-footer',
 		]);
 		const candidate = cloneContract();
 		(candidate.chrome.required as unknown as string[])[6] = 'cart-control';
@@ -68,8 +68,10 @@ describe('Kibble reference contract', () => {
 			{ slot: 'ranked-products', owner: 'home-recipe' },
 			{ slot: 'catalog-entry', owner: 'home-recipe' },
 			{ slot: 'service-proof', owner: 'home-recipe' },
+			{ slot: 'merchant-footer', owner: 'root-layout' },
 		]);
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.home.rootLayoutChrome).toBe('kibble.header');
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.home.rootLayoutFooter).toBe('kibble.footer');
 		expect(anatomy[0].variantId).toBe('kibble.header.responsive-chrome');
 		const header = KIBBLE_REFERENCE_CONTRACT.components.find(({ id }) => id === 'kibble.header')!;
 		expect(header.variants).toHaveLength(1);
@@ -118,5 +120,27 @@ describe('Kibble reference contract', () => {
 		const header = KIBBLE_REFERENCE_CONTRACT.components.find(({ id }) => id === 'kibble.header')!;
 		const status = header.variants[0].copyFields.find(({ field }) => field === 'statusItems[].label');
 		expect(status?.sourceClasses).toEqual(['computed-fact']);
+	});
+
+	it('registers every Preserve route renderer and its complete variant', () => {
+		const renderers = new Map(KIBBLE_REFERENCE_CONTRACT.components.map((component) => [component.implementation, component]));
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.home.implementation).toBe('KibbleHomeReference.svelte');
+		for (const recipe of [KIBBLE_REFERENCE_CONTRACT.recipes.plp, KIBBLE_REFERENCE_CONTRACT.recipes.error]) {
+			expect(renderers.has(recipe.implementation)).toBe(true);
+		}
+		const plp = renderers.get('KibbleCategoryReference.svelte')!;
+		expect(plp.variants.map(({ id }) => id)).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.plp.variantId);
+		const error = renderers.get('KibbleErrorReference.svelte')!;
+		expect(error.variants.map(({ id }) => id)).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.error.variantId);
+	});
+
+	it('rejects PLP and error recipes bound to an unregistered or wrong component variant', () => {
+		const badPlp = cloneContract();
+		(badPlp.recipes.plp as { variantId: string }).variantId = 'kibble.error.reference-shell';
+		expect(KibbleReferenceContractSchema.safeParse(badPlp).success).toBe(false);
+
+		const badError = cloneContract();
+		(badError.recipes.error as { implementation: string }).implementation = 'KibbleFooter.svelte';
+		expect(KibbleReferenceContractSchema.safeParse(badError).success).toBe(false);
 	});
 });
