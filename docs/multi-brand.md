@@ -189,7 +189,7 @@ BRAND_ID=newbrand \
 BIGCOMMERCE_STORE_HASH=your_store_hash \
 STOREFRONT_TOKEN=your_channel_token \
 BIGCOMMERCE_CHANNEL_ID=1234567 \
-DATABASE_URL=your_neon_url \
+DATABASE_URL=your_supabase_postgres_url \
 ANTHROPIC_API_KEY=your_key \
 OPENROUTER_API_KEY=your_key \
 npx tsx src/lib/server/enrichment/enrich.ts
@@ -197,9 +197,9 @@ npx tsx src/lib/server/enrichment/enrich.ts
 
 This scores all products in the channel for persona-fit and generates semantic tags. Layout generation will work without enrichment, but products will appear in default BigCommerce order and receive no persona-aware sorting.
 
-### Step 5: Create a Vercel Project
+### Step 5: Create a Cloudflare Pages Project
 
-1. In the Vercel dashboard, create a new project connected to the same Git repository
+1. In Cloudflare Pages, create a project connected to the same Git repository.
 2. Set the root directory to the repository root (not a subdirectory — this is a single-app repo)
 3. Set the following environment variables:
 
@@ -214,8 +214,7 @@ This scores all products in the channel for persona-fit and generates semantic t
 | `BIGCOMMERCE_CHANNEL_ID` | Your BC channel ID |
 | `KV_REST_API_URL` | Upstash Redis REST URL |
 | `KV_REST_API_TOKEN` | Upstash Redis REST token |
-| `DATABASE_URL` | Neon Postgres connection string |
-| `POSTGRES_URL` | Same as DATABASE_URL (alternative env name) |
+| `HYPERDRIVE` | Cloudflare Hyperdrive binding for Supabase Postgres |
 
 **For AI generation** (via Vercel AI Gateway — set automatically if using the Vercel AI Gateway integration):
 
@@ -224,7 +223,8 @@ This scores all products in the channel for persona-fit and generates semantic t
 | `AI_GATEWAY_URL` | Vercel AI Gateway endpoint |
 | `AI_GATEWAY_TOKEN` | Vercel AI Gateway token |
 
-4. Deploy. The first deploy will warm the cache on demand (first visitor per persona+category triggers generation).
+4. Bind Hyperdrive to the Pages project. Use `DATABASE_URL` only for local development and Node scripts; do not expose it to browser code.
+5. Deploy. The first deploy will warm the cache on demand (first visitor per persona+category triggers generation).
 
 5. Optionally run cache warming after deploy:
 
@@ -288,12 +288,12 @@ For dark-background brands (like Volt), ensure surface tokens provide sufficient
 
 ## Shared Infrastructure
 
-All brands share the same Upstash Redis instance and Neon Postgres database. Cache keys are namespaced:
+All brands can share the same Upstash Redis instance and Supabase Postgres database. Deployed requests use Cloudflare Hyperdrive; local scripts use `DATABASE_URL`. Cache keys are namespaced:
 
 - Layout cache: `aisles:layout:{persona}:{categorySlug}`
 - Session store: `aisles:session:{sessionId}`
-- Enrichment data: `enriched_products` table, keyed by `bc_entity_id`
+- Enrichment data: `enriched_products` table, keyed by `(brand_id, bc_entity_id)`
 
-Because category slugs and product entity IDs are global across brands (not namespaced by brand), there is a theoretical collision risk if two brands use the same category slug (e.g., both have an `accessories` category). In practice this is avoided by using brand-prefixed BC category names and ensuring category slugs don't overlap across brands.
+Product entity IDs are scoped by `brand_id` in Postgres, so two brands can use the same BigCommerce ID safely. Category slugs can still overlap in shared cache keys; use brand-prefixed category names and avoid overlapping slugs until cache keys also carry the brand.
 
-If you need strict isolation, use separate Upstash and Neon instances per brand and set the connection environment variables per Vercel project.
+If you need strict isolation, use separate Upstash and Supabase instances per brand and bind the appropriate Hyperdrive configuration per Pages project.

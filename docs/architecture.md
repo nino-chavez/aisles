@@ -39,13 +39,13 @@ Every other subsystem in Aisles — the inference loop, the cache, the Observe d
 | Framework | SvelteKit 2 / Svelte 5 (runes) |
 | Language | TypeScript 5 |
 | Styling | Tailwind CSS v4 |
-| Deployment | Vercel (adapter-vercel) |
+| Deployment | Cloudflare Pages (adapter-cloudflare) |
 | AI Models | Claude Haiku 4.5 (primary), Claude Sonnet 4.6 (fallback) |
 | AI Gateway | Vercel AI Gateway (model routing, cost tagging) |
 | AI SDK | Vercel AI SDK v6 (generateText, streamText, Output.object) |
 | Layout Cache | Upstash Redis (1-hour TTL) |
 | Signal Sessions | Upstash Redis (30-minute TTL) |
-| Enrichment Data | Neon Postgres |
+| Enrichment Data | Supabase Postgres via Cloudflare Hyperdrive |
 | Product Catalog | BigCommerce GraphQL Storefront API |
 | Embeddings | OpenRouter (openai/text-embedding-3-small) |
 
@@ -107,12 +107,12 @@ The output `PersonaInference` includes:
 The primary persona drives layout generation. `POST /api/layout` (or `/api/layout/stream` for SSE):
 
 1. Checks Redis for a cached layout matching `persona + categorySlug`
-2. On cache miss: fetches products from BigCommerce via `loadCategoryProducts`, which merges enrichment data from Neon Postgres and sorts by persona-fit score
+2. On cache miss: fetches products from BigCommerce via `loadCategoryProducts`, which merges brand-scoped enrichment data from Supabase Postgres and sorts by persona-fit score
 3. Builds a prompt via `buildLayoutPrompt` — includes the persona definition, brand voice, and product catalog with persona-fit scores and semantic tags
 4. Calls Claude Haiku 4.5 via Vercel AI Gateway with structured output (`Output.object({ schema: LayoutSchema })`)
 5. Falls back to Claude Sonnet 4.6 if Haiku fails validation
 6. Stores the result in Redis (1-hour TTL)
-7. Logs to Neon Postgres (`generation_logs` table) with model, tokens, cost, persona, category, and session ID
+7. Logs to Supabase Postgres (`generation_logs` table) with model, tokens, cost, persona, category, and session ID
 
 The AI output is a `Layout` object — a validated JSON structure defining an ordered list of sections drawn from a fixed component vocabulary. The AI selects components, orders products, and writes editorial copy. It cannot invent new components.
 
@@ -152,12 +152,12 @@ SvelteKit server load
   │    │    hit  → return cached Layout (<100ms)
   │    │    miss → loadCategoryProducts
   │    │              ├─ BigCommerce GraphQL (products)
-  │    │              └─ Neon Postgres (enrichment: personaFit, semanticTags)
+  │    │              └─ Supabase Postgres via Hyperdrive (brand-scoped enrichment)
   │    │           → buildLayoutPrompt(persona, products)
   │    │           → Claude Haiku 4.5 via AI Gateway
   │    │           → (fallback: Claude Sonnet 4.6)
   │    │           → cache to Redis
-  │    │           → log to Neon generation_logs
+  │    │           → log to Supabase generation_logs
   │    └─ return Layout JSON
   └─ render LayoutRenderer (Svelte components)
 
@@ -182,7 +182,7 @@ Before layout generation can work well, products need persona-fit scores. The en
    - Persona-fit scores (0.0–1.0 for each of the four personas)
    - Semantic tags for intent-based discovery
 3. Generates embeddings via OpenRouter (text-embedding-3-small)
-4. Upserts results into the `enriched_products` table in Neon Postgres
+4. Upserts results into the `enriched_products` table in Supabase Postgres by `(brand_id, bc_entity_id)`
 
 The `loadCategoryProducts` function merges these scores at request time, sorting products by the detected persona's fit score before the AI sees them. High-fit products appear first in the prompt and tend to get hero or featured placement.
 

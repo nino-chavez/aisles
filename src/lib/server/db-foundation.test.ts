@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { getRequestDb } from './db';
 import { requireDatabaseUrl } from './db-policy';
 
 const migration = readFileSync(
@@ -16,6 +17,21 @@ describe('database foundation', () => {
 	it('allows the explicit optional storefront fallback', () => {
 		expect(requireDatabaseUrl(undefined, 'optional')).toBeNull();
 		expect(requireDatabaseUrl('postgresql://example')).toBe('postgresql://example');
+	});
+
+	it('does not reuse a client across request contexts', () => {
+		let created = 0;
+		const create = (connectionString: string) => ({ connectionString, id: ++created });
+		const firstRequest = {};
+		const secondRequest = {};
+
+		expect(getRequestDb(firstRequest, 'postgresql://hyperdrive', create)).toBe(
+			getRequestDb(firstRequest, 'postgresql://hyperdrive', create),
+		);
+		expect(getRequestDb(secondRequest, 'postgresql://hyperdrive', create)).not.toBe(
+			getRequestDb(firstRequest, 'postgresql://hyperdrive', create),
+		);
+		expect(created).toBe(2);
 	});
 
 	it('scopes product and session identities by brand', () => {

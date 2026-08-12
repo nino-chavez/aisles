@@ -15,20 +15,24 @@ const SESSION_COOKIE = 'aisles_session';
  * PersonaInference so the client can react to persona shifts.
  */
 export const POST: RequestHandler = async ({ request, cookies }) => {
+	let events: unknown;
 	try {
-		const { events } = await request.json();
+		({ events } = await request.json());
+	} catch {
+		return json({ error: 'Invalid request body' }, { status: 400 });
+	}
 
-		if (!Array.isArray(events) || events.length === 0) {
-			return json({ error: 'Expected non-empty events array' }, { status: 400 });
+	if (!Array.isArray(events) || events.length === 0) {
+		return json({ error: 'Expected non-empty events array' }, { status: 400 });
+	}
+
+	for (const event of events) {
+		if (!event || typeof event !== 'object' || !('type' in event) || !('source' in event) || !('timestamp' in event)) {
+			return json({ error: 'Invalid event: missing type, source, or timestamp' }, { status: 400 });
 		}
+	}
 
-		// Validate basic event shape
-		for (const event of events) {
-			if (!event.type || !event.source || !event.timestamp) {
-				return json({ error: 'Invalid event: missing type, source, or timestamp' }, { status: 400 });
-			}
-		}
-
+	try {
 		// Get session — if no session cookie exists, acknowledge but can't infer
 		const sessionId = cookies.get(SESSION_COOKIE);
 		if (!sessionId || !(await hasSession(sessionId))) {
@@ -54,19 +58,18 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		// Persist to Redis
 		await persistSession(store);
 
-		// On conversion, finalize the outcome for calibration/fitting.
-		// Fire-and-forget — doesn't block the response.
+		// On conversion, finalize before reporting success. Operational telemetry
+		// must not disappear behind a successful signal response.
 		if (hasConversionSignal) {
-			finalizeSession(store, { converted: true }).catch((err) => {
-				console.warn('[signals] finalize on conversion failed:', err);
-			});
+			await finalizeSession(store, { converted: true });
 		}
 
 		return json({
 			received: events.length,
 			inference,
 		});
-	} catch {
-		return json({ error: 'Invalid request body' }, { status: 400 });
+	} catch (error) {
+		console.error('[signals] operational failure:', error);
+		return json({ error: 'Failed to process signals' }, { status: 500 });
 	}
 };

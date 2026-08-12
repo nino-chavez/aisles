@@ -50,7 +50,7 @@ OPENROUTER_API_KEY=sk-or-...
 
 **Local development without Redis**: The application runs without Redis — sessions are stored in-memory, and layouts are regenerated on every request (no caching). This is fine for development but means cold-start times are always 2–15 seconds.
 
-**Database availability:** the storefront still renders without Postgres. Enrichment, search, and merchandising-rule reads fall back to BigCommerce/default behavior. `/api/observe/*` and session outcome finalization return an error when `DATABASE_URL` is missing or unavailable, because empty telemetry is worse than a visible failure.
+**Database availability:** ordinary catalog pages can still render without Postgres: enrichment and search fall back to BigCommerce/default behavior, and merchandising rules return no overrides. Generated-layout and refinement APIs, `/api/observe/*`, conversion outcome finalization, and generation logging require Postgres. They return an error when it is missing or unavailable, because dark telemetry must not masquerade as success.
 
 ## Database migrations
 
@@ -61,7 +61,10 @@ Cloudflare production requests take their connection string from the `HYPERDRIVE
 ```bash
 supabase migration new descriptive_change
 supabase db push
+npx tsx scripts/verify-supabase-db.ts
 ```
+
+Run the smoke command after pushing migrations to a clean or linked project. It proves that two brands can share one `bc_entity_id`, writes and reads generation logs and session outcomes, then deletes only the generated smoke rows. It uses direct Postgres and intentionally does not test the public Data API.
 
 ---
 

@@ -1,26 +1,42 @@
 /**
  * Postgres client for server-side use.
  *
- * Cloudflare requests initialize this from the Hyperdrive binding in the
- * server hook. Local development and Node scripts use DATABASE_URL directly.
+ * Cloudflare requests get a fresh Hyperdrive client per request. Local
+ * development uses one process-local client from DATABASE_URL.
  */
 
 import postgres, { type Sql } from 'postgres';
 import { env } from '$env/dynamic/private';
+import { getRequestEvent } from '$app/server';
 import { requireDatabaseUrl } from './db-policy';
 
-let _sql: Sql | null = null;
-let configuredUrl: string | null = null;
+let localSql: Sql | null = null;
 
-export function initDb(connectionString: string | undefined): void {
-	if (!connectionString || configuredUrl === connectionString) return;
-	_sql = postgres(connectionString, { max: 5, idle_timeout: 60 });
-	configuredUrl = connectionString;
+export function createDb(connectionString: string): Sql {
+	return postgres(connectionString, { max: 5, idle_timeout: 60 });
 }
 
-export function getDb() {
-	if (!_sql) {
-		initDb(requireDatabaseUrl(env.DATABASE_URL)!);
+/** Keep one client inside a request, never across Cloudflare invocations. */
+export function getRequestDb<T>(
+	locals: { database?: T },
+	connectionString: string,
+	create: (url: string) => T,
+): T {
+	if (!locals.database) {
+		locals.database = create(connectionString);
 	}
-	return _sql!;
+	return locals.database;
+}
+
+function getLocalDb(): Sql {
+	if (!localSql) localSql = createDb(requireDatabaseUrl(env.DATABASE_URL)!);
+	return localSql;
+}
+
+export function getDb(): Sql {
+	const event = getRequestEvent();
+	const hyperdriveUrl = event.platform?.env?.HYPERDRIVE?.connectionString;
+	return hyperdriveUrl
+		? getRequestDb(event.locals, hyperdriveUrl, createDb)
+		: getLocalDb();
 }
