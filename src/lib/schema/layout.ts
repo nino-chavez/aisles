@@ -49,7 +49,11 @@ const CategoryHeaderSection = z.object({
 	}),
 });
 
-export const SectionSchema = z.discriminatedUnion('component', [
+// z.union rather than z.discriminatedUnion: the discriminated form emits
+// JSON-schema oneOf, which Anthropic structured outputs reject; a plain
+// union emits anyOf, which is supported. Validation semantics are the same
+// for these shapes.
+export const SectionSchema = z.union([
 	EditorialHeaderSection,
 	HeroProductSection,
 	ProductGridSection,
