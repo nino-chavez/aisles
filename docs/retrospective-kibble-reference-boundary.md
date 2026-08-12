@@ -5,6 +5,9 @@
 **Scope:** `aisles`, `bealls-aisles`, and the Kibble reference storefront
 
 **Outcome:** Architecture and product claims require amendment
+
+**Baseline reviewed:** `aisles` `0067f40`; `bealls-aisles` `48cb33f`
+
 **Follow-up plan:** [`organization-brand-autonomy-plan.md`](./organization-brand-autonomy-plan.md)
 
 ## Conclusion
@@ -212,8 +215,9 @@ or by construction.
 - State that the repository is an example merchant-family implementation.
 - Remove the claim that tokens and fonts eliminate component-level work for an
   external merchant.
-- Represent Bealls, Bealls Florida, and Home Centric as separate brand contracts
-  under one organization.
+- Record Bealls, Bealls Florida, and Home Centric as separate configurations
+  under one organization, then give each an explicit design contract during
+  preserve-mode adoption.
 - Translate current surface latitude into explicit policies before changing
   behavior.
 
@@ -244,7 +248,9 @@ The conclusion should be revisited if any of the following evidence appears:
 - Product documentation that clearly limited “any brand” to a single merchant
   organization before Kibble was planned
 
-The inspected repositories contain none of those mechanisms today.
+The reviewed baseline commits contained none of those mechanisms. Corrective
+work after those commits should be measured against the linked plan rather than
+read back into this retrospective.
 
 ## Lasting lesson
 
