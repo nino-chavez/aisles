@@ -1,0 +1,250 @@
+# Retrospective: Kibble Exposed the Missing Merchant Boundary
+
+**Date:** 2026-08-12  
+**Scope:** `aisles`, `bealls-aisles`, and the Kibble reference storefront  
+**Outcome:** Architecture and product claims require amendment  
+**Follow-up plan:** [`organization-brand-autonomy-plan.md`](./organization-brand-autonomy-plan.md)
+
+## Conclusion
+
+Kibble did not expose a random styling defect. It exposed a missing product
+boundary.
+
+`bealls-aisles` grew into an organization-specific implementation for a family
+of related retail brands. Its configuration model was then interpreted as a
+general merchant-onboarding model. The generic `aisles` repository preserved
+that assumption and treated Kibble as another theme, catalog, and prompt.
+
+That was enough to produce correct pet products and plausible Kibble copy. It
+was not enough to preserve Kibble's storefront. The implementation had no
+runtime representation of Kibble's component anatomy, page recipes, responsive
+rules, or semantic design constraints.
+
+The correction is not “match the CSS more closely.” Aisles needs an explicit
+organization boundary, a versioned design contract per brand, and a merchant-
+controlled policy defining what the engine may change.
+
+## What “any brand” meant
+
+The operator clarified that the intended Bealls claim was narrower than the
+phrase later suggested:
+
+```text
+one merchant organization
+├── Bealls
+├── Bealls Florida
+└── Home Centric
+```
+
+Those brands share ownership, commerce infrastructure, and organization-level
+patterns. They do not prove that the same runtime config can absorb an unrelated
+merchant such as Kibble, Nike, or Walmart while retaining its existing site.
+
+The repositories did not encode or consistently state that boundary. Both used
+language such as “same engine can be any brand,” “a brand is configuration,” and
+“no component-level changes.” A cold reader could reasonably understand those
+statements as cross-merchant portability.
+
+## What happened
+
+The relevant sequence is visible in repository history.
+
+1. The original storefront extracted Haven-specific values into a multi-brand
+   configuration (`bealls-aisles` history, `69bcf63`).
+2. The same codebase was specialized for the Bealls family and received
+   Bealls-specific components, price language, incentives, zones, and chrome.
+3. Haven, Volt, and Ember were later removed from that implementation
+   (`bedf148`, `564eb28`), reinforcing that it had become a merchant-family
+   storefront rather than a universal reference-preservation platform.
+4. The public generic `aisles` repository retained the earlier multi-brand
+   story and generic renderer.
+5. Kibble was added as palette, fonts, copy, category mapping, catalog context,
+   and prompt guidance (`09e074b`).
+6. Generic sections were ported from `bealls-aisles` (`168a41b`), and the zone
+   foundation followed (`10394eb`).
+7. The homepage was then placed on the whole-page generation path (`cab292b`).
+
+The result was deterministic at the architecture level: Kibble data entered a
+generic Aisles renderer, so the page looked like generic Aisles.
+
+## Intended and implemented contracts
+
+```text
+Needed
+reference repository
+  → versioned design contract
+  → brand-native components and page recipes
+  → Aisles decisions inside approved zones
+
+Implemented
+manual brand config and catalog
+  → shared prompt and schema
+  → generic component renderer
+  → model-selected whole-page composition
+```
+
+The original Kibble release goal concentrated on standalone catalog,
+enrichment, signals, data isolation, database access, observability, and
+deployment. Those areas were real work and remain valid. Visual parity was not
+an acceptance gate, so completing the written plan did not establish the
+stronger reference-preservation capability.
+
+## Contributing decisions
+
+### The organization boundary stayed implicit
+
+`bealls-aisles` described a family of brands but also claimed the same engine
+could be any brand. No `organizationId` or organization policy distinguished
+intra-merchant configuration from integrating another merchant's design
+system.
+
+**Consequence:** A merchant-family proof was generalized into a platform claim.
+
+### Brand configuration represented only a slice of visual identity
+
+The runtime config carries colors, fonts, categories, copy, prompts, and some
+commercial settings. It does not carry a full type and spacing scale, radii,
+shadows, responsive chrome, component anatomy, page recipes, or semantic rules.
+
+The Kibble source includes those rules. Aisles did not ingest it. Human
+transcription reduced the reference to what the existing config could hold.
+
+**Consequence:** Kibble's colors and words survived; its design grammar did not.
+
+### The generic component vocabulary became the design system
+
+The model can choose only registered components, which is a useful structural
+safety guarantee. But those registered components belong to Aisles's shared
+renderer. Schema validity says the output can render. It does not say the output
+belongs to Kibble.
+
+**Consequence:** A valid result could still be visually wrong for the merchant.
+
+### The zone foundation and the production route diverged
+
+The zone system models stable slots and fallbacks. The generic Aisles production
+routes do not use it. The homepage passes a model-selected `sections[]` array to
+the whole-page renderer instead.
+
+**Consequence:** The narrower mechanism that could preserve a merchant scaffold
+was present but did not govern the page Kibble shipped.
+
+### Prompt guidance carried authority it could not enforce
+
+Kibble-specific prompt text changes product and content guidance. It does not
+change the component registry, page recipe, header, product-card contract, or
+responsive layout.
+
+**Consequence:** The model could sound like Kibble while remaining structurally
+generic.
+
+### Release checks stopped at functional validity
+
+The implementation passed type checks, builds, focused tests, security review,
+and deployment checks. There was no executable comparison against the approved
+Kibble storefront at desktop and mobile widths.
+
+**Consequence:** Functional success was reported separately from a visual
+capability that had never been tested.
+
+## What worked
+
+This retrospective does not invalidate the complete Kibble effort.
+
+- Catalog and pet-specific enrichment became brand-aware.
+- Kibble signal rules were gated from other brands.
+- Database records and uniqueness became brand-scoped.
+- Runtime database access, RLS, and role privileges were hardened.
+- Synthetic activity was separated from real cache and learning paths.
+- Observe received server-side access control.
+- Paid enrichment publication became atomic and auditable.
+- The storefront deployed with real Kibble catalog data.
+
+Those changes establish a stronger operational base. They do not establish
+visual preservation.
+
+## What failed
+
+The failed acceptance case was:
+
+> Given an existing storefront reference, apply Aisles while retaining the
+> merchant's visual and interaction system.
+
+The repository had no artifact that represented that promise. There was no
+reference manifest, component map, deterministic page recipe, autonomy policy,
+or parity gate. The system therefore could not satisfy the promise by accident
+or by construction.
+
+## Corrective decisions
+
+1. **Organization and brand become separate concepts.** Related brands may
+   share organization policy without sharing visual contracts.
+2. **Reference integration becomes a named onboarding tier.** Theme config is
+   not presented as reference preservation.
+3. **A design contract becomes executable.** Tokens, chrome, components,
+   recipes, responsive behavior, variants, and fallbacks are versioned inputs.
+4. **Autonomy is an allow-list.** The merchant controls authority by surface
+   and zone.
+5. **Decision mechanism is a separate field.** Fixed data, deterministic rules,
+   and models can operate inside the same capability envelope.
+6. **Models return zone decisions, not arbitrary UI.** Forbidden fields are
+   absent from the schema.
+7. **Fallbacks remain merchant-native.** A failed model does not reveal a
+   generic Aisles shell.
+8. **Parity is a release gate.** Desktop and mobile component, token, and
+   screenshot checks accompany human review.
+
+## Repository amendments
+
+### `aisles`
+
+- Narrow cross-brand claims in `README.md`, `docs/product-vision.md`,
+  `docs/multi-brand.md`, and `docs/architecture.md`.
+- Record that the standalone Kibble plan did not prove visual parity.
+- Make the existing zone foundation executable in production routes.
+- Add organization, design-contract, and autonomy-policy types.
+- Treat the current whole-page renderer as an explicit compatibility mode.
+
+### `bealls-aisles`
+
+- State that the repository is an example merchant-family implementation.
+- Remove the claim that tokens and fonts eliminate component-level work for an
+  external merchant.
+- Represent Bealls, Bealls Florida, and Home Centric as separate brand contracts
+  under one organization.
+- Translate current surface latitude into explicit policies before changing
+  behavior.
+
+## Evidence reviewed
+
+The conclusion was re-derived from current source and history, including:
+
+- Both repositories' READMEs and multi-brand guides
+- `BrandConfig` and runtime theme injection in both repositories
+- Aisles layout schema, prompt, renderer, routes, zones, and resolver
+- Kibble's reference tokens, header, homepage composition, and brand kit
+- Commit history for multi-brand extraction, Bealls specialization, Kibble
+  configuration, section ports, zone ports, and homepage generation
+- The supplied side-by-side storefront screenshot
+
+No remote deployment was changed during this retrospective. Current live
+behavior remains separate from the local source findings.
+
+## What would change this conclusion
+
+The conclusion should be revisited if any of the following evidence appears:
+
+- A runtime-consumed Kibble reference contract predating the current config
+- Production routes that render Kibble-native recipes independently of the
+  generic whole-page renderer
+- Desktop and mobile parity tests that compare the approved reference with the
+  generated site and already block release
+- Product documentation that clearly limited “any brand” to a single merchant
+  organization before Kibble was planned
+
+The inspected repositories contain none of those mechanisms today.
+
+## Lasting lesson
+
+A schema can prove that generated UI is valid without proving that it belongs
+to the merchant. Future Aisles work must protect both properties.
