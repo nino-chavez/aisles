@@ -8,7 +8,7 @@
 
 Aisles is an AI-native headless storefront platform that personalizes the shopping experience in real time. A persona inference engine reads client signals, computes a probability distribution across four shopper archetypes, and feeds that distribution directly into AI layout generation. The result is a category page that reorganizes itself for each visitor — editorially for a browser, functionally for a buyer.
 
-Three brands run on a single codebase, differentiated entirely by configuration.
+Current configurations run on a single codebase and select the existing generic renderer's inputs through configuration. This is not a reference-preservation architecture for unrelated merchants.
 
 ---
 
@@ -29,6 +29,8 @@ This is the invariant that makes AI-generated UI work in production rather than 
 3. **Fallback cascade**: Haiku → Sonnet → static Svelte layouts guarantee a valid S always exists, even under model failure
 
 Every other subsystem in Aisles — the inference loop, the cache, the Observe dashboard, the signal pipeline — depends on this invariant holding. See `docs/decisions/004-vocabulary-constraint-invariant.md` for the full rationale, the operational consequences (schema validation success rate as a health metric, vocabulary evolution process, cache invalidation), and the trade-off between vocabulary size and invariant strength.
+
+The invariant proves structural validity inside Aisles's current component vocabulary. It does not prove fidelity to a merchant's visual system, page recipes, or responsive behavior. The planned organization/brand boundary and zone policy model will make those constraints explicit; it is not wired into production routes today. See [the autonomy plan](organization-brand-autonomy-plan.md) and [the Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
 
 ---
 
@@ -220,7 +222,7 @@ In brief: `BRAND_ID` (or `VITE_BRAND_ID` in the browser context) selects the act
 - LLM prompt context (store name, description, product domain, persona definitions, voice guidance)
 - Category slug → BigCommerce category name mapping
 
-The codebase carries multiple brand configurations. Each deployed brand uses a separate Cloudflare Pages project from the same Git repository, with a different `BRAND_ID` environment variable.
+The codebase carries multiple generic-renderer configurations. Each deployed brand uses a separate Cloudflare Pages project from the same Git repository, with a different `BRAND_ID` environment variable. This deployment selection does not create an organization policy, reference contract, or merchant-facing autonomy control.
 
 ---
 

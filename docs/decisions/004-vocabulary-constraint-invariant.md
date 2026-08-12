@@ -69,7 +69,7 @@ The Vercel AI SDK's `generateObject` and `streamObject` functions pass the Zod s
 
 This dramatically raises the probability that the LLM's output is V-compliant. Claude Haiku 4.5 with a well-formed schema produces valid outputs at a high rate (currently not measured; see "Operational Consequences" below). Claude Sonnet 4.6 is more capable and produces valid outputs at a higher rate.
 
-Structured output does not eliminate invalid outputs entirely. The schema constrains the *structure* but not the *semantic correctness*. A layout can be schema-valid but reference a product ID that doesn't exist, or have an inconsistent reasoning string, or select components that don't make sense for the persona. Layer 2 handles structural validity; Layer 3 handles the remaining failure modes.
+Structured output does not eliminate invalid outputs entirely. The schema constrains the *structure* but not the *semantic correctness*. A layout can be schema-valid but reference a product ID that doesn't exist, have an inconsistent reasoning string, or select components that don't make sense for the persona. It can also be structurally valid in Aisles's shared vocabulary while failing to preserve a merchant's visual or interaction system. Layer 2 handles structural validity; Layer 3 handles the current runtime failure modes. Reference preservation requires the planned versioned design contract and parity gates described in the [organization, brand, and composition autonomy plan](../organization-brand-autonomy-plan.md) and [Kibble boundary retrospective](../retrospective-kibble-reference-boundary.md).
 
 ### Layer 3: Fallback Cascade Guarantees S ∈ V
 
@@ -143,7 +143,7 @@ Every expansion should be justified by a specific merchant or shopper need, not 
 
 ### Visual Regression Across V × Persona
 
-Schema validity is necessary but not sufficient. A component can be schema-valid but visually broken — a CSS regression, a prop interaction bug, a responsive breakpoint failure. The invariant covers structural validity; visual regression covers rendering validity.
+Schema validity is necessary but not sufficient. A component can be schema-valid but visually broken — a CSS regression, a prop interaction bug, a responsive breakpoint failure — or valid yet wrong for an external merchant's reference storefront. The invariant covers structural validity; visual regression covers rendering validity. Reference-specific desktop and mobile parity gates are planned, not present.
 
 The visual regression suite should render:
 

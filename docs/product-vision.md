@@ -35,7 +35,7 @@ The recoverable wrong answer is always preferable to the delayed right answer. T
 
 ## Three-Brand Demo
 
-Aisles ships with three built-in brands that prove the architecture is vertical-agnostic. The same inference rules, layout engine, and AI pipeline serve furniture, electronics, and outdoor goods without modification.
+Aisles ships with three built-in configurations that demonstrate the current generic renderer across furniture, electronics, and outdoor goods. The same inference rules, layout engine, and AI pipeline serve those configurations without modification.
 
 | Brand | Domain | Positioning |
 |---|---|---|
@@ -43,9 +43,9 @@ Aisles ships with three built-in brands that prove the architecture is vertical-
 | **Volt** | Consumer audio & electronics | Technical, spec-forward. Emphasizes performance data and compatibility. |
 | **Ember** | Outdoor lifestyle & fire | Rugged, seasonal. Emphasizes activity fit and weather-appropriate bundling. |
 
-The brands share no product data, no BC channel, and no visual identity. They do share the inference engine, the layout component vocabulary, the enrichment pipeline, and the prompt construction logic. A brand is a configuration file — `src/lib/brand/config.ts` — not a fork.
+The configurations share no product data, no BC channel, and no visual identity. They do share the inference engine, the layout component vocabulary, the enrichment pipeline, and the prompt construction logic. `src/lib/brand/config.ts` is current renderer configuration, not a complete merchant design contract.
 
-This is intentional positioning for the BC marketplace app: a merchant installs Aisles once and configures their brand. No code changes required.
+This supports reuse for brands designed around the shared renderer. It does not establish that an unrelated merchant can keep an existing storefront through theme configuration alone. Reference preservation and merchant-configurable composition autonomy are planned work, described in the [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md) and its [Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
 
 ---
 

@@ -6,6 +6,14 @@ scenario fixtures, protected Observe surface, and Cloudflare Pages release are
 live. Weight fitting still waits for real labeled shopper sessions by design.
 **Audience:** whoever picks this up next, including a future session with no memory of today.
 
+**Limit:** this completed standalone work established data, security, enrichment,
+signals, and deployment boundaries. It did not establish desktop or mobile visual
+parity with Kibble's reference storefront. That reference-preservation work and
+merchant-controlled composition autonomy are planned in the
+[organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md);
+the reason for the boundary is recorded in the
+[Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
+
 ## Recommendation
 
 Give Kibble its own **Supabase Postgres** project, rebuild the product-enrichment

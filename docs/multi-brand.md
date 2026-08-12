@@ -6,7 +6,9 @@
 
 ## Overview
 
-A single Aisles codebase serves multiple brands. Brand selection is controlled by the `BRAND_ID` environment variable. Each deployed brand gets its own Cloudflare Pages project, BigCommerce channel, and visual identity, but shares all application code, AI logic, and infrastructure patterns.
+A single Aisles codebase serves multiple current configurations. Brand selection is controlled by the `BRAND_ID` environment variable. Each deployed configuration gets its own Cloudflare Pages project, BigCommerce channel, and visual inputs, but shares the current application code, AI logic, and infrastructure patterns.
+
+This guide describes configuration for Aisles's existing generic renderer. It does not onboard an unrelated merchant's reference storefront. Related brands inside an integrated merchant organization can reuse shared commerce and composition patterns; preserving an external merchant's existing storefront requires a versioned design contract, merchant-native recipes, and parity checks that do not exist yet. See the [canonical autonomy plan](organization-brand-autonomy-plan.md) and [Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
 
 Kibble is the active deployed brand. Haven, Volt, and Ember remain reference configurations in the same codebase.
 
@@ -88,13 +90,13 @@ interface BrandConfig {
 }
 ```
 
-The `theme` object is injected as CSS custom properties on `:root` at page load, so brand colors and fonts apply globally without any component-level changes.
+The `theme` object is injected as CSS custom properties on `:root` at page load, so its colors and fonts apply globally to the existing shared components. It does not represent component anatomy, page recipes, responsive chrome, or other requirements for preserving an external reference storefront.
 
 The `prompt` fields are injected into every AI call — layout generation, refinement, and enrichment — so the AI produces brand-appropriate copy and persona definitions that match the product domain.
 
 ---
 
-## How to Add a New Brand
+## How to Add a Current Generic-Renderer Configuration
 
 ### Step 1: Create the BigCommerce Channel
 

@@ -20,7 +20,7 @@ Every category page is generated at request time. Aisles reads the signals behin
 
 The result is a store that reorganizes itself for each visitor — **editorial for a browser, functional for a buyer** — while the operator can see exactly which signals and which rules produced it.
 
-Four brands run on this single codebase, separated only by configuration. The seven Kibble subscription rules are gated to `BRAND_ID=kibble`; the other brands continue to use the original 31 rules.
+Four current configurations run on this single codebase. The seven Kibble subscription rules are gated to `BRAND_ID=kibble`; the other brands continue to use the original 31 rules. This is reuse inside the current generic renderer, not evidence that an unrelated merchant's reference storefront can be preserved by configuration alone.
 
 ---
 
@@ -87,9 +87,11 @@ The AI chooses components, orders products, and writes copy. It **cannot invent 
 
 ---
 
-## Four brand configurations, one codebase
+## Four current configurations, one codebase
 
-Aisles carries four brand configurations that prove the engine is vertical-agnostic. They share no product data and no visual identity — only the inference engine, the component vocabulary, and the prompt pipeline. A brand is configuration in `src/lib/brand/config.ts`, not a fork; some brands also carry generated brand-kit JSON under `brands/`.
+Aisles carries four configurations across several retail domains. They share the inference engine, component vocabulary, and prompt pipeline while selecting catalog and visual inputs at runtime. `src/lib/brand/config.ts` configures the current generic renderer; it is not a complete external-merchant onboarding contract or a substitute for merchant-native components and page recipes.
+
+Related-brand reuse inside one integrated merchant organization is a separate case from preserving an unrelated merchant's existing reference storefront. The latter is planned, not implemented: see the [organization, brand, and composition autonomy plan](docs/organization-brand-autonomy-plan.md) and the [Kibble boundary retrospective](docs/retrospective-kibble-reference-boundary.md).
 
 | Brand | Domain | Voice |
 |---|---|---|
@@ -163,7 +165,7 @@ This is the other half of the product's design principle: **invisible to the sho
 src/lib/schema/layout.ts        The invariant — the Zod contract between AI and renderer
 src/lib/signals/inference.ts    Inference engine — 38 weighted rules → persona vector
 src/lib/signals/store.ts        Session store — accumulates signals into an inference context
-src/lib/brand/config.ts         All brand configuration (the only file to edit per brand)
+src/lib/brand/config.ts         Current generic-renderer brand configuration (not the only external-onboarding input)
 src/lib/server/layout-prompt.ts Prompt construction from persona + catalog
 src/lib/server/enrichment/      Offline pipeline — scores products for persona fit
 src/routes/category/[slug]/     The AI-generated category page
