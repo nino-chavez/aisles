@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { streamText, Output } from 'ai';
 import { model as anthropicModel, PRIMARY_MODEL } from '$lib/server/model';
-import { LayoutSchema, type Layout } from '$lib/schema/layout';
+import { layoutSchemaFor, type Layout } from '$lib/schema/layout';
 import { buildLayoutPrompt, type IncentivesPromptContext } from '$lib/server/layout-prompt';
 import { loadCategoryProducts } from '$lib/server/catalog';
 import { getCachedLayout, cacheLayout, hashPicks } from '$lib/server/cache';
@@ -79,7 +79,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		// Haiku primary, Sonnet fallback — handled by AI Gateway
 		const stream = streamText({
 			model: anthropicModel(),
-			output: Output.object({ schema: LayoutSchema }),
+			output: Output.object({ schema: layoutSchemaFor(persona) }),
 			prompt,
 		});
 

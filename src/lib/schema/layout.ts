@@ -204,23 +204,86 @@ export const SectionSchema = z.union([
 
 export type Section = z.infer<typeof SectionSchema>;
 
-export const LayoutSchema = z.object({
+/**
+ * Per-persona vocabularies. The full eleven-member union compiles to a grammar
+ * Anthropic's structured outputs reject outright ("the compiled grammar is too
+ * large"), so generation requests carry only the components that persona is
+ * allowed to use. That constraint turns out to be the right design anyway: the
+ * density rules the prompt states become structural, because a persona cannot
+ * emit a component it was never handed.
+ *
+ * Every list keeps at least one browsing component, since the layout-level
+ * refinement below requires one.
+ */
+const PERSONA_SECTIONS = {
+	gatherer: [
+		EditorialHeaderSection,
+		EditorialHeroSection,
+		ProductGridSection,
+		ProductCarouselSection,
+		CategoryTileGridSection,
+		ClusterChipRowSection,
+	],
+	hunter: [
+		CategoryHeaderSection,
+		LifestylePriceHeroSection,
+		ProductGridSection,
+		ProductCarouselSection,
+		ServiceCalloutsGridSection,
+	],
+	researcher: [
+		CategoryHeaderSection,
+		EditorialHeaderSection,
+		HeroProductSection,
+		ProductGridSection,
+		ImageGallerySection,
+	],
+	gifter: [
+		EditorialHeaderSection,
+		LifestylePriceHeroSection,
+		ProductGridSection,
+		CategoryTileGridSection,
+		ClusterChipRowSection,
+		ServiceCalloutsGridSection,
+	],
+} as const;
+
+export type PersonaId = keyof typeof PERSONA_SECTIONS;
+
+function layoutSchema(sections: z.ZodType<Section>) {
+	return z.object({
 	persona: z.enum(['gatherer', 'hunter', 'researcher', 'gifter']).describe('Detected persona'),
 	reasoning: z.string().describe('Why this layout was chosen (1-2 sentences)'),
 	sections: z
-		.array(SectionSchema)
+		.array(sections)
 		// Anthropic structured outputs reject minItems/maxItems in the JSON
 		// schema; refinements keep these bounds as client-side validation
 		// without entering the wire schema.
-		.refine((s) => s.length >= 2 && s.length <= 8, { message: 'Between 2 and 8 sections' })
-		.refine((s) => s.every((section, i) => i === 0 || section.component !== s[i - 1].component), {
+		.refine((s: Section[]) => s.length >= 2 && s.length <= 8, { message: 'Between 2 and 8 sections' })
+		.refine((s: Section[]) => s.every((section, i) => i === 0 || section.component !== s[i - 1].component), {
 			message: 'No two adjacent sections may use the same component',
 		})
-		.refine((s) => s.some((section) => BROWSING_COMPONENTS.has(section.component)), {
+		.refine((s: Section[]) => s.some((section) => BROWSING_COMPONENTS.has(section.component)), {
 			message: 'Layout must include at least one browsing section: product-grid, product-carousel, or category-tile-grid',
 		})
 		.describe('Ordered UI sections (2-8, varied, must include a browsing section)'),
 	productOrder: z.array(z.string()).describe('Product IDs in display order'),
-});
+	});
+}
 
-export type Layout = z.infer<typeof LayoutSchema>;
+/** Full vocabulary — validates any layout, including cached ones. */
+export const LayoutSchema = layoutSchema(SectionSchema);
+
+/**
+ * The schema to send with a generation request. Narrower than `LayoutSchema`
+ * on purpose: a smaller grammar, and a persona that cannot name a component
+ * outside its own density rules.
+ */
+export function layoutSchemaFor(persona: string) {
+	const sections = PERSONA_SECTIONS[persona as PersonaId];
+	return sections
+		? layoutSchema(z.union(sections as unknown as [z.ZodType<Section>, z.ZodType<Section>]))
+		: LayoutSchema;
+}
+
+export type Layout = z.infer<ReturnType<typeof layoutSchema>>;

@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { generateText, Output } from 'ai';
 import { model, withModelFallback } from '$lib/server/model';
-import { LayoutSchema } from '$lib/schema/layout';
+import { layoutSchemaFor } from '$lib/schema/layout';
 import { buildLayoutPrompt, type IncentivesPromptContext } from '$lib/server/layout-prompt';
 import { loadCategoryProducts } from '$lib/server/catalog';
 import { getCachedLayout, cacheLayout, hashPicks } from '$lib/server/cache';
@@ -78,7 +78,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const { result: aiResult, modelId } = await withModelFallback((id) =>
 			generateText({
 				model: model(id),
-				output: Output.object({ schema: LayoutSchema }),
+				output: Output.object({ schema: layoutSchemaFor(persona) }),
 				prompt,
 			})
 		);

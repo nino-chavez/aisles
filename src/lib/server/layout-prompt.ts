@@ -6,7 +6,7 @@
  * keeps serving compositions generated under the old rules until the TTL
  * happens to expire.
  */
-export const PROMPT_VERSION = 'v2';
+export const PROMPT_VERSION = 'v3';
 
 /**
  * Build the system prompt for layout generation.
