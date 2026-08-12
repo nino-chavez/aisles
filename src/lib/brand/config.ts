@@ -13,6 +13,13 @@ export interface BrandConfig {
 	domain: string;
 	footerNote: string;
 
+	/**
+	 * Operating mode. `content` brands have no online catalog, so surfaces that
+	 * assume products (PDP, and the merchandised half of home) resolve to
+	 * nothing rather than to an empty grid. Defaults to `storefront`.
+	 */
+	mode?: 'storefront' | 'content';
+
 	/** BigCommerce channel config */
 	bc: {
 		channelId: number;
