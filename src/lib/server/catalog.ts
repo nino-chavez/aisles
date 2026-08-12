@@ -9,6 +9,7 @@
 import { getCategories, getProductsByCategory, customFieldsToRecord, type BCProduct } from './bigcommerce';
 import { getEnrichmentByEntityIds } from './enrichment/query';
 import { getBrand } from '$lib/brand/config';
+import { MAX_LAYOUT_PRODUCTS } from './layout-prompt';
 import type { Product } from '$lib/types';
 
 /** Category map — driven by the active brand config */
@@ -39,10 +40,57 @@ export async function loadCategoryProducts(
 	const { products: bcProducts } = await getProductsByCategory(bcCategory.entityId);
 	const products = bcProducts.map(transformProduct);
 
+	const enrichedProducts = await enrichAndSortByFit(products, persona);
+
+	return { products: enrichedProducts, categoryName: catConfig.displayName };
+}
+
+/**
+ * Load a cross-category product set for the generated home page.
+ * Draws breadth across every configured category rather than depth from
+ * one — a homepage showing a single category's products isn't a homepage.
+ * Capped at MAX_LAYOUT_PRODUCTS (shared with the prompt builder) so a home
+ * surface with many categories doesn't overfetch past what the prompt uses.
+ *
+ * Returns null if the brand has no configured categories.
+ */
+export async function loadHomeProducts(
+	persona?: string,
+): Promise<{ products: EnrichedProduct[]; categoryName: string } | null> {
+	const brand = getBrand();
+	const slugs = Object.keys(CATEGORY_MAP);
+	if (slugs.length === 0) return null;
+
+	const categories = await getCategories();
+	const perCategory = Math.max(1, Math.ceil(MAX_LAYOUT_PRODUCTS / slugs.length));
+
+	const perCategoryProducts = await Promise.all(
+		slugs.map(async (slug) => {
+			const bcCategory = categories.find((c) => c.name === CATEGORY_MAP[slug].bcName);
+			if (!bcCategory) return [];
+			const { products: bcProducts } = await getProductsByCategory(bcCategory.entityId);
+			return bcProducts.slice(0, perCategory).map(transformProduct);
+		}),
+	);
+
+	const products = perCategoryProducts.flat();
+	if (products.length === 0) return null;
+
+	const enrichedProducts = await enrichAndSortByFit(products, persona);
+
+	// Storefront's own name, not a category label — this set spans categories.
+	return { products: enrichedProducts, categoryName: brand.name };
+}
+
+/**
+ * Merge enrichment data onto raw products and sort by persona-fit.
+ * Shared by the category and home product loaders so the merge logic
+ * lives in exactly one place.
+ */
+async function enrichAndSortByFit(products: Product[], persona?: string): Promise<EnrichedProduct[]> {
 	// Fetch enrichment in parallel (non-blocking — returns empty map on failure)
 	const enrichmentMap = await getEnrichmentByEntityIds(products.map((p) => p.entityId));
 
-	// Merge enrichment
 	const enrichedProducts: EnrichedProduct[] = products.map((p) => {
 		const enrichment = enrichmentMap.get(p.entityId);
 		return {
@@ -52,7 +100,6 @@ export async function loadCategoryProducts(
 		};
 	});
 
-	// Sort by persona-fit if persona is provided
 	if (persona) {
 		enrichedProducts.sort((a, b) => {
 			const fitA = a.personaFit?.[persona as keyof NonNullable<EnrichedProduct['personaFit']>] ?? 0.5;
@@ -61,7 +108,7 @@ export async function loadCategoryProducts(
 		});
 	}
 
-	return { products: enrichedProducts, categoryName: catConfig.displayName };
+	return enrichedProducts;
 }
 
 /** Transform a BC product into the shape our layout components expect */

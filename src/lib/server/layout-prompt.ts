@@ -6,7 +6,14 @@
  * keeps serving compositions generated under the old rules until the TTL
  * happens to expire.
  */
-export const PROMPT_VERSION = 'v3';
+export const PROMPT_VERSION = 'v4';
+
+/**
+ * Cap on products sent into a layout prompt, shared with catalog loading so
+ * a cross-category surface (home) doesn't overfetch past what the prompt
+ * will use — prompt size drives both cost and the grammar budget.
+ */
+export const MAX_LAYOUT_PRODUCTS = 15;
 
 /**
  * Build the system prompt for layout generation.
@@ -166,7 +173,7 @@ interface PromptProduct {
 	personaFit?: { gatherer: number; hunter: number; researcher: number; gifter: number } | null;
 }
 
-import { getBrand } from '$lib/brand/config';
+import { getBrand, type BrandConfig } from '$lib/brand/config';
 
 export interface IncentivesPromptContext {
 	/** Loyalty tier progress — "250 points from Gold tier". Omit if no loyalty state. */
@@ -202,6 +209,22 @@ ${lines.join('\n')}
 `;
 }
 
+/**
+ * Home-surface framing — replaces the CATEGORY line for the storefront home
+ * page. Tells the model it's composing an entry surface (no category
+ * context, shopper may have no goal yet) and feeds the merchant's own
+ * homepage copy as source material, not text to copy verbatim.
+ */
+function formatHomeFraming(brand: BrandConfig): string {
+	const valueProps = brand.homepage.valueProps.map((v) => `${v.title} — ${v.body}`).join('\n- ');
+	return `SURFACE: This is the STOREFRONT HOME PAGE, not a category page. It is the entry surface — the shopper has not picked a category and may not have a specific goal yet. The layout must give a route INTO the catalog (categories or themed groupings), not just a flat product list. Persona density rules still apply.
+
+MERCHANT POSITIONING (source material to draw from — do not copy verbatim):
+- Hero: "${brand.homepage.heroHeadline}" — ${brand.homepage.heroBody}
+- Editorial: "${brand.homepage.editorialHeadline}" — ${brand.homepage.editorialBody}
+- ${valueProps}`;
+}
+
 export function buildLayoutPrompt(
 	persona: string,
 	categoryName: string,
@@ -210,13 +233,13 @@ export function buildLayoutPrompt(
 	rulesContext?: string,
 	probabilities?: { gatherer: number; hunter: number; researcher: number; gifter: number },
 	incentives?: IncentivesPromptContext,
+	isHome = false,
 ): string {
 	const brand = getBrand();
 	const personaDef = PERSONA_DEFINITIONS[persona] || PERSONA_DEFINITIONS.gatherer;
 
-	// Pre-filter to top 15 by persona-fit for layout efficiency.
-	// The AI only selects 4-8 products; sending 50 wastes tokens.
-	const MAX_LAYOUT_PRODUCTS = 15;
+	// Pre-filter to top MAX_LAYOUT_PRODUCTS by persona-fit for layout
+	// efficiency. The AI only selects 4-8 products; sending 50 wastes tokens.
 	const filtered = products.length > MAX_LAYOUT_PRODUCTS
 		? [...products]
 			.sort((a, b) => {
@@ -241,7 +264,7 @@ export function buildLayoutPrompt(
 		return `- ID: "${p.id}" | ${p.name} | ${price} | ${specs}${fit}`;
 	}).join('\n');
 
-	return `You are a merchandising AI for ${brand.prompt.storeDescription} called ${brand.prompt.storeName}. Your job is to arrange a category page layout that serves the shopper's intent.
+	return `You are a merchandising AI for ${brand.prompt.storeDescription} called ${brand.prompt.storeName}. Your job is to arrange a ${isHome ? 'storefront home page' : 'category page'} layout that serves the shopper's intent.
 
 VOICE: ${brand.prompt.voiceGuidance}
 
@@ -251,12 +274,12 @@ ${probabilities ? `
 PROBABILITY VECTOR: gatherer ${Math.round(probabilities.gatherer * 100)}% | hunter ${Math.round(probabilities.hunter * 100)}% | researcher ${Math.round(probabilities.researcher * 100)}% | gifter ${Math.round(probabilities.gifter * 100)}%
 The primary persona is ${persona}, but blend in elements from secondary personas if their score is above 25%. For example, if researcher is 30% alongside a hunter primary, show specs alongside the dense grid.` : ''}
 
-CATEGORY: ${categoryName}
+${isHome ? formatHomeFraming(brand) : `CATEGORY: ${categoryName}`}
 
 AVAILABLE PRODUCTS (${filtered.length} items, top by ${persona} fit):
 ${productSummaries}
 ${picksContext || ''}${rulesContext || ''}${formatIncentivesContext(incentives)}
 ${COMPONENT_GUIDE}
 
-Generate a layout for this ${persona} shopper browsing the ${categoryName} category.`;
+Generate a layout for this ${persona} shopper ${isHome ? `landing on the ${categoryName} home page` : `browsing the ${categoryName} category`}.`;
 }

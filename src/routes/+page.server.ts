@@ -1,17 +1,29 @@
 import type { PageServerLoad } from './$types';
-import { getProducts, customFieldsToRecord, type BCProduct } from '$lib/server/bigcommerce';
 import { getBrand } from '$lib/brand/config';
+import { infer } from '$lib/signals/inference';
+import { createStoreFromRequest } from '$lib/signals/request';
+import { loadSessionIncentives } from '$lib/server/incentives/session';
+import { loadHomeProducts } from '$lib/server/catalog';
 
-export const load: PageServerLoad = async ({ cookies }) => {
-	// Fetch featured products from BC
-	const allProducts = await getProducts(30);
+export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
+	const { devMode } = await parent();
 
-	// Check for returning visitor persona
+	// ─── Signal Store: same request-time inference the category page runs,
+	// so the homepage can request an AI layout for categorySlug "home" ───
+	const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: 'home' });
+	const sessionIncentives = await loadSessionIncentives(store, cookies);
+	const inferenceContext = store.toInferenceContext();
+	const inference = infer(inferenceContext);
+
+	// Cross-category product set, sorted by persona-fit — same shape and
+	// source layout generation uses, so LayoutRenderer can resolve any
+	// product reference the generated "home" layout comes back with.
+	const homeResult = await loadHomeProducts(inference.primary);
+	const products = homeResult?.products ?? [];
+
+	// Check for returning visitor persona/category (set by a prior category visit)
 	const storedPersona = cookies.get('aisles_persona') || null;
 	const storedCategory = cookies.get('aisles_last_category') || null;
-
-	// Transform products
-	const products = allProducts.map(transformProduct);
 
 	// Pick featured products (first 4 from different price ranges)
 	const sorted = [...products].sort((a, b) => b.price - a.price);
@@ -27,6 +39,11 @@ export const load: PageServerLoad = async ({ cookies }) => {
 		slug,
 	}));
 
+	// Persist this visit's inferred persona. Do not touch aisles_last_category —
+	// that cookie means "last category browsed" and the homepage isn't one.
+	cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
+	cookies.set('aisles_visits', String(visitCount), { path: '/', maxAge: 60 * 60 * 24 * 30 });
+
 	return {
 		featured,
 		categories: categoryList,
@@ -36,20 +53,12 @@ export const load: PageServerLoad = async ({ cookies }) => {
 		brandTagline: brand.tagline,
 		brandDomain: brand.domain,
 		homepage: brand.homepage,
+		// Full product list, for LayoutRenderer to resolve product refs from a generated layout
+		products,
+		inference,
+		persona: inference.primary,
+		devMode,
+		sessionId: cookies.get('aisles_session') || null,
+		incentivesPromptContext: sessionIncentives.promptContext ?? null,
 	};
 };
-
-function transformProduct(p: BCProduct) {
-	const specs = customFieldsToRecord(p);
-	return {
-		id: p.path.replace(/^\/|\/$/g, '') || String(p.entityId),
-		entityId: p.entityId,
-		name: p.name,
-		price: p.prices.price.value,
-		salePrice: p.prices.salePrice?.value || undefined,
-		image: p.defaultImage?.url || '',
-		imageAlt: p.defaultImage?.altText || p.name,
-		description: p.description.replace(/<[^>]*>/g, '').trim(),
-		specs,
-	};
-}

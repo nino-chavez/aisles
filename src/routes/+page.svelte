@@ -1,7 +1,109 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import type { Layout } from '$lib/schema/layout';
+	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
+	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
 
 	let { data }: { data: PageData } = $props();
+
+	let aiLayout = $state<Layout | null>(null);
+	let aiError = $state<string | null>(null);
+	let overridePersona = $state<string | null>(null);
+	let currentPersona = $derived(overridePersona ?? data.persona);
+
+	// Fetch an AI-generated layout for categorySlug "home" on mount, and again
+	// whenever the inferred persona changes. Failure/timeout leaves aiLayout
+	// null, so the static markup below (the existing homepage) keeps rendering.
+	$effect(() => {
+		fetchLayout(currentPersona);
+	});
+
+	// Listen for inference updates from the client-side signal pipeline, same
+	// as the category page — a mid-session persona shift triggers a refetch.
+	$effect(() => {
+		const handleInferenceUpdate = (e: Event) => {
+			const inference = (e as CustomEvent).detail;
+			if (inference?.primary && inference.primary !== currentPersona) {
+				overridePersona = inference.primary;
+			}
+		};
+
+		window.addEventListener('aisles-inference-update', handleInferenceUpdate);
+		return () => window.removeEventListener('aisles-inference-update', handleInferenceUpdate);
+	});
+
+	async function fetchLayout(persona: string) {
+		aiError = null;
+
+		try {
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 30000);
+
+			const res = await fetch('/api/layout/stream', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					persona,
+					categorySlug: 'home',
+					picksContext: picksContextForPrompt(),
+					probabilities: data.inference?.probabilities,
+					incentives: data.incentivesPromptContext,
+				}),
+				signal: controller.signal,
+			});
+
+			clearTimeout(timeout);
+
+			if (!res.ok) {
+				const err = await res.json();
+				throw new Error(err.message || 'Layout generation failed');
+			}
+
+			const contentType = res.headers.get('content-type') || '';
+
+			if (contentType.includes('application/json')) {
+				// Cache hit — complete JSON response
+				const result = await res.json();
+				aiLayout = result.layout;
+			} else {
+				// Cache miss — SSE stream of partial objects
+				const reader = res.body?.getReader();
+				if (!reader) throw new Error('No response body');
+
+				const decoder = new TextDecoder();
+				let buffer = '';
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+
+					buffer += decoder.decode(value, { stream: true });
+
+					const lines = buffer.split('\n\n');
+					buffer = lines.pop() || '';
+
+					for (const chunk of lines) {
+						const line = chunk.trim();
+						if (!line.startsWith('data: ')) continue;
+
+						const payload = JSON.parse(line.slice(6));
+
+						if (payload.__done) {
+							aiLayout = payload.layout;
+						} else if (payload.__error) {
+							throw new Error(payload.message);
+						} else if (payload.sections?.length) {
+							// Partial layout — render sections as they arrive
+							aiLayout = payload as Layout;
+						}
+					}
+				}
+			}
+		} catch (err) {
+			aiError = err instanceof Error ? err.message : 'Unknown error';
+			console.error('AI homepage layout generation failed, using static homepage:', aiError);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -9,7 +111,7 @@
 	<meta name="description" content="{data.homepage.heroBody}" />
 </svelte:head>
 
-<!-- Returning visitor banner -->
+<!-- Returning visitor banner — chrome, not layout content: shown regardless of aiLayout -->
 {#if data.storedPersona && data.storedCategory}
 	<div class="border-b border-surface-border bg-surface-muted">
 		<div class="mx-auto max-w-7xl px-6 py-3 text-center text-sm text-surface-muted-fg">
@@ -17,6 +119,10 @@
 		</div>
 	</div>
 {/if}
+
+{#if aiLayout}
+	<LayoutRenderer layout={aiLayout} products={data.products} />
+{:else}
 
 <!-- Hero -->
 <section class="border-b border-surface-border">
@@ -143,3 +249,5 @@
 		{/each}
 	</div>
 </section>
+
+{/if}

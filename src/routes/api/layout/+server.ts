@@ -4,7 +4,7 @@ import { generateText, Output } from 'ai';
 import { model, withModelFallback } from '$lib/server/model';
 import { layoutSchemaFor } from '$lib/schema/layout';
 import { buildLayoutPrompt, type IncentivesPromptContext } from '$lib/server/layout-prompt';
-import { loadCategoryProducts } from '$lib/server/catalog';
+import { loadCategoryProducts, loadHomeProducts } from '$lib/server/catalog';
 import { getCachedLayout, cacheLayout, hashPicks } from '$lib/server/cache';
 import { logGeneration } from '$lib/server/generation-log';
 import { getActiveRules, rulesToPromptContext } from '$lib/server/rules';
@@ -62,7 +62,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		}
 
 		// ─── Cache miss — generate via AI Gateway ──────────────────
-		const result = await loadCategoryProducts(categorySlug, persona);
+		const isHome = categorySlug === 'home';
+		const result = isHome
+			? await loadHomeProducts(persona)
+			: await loadCategoryProducts(categorySlug, persona);
 		if (!result) {
 			return json({ error: `Category "${categorySlug}" not found` }, { status: 404 });
 		}
@@ -72,7 +75,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const rules = await getActiveRules(persona, categorySlug);
 		const rulesContext = rulesToPromptContext(rules);
 
-		const prompt = buildLayoutPrompt(persona, categoryName, products, picksContext, rulesContext, probabilities, incentives ?? undefined);
+		const prompt = buildLayoutPrompt(persona, categoryName, products, picksContext, rulesContext, probabilities, incentives ?? undefined, isHome);
 
 		// Haiku primary, Sonnet fallback — explicit retry in withModelFallback
 		const { result: aiResult, modelId } = await withModelFallback((id) =>
