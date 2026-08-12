@@ -48,7 +48,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				})
 			: '';
 		const ph = hashPicks((picksContext ?? '') + '|' + incentivesFingerprint);
-		const cached = await getCachedLayout(persona, categorySlug, ph);
+		// Scenario sessions are synthetic. Their prompt includes deterministic
+		// scenario signals that a real shopper must never receive (or populate).
+		const cached = scenario ? null : await getCachedLayout(persona, categorySlug, ph);
 		if (cached) {
 			const elapsed = Date.now() - startTime;
 
@@ -107,7 +109,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 					const usage = await stream.usage;
 					const elapsed = Date.now() - startTime;
 
-					if (layout) {
+					if (layout && !scenario) {
 						cacheLayout(persona, categorySlug, layout, ph).catch(() => {});
 					}
 
