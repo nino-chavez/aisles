@@ -61,7 +61,13 @@ export type Section = z.infer<typeof SectionSchema>;
 export const LayoutSchema = z.object({
 	persona: z.enum(['gatherer', 'hunter', 'researcher', 'gifter']).describe('Detected persona'),
 	reasoning: z.string().describe('Why this layout was chosen (1-2 sentences)'),
-	sections: z.array(SectionSchema).min(1).max(8).describe('Ordered UI sections'),
+	sections: z
+		.array(SectionSchema)
+		// Anthropic structured outputs reject minItems/maxItems in the JSON
+		// schema; a refinement keeps the 1-8 bound as client-side validation
+		// without entering the wire schema.
+		.refine((s) => s.length >= 1 && s.length <= 8, { message: 'Between 1 and 8 sections' })
+		.describe('Ordered UI sections (between 1 and 8)'),
 	productOrder: z.array(z.string()).describe('Product IDs in display order'),
 });
 

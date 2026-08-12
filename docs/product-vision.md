@@ -106,9 +106,73 @@ The distinction matters most for new brands and niche catalogs where statistical
 
 ### vs. Rule-Based Personalization Platforms (Nosto, Dynamic Yield)
 
-Existing personalization platforms for BC merchants are rule-based: "if the shopper is on mobile and in the furniture category, show the bestsellers widget." Rules require manual maintenance, do not compose well, and cannot produce layout-level changes (only widget-level injection).
+Existing personalization platforms for BC merchants are rule-based: "if the shopper is on mobile and in the furniture category, show the bestsellers widget." Rules require manual maintenance, do not compose well, and change what fills a slot rather than what slots exist.
 
 Aisles infers intent continuously and uses that intent to drive the entire layout — not a single widget, but the number of columns, the presence or absence of editorial copy, the sort order, and the call-to-action pattern. Layout-level personalization requires an AI that understands composition, not rules that swap products.
+
+### vs. Behamics (behavioral-science overlay platforms)
+
+*Assessed 2026-07-30 against behamics.com, fetched in-session. Company facts from public profiles; the "patented AI" claim on their site is theirs and was not verified against a patent register.*
+
+[Behamics](https://behamics.com/) (St. Gallen + New York, founded 2019, ~30 staff) is the closest operating comparable to the Aisles inference layer, and the most useful evidence that the underlying bet is real. Their Signals product classifies live sessions by whether a visitor is "exploring, comparing, deciding, hesitating, price-sensitive, or likely to need support next" and exposes that as a shared intent layer for downstream activation. That vocabulary maps nearly one-to-one onto the Aisles persona set plus its behavioral modifiers — gatherer/researcher/hunter alongside `priceSensitivity`, `urgency`, `familiarity` — arrived at independently.
+
+**What the convergence means.** Real-time behavioral intent inference is a validated, monetized category, and it is no longer a differentiator. The 31-rule engine is the part of Aisles the market has already commoditized. Positioning that leads with inference sophistication will not survive contact with a buyer who has seen Behamics.
+
+**Where the two genuinely diverge:**
+
+| | Behamics | Aisles |
+|---|---|---|
+| Deployment | One line of JavaScript, platform-agnostic, runs isolated from the site | Replaces the storefront (SvelteKit + BigCommerce Storefront GraphQL) |
+| Buyer + cost to adopt | CMO or head of e-commerce signs a pilot; no engineering migration | CTO approves a replatform |
+| Unit of change | Selection and ordering inside a fixed template — Prime Shots (listing image choice), Smart Slide (carousel order), Visual Flow (PDP image order), Cart Clarity (cart sort), Product Guard (suppression) — plus overlay interventions | Page structure — which components exist, column count, presence of editorial copy, CTA pattern |
+| AI approach | Predictive/causal ML, self-learning from session data | LLM generation constrained by a typed vocabulary (`∀I, ∀P · f(I,P) → S ∈ V`) |
+| Operator surface | Incrementality proof — randomized control and holdout groups | Explainability — Observe shows which rules fired and why |
+| Commercial model | Performance-based pricing, enabled by the holdout measurement | BC marketplace app; pricing undefined |
+
+Note that Behamics' Automations *do* mutate composition at the DOM level. The difference is depth, not kind: they reorder and suppress within a template the merchant already owns; Aisles decides what the template is. That is a narrower gap than "they only inject widgets," and the narrower version is the one that holds up.
+
+**The gap this exposes.** Behamics can charge on performance because they measure against randomized control and holdout groups — their published Signals figures carry the footnote "75% of Controlled Tests Showed a Positive Impact… median relative uplift versus control." Observe answers *why the system did what it did*; it does not answer *did this make money*. A merchandiser asks the second question. ADR-005 already specifies a holdout cohort and an eval harness (`docs/decisions/005-recommendation-architecture.md`, both still unchecked); nothing in `src/` implements them. Closing that is small relative to what is already built and is the line between a demo and a sellable product.
+
+**The yardstick.** Behamics' own published uplift figures — read off the counter target values in their page markup, not the animated display — run single-digit medians with high teens as a stated ceiling:
+
+| Product | Claimed uplift | Stated basis |
+|---|---|---|
+| Nudge | +12% revenue, +10% conversion, +5% AOV | none stated |
+| Signals | +5% incremental revenue, +4% conversion | median vs. randomized control or holdout |
+| Signals — Intent | +10% conversion, +18% engagement, −15% drop-offs | "results up to" — a ceiling, not a median |
+| Diagnostic | +4% revenue, +6% conversion, −10% bounce | none stated |
+| Merchandise | +4% revenue, +6% conversion, −10% bounce | none stated; identical figures to Diagnostic |
+
+Only the Signals row carries a methodology. Diagnostic and Merchandise publish the same three numbers under the same three labels, which reads as platform-level figures presented per product. Seven years and ~30 people to reach that. The category monetizes but has not produced a winner — which is the honest read on the opportunity in both directions.
+
+**Open check.** The page-structure differentiator rests on Nosto and Dynamic Yield still being template-bound in 2026, which this assessment did not re-verify. Behamics cannot falsify it — as a JavaScript overlay it has no access to the render pipeline. Nosto or Dynamic Yield shipping generative composition would.
+
+**This repo is not the strongest instance of the concept.** `~/Workspace/dev/wip/bealls-aisles` composes eight canonical retail surfaces from a 36-block vocabulary across six surface-specific schemas, under a graduated composition-latitude model (`docs/architecture/engine/composition-taxonomy.md`) — wide on home, medium on listings, narrow on PDP, near-fixed at checkout. `~/Workspace/dev/wip/aisles-admin` is a working seven-tab BigCommerce embedded control plane. This repo is 4 blocks on the category page: the original proof of the invariant, not the frontier. Any competitive comparison should be drawn against `bealls-aisles`, and its latitude model — not the inference engine — is the transferable asset.
+
+**Calibrated once, against real traffic, and it found three inverted rules.** In May 2026 a seven-week anonymized BigQuery extract from Sleep Country (29,870 events, 11,629 sessions) became the first external ground truth the persona engine faced. Ten of 28 rules were testable; the rest consume signals the privacy filter stripped. Three of the ten pointed the wrong way on a single category hop from off-price apparel to sleep retail:
+
+| Rule | Designed to indicate | Real sessions |
+|---|---|---|
+| `referrer-social` | gatherer (social = inspiration) | 99.6% hunter |
+| `in-session-search` (hunter half) | hunter (search = refining) | 1.4% hunter, 95.0% researcher |
+| `single-category-focus` | hunter (staying put = decisive) | 0% hunter, 81% researcher |
+
+That produced **per-brand rule gating** — inference branches its adjustment vectors on `brandId` — plus referrer-keyed cold-start priors. Both are reusable ideas, not Sleep Country patches. See ADR-011 and `docs/handoff/sleepcountry-bigquery-transfer.md` on branch `worktree-spike-cloudflare-portkey` (unmerged; `main` has none of it).
+
+**Caveat, carried from ADR-011:** the fingerprinter shares low-level signals with the rules it scored, so precision figures are internal-consistency checks, not external validation. The directional finding survives; the absolute numbers do not.
+
+**Live defect:** `@bcss/persona-core` was extracted from Aisles 0.3.0 before the calibration. No per-brand gating, no referrer priors, all three wrong-direction rules intact. Pointed at a non-apparel vertical, that is a real bug.
+
+Keep two questions distinct — conflating them muddies the ask:
+
+| Question | Apparatus | Evidence |
+|---|---|---|
+| Is the persona guess right? | built | one external test; 3 of 10 rules corrected |
+| Does the generated layout make money? | not built | none |
+
+The second needs a holdout that exists in none of the three repos.
+
+The full assessment for stakeholders is `docs/memos/aisles-competitive-position.html`.
 
 ---
 

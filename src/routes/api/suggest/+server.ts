@@ -11,7 +11,7 @@ const SuggestionSchema = z.object({
 		productId: z.string().describe('Product ID from the catalog'),
 		reason: z.string().describe('Brief reason this product complements the picks (e.g., "matches the walnut finish", "fits 19-inch pits", "completes the audio setup")'),
 		type: z.enum(['accessory', 'upsell', 'cross-sell', 'complement']).describe('Why this is suggested: accessory (goes with), upsell (better version), cross-sell (different category), complement (same category, pairs well)'),
-	})).min(1).max(5).describe('1-5 product suggestions that complement the shopper\'s picks'),
+	})).refine((a) => a.length >= 1 && a.length <= 5, { message: 'Between 1 and 5 suggestions' }).describe('1-5 product suggestions that complement the shopper\'s picks'),
 });
 
 /**
