@@ -1,8 +1,10 @@
 # Organization, Brand, and Composition Autonomy Plan
 
-**Status:** Accepted for staged implementation  
-**Date:** 2026-08-12  
-**Applies to:** `aisles` and `bealls-aisles`  
+**Status:** Accepted for staged implementation
+
+**Date:** 2026-08-12
+
+**Applies to:** `aisles` and `bealls-aisles`
 **Canonical owner:** `aisles`
 
 ## Recommendation

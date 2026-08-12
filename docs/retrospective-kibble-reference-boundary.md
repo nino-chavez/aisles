@@ -1,8 +1,10 @@
 # Retrospective: Kibble Exposed the Missing Merchant Boundary
 
-**Date:** 2026-08-12  
-**Scope:** `aisles`, `bealls-aisles`, and the Kibble reference storefront  
-**Outcome:** Architecture and product claims require amendment  
+**Date:** 2026-08-12
+
+**Scope:** `aisles`, `bealls-aisles`, and the Kibble reference storefront
+
+**Outcome:** Architecture and product claims require amendment
 **Follow-up plan:** [`organization-brand-autonomy-plan.md`](./organization-brand-autonomy-plan.md)
 
 ## Conclusion
