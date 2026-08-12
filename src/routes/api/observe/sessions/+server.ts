@@ -31,5 +31,8 @@ export const GET: RequestHandler = async ({ url }) => {
 	);
 
 	withActivity.sort((a, b) => b.last - a.last);
-	return json({ sessions: withActivity.map(({ id, scenarioId, scenarioLabel }) => ({ id, scenarioId, scenarioLabel })) });
+	return json({
+		sessionIds: withActivity.map((session) => session.id),
+		sessions: withActivity.map(({ id, scenarioId, scenarioLabel }) => ({ id, scenarioId, scenarioLabel })),
+	});
 };

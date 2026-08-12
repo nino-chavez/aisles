@@ -82,6 +82,9 @@ describe('database foundation', () => {
 	it('adds synthetic scenario provenance without speculative indexes', () => {
 		expect(syntheticMigration).toContain('ADD COLUMN synthetic BOOLEAN NOT NULL DEFAULT FALSE');
 		expect(syntheticMigration).toContain('ADD COLUMN scenario_id TEXT');
+		expect(syntheticMigration).toContain('CHECK ((synthetic AND scenario_id IS NOT NULL) OR (NOT synthetic AND scenario_id IS NULL))');
+		expect(syntheticMigration).toContain('generation_logs_synthetic_scenario_provenance');
+		expect(syntheticMigration).toContain('session_outcomes_synthetic_scenario_provenance');
 		expect(syntheticMigration).not.toContain('CREATE INDEX');
 	});
 });
