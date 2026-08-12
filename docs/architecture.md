@@ -41,7 +41,7 @@ Every other subsystem in Aisles — the inference loop, the cache, the Observe d
 | Styling | Tailwind CSS v4 |
 | Deployment | Cloudflare Pages (adapter-cloudflare) |
 | AI Models | Claude Haiku 4.5 (primary), Claude Sonnet 4.6 (fallback) |
-| AI Gateway | Vercel AI Gateway (model routing, cost tagging) |
+| AI Gateway | Cloudflare AI Gateway (optional routing and observability) |
 | AI SDK | Vercel AI SDK v6 (generateText, streamText, Output.object) |
 | Layout Cache | Upstash Redis (1-hour TTL) |
 | Signal Sessions | Upstash Redis (30-minute TTL) |
@@ -109,7 +109,7 @@ The primary persona drives layout generation. `POST /api/layout` (or `/api/layou
 1. Checks Redis for a cached layout matching `persona + categorySlug`
 2. On cache miss: fetches products from BigCommerce via `loadCategoryProducts`, which merges brand-scoped enrichment data from Supabase Postgres and sorts by persona-fit score
 3. Builds a prompt via `buildLayoutPrompt` — includes the persona definition, brand voice, and product catalog with persona-fit scores and semantic tags
-4. Calls Claude Haiku 4.5 via Vercel AI Gateway with structured output (`Output.object({ schema: LayoutSchema })`)
+4. Calls Claude Haiku 4.5 directly or through Cloudflare AI Gateway with structured output (`Output.object({ schema: LayoutSchema })`)
 5. Falls back to Claude Sonnet 4.6 if Haiku fails validation
 6. Stores the result in Redis (1-hour TTL)
 7. Logs to Supabase Postgres (`generation_logs` table) with model, tokens, cost, persona, category, and session ID
@@ -219,7 +219,7 @@ In brief: `BRAND_ID` (or `VITE_BRAND_ID` in the browser context) selects the act
 - LLM prompt context (store name, description, product domain, persona definitions, voice guidance)
 - Category slug → BigCommerce category name mapping
 
-Three brands ship in the codebase: `haven`, `volt`, `ember`. Each is deployed as a separate Vercel project from the same Git repository, with a different `BRAND_ID` environment variable.
+The codebase carries multiple brand configurations. Each deployed brand uses a separate Cloudflare Pages project from the same Git repository, with a different `BRAND_ID` environment variable.
 
 ---
 

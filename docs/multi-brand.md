@@ -6,15 +6,16 @@
 
 ## Overview
 
-A single Aisles codebase serves multiple brands. Brand selection is controlled by the `BRAND_ID` environment variable. Each brand gets its own Vercel project, BigCommerce channel, and visual identity, but shares all application code, AI logic, and infrastructure patterns.
+A single Aisles codebase serves multiple brands. Brand selection is controlled by the `BRAND_ID` environment variable. Each deployed brand gets its own Cloudflare Pages project, BigCommerce channel, and visual identity, but shares all application code, AI logic, and infrastructure patterns.
 
-The three built-in brands demonstrate the breadth of the system:
+Kibble is the active deployed brand. Haven, Volt, and Ember remain reference configurations in the same codebase.
 
-| Brand | Domain | BC Channel | Vercel Project |
-|---|---|---|---|
-| Haven | DTC home furniture | Channel 1 (default) | `aisles-signal-x-studio-labs` |
-| Volt | Consumer audio & electronics | Channel 1846321 | `volt-aisles-signal-x-studio-labs` |
-| Ember | Outdoor lifestyle & fire | Channel 1846324 | `ember-aisles-signal-x-studio-labs` |
+| Brand | Product domain | Deployment state |
+|---|---|---|
+| Kibble | Pet supplies and Auto-Refill | Cloudflare Pages project `aisles-kibble` |
+| Haven | DTC home furniture | Reference configuration |
+| Volt | Consumer audio and electronics | Reference configuration |
+| Ember | Outdoor lifestyle and fire | Reference configuration |
 
 ---
 
@@ -29,7 +30,7 @@ const brandId =
   'haven';
 ```
 
-- **Vercel Functions (server-side)**: reads `BRAND_ID`
+- **Cloudflare Pages Functions (server-side)**: reads `BRAND_ID`
 - **Vite/client-side**: reads `VITE_BRAND_ID` (must be prefixed for Vite to expose it)
 - **Node scripts** (enrichment, seeding): reads `BRAND_ID` from `process.env`
 
@@ -187,7 +188,7 @@ Enrichment is channel-specific. Set the environment variables for the new channe
 ```bash
 BRAND_ID=newbrand \
 BIGCOMMERCE_STORE_HASH=your_store_hash \
-STOREFRONT_TOKEN=your_channel_token \
+BIGCOMMERCE_STOREFRONT_TOKEN=your_channel_token \
 BIGCOMMERCE_CHANNEL_ID=1234567 \
 DATABASE_URL=your_supabase_postgres_url \
 ANTHROPIC_API_KEY=your_key \
@@ -210,23 +211,23 @@ This scores all products in the channel for persona-fit and generates semantic t
 | `BRAND_ID` | `newbrand` |
 | `VITE_BRAND_ID` | `newbrand` |
 | `BIGCOMMERCE_STORE_HASH` | Your BC store hash |
-| `STOREFRONT_TOKEN` | Channel-specific storefront token |
+| `BIGCOMMERCE_STOREFRONT_TOKEN` | Channel-specific storefront token |
 | `BIGCOMMERCE_CHANNEL_ID` | Your BC channel ID |
 | `KV_REST_API_URL` | Upstash Redis REST URL |
 | `KV_REST_API_TOKEN` | Upstash Redis REST token |
-| `HYPERDRIVE` | Cloudflare Hyperdrive binding for Supabase Postgres |
+| `HYPERDRIVE` binding | Supabase Postgres connection for Cloudflare Pages Functions |
 
-**For AI generation** (via Vercel AI Gateway — set automatically if using the Vercel AI Gateway integration):
+**For AI generation** (Cloudflare AI Gateway is optional):
 
 | Variable | Value |
 |---|---|
-| `AI_GATEWAY_URL` | Vercel AI Gateway endpoint |
-| `AI_GATEWAY_TOKEN` | Vercel AI Gateway token |
+| `ANTHROPIC_API_KEY` | Anthropic API credential |
+| `CF_AI_GATEWAY_URL` | Optional Cloudflare AI Gateway Anthropic endpoint |
 
 4. Bind Hyperdrive to the Pages project. Use `DATABASE_URL` only for local development and Node scripts; do not expose it to browser code.
 5. Deploy. The first deploy will warm the cache on demand (first visitor per persona+category triggers generation).
 
-5. Optionally run cache warming after deploy:
+6. Optionally run cache warming after deploy:
 
 ```bash
 npx tsx scripts/warm-cache.ts newbrand

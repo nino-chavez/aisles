@@ -1,8 +1,9 @@
 /**
  * Smoke-test a linked Supabase database after `supabase db push`.
  *
- * Requires DATABASE_URL. It only creates and deletes rows with this run's
- * generated IDs. It does not exercise the public Data API.
+ * Requires DATABASE_URL for cleanup. Set RUNTIME_DATABASE_URL to exercise the
+ * least-privilege application role. It only creates and deletes rows with this
+ * run's generated IDs. It does not exercise the public Data API.
  */
 
 import 'dotenv/config';
@@ -10,15 +11,76 @@ import postgres from 'postgres';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required');
+const runtimeDatabaseUrl = process.env.RUNTIME_DATABASE_URL || databaseUrl;
 
 const runId = `aisles-db-smoke-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const brands = [`${runId}-a`, `${runId}-b`];
 const entityId = 987654321;
 const sessionId = `${runId}-session`;
-const sql = postgres(databaseUrl, { max: 5, idle_timeout: 60 });
+const sql = postgres(runtimeDatabaseUrl, { max: 5, idle_timeout: 60 });
+const adminSql = runtimeDatabaseUrl === databaseUrl
+	? sql
+	: postgres(databaseUrl, { max: 1, idle_timeout: 30 });
 
 async function main() {
 	try {
+		if (runtimeDatabaseUrl !== databaseUrl) {
+			const [role] = await sql`
+				SELECT current_user, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls
+				FROM pg_roles
+				WHERE rolname = current_user
+			`;
+			if (
+				role?.current_user !== 'aisles_app'
+				|| role?.rolsuper
+				|| role?.rolcreatedb
+				|| role?.rolcreaterole
+				|| role?.rolbypassrls
+			) {
+				throw new Error(`Unexpected runtime role attributes: ${JSON.stringify(role)}`);
+			}
+			const [schemaPrivilege] = await adminSql`
+				SELECT has_schema_privilege('aisles_app', 'public', 'CREATE') AS can_create
+			`;
+			if (schemaPrivilege?.can_create) {
+				throw new Error('Runtime role unexpectedly has CREATE on schema public');
+			}
+
+			const publicGrants = await adminSql`
+				SELECT grantee, table_name, privilege_type
+				FROM information_schema.role_table_grants
+				WHERE table_schema = 'public'
+					AND grantee IN ('anon', 'authenticated')
+					AND table_name = ANY(${[
+						'enriched_products',
+						'generation_logs',
+						'session_outcomes',
+						'merchandising_rules',
+					]})
+			`;
+			if (publicGrants.length > 0) {
+				throw new Error(`Unexpected public table grants: ${JSON.stringify(publicGrants)}`);
+			}
+
+			const policies = await adminSql`
+				SELECT policyname, roles
+				FROM pg_policies
+				WHERE schemaname = 'public'
+					AND tablename = ANY(${[
+						'enriched_products',
+						'generation_logs',
+						'session_outcomes',
+						'merchandising_rules',
+					]})
+			`;
+			if (policies.some((policy) => (
+				(policy.roles as string[]).length !== 1
+				|| (policy.roles as string[])[0] !== 'aisles_app'
+			))) {
+				throw new Error(`Unexpected RLS policy roles: ${JSON.stringify(policies)}`);
+			}
+		}
+
 		for (const brandId of brands) {
 			await sql`
 				INSERT INTO enriched_products (brand_id, bc_entity_id, bc_product_path, enrichment_model)
@@ -53,12 +115,23 @@ async function main() {
 			throw new Error(`Isolation smoke failed: products=${products.length} logs=${logs[0]?.count} outcomes=${outcomes[0]?.count}`);
 		}
 
+		if (runtimeDatabaseUrl !== databaseUrl) {
+			let deleteDenied = false;
+			try {
+				await sql`DELETE FROM enriched_products WHERE brand_id = ${brands[0]} AND bc_entity_id = ${entityId}`;
+			} catch (error) {
+				deleteDenied = (error as { code?: string }).code === '42501';
+			}
+			if (!deleteDenied) throw new Error('Runtime role unexpectedly has DELETE access');
+		}
+
 		console.log(`Supabase database smoke passed for ${brands.join(', ')}`);
 	} finally {
-		await sql`DELETE FROM generation_logs WHERE brand_id = ANY(${brands}) AND session_id = ${sessionId}`;
-		await sql`DELETE FROM session_outcomes WHERE brand_id = ANY(${brands}) AND session_id = ${sessionId}`;
-		await sql`DELETE FROM enriched_products WHERE brand_id = ANY(${brands}) AND bc_entity_id = ${entityId}`;
+		await adminSql`DELETE FROM generation_logs WHERE brand_id = ANY(${brands}) AND session_id = ${sessionId}`;
+		await adminSql`DELETE FROM session_outcomes WHERE brand_id = ANY(${brands}) AND session_id = ${sessionId}`;
+		await adminSql`DELETE FROM enriched_products WHERE brand_id = ANY(${brands}) AND bc_entity_id = ${entityId}`;
 		await sql.end();
+		if (adminSql !== sql) await adminSql.end();
 	}
 }
 

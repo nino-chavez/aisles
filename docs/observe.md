@@ -17,14 +17,10 @@ It is designed for side-by-side use during demos: storefront in one window, Obse
 The dashboard is gated by a URL parameter to prevent casual discovery:
 
 ```
-https://aisles-signal-x-studio-labs.vercel.app/observe?key=aisles-observe
+https://aisles.bcsubs.app/observe?key=aisles-observe
 ```
 
-Any brand's Observe dashboard uses the same key. Substitute the brand's base URL:
-
-- Haven: `https://aisles-signal-x-studio-labs.vercel.app/observe?key=aisles-observe`
-- Volt: `https://volt-aisles-signal-x-studio-labs.vercel.app/observe?key=aisles-observe`
-- Ember: `https://ember-aisles-signal-x-studio-labs.vercel.app/observe?key=aisles-observe`
+Any brand's Observe dashboard uses the same path and key on that brand's deployed domain.
 
 Without `?key=aisles-observe`, the page will not load the dashboard content.
 
@@ -207,8 +203,8 @@ This is intentionally simple — no WebSockets, no SSE, no pub/sub infrastructur
 - Check the browser console on the storefront page for errors in the signal emitter
 
 **Layout decision panel shows no data**
-- The generation log writes to Neon Postgres asynchronously. The first generation after a fresh deploy may not appear immediately.
-- Verify `DATABASE_URL` or `POSTGRES_URL` is set correctly in the Vercel project environment
+- Generation logs are written synchronously. A failed write makes the layout request fail instead of silently losing telemetry.
+- Verify the `HYPERDRIVE` binding and its Supabase origin in the Cloudflare Pages project.
 
 **Cost shows $0.00 for all generations**
 - This means all requests are hitting the Redis cache. Run `invalidateLayoutCache()` or wait for the 1-hour TTL to expire to force fresh generation

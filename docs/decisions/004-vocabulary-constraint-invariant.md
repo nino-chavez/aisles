@@ -97,7 +97,7 @@ There must be a health metric: **the percentage of LLM calls that produce schema
 - **90-95%**: warning. Investigate the failing cases. Is there a prompt regression? A schema change that confused the model? A product catalog with unusual properties?
 - **Below 90%**: critical. The system is falling back to Sonnet frequently, which is slower and more expensive. Something is wrong.
 
-This metric should be surfaced in the Observe dashboard as a top-level health indicator. It should be logged to the `generation_logs` table in Neon Postgres alongside model, tokens, and cost. It should be monitored with alerting when it drops below threshold.
+This metric should be surfaced in the Observe dashboard as a top-level health indicator. It should be logged to the `generation_logs` table in Supabase Postgres alongside model, tokens, and cost. It should be monitored with alerting when it drops below threshold.
 
 **Current state**: not measured. The logging infrastructure exists but does not separately track first-try validation success versus fallback usage. This is the first gap the ADR calls out for closure.
 

@@ -52,7 +52,7 @@
     </g>
 
     <!-- metadata -->
-    <text x="0" y="486" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12.5" fill="#6b737c">SvelteKit 5 · Svelte runes   ·   Claude Haiku → Sonnet   ·   Vercel AI Gateway   ·   Redis + Neon</text>
+    <text x="0" y="486" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12.5" fill="#6b737c">SvelteKit 5 · Svelte runes   ·   Claude Haiku → Sonnet   ·   Cloudflare AI Gateway   ·   Redis + Supabase</text>
   </g>
 
   <!-- flow arrow: engine → outputs -->

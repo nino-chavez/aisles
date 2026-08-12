@@ -87,23 +87,24 @@ The AI chooses components, orders products, and writes copy. It **cannot invent 
 
 ---
 
-## Three brands, one codebase
+## Four brand configurations, one codebase
 
-Aisles ships with three brands that prove the engine is vertical-agnostic. They share no product data and no visual identity — only the inference engine, the component vocabulary, and the prompt pipeline. A brand is a config file (`src/lib/brand/config.ts` + `brands/*.json`), not a fork.
+Aisles carries four brand configurations that prove the engine is vertical-agnostic. They share no product data and no visual identity — only the inference engine, the component vocabulary, and the prompt pipeline. A brand is configuration in `src/lib/brand/config.ts`, not a fork; some brands also carry generated brand-kit JSON under `brands/`.
 
 | Brand | Domain | Voice |
 |---|---|---|
 | **Haven** | DTC home furniture | Warm, editorial, lifestyle-led |
 | **Volt** | Consumer audio & electronics | Technical, spec-forward |
 | **Ember** | Outdoor lifestyle & fire | Rugged, seasonal, activity-fit |
+| **Kibble** | Pet supplies & Auto-Refill | Plain, warm, specific |
 
-Each deploys as a separate Vercel project from the same repository, selected by a `BRAND_ID` environment variable.
+Each deployed brand uses a separate Cloudflare Pages project from the same repository, selected by a `BRAND_ID` environment variable.
 
 ---
 
 ## Quickstart
 
-**Prerequisites:** Node 20+ and npm. A BigCommerce Storefront token and an Anthropic API key are enough to run the storefront locally; Redis and Postgres are optional (Aisles falls back to in-memory sessions and skips enrichment/logging when they're absent).
+**Prerequisites:** Node 20+ and npm. A BigCommerce Storefront token and an Anthropic API key are enough for ordinary catalog pages. Postgres is required for generated layouts, enrichment, and operational telemetry; use `DATABASE_URL` locally and Hyperdrive in Cloudflare.
 
 ```bash
 git clone https://github.com/nino-chavez/aisles.git
@@ -146,13 +147,13 @@ This is the other half of the product's design principle: **invisible to the sho
 | Framework | SvelteKit 2 / Svelte 5 (runes) |
 | Language | TypeScript 5 (strict) |
 | Styling | Tailwind CSS v4 |
-| AI SDK | Vercel AI SDK v6 + Vercel AI Gateway |
+| AI SDK | Vercel AI SDK v6 + Cloudflare AI Gateway |
 | Models | Claude Haiku (primary) → Claude Sonnet (fallback) |
 | Layout cache + sessions | Upstash Redis |
-| Enrichment + generation logs | Neon Postgres |
+| Enrichment + generation logs | Supabase Postgres via Cloudflare Hyperdrive |
 | Catalog | BigCommerce Storefront GraphQL |
 | Embeddings | OpenRouter (`text-embedding-3-small`) |
-| Deployment | Vercel (`adapter-vercel`) |
+| Deployment | Cloudflare Pages (`adapter-cloudflare`) |
 
 ---
 

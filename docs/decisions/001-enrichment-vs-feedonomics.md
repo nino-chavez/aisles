@@ -16,7 +16,7 @@ The enrichment script reads products from BigCommerce and calls Claude to produc
 2. **Persona-fit scores** (0.0–1.0 per persona) — how well does this product appeal to a Gatherer, Hunter, Researcher, or Gifter?
 3. **Semantic tags** — intent-based discovery labels ("compact", "dorm-friendly", "statement piece", "easy-care")
 
-This data is stored in Neon Postgres and consumed by layout generation to sort/filter products by persona relevance.
+This data is stored in Supabase Postgres and consumed by layout generation to sort/filter products by persona relevance.
 
 ## What Feedonomics Does
 

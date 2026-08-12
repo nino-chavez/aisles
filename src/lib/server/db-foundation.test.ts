@@ -8,6 +8,22 @@ const migration = readFileSync(
 	resolve(import.meta.dirname, '../../../supabase/migrations/20260812200405_create_brand_scoped_aisles_schema.sql'),
 	'utf8',
 );
+const indexCleanupMigration = readFileSync(
+	resolve(import.meta.dirname, '../../../supabase/migrations/20260812203119_drop_redundant_brand_entity_index.sql'),
+	'utf8',
+);
+const runtimeRoleMigration = readFileSync(
+	resolve(import.meta.dirname, '../../../supabase/migrations/20260812203231_create_aisles_app_role.sql'),
+	'utf8',
+);
+const publicPrivilegeMigration = readFileSync(
+	resolve(import.meta.dirname, '../../../supabase/migrations/20260812203830_revoke_public_aisles_privileges.sql'),
+	'utf8',
+);
+const schemaCreateMigration = readFileSync(
+	resolve(import.meta.dirname, '../../../supabase/migrations/20260812203938_revoke_public_schema_create.sql'),
+	'utf8',
+);
 const wrangler = readFileSync(resolve(import.meta.dirname, '../../../wrangler.toml'), 'utf8');
 
 describe('database foundation', () => {
@@ -44,6 +60,7 @@ describe('database foundation', () => {
 	it('scopes product and session identities by brand', () => {
 		expect(migration).toContain('UNIQUE (brand_id, bc_entity_id)');
 		expect(migration).toContain('UNIQUE (brand_id, session_id)');
+		expect(indexCleanupMigration).toContain('DROP INDEX IF EXISTS public.enriched_products_brand_entity_idx');
 	});
 
 	it('enables RLS without public grants or policies', () => {
@@ -52,5 +69,12 @@ describe('database foundation', () => {
 		}
 		expect(migration).not.toContain('CREATE POLICY');
 		expect(migration).not.toContain('GRANT ');
+		expect(runtimeRoleMigration).toContain('NOBYPASSRLS');
+		expect(runtimeRoleMigration).toContain('TO aisles_app');
+		expect(runtimeRoleMigration).not.toMatch(/TO (anon|authenticated)\b/);
+		expect(runtimeRoleMigration).not.toMatch(/GRANT ALL\b/);
+		expect(publicPrivilegeMigration).toContain('FROM PUBLIC, anon, authenticated');
+		expect(publicPrivilegeMigration).toContain('ALTER DEFAULT PRIVILEGES FOR ROLE postgres');
+		expect(schemaCreateMigration).toContain('REVOKE CREATE ON SCHEMA public FROM PUBLIC, aisles_app');
 	});
 });

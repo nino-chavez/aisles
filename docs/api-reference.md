@@ -6,12 +6,9 @@
 
 ## Overview
 
-All endpoints are SvelteKit route handlers deployed as Vercel Functions. Authentication is cookie-based for user-facing endpoints. The Observe endpoints use a shared secret query parameter (`key=aisles-observe`).
+All endpoints are SvelteKit route handlers deployed as Cloudflare Pages Functions. Authentication is cookie-based for user-facing endpoints. The Observe endpoints use a shared secret query parameter (`key=aisles-observe`).
 
-Base URL varies by brand:
-- Haven: `https://aisles-signal-x-studio-labs.vercel.app`
-- Volt: `https://volt-aisles-signal-x-studio-labs.vercel.app`
-- Ember: `https://ember-aisles-signal-x-studio-labs.vercel.app`
+The base URL varies by brand. Kibble uses `https://aisles.bcsubs.app`.
 
 ---
 
@@ -474,7 +471,7 @@ Returns the full state of a specific session: all signal events, the current per
 
 ### GET /api/observe/logs
 
-Returns recent generation log entries from Neon Postgres. Each entry represents one layout or refinement call.
+Returns recent generation log entries from Supabase Postgres. Each entry represents one layout or refinement call.
 
 **Query parameters**
 

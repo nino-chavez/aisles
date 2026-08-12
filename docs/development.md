@@ -30,7 +30,7 @@ VITE_BRAND_ID=haven
 
 # BigCommerce
 BIGCOMMERCE_STORE_HASH=your_store_hash
-STOREFRONT_TOKEN=your_storefront_token
+BIGCOMMERCE_STOREFRONT_TOKEN=your_storefront_token
 BIGCOMMERCE_CHANNEL_ID=1
 
 # Upstash Redis (layout cache + session store)
@@ -41,8 +41,9 @@ KV_REST_API_TOKEN=your_upstash_token
 # Use the direct/session Postgres connection string, never a browser-visible variable.
 DATABASE_URL=postgresql://postgres:password@db.project-ref.supabase.co:5432/postgres?sslmode=require
 
-# AI (for layout generation — set these OR use Vercel AI Gateway)
+# AI (for layout generation; Cloudflare AI Gateway is optional)
 ANTHROPIC_API_KEY=sk-ant-...
+CF_AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/account/gateway/anthropic
 
 # For enrichment pipeline only
 OPENROUTER_API_KEY=sk-or-...
@@ -58,13 +59,15 @@ OPENROUTER_API_KEY=sk-or-...
 
 Cloudflare production requests take their connection string from the `HYPERDRIVE` binding. The Hyperdrive origin uses the same direct Supabase Postgres URL. `DATABASE_URL` remains required for local work and Node analytical scripts.
 
+The migrations create a limited `aisles_app` login without a password. Set its password out of band from the matching 1Password item, then configure Hyperdrive to use that role. Keep the database-owner credential for migrations and smoke-test cleanup only.
+
 ```bash
 supabase migration new descriptive_change
 supabase db push
 npx tsx scripts/verify-supabase-db.ts
 ```
 
-Run the smoke command after pushing migrations to a clean or linked project. It proves that two brands can share one `bc_entity_id`, writes and reads generation logs and session outcomes, then deletes only the generated smoke rows. It uses direct Postgres and intentionally does not test the public Data API.
+Run the smoke command after pushing migrations to a clean or linked project. It proves that two brands can share one `bc_entity_id`, writes and reads generation logs and session outcomes, then deletes only the generated smoke rows. Set `RUNTIME_DATABASE_URL` to test the limited `aisles_app` role as well as the owner connection used for cleanup. The script uses direct Postgres and intentionally does not test the public Data API.
 
 ---
 
@@ -82,7 +85,7 @@ To test a different brand locally:
 VITE_BRAND_ID=volt BRAND_ID=volt npm run dev
 ```
 
-Note that switching brands locally requires matching `STOREFRONT_TOKEN` and `BIGCOMMERCE_CHANNEL_ID` for the target brand's BC channel. Using a different brand with the same BC credentials will return no products if the category names don't match.
+Note that switching brands locally requires matching `BIGCOMMERCE_STOREFRONT_TOKEN` and `BIGCOMMERCE_CHANNEL_ID` for the target brand's BC channel. Using a different brand with the same BC credentials will return no products if the category names don't match.
 
 ---
 
@@ -104,7 +107,7 @@ http://localhost:5173/category/living-room?dev=true
 
 **Deactivating dev mode**: append `?dev=false` to any URL, or clear the `aisles_dev` cookie.
 
-Dev mode works in both local development and on deployed Vercel previews. It does not work on production deployments (the cookie check is gated by environment).
+Dev mode works in both local development and deployed Cloudflare Pages previews. It does not work on production deployments (the cookie check is gated by environment).
 
 ---
 
@@ -115,7 +118,7 @@ The enrichment pipeline reads products from BigCommerce, runs LLM scoring, and w
 ```bash
 # Enrich Haven (channel 1 / default)
 BIGCOMMERCE_STORE_HASH=your_hash \
-STOREFRONT_TOKEN=your_token \
+BIGCOMMERCE_STOREFRONT_TOKEN=your_token \
 BIGCOMMERCE_CHANNEL_ID=1 \
 DATABASE_URL=your_supabase_postgres_url \
 ANTHROPIC_API_KEY=sk-ant-... \
@@ -155,7 +158,7 @@ Done.
 
 ## Cache Warming
 
-After deploying to Vercel, the Redis layout cache is empty. The first visitor per persona+category combination triggers a fresh generation (2–15 seconds). Cache warming pre-fills the cache so all first visitors get instant responses.
+After deploying to Cloudflare Pages, the Redis layout cache is empty. The first visitor per persona+category combination triggers a fresh generation (2–15 seconds). Cache warming pre-fills the cache so all first visitors get instant responses.
 
 ```bash
 # Warm Haven (gatherer + hunter for all Haven categories)
@@ -176,7 +179,7 @@ The script hits the deployed URLs (not localhost) and warms gatherer + hunter fo
 **Expected output**:
 
 ```
-=== HAVEN (https://aisles-signal-x-studio-labs.vercel.app) ===
+=== HAVEN (configured deployed URL) ===
 12 combinations
 
   gatherer:living-room... GENERATED (2840ms)
@@ -255,18 +258,18 @@ The project uses strict TypeScript. Run a type check before pushing if you've mo
 | `BRAND_ID` | No | Server, scripts | Active brand ID. Defaults to `haven`. |
 | `VITE_BRAND_ID` | No | Client (Vite) | Same as BRAND_ID — must be prefixed for Vite to expose it to the browser. |
 | `BIGCOMMERCE_STORE_HASH` | Yes | Server, scripts | BC store hash (from store URL) |
-| `STOREFRONT_TOKEN` | Yes | Server, scripts | BC Storefront API token (channel-specific) |
-| `BIGCOMMERCE_STOREFRONT_TOKEN` | No | Scripts | Alias for `STOREFRONT_TOKEN` in enrichment scripts |
+| `BIGCOMMERCE_STOREFRONT_TOKEN` | Yes | Server, scripts | BC Storefront API token (channel-specific) |
+| `STOREFRONT_TOKEN` | No | Enrichment scripts | Legacy alias for `BIGCOMMERCE_STOREFRONT_TOKEN` |
 | `BIGCOMMERCE_CHANNEL_ID` | No | Scripts | BC channel ID for enrichment. Defaults to `1`. |
 | `KV_REST_API_URL` | No | Server | Upstash Redis REST URL. Falls back to in-memory if unset. |
 | `KV_REST_API_TOKEN` | No | Server | Upstash Redis REST token |
-| `DATABASE_URL` | Yes | Server, scripts | Supabase Postgres connection string; Hyperdrive is used in Cloudflare production |
+| `DATABASE_URL` | Yes | Local development, Node scripts | Supabase Postgres connection string; Cloudflare production uses `HYPERDRIVE` |
+| `RUNTIME_DATABASE_URL` | No | Database smoke test | Direct URL for the limited `aisles_app` role; the test verifies its role attributes and denied `DELETE` access |
 | `ANTHROPIC_API_KEY` | Yes (enrichment) | Scripts | Anthropic API key for enrichment pipeline |
 | `OPENROUTER_API_KEY` | Yes (enrichment) | Scripts | OpenRouter key for embedding generation |
-| `AI_GATEWAY_URL` | Vercel only | Server | Set automatically by Vercel AI Gateway integration |
-| `AI_GATEWAY_TOKEN` | Vercel only | Server | Set automatically by Vercel AI Gateway integration |
+| `CF_AI_GATEWAY_URL` | No | Server | Cloudflare AI Gateway Anthropic endpoint; direct Anthropic is used when absent |
 
-For local development, `ANTHROPIC_API_KEY` is also used for layout generation if the Vercel AI Gateway is not configured. The `gateway()` function from `@ai-sdk/gateway` falls back to direct Anthropic API access when the gateway is unavailable.
+`ANTHROPIC_API_KEY` authenticates both direct Anthropic calls and calls routed through Cloudflare AI Gateway. When `CF_AI_GATEWAY_URL` is absent, layout generation calls Anthropic directly.
 
 ---
 
