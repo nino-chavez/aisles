@@ -20,7 +20,8 @@
     "svelte-check": "^4.0.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.8.0",
-    "vite": "^6.3.0"
+    "vite": "^6.3.0",
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.66",
