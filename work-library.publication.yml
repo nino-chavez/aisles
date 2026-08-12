@@ -1,0 +1,43 @@
+schema: work-library-publication/0
+case_id: aisles-competitive-position
+adapter: git-manifest
+canonical_output: competitive-assessment
+
+catalog:
+  title: Aisles Competitive Position
+  subtitle: Aisles case family · Strategy decision
+  family: aisles
+  family_label: Aisles case family
+  question: What is worth adopting, proving, and leaving unfunded from Aisles?
+  summary: Adopt composition latitude as platform guidance. Prove one merchant outcome with a holdout. Do not fund a shared inference platform yet.
+
+collection_candidates:
+  - commerce
+
+publication:
+  status: draft
+  clearance: internal
+  assurance:
+    human_validation: pending
+
+outputs:
+  - id: competitive-assessment
+    type: html-work-product
+    status: draft
+    artifact: docs/memos/aisles-competitive-position.html
+    clearance: internal
+    assurance:
+      human_validation: pending
+
+projections:
+  - id: competitive-assessment
+    output: competitive-assessment
+    artifact: docs/memos/aisles-competitive-position.html
+    render_as: html-presentation
+    asset_path: index.html
+    label: Aisles competitive position assessment
+    route: /presentation
+
+exclude:
+  - .env*
+  - docs/private/**
