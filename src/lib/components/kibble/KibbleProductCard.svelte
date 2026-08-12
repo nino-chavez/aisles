@@ -4,13 +4,13 @@
 
 	let {
 		product,
-		hrefPrefix = '/product/',
+		productHref,
 		merchantBrand,
 		autoRefill,
 		presentation = 'catalog-card',
 	}: {
 		product: KibbleProduct;
-		hrefPrefix?: string;
+		productHref: string;
 		merchantBrand?: string;
 		autoRefill?: KibbleAutoRefillOffer | null;
 		presentation?: 'catalog-card' | 'featured-tile';
@@ -36,7 +36,7 @@
 </script>
 
 <a
-	href="{hrefPrefix}{product.id}"
+	href={productHref}
 	class:kc-reference-product-card--featured={presentation === 'featured-tile'}
 	class="kibble-reference kc-reference-product-card kc-reference-focus"
 >

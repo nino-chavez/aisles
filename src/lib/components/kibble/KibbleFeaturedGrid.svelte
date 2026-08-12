@@ -7,13 +7,15 @@
 		title = 'New arrivals',
 		eyebrow = 'Catalog',
 		products,
-		browseHref = '/search',
+		productHrefs,
+		browseHref,
 		subscriptionOffers = {},
 	}: {
 		title?: string;
 		eyebrow?: string;
 		products: KibbleProduct[];
-		browseHref?: string;
+		productHrefs: Record<string, string>;
+		browseHref: string;
 		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
 	} = $props();
 </script>
@@ -31,7 +33,7 @@
 
 			<div class="kc-reference-product-grid">
 				{#each products as product (product.id)}
-					<KibbleProductCard product={product} autoRefill={subscriptionOffers[product.id] ?? null} presentation="featured-tile" />
+					<KibbleProductCard product={product} productHref={productHrefs[product.id]} autoRefill={subscriptionOffers[product.id] ?? null} presentation="featured-tile" />
 				{/each}
 			</div>
 		</div>

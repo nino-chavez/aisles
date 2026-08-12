@@ -3,33 +3,27 @@
 	import KibbleMobileNavigation from './KibbleMobileNavigation.svelte';
 	import type { KibbleAutoRefillState, KibbleNavItem, KibbleStatusItem } from './types';
 
-	const defaultStatusItems: KibbleStatusItem[] = [
-		{ label: '26 subscription SKUs' },
-		{ label: '5 vetted brands' },
-		{ label: 'Free US shipping · 30-day guarantee' },
-	];
-
 	let {
-		brandName = 'Kibble & Co.',
-		navItems = [],
-		autoRefillState = 'active',
-		statusItems = defaultStatusItems,
+		brandName,
+		navItems,
+		autoRefillState,
+		statusItems,
 		cartCount = 0,
 		picksCount = 0,
-		searchAction = '/search',
-		accountHref = '/account',
-		cartHref = '/cart',
+		searchAction,
+		accountHref,
+		cartHref,
 		picksHref,
 		onCartClick,
 		onPicksClick,
 	}: {
-		brandName?: string;
-		navItems?: KibbleNavItem[];
-		autoRefillState?: KibbleAutoRefillState;
-		statusItems?: KibbleStatusItem[];
+		brandName: string;
+		navItems: KibbleNavItem[];
+		autoRefillState: KibbleAutoRefillState;
+		statusItems: KibbleStatusItem[];
 		cartCount?: number;
 		picksCount?: number;
-		searchAction?: string;
+		searchAction: string;
 		accountHref?: string;
 		cartHref?: string;
 		picksHref?: string;
@@ -92,7 +86,7 @@
 					</button>
 				{/if}
 
-				<a href={accountHref} class="kc-reference-text-control kc-reference-focus kc-reference-header__account">Account</a>
+				{#if accountHref}<a href={accountHref} class="kc-reference-text-control kc-reference-focus kc-reference-header__account">Account</a>{/if}
 
 				{#if onPicksClick}
 					<div class="kc-reference-control-wrap kc-reference-header__picks">
@@ -115,10 +109,14 @@
 						<button type="button" onclick={onCartClick} class="kc-reference-icon-control kc-reference-focus" aria-label="Cart ({cartCount} items)">
 							<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
 						</button>
-					{:else}
+					{:else if cartHref}
 						<a href={cartHref} class="kc-reference-icon-control kc-reference-focus" aria-label="Cart ({cartCount} items)">
 							<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
 						</a>
+					{:else}
+						<button type="button" disabled class="kc-reference-icon-control" aria-label="Cart unavailable">
+							<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+						</button>
 					{/if}
 					{#if cartCount > 0}<span class="kc-reference-control-badge">{cartCount}</span>{/if}
 				</div>

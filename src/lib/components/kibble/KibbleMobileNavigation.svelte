@@ -5,19 +5,19 @@
 
 	let {
 		open = $bindable(false),
-		brandName = 'Kibble & Co.',
-		navItems = [],
+		brandName,
+		navItems,
 		cartCount = 0,
 		picksCount = 0,
-		accountHref = '/account',
-		cartHref = '/cart',
+		accountHref,
+		cartHref,
 		picksHref,
 		onCartClick,
 		onPicksClick,
 	}: {
 		open?: boolean;
-		brandName?: string;
-		navItems?: KibbleNavItem[];
+		brandName: string;
+		navItems: KibbleNavItem[];
 		cartCount?: number;
 		picksCount?: number;
 		accountHref?: string;
@@ -115,9 +115,10 @@
 				{/each}
 			</nav>
 
-			<p class="kc-reference-drawer__label" style="margin-top: 2rem;">Account</p>
+			{#if accountHref || onPicksClick || picksHref}
+			<p class="kc-reference-drawer__label" style="margin-top: 2rem;">Account and saved items</p>
 			<nav class="kc-reference-drawer__nav" aria-label="Account and saved items">
-				<a href={accountHref} onclick={close} class="kc-reference-drawer__link kc-reference-focus">Account</a>
+				{#if accountHref}<a href={accountHref} onclick={close} class="kc-reference-drawer__link kc-reference-focus">Account</a>{/if}
 				{#if onPicksClick}
 					<button type="button" onclick={() => closeAndRun(onPicksClick)} class="kc-reference-drawer__link kc-reference-focus" style="border:0;background:transparent;font:inherit;text-align:left;cursor:pointer;">
 						Saved picks ({picksCount})
@@ -126,6 +127,7 @@
 					<a href={picksHref} onclick={close} class="kc-reference-drawer__link kc-reference-focus">Saved picks ({picksCount})</a>
 				{/if}
 			</nav>
+			{/if}
 		</div>
 
 		<div class="kc-reference-drawer__footer">
@@ -133,10 +135,14 @@
 				<button type="button" onclick={() => closeAndRun(onCartClick)} class="kc-reference-drawer__cart kc-reference-focus">
 					<span>View cart</span><span class="kc-reference-machinery">{cartCount || 'empty'}</span>
 				</button>
-			{:else}
+			{:else if cartHref}
 				<a href={cartHref} onclick={close} class="kc-reference-drawer__cart kc-reference-focus">
 					<span>View cart</span><span class="kc-reference-machinery">{cartCount || 'empty'}</span>
 				</a>
+			{:else}
+				<button type="button" disabled class="kc-reference-drawer__cart" aria-label="Cart unavailable">
+					<span>Cart unavailable</span><span class="kc-reference-machinery">—</span>
+				</button>
 			{/if}
 		</div>
 	</div>

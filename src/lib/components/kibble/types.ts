@@ -5,6 +5,31 @@ export type KibbleNavItem = {
 	href: string;
 };
 
+export type KibbleReferenceLinkTarget =
+	| 'home'
+	| 'catalog-category'
+	| 'search-results'
+	| 'account'
+	| 'cart'
+	| 'saved-picks'
+	| 'product-detail'
+	| 'featured-bundle'
+	| 'browse-all'
+	| 'visual-tile';
+
+export type KibbleReferenceActionTarget =
+	| 'open-mobile-navigation'
+	| 'close-mobile-navigation'
+	| 'open-search'
+	| 'close-search'
+	| 'open-cart-drawer'
+	| 'open-picks-tray';
+
+export type KibbleReferenceAdapter = {
+	links: Partial<Record<KibbleReferenceLinkTarget, string>>;
+	actions: Partial<Record<KibbleReferenceActionTarget, () => void>>;
+};
+
 export type KibbleStatusItem = {
 	label: string;
 };

@@ -3,27 +3,20 @@
 	import KibbleProofStrip from './KibbleProofStrip.svelte';
 	import type { KibbleCta, KibbleFeaturedBundle, KibbleProofItem } from './types';
 
-	const defaultProof: KibbleProofItem[] = [
-		{ label: 'Subscription GMV', value: '$30M' },
-		{ label: 'Vetted brands', value: '5' },
-		{ label: 'Member savings', value: '10–20%' },
-		{ label: 'Cadence', value: '1 · 2 · 3 mo' },
-	];
-
 	let {
-		eyebrow = 'The brands on your shelf · kept in stock',
-		headline = 'The brands worth trusting, on a refill that never lapses.',
-		body = 'Open Farm, Native Pet, Wild One, Finn — curated and kept stocked by Auto-Refill, the standing order you control. Member pricing, free US shipping, every 1, 2, or 3 months. Skip, swap, or pause anytime.',
-		ctas = [],
-		featured = null,
-		proofItems = defaultProof,
+		eyebrow,
+		headline,
+		body,
+		ctas,
+		featured,
+		proofItems,
 	}: {
-		eyebrow?: string;
-		headline?: string;
-		body?: string;
-		ctas?: KibbleCta[];
-		featured?: KibbleFeaturedBundle | null;
-		proofItems?: KibbleProofItem[];
+		eyebrow: string;
+		headline: string;
+		body: string;
+		ctas: KibbleCta[];
+		featured: KibbleFeaturedBundle;
+		proofItems: KibbleProofItem[];
 	} = $props();
 
 	function money(value: number): string {
@@ -38,7 +31,7 @@
 <section class="kibble-reference kc-reference-hero" aria-labelledby="kibble-reference-hero-heading">
 	<div class="kc-reference-container kc-reference-hero__inner">
 		<div class="kc-reference-hero__copy">
-			{#if eyebrow}<span class="kc-reference-hero__tag">{eyebrow}</span>{/if}
+			<span class="kc-reference-hero__tag">{eyebrow}</span>
 			<h1 id="kibble-reference-hero-heading">{headline}</h1>
 			<p class="kc-reference-hero__body">{body}</p>
 
@@ -53,7 +46,6 @@
 			<KibbleProofStrip items={proofItems} />
 		</div>
 
-		{#if featured}
 			<article class="kc-reference-bundle">
 				<div class="kc-reference-bundle__media">
 					<img src={featured.image} alt={featured.imageAlt ?? featured.name} />
@@ -75,6 +67,5 @@
 					<a href={featured.href} class="kc-reference-button kc-reference-button--primary kc-reference-focus" style="width:100%;margin-top:1rem;">Shop the bundle</a>
 				</div>
 			</article>
-		{/if}
 	</div>
 </section>

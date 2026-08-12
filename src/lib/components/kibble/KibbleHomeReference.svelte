@@ -16,29 +16,31 @@
 	let {
 		hero,
 		products,
+		productHrefs,
 		categories,
 		serviceProof,
 		featuredTitle = 'New arrivals',
 		featuredEyebrow = 'Catalog',
-		browseHref = '/search',
+		browseHref,
 		subscriptionOffers = {},
 		categoryTitle = 'Shop by category',
 		categoryEyebrow = 'Browse',
 	}: {
-		hero: {
-			eyebrow?: string;
-			headline?: string;
-			body?: string;
+			hero: {
+				eyebrow: string;
+				headline: string;
+				body: string;
 			ctas: KibbleCta[];
 			featured: KibbleFeaturedBundle;
-			proofItems?: KibbleProofItem[];
+				proofItems: KibbleProofItem[];
 		};
 		products: KibbleProduct[];
+		productHrefs: Record<string, string>;
 		categories: KibbleVisualTile[];
 		serviceProof: KibbleServiceProofItem[];
 		featuredTitle?: string;
 		featuredEyebrow?: string;
-		browseHref?: string;
+		browseHref: string;
 		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
 		categoryTitle?: string;
 		categoryEyebrow?: string;
@@ -58,6 +60,7 @@
 	title={featuredTitle}
 	eyebrow={featuredEyebrow}
 	{products}
+	{productHrefs}
 	{browseHref}
 	{subscriptionOffers}
 />
