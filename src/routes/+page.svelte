@@ -69,10 +69,10 @@
 						<h3 class="font-display text-lg group-hover:text-primary transition-colors">{product.name}</h3>
 						<div class="mt-1">
 							{#if product.salePrice}
-								<span class="font-medium text-primary">${product.salePrice.toLocaleString()}</span>
-								<span class="ml-1 text-sm text-surface-muted-fg line-through">${product.price.toLocaleString()}</span>
+								<span class="font-medium text-primary numeric">${product.salePrice.toLocaleString()}</span>
+								<span class="ml-1 text-sm text-surface-muted-fg line-through numeric">${product.price.toLocaleString()}</span>
 							{:else}
-								<span class="font-medium">${product.price.toLocaleString()}</span>
+								<span class="font-medium numeric">${product.price.toLocaleString()}</span>
 							{/if}
 						</div>
 					</div>

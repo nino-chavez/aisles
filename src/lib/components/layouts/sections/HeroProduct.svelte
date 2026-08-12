@@ -38,10 +38,10 @@
 
 			<div class="mt-6">
 				{#if product.salePrice}
-					<span class="text-xl font-medium text-primary">${product.salePrice.toLocaleString()}</span>
-					<span class="ml-2 text-surface-muted-fg line-through">${product.price.toLocaleString()}</span>
+					<span class="text-xl font-medium text-primary numeric">${product.salePrice.toLocaleString()}</span>
+					<span class="ml-2 text-surface-muted-fg line-through numeric">${product.price.toLocaleString()}</span>
 				{:else}
-					<span class="text-xl font-medium">${product.price.toLocaleString()}</span>
+					<span class="text-xl font-medium numeric">${product.price.toLocaleString()}</span>
 				{/if}
 			</div>
 

@@ -37,6 +37,19 @@ export interface BrandConfig {
 		fontDisplay: string;
 		fontBody: string;
 		fontMono: string;
+		/**
+		 * Display-type weight and tracking. Brand-owned because the display
+		 * faces disagree: a geometric sans carries 800 at hero size, a serif
+		 * has no such weight and looks broken asking for one.
+		 */
+		fontWeightDisplay: string;
+		headingTracking: string;
+		/**
+		 * `mono` renders prices, percentages, and cadences in the mono face with
+		 * tabular figures — the type signal that reads "engine", not "plugin".
+		 * `body` keeps numerals in the body face.
+		 */
+		numericStyle: 'mono' | 'body';
 	};
 
 	/** Google Fonts import URL */
@@ -113,6 +126,9 @@ const BRANDS: Record<string, BrandConfig> = {
 			surfaceBorder: '#ebe8e3',
 			fontDisplay: "'DM Serif Display', Georgia, serif",
 			fontBody: "'DM Sans', system-ui, sans-serif",
+			fontWeightDisplay: '400',
+			headingTracking: '-0.01em',
+			numericStyle: 'body',
 			fontMono: "'JetBrains Mono', Menlo, monospace",
 		},
 
@@ -191,6 +207,9 @@ const BRANDS: Record<string, BrandConfig> = {
 			surfaceBorder: '#262626',
 			fontDisplay: "'Space Grotesk', system-ui, sans-serif",
 			fontBody: "'Inter', system-ui, sans-serif",
+			fontWeightDisplay: '700',
+			headingTracking: '-0.03em',
+			numericStyle: 'mono',
 			fontMono: "'JetBrains Mono', Menlo, monospace",
 		},
 
@@ -269,6 +288,9 @@ const BRANDS: Record<string, BrandConfig> = {
 			surfaceBorder: '#e7e0d8',
 			fontDisplay: "'Libre Baskerville', Georgia, serif",
 			fontBody: "'Source Sans 3', system-ui, sans-serif",
+			fontWeightDisplay: '700',
+			headingTracking: '-0.01em',
+			numericStyle: 'body',
 			fontMono: "'JetBrains Mono', Menlo, monospace",
 		},
 
@@ -351,6 +373,9 @@ const BRANDS: Record<string, BrandConfig> = {
 			surfaceBorder: '#d6deee',
 			fontDisplay: "'Plus Jakarta Sans', system-ui, sans-serif",
 			fontBody: "'Plus Jakarta Sans', system-ui, sans-serif",
+			fontWeightDisplay: '800',
+			headingTracking: '-0.03em',
+			numericStyle: 'mono',
 			fontMono: "'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace",
 		},
 

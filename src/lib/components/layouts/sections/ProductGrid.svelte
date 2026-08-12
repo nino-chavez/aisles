@@ -80,11 +80,11 @@
 				<div class="{isCompact ? 'mt-auto pt-3' : 'mt-3'}">
 					{#if product.salePrice}
 						<div class="flex items-baseline gap-2">
-							<span class="{isCompact ? 'text-base font-semibold' : 'font-medium'} text-primary">${product.salePrice.toLocaleString()}</span>
-							<span class="text-{isCompact ? 'xs' : 'sm'} text-surface-muted-fg line-through">${product.price.toLocaleString()}</span>
+							<span class="{isCompact ? 'text-base font-semibold' : 'font-medium'} text-primary numeric">${product.salePrice.toLocaleString()}</span>
+							<span class="text-{isCompact ? 'xs' : 'sm'} text-surface-muted-fg line-through numeric">${product.price.toLocaleString()}</span>
 						</div>
 					{:else}
-						<span class="{isCompact ? 'text-base font-semibold' : 'font-medium'}">${product.price.toLocaleString()}</span>
+						<span class="{isCompact ? 'text-base font-semibold' : 'font-medium'} numeric">${product.price.toLocaleString()}</span>
 					{/if}
 				</div>
 

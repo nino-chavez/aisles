@@ -17,7 +17,7 @@
 	let themeStyle = $derived.by(() => {
 		const t = data.brand?.theme;
 		if (!t) return '';
-		return `--color-primary:${t.primary};--color-secondary:${t.secondary};--color-accent:${t.accent};--color-surface-bg:${t.surfaceBg};--color-surface-fg:${t.surfaceFg};--color-surface-card:${t.surfaceCard};--color-surface-card-fg:${t.surfaceCardFg};--color-surface-muted:${t.surfaceMuted};--color-surface-muted-fg:${t.surfaceMutedFg};--color-surface-border:${t.surfaceBorder};--font-display:${t.fontDisplay};--font-body:${t.fontBody};--font-mono:${t.fontMono}`;
+		return `--color-primary:${t.primary};--color-secondary:${t.secondary};--color-accent:${t.accent};--color-surface-bg:${t.surfaceBg};--color-surface-fg:${t.surfaceFg};--color-surface-card:${t.surfaceCard};--color-surface-card-fg:${t.surfaceCardFg};--color-surface-muted:${t.surfaceMuted};--color-surface-muted-fg:${t.surfaceMutedFg};--color-surface-border:${t.surfaceBorder};--font-display:${t.fontDisplay};--font-body:${t.fontBody};--font-mono:${t.fontMono};--font-weight-display:${t.fontWeightDisplay};--heading-tracking:${t.headingTracking};--font-numeric:${t.numericStyle === 'mono' ? t.fontMono : t.fontBody}`;
 	});
 	let cartCount = $state(0);
 	let cartOpen = $state(false);

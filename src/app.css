@@ -56,7 +56,25 @@ body {
 
 h1, h2, h3 {
 	font-family: var(--font-display);
-	letter-spacing: -0.01em;
+	/*
+	 * Weight and tracking are brand tokens, not constants: Tailwind's preflight
+	 * leaves headings at inherit (400), which renders a 60px hero headline thin
+	 * enough to read as a wireframe. The fallbacks keep any brand that predates
+	 * these tokens on the old appearance instead of guessing a weight for it.
+	 */
+	font-weight: var(--font-weight-display, inherit);
+	letter-spacing: var(--heading-tracking, -0.01em);
+}
+
+/*
+ * Commerce numerals — price, savings, cadence, quantity. Tabular figures stop
+ * digits from shifting column width between renders, which is what makes a
+ * personalized grid look composed rather than reflowed. Brands whose numerals
+ * belong in the body face resolve --font-numeric to it.
+ */
+.numeric {
+	font-family: var(--font-numeric, var(--font-body));
+	font-variant-numeric: tabular-nums;
 }
 
 h4, h5, h6 {
