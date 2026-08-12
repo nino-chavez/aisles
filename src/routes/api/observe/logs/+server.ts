@@ -3,17 +3,11 @@ import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { getBrand } from '$lib/brand/config';
 
-const OBSERVE_KEY = 'aisles-observe';
-
 /**
- * GET /api/observe/logs?limit=20&key=aisles-observe
- * Returns recent generation logs from Postgres.
+	* GET /api/observe/logs?limit=20
+	* Returns recent generation logs from Postgres.
  */
 export const GET: RequestHandler = async ({ url }) => {
-	if (url.searchParams.get('key') !== OBSERVE_KEY) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
-
 	const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
 	const sessionId = url.searchParams.get('session') || null;
 

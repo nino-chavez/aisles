@@ -6,7 +6,7 @@
 
 ## Overview
 
-All endpoints are SvelteKit route handlers deployed as Cloudflare Pages Functions. Authentication is cookie-based for user-facing endpoints. The Observe endpoints use a shared secret query parameter (`key=aisles-observe`).
+All endpoints are SvelteKit route handlers deployed as Cloudflare Pages Functions. Authentication is cookie-based for user-facing endpoints. Observe uses HTTP Basic authentication against the server-side `OBSERVE_ACCESS_TOKEN` Pages secret.
 
 The base URL varies by brand. Kibble uses `https://aisles.bcsubs.app`.
 
@@ -419,9 +419,9 @@ If the cart ID in the cookie points to an expired BigCommerce cart, the cookie i
 
 ## Observe Endpoints
 
-All Observe endpoints require `?key=aisles-observe` in the query string. Requests without this parameter return `401 Unauthorized`. This fixed key is demo-only routing protection, not production authentication.
+All Observe endpoints, including the scenario write endpoint, require HTTP Basic authentication. The password must match the server-side `OBSERVE_ACCESS_TOKEN` Pages secret. A deployed environment with no secret denies Observe entirely. Local `npm run dev` stays open only while no token is configured.
 
-These endpoints are intended for the Observe dashboard (`/observe`) and are not rate-limited. Do not expose them in production without proper authentication.
+These endpoints are intended for the Observe dashboard (`/observe`) and are not rate-limited.
 
 ---
 
@@ -434,7 +434,6 @@ Returns the full state of a specific session: all signal events, the current per
 | Parameter | Required | Description |
 |---|---|---|
 | `id` | Yes | Session ID (value of the `aisles_session` cookie) |
-| `key` | Yes | Must be `aisles-observe` |
 
 **Response**
 
@@ -478,7 +477,7 @@ Returns the full state of a specific session: all signal events, the current per
 | Status | Condition |
 |---|---|
 | 400 | Missing `id` parameter |
-| 401 | Missing or incorrect `key` parameter |
+| 401 | Missing or incorrect HTTP Basic credentials |
 | 404 | Session ID not found in Redis |
 
 ---
@@ -491,7 +490,6 @@ Returns recent generation log entries from Supabase Postgres. Each entry represe
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
-| `key` | Yes | — | Must be `aisles-observe` |
 | `limit` | No | 20 | Number of records to return (max 100) |
 | `session` | No | — | Filter to a specific session ID |
 
@@ -532,7 +530,6 @@ Returns a list of active session IDs by scanning Redis for `aisles:session:*` ke
 
 | Parameter | Required | Description |
 |---|---|---|
-| `key` | Yes | Must be `aisles-observe` |
 
 **Response**
 
@@ -563,14 +560,8 @@ Seeds one named deterministic synthetic session for a local Kibble demo. It
 replaces that scenario's existing session rather than appending events. It does
 not call external APIs, generate a layout, or write telemetry rows directly.
 
-Available only when `BRAND_ID=kibble`. It uses the demo-only Observe key and is
-not an authenticated provider or operator endpoint.
-
-**Query parameters**
-
-| Parameter | Required | Description |
-|---|---|---|
-| `key` | Yes | Must be `aisles-observe` |
+Available only when `BRAND_ID=kibble` and valid HTTP Basic credentials are
+provided. It is not an authenticated provider or operator endpoint.
 
 **Request body**
 
@@ -603,7 +594,6 @@ Returns enriched product data for a category, sorted by persona-fit score. Used 
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
-| `key` | Yes | — | Must be `aisles-observe` |
 | `category` | Yes | — | Category slug (e.g., `living-room`) |
 | `persona` | No | `gatherer` | Persona to sort by |
 

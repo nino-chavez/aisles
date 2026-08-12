@@ -68,7 +68,6 @@
 
 	// ─── State ─────────────────────────────────────────────────────
 	const POLL_INTERVAL = 2000;
-	const OBSERVE_KEY = 'aisles-observe';
 
 	let sessions = $state<Array<{ id: string; scenarioId: string | null; scenarioLabel: string | null }>>([]);
 	let selectedSessionId = $state<string | null>(null);
@@ -81,17 +80,6 @@
 	let enrichmentLoading = $state(false);
 	let previousEventCount = $state(0);
 	let shiftFlash = $state(false);
-	let authorized = $state(false);
-	let keyInput = $state('');
-
-	// Auth check from URL param
-	if (typeof window !== 'undefined') {
-		const params = new URLSearchParams(window.location.search);
-		if (params.get('key') === OBSERVE_KEY) {
-			authorized = true;
-		}
-	}
-
 	// ─── Source color mapping ──────────────────────────────────────
 	const SOURCE_COLORS: Record<string, { bg: string; text: string; label: string }> = {
 		request: { bg: 'bg-slate-700', text: 'text-slate-300', label: 'REQ' },
@@ -119,11 +107,9 @@
 
 	// ─── Polling ───────────────────────────────────────────────────
 	$effect(() => {
-		if (!authorized) return;
-
 		const fetchSessions = async () => {
 			try {
-				const res = await fetch(`/api/observe/sessions?key=${OBSERVE_KEY}`);
+				const res = await fetch('/api/observe/sessions');
 				const data = await res.json();
 				sessions = data.sessions || [];
 
@@ -139,14 +125,14 @@
 	});
 
 	$effect(() => {
-		if (!authorized || !selectedSessionId) return;
+		if (!selectedSessionId) return;
 
 		// Immediate fetch + poll
 		const doFetch = async () => {
 			try {
 				const [sessionRes, logsRes] = await Promise.all([
-					fetch(`/api/observe/session?id=${selectedSessionId}&key=${OBSERVE_KEY}`),
-					fetch(`/api/observe/logs?limit=50&session=${selectedSessionId}&key=${OBSERVE_KEY}`),
+					fetch(`/api/observe/session?id=${selectedSessionId}`),
+					fetch(`/api/observe/logs?limit=50&session=${selectedSessionId}`),
 				]);
 				const newSession = await sessionRes.json();
 				const newLogs = await logsRes.json();
@@ -184,7 +170,7 @@
 		enrichmentLoading = true;
 		enrichmentCategory = category;
 
-		fetch(`/api/observe/enrichment?category=${category}&persona=${persona}&key=${OBSERVE_KEY}`)
+		fetch(`/api/observe/enrichment?category=${category}&persona=${persona}`)
 			.then((r) => r.json())
 			.then((data) => {
 				enrichmentProducts = data.products || [];
@@ -245,11 +231,6 @@
 		return id.length > 12 ? id.slice(0, 8) + '...' + id.slice(-4) : id;
 	}
 
-	function handleAuth() {
-		if (keyInput === OBSERVE_KEY) {
-			authorized = true;
-		}
-	}
 </script>
 
 <svelte:head>
@@ -272,28 +253,6 @@
 	}
 </style>
 
-{#if !authorized}
-	<!-- Auth gate -->
-	<div class="flex min-h-screen items-center justify-center bg-neutral-950">
-		<div class="w-80 rounded-lg border border-neutral-800 bg-neutral-900 p-6">
-			<h1 class="mb-4 font-mono text-lg text-neutral-200">Observe</h1>
-			<p class="mb-4 text-sm text-neutral-500">Enter the observe key to continue.</p>
-			<input
-				type="password"
-				bind:value={keyInput}
-				onkeydown={(e) => e.key === 'Enter' && handleAuth()}
-				class="mb-3 w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 font-mono text-sm text-neutral-200 outline-none focus:border-neutral-500"
-				placeholder="key"
-			/>
-			<button
-				onclick={handleAuth}
-				class="w-full rounded bg-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-600"
-			>
-				Enter
-			</button>
-		</div>
-	</div>
-{:else}
 	<div class="min-h-screen bg-neutral-950 font-sans text-[13px] text-neutral-200 antialiased">
 		<!-- ─── Top Bar: Session Picker ───────────────────────────── -->
 		<header class="border-b border-neutral-800 bg-neutral-900/80 backdrop-blur">
@@ -764,4 +723,3 @@
 			</div>
 		{/if}
 	</div>
-{/if}

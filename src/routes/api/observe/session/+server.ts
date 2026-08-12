@@ -4,17 +4,11 @@ import { getSessionStore, hasSession } from '$lib/signals/session';
 import { infer } from '$lib/signals/inference';
 import { scenarioLabel } from '$lib/signals/scenarios';
 
-const OBSERVE_KEY = 'aisles-observe';
-
 /**
- * GET /api/observe/session?id={sessionId}&key=aisles-observe
- * Returns the full session state: events, inference, cross-session context.
+	* GET /api/observe/session?id={sessionId}
+	* Returns the full session state: events, inference, cross-session context.
  */
 export const GET: RequestHandler = async ({ url }) => {
-	if (url.searchParams.get('key') !== OBSERVE_KEY) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
-
 	const sessionId = url.searchParams.get('id');
 	if (!sessionId) {
 		return json({ error: 'Missing id parameter' }, { status: 400 });

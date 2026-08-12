@@ -264,6 +264,7 @@ The project uses strict TypeScript. Run a type check before pushing if you've mo
 | `KV_REST_API_TOKEN` | No | Server | Upstash Redis REST token |
 | `DATABASE_URL` | Yes | Local development, Node scripts | Supabase Postgres connection string; Cloudflare production uses `HYPERDRIVE` |
 | `RUNTIME_DATABASE_URL` | No | Database smoke test | Direct URL for the limited `aisles_app` role; the test verifies its role attributes and denied `DELETE` access |
+| `OBSERVE_ACCESS_TOKEN` | Yes (deployed Observe) | Cloudflare Pages secret | HTTP Basic password protecting `/observe` and `/api/observe/*`; a deployed environment denies Observe when absent |
 | `ANTHROPIC_API_KEY` | Yes (enrichment) | Scripts | Anthropic API key for enrichment pipeline |
 | `OPENROUTER_API_KEY` | Yes (enrichment) | Scripts | OpenRouter key for embedding generation |
 | `CF_AI_GATEWAY_URL` | No | Server | Cloudflare AI Gateway Anthropic endpoint; direct Anthropic is used when absent |
@@ -290,19 +291,19 @@ To see the full inference breakdown including which rules fired, open the browse
 
 ### Tracing Rule Attribution via /observe
 
-The Observe dashboard at `/observe?key=aisles-observe` shows signal and inference data in real time for any active session. To trace inference for a specific session:
+The Observe dashboard at `/observe` shows signal and inference data in real time for any active session. In deployed environments, the browser prompts for HTTP Basic credentials and the password must match `OBSERVE_ACCESS_TOKEN`. To trace inference for a specific session:
 
 1. Open the storefront in one browser window
-2. Open `/observe?key=aisles-observe` in a second window
+2. Open `/observe` in a second window
 3. Enable "Watch latest" in the session picker
 4. Interact with the storefront — search, navigate categories, use sort/filter
 
-The Signal Timeline panel shows every `SignalEvent` as it arrives. The Persona Vector panel updates on each inference run. The `ruleMatches` array is exposed in the session API response at `GET /api/observe/session?id={sessionId}&key=aisles-observe`.
+The Signal Timeline panel shows every `SignalEvent` as it arrives. The Persona Vector panel updates on each inference run. The `ruleMatches` array is exposed in the session API response at `GET /api/observe/session?id={sessionId}`.
 
 To inspect rule matches directly, fetch the session data from the API:
 
 ```bash
-curl "http://localhost:5173/api/observe/session?id=YOUR_SESSION_ID&key=aisles-observe" | jq '.inference.ruleMatches'
+curl "http://localhost:5173/api/observe/session?id=YOUR_SESSION_ID" | jq '.inference.ruleMatches'
 ```
 
 Each entry shows which rule fired, its weight, the score adjustment it applied, and the human-readable reason from `describeRuleMatch()` in `src/lib/signals/inference.ts`.

@@ -5,10 +5,8 @@ import { outcomesSummary } from '$lib/server/outcomes';
 import learnedWeights from '$lib/signals/learned-weights.json';
 import { getBrand } from '$lib/brand/config';
 
-const OBSERVE_KEY = 'aisles-observe';
-
 /**
- * GET /api/observe/inference?key=aisles-observe
+	* GET /api/observe/inference
  *
  * Inference health dashboard data. Returns aggregate stats over
  * session_outcomes: labeled volume, rule hit counts, mean posterior entropy,
@@ -19,10 +17,6 @@ const OBSERVE_KEY = 'aisles-observe';
  * of a healthy-looking empty dashboard.
  */
 export const GET: RequestHandler = async ({ url }) => {
-	if (url.searchParams.get('key') !== OBSERVE_KEY) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
-
 	const learnedActive =
 		(learnedWeights as { totalSessions?: number }).totalSessions !== undefined &&
 		(learnedWeights as { totalSessions: number }).totalSessions > 0;
