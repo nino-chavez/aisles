@@ -4,6 +4,7 @@ import {
 	compileAutonomyPreset,
 	compileCompositionPolicy,
 	compileLegacyGeneratedCompatibilityPolicy,
+	composeEffectivePolicyVersion,
 	LEGACY_GENERATED_POLICY_VERSION,
 	type BrandCompositionPolicy,
 	type CompositionPolicyRegistry,
@@ -245,6 +246,14 @@ describe('policy lookup and provenance', () => {
 		).toThrow(/missing surface policy/);
 	});
 
+	it.each([
+		['organization', { organizationId: '__proto__' }],
+		['brand', { brandId: 'toString' }],
+		['surface', { surface: '__proto__' as never }],
+	])('rejects inherited-object %s identifiers as unknown', (_label, input) => {
+		expect(() => compileHome(input)).toThrow(/missing|unknown/);
+	});
+
 	it('fails when the brand reference contract is missing or blank', () => {
 		const missingReference = { ...brand, reference: undefined } as unknown as BrandCompositionPolicy;
 		expect(() => compileHome({ registry: registry(organization, missingReference) })).toThrow(
@@ -281,7 +290,9 @@ describe('policy lookup and provenance', () => {
 	it('preserves policy and reference versions in provenance', () => {
 		const effective = compileHome({ zoneId: 'home.hero' });
 
-		expect(effective.policyVersion).toBe('brand-policy-7');
+		expect(effective.policyVersion).toBe(
+			composeEffectivePolicyVersion('org-policy-3', 'brand-policy-7'),
+		);
 		expect(effective.provenance).toEqual({
 			kind: 'compiled',
 			organizationId: 'merchant-co',
@@ -294,6 +305,21 @@ describe('policy lookup and provenance', () => {
 			zoneId: 'home.hero',
 			preset: 'compose',
 		});
+	});
+
+	it('changes effective policy identity when only the organization version changes', () => {
+		const first = compileHome({ zoneId: 'home.hero' });
+		const changedOrganization = { ...organization, policyVersion: 'org-policy-4' };
+		const second = compileHome({
+			zoneId: 'home.hero',
+			registry: registry(changedOrganization),
+		});
+
+		expect(second.provenance.brandPolicyVersion).toBe(first.provenance.brandPolicyVersion);
+		expect(second.policyVersion).not.toBe(first.policyVersion);
+		expect(second.policyVersion).toBe(
+			composeEffectivePolicyVersion('org-policy-4', 'brand-policy-7'),
+		);
 	});
 });
 

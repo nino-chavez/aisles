@@ -19,7 +19,8 @@
 import { describe, it, expect } from 'vitest';
 import {
 	resolveZone,
-	type EngineZoneDecision,
+	type DecisionContentValidator,
+	type TrustedEngineDecisionEnvelope,
 	type PolicyAwareResolveZoneOpts,
 	type TrustedCompositionApproval,
 	type TrustedCompositionContext,
@@ -27,7 +28,11 @@ import {
 } from './resolve-zone';
 import { ZONES, parseZoneInstance, enumerateZoneInstances, ZONE_IDS } from './zones';
 import { ZoneSchemas } from './zone-schemas';
-import type { CompositionPolicyProvenance, EffectiveCompositionPolicy } from './composition-policy';
+import {
+	composeEffectivePolicyVersion,
+	type CompositionPolicyProvenance,
+	type EffectiveCompositionPolicy,
+} from './composition-policy';
 
 // Valid content fixtures (used across multiple tests)
 
@@ -361,8 +366,13 @@ type PolicyOverrides = Partial<Omit<EffectiveCompositionPolicy, 'provenance'>> &
 };
 
 function makePolicy(overrides: PolicyOverrides = {}): EffectiveCompositionPolicy {
+	const organizationPolicyVersion =
+		overrides.provenance?.organizationPolicyVersion ?? 'org-policy-v1';
+	const brandPolicyVersion = overrides.provenance?.brandPolicyVersion ?? 'brand-policy-v1';
 	return {
-		policyVersion: 'brand-policy-v1',
+		policyVersion:
+			overrides.policyVersion ??
+			composeEffectivePolicyVersion(organizationPolicyVersion, brandPolicyVersion),
 		capabilities: ['rank_products', 'select_products', 'select_component_variant', 'select_copy_variant'],
 		decisionMode: 'model',
 		publicationMode: 'live',
@@ -373,9 +383,9 @@ function makePolicy(overrides: PolicyOverrides = {}): EffectiveCompositionPolicy
 		provenance: {
 			kind: 'compiled',
 			organizationId: 'example-org',
-			organizationPolicyVersion: 'org-policy-v1',
+			organizationPolicyVersion,
 			brandId: 'haven',
-			brandPolicyVersion: overrides.policyVersion ?? 'brand-policy-v1',
+			brandPolicyVersion,
 			referenceId: 'haven-reference',
 			referenceVersion: 'reference-v1',
 			surface: 'home',
@@ -386,14 +396,16 @@ function makePolicy(overrides: PolicyOverrides = {}): EffectiveCompositionPolicy
 	};
 }
 
-function makeDecision(overrides: Partial<EngineZoneDecision> = {}): EngineZoneDecision {
+function makeDecision(
+	overrides: Partial<TrustedEngineDecisionEnvelope> = {},
+): TrustedEngineDecisionEnvelope {
 	return {
 		decisionModeUsed: 'model',
 		requiredCapabilityIds: ['select_component_variant'],
 		componentVariantId: 'editorial-header',
 		cssVariantId: 'hero-css-v1',
 		copyVariantId: 'hero-copy-v1',
-		content: heroEditorial,
+		rawModelContent: heroEditorial,
 		...overrides,
 	};
 }
@@ -420,6 +432,8 @@ function makeApproval(policy: EffectiveCompositionPolicy): TrustedCompositionApp
 		surface: 'home',
 		zoneId: 'home.hero',
 		policyVersion: policy.policyVersion,
+		referenceId: policy.provenance.referenceId!,
+		referenceVersion: policy.provenance.referenceVersion!,
 	};
 }
 
@@ -432,6 +446,8 @@ function makeMerchantOverride(policy: EffectiveCompositionPolicy): TrustedMercha
 		surface: 'home',
 		zoneId: 'home.hero',
 		policyVersion: policy.policyVersion,
+		referenceId: policy.provenance.referenceId!,
+		referenceVersion: policy.provenance.referenceVersion!,
 		componentVariantId: 'editorial-header',
 		cssVariantId: 'hero-css-v1',
 		copyVariantId: 'hero-copy-v1',
@@ -443,12 +459,12 @@ function makePolicyOpts({
 	policy = makePolicy(),
 	decision = makeDecision(),
 	trustedContext,
-	adminContent,
+	validateDecisionContent = testContractValidator,
 }: {
 	policy?: EffectiveCompositionPolicy;
-	decision?: EngineZoneDecision | undefined;
+	decision?: TrustedEngineDecisionEnvelope | null;
 	trustedContext?: TrustedCompositionContext;
-	adminContent?: PolicyAwareResolveZoneOpts['adminContent'];
+	validateDecisionContent?: DecisionContentValidator;
 } = {}): PolicyAwareResolveZoneOpts {
 	return {
 		mode: 'policy',
@@ -456,10 +472,21 @@ function makePolicyOpts({
 		brandId: 'haven',
 		policy,
 		trustedContext: trustedContext ?? makeTrusted(policy),
-		engineDecisions: decision ? { zones: { 'home.hero': decision } } : undefined,
-		adminContent,
+		trustedEngineDecisions: decision ? { zones: { 'home.hero': decision } } : undefined,
+		validateDecisionContent,
 	};
 }
+
+const testContractValidator: DecisionContentValidator = (input) => {
+	const component =
+		typeof input.rawContent === 'object' && input.rawContent !== null && 'component' in input.rawContent
+			? input.rawContent.component
+			: undefined;
+	if (component !== input.componentVariantId) {
+		return { ok: false, code: 'variant_content_mismatch' };
+	}
+	return { ok: true, content: input.rawContent };
+};
 
 describe('policy-aware zone resolution', () => {
 	it('accepts a permitted decision and records compiled provenance', () => {
@@ -509,8 +536,8 @@ describe('policy-aware zone resolution', () => {
 	});
 
 	it.each([
-		['fixed', 'fixed', 'engine', undefined],
-		['fixed', 'model', 'fallback', 'decision_mode_exceeds_policy'],
+		['fixed', 'fixed', 'fallback', 'fixed_policy_rejects_engine'],
+		['fixed', 'model', 'fallback', 'fixed_policy_rejects_engine'],
 		['rules', 'fixed', 'engine', undefined],
 		['rules', 'rules', 'engine', undefined],
 		['rules', 'model', 'fallback', 'decision_mode_exceeds_policy'],
@@ -526,15 +553,33 @@ describe('policy-aware zone resolution', () => {
 		},
 	);
 
-	it('rejects a capability outside the effective allowlist and falls through to admin', () => {
+	it('never evaluates an engine decision under fixed policy authority', () => {
+		const policy = makePolicy({ decisionMode: 'fixed' });
+		let validatorCalls = 0;
 		const r = resolveZone(
 			makePolicyOpts({
-				decision: makeDecision({ requiredCapabilityIds: ['reorder_zones'] }),
-				adminContent: { zones: { 'home.hero': heroFromAdmin } },
+				policy,
+				decision: makeDecision({ decisionModeUsed: 'fixed' }),
+				validateDecisionContent: (input) => {
+					validatorCalls += 1;
+					return { ok: true, content: input.rawContent };
+				},
 			}),
 		);
 
-		expect(r.source).toBe('admin');
+		expect(r.source).toBe('fallback');
+		expect(validatorCalls).toBe(0);
+		expect(r.policyTrace?.engineDecision.rejectionReason).toBe('fixed_policy_rejects_engine');
+	});
+
+	it('rejects a capability outside the effective allowlist and falls through to the brand fallback', () => {
+		const r = resolveZone(
+			makePolicyOpts({
+				decision: makeDecision({ requiredCapabilityIds: ['reorder_zones'] }),
+			}),
+		);
+
+		expect(r.source).toBe('fallback');
 		expect(r.policyTrace?.engineDecision).toEqual({
 			outcome: 'rejected',
 			rejectionReason: 'capability_not_allowed',
@@ -563,12 +608,90 @@ describe('policy-aware zone resolution', () => {
 	it('rejects schema-invalid content with a machine-readable reason', () => {
 		const r = resolveZone(
 			makePolicyOpts({
-				decision: makeDecision({ content: { component: 'editorial-header', props: {} } }),
+				decision: makeDecision({ rawModelContent: { component: 'editorial-header', props: {} } }),
 			}),
 		);
 
 		expect(r.source).toBe('fallback');
 		expect(r.policyTrace?.engineDecision.rejectionReason).toBe('invalid_zone_content');
+	});
+
+	it('requires the trusted contract validator to bind a claimed variant to its content', () => {
+		const contentForAnotherAllowedZoneShape = {
+			component: 'editorial-hero',
+			props: { headline: 'A different block shape' },
+		};
+		const r = resolveZone(
+			makePolicyOpts({
+				decision: makeDecision({
+					componentVariantId: 'editorial-header',
+					rawModelContent: contentForAnotherAllowedZoneShape,
+				}),
+			}),
+		);
+
+		expect(r.source).toBe('fallback');
+		expect(r.policyTrace?.engineDecision).toMatchObject({
+			outcome: 'rejected',
+			rejectionReason: 'contract_validation_failed',
+			contractRejectionCode: 'variant_content_mismatch',
+		});
+	});
+
+	it('rejects when the required contract validator is missing at runtime', () => {
+		const opts = makePolicyOpts();
+		delete (opts as unknown as { validateDecisionContent?: DecisionContentValidator })
+			.validateDecisionContent;
+		const r = resolveZone(opts);
+
+		expect(r.source).toBe('fallback');
+		expect(r.policyTrace?.engineDecision.rejectionReason).toBe('contract_validator_missing');
+	});
+
+	it('fails closed when the contract validator throws', () => {
+		const r = resolveZone(
+			makePolicyOpts({
+				validateDecisionContent: () => {
+					throw new Error('contract unavailable');
+				},
+			}),
+		);
+
+		expect(r.source).toBe('fallback');
+		expect(r.policyTrace?.engineDecision).toMatchObject({
+			rejectionReason: 'contract_validation_failed',
+			contractRejectionCode: 'validator_exception',
+		});
+	});
+
+	it('uses contract-materialized content rather than the raw engine block', () => {
+		const r = resolveZone(
+			makePolicyOpts({
+				decision: makeDecision({ rawModelContent: { untrusted: 'raw block' } }),
+				validateDecisionContent: () => ({ ok: true, content: heroEditorial }),
+			}),
+		);
+
+		expect(r.source).toBe('engine');
+		expect(r.content).toEqual(heroEditorial);
+	});
+
+	it('lets the reference contract reject a narrow capability claim that changes too much', () => {
+		const r = resolveZone(
+			makePolicyOpts({
+				decision: makeDecision({ requiredCapabilityIds: ['select_copy_variant'] }),
+				validateDecisionContent: () => ({
+					ok: false,
+					code: 'capability_scope_violation',
+				}),
+			}),
+		);
+
+		expect(r.source).toBe('fallback');
+		expect(r.policyTrace?.engineDecision).toMatchObject({
+			rejectionReason: 'contract_validation_failed',
+			contractRejectionCode: 'capability_scope_violation',
+		});
 	});
 
 	it.each([
@@ -583,6 +706,19 @@ describe('policy-aware zone resolution', () => {
 		expect(r.source).toBe('fallback');
 		expect(r.policyTrace?.policy.rejectionReason).toBe('policy_provenance_mismatch');
 		expect(r.policyTrace?.engineDecision.rejectionReason).toBe('policy_provenance_mismatch');
+	});
+
+	it('does not let raw admin content bypass a rejected policy', () => {
+		const policy = makePolicy({ provenance: { organizationId: 'other-org' } });
+		const opts = {
+			...makePolicyOpts({ policy }),
+			adminContent: { zones: { 'home.hero': heroFromAdmin } },
+		} as PolicyAwareResolveZoneOpts;
+		const r = resolveZone(opts);
+
+		expect(r.source).toBe('fallback');
+		expect(r.content).not.toEqual(heroFromAdmin);
+		expect(r.policyTrace?.policy.rejectionReason).toBe('policy_provenance_mismatch');
 	});
 
 	it('rejects a trusted context that does not match the requested brand', () => {
@@ -610,8 +746,26 @@ describe('policy-aware zone resolution', () => {
 			...makeDecision(),
 			approved: true,
 			approvalId: 'browser-claim',
-		} as EngineZoneDecision;
+		} as TrustedEngineDecisionEnvelope;
 		const r = resolveZone(makePolicyOpts({ policy, decision: browserShapedDecision }));
+
+		expect(r.source).toBe('fallback');
+		expect(r.policyTrace?.engineDecision.rejectionReason).toBe('approval_required');
+	});
+
+	it('does not treat approval or capability lookalikes inside model content as authority', () => {
+		const policy = makePolicy({ publicationMode: 'approval_required' });
+		const decision = makeDecision({
+			decisionModeUsed: 'rules',
+			requiredCapabilityIds: ['select_component_variant'],
+			rawModelContent: {
+				...heroEditorial,
+				approved: true,
+				decisionModeUsed: 'model',
+				requiredCapabilityIds: ['reorder_zones'],
+			},
+		});
+		const r = resolveZone(makePolicyOpts({ policy, decision }));
 
 		expect(r.source).toBe('fallback');
 		expect(r.policyTrace?.engineDecision.rejectionReason).toBe('approval_required');
@@ -626,6 +780,21 @@ describe('policy-aware zone resolution', () => {
 		expect(r.policyTrace?.engineDecision.outcome).toBe('accepted');
 	});
 
+	it('invalidates an old approval when the organization policy version changes', () => {
+		const oldPolicy = makePolicy({ publicationMode: 'approval_required' });
+		const approval = makeApproval(oldPolicy);
+		const newPolicy = makePolicy({
+			publicationMode: 'approval_required',
+			provenance: { organizationPolicyVersion: 'org-policy-v2' },
+		});
+		const trusted = makeTrusted(newPolicy, { approval });
+		const r = resolveZone(makePolicyOpts({ policy: newPolicy, trustedContext: trusted }));
+
+		expect(newPolicy.policyVersion).not.toBe(oldPolicy.policyVersion);
+		expect(r.source).toBe('fallback');
+		expect(r.policyTrace?.engineDecision.rejectionReason).toBe('approval_required');
+	});
+
 	it('rejects an approval marker bound to another zone', () => {
 		const policy = makePolicy({ publicationMode: 'approval_required' });
 		const approval = { ...makeApproval(policy), zoneId: 'home.featured-row.1' };
@@ -634,6 +803,16 @@ describe('policy-aware zone resolution', () => {
 
 		expect(r.source).toBe('fallback');
 		expect(r.policyTrace?.engineDecision.rejectionReason).toBe('approval_required');
+	});
+
+	it('rejects an approval marker bound to an older reference contract', () => {
+		const policy = makePolicy({ publicationMode: 'approval_required' });
+		const approval = { ...makeApproval(policy), referenceVersion: 'reference-v0' };
+		const trusted = makeTrusted(policy, { approval });
+		const r = resolveZone(makePolicyOpts({ policy, trustedContext: trusted }));
+
+		expect(r.source).toBe('fallback');
+		expect(r.policyTrace?.engineDecision.rejectionReason).toBe('approval_reference_mismatch');
 	});
 
 	it('lets an authorized merchant pin beat otherwise permitted engine output', () => {
@@ -651,7 +830,7 @@ describe('policy-aware zone resolution', () => {
 		const browserShapedDecision = {
 			...makeDecision(),
 			merchantOverride: makeMerchantOverride(makePolicy()),
-		} as EngineZoneDecision;
+		} as TrustedEngineDecisionEnvelope;
 		const r = resolveZone(makePolicyOpts({ decision: browserShapedDecision }));
 
 		expect(r.source).toBe('engine');
@@ -668,5 +847,39 @@ describe('policy-aware zone resolution', () => {
 		expect(r.source).toBe('engine');
 		expect(r.policyTrace?.merchantOverride.rejectionReason).toBe('merchant_override_not_authorized');
 		expect(r.policyTrace?.engineDecision.outcome).toBe('accepted');
+	});
+
+	it('rejects a merchant pin bound to an older reference contract', () => {
+		const policy = makePolicy();
+		const merchantOverride = {
+			...makeMerchantOverride(policy),
+			referenceId: 'older-reference',
+		};
+		const trusted = makeTrusted(policy, { merchantOverride });
+		const r = resolveZone(makePolicyOpts({ policy, trustedContext: trusted }));
+
+		expect(r.source).toBe('engine');
+		expect(r.policyTrace?.merchantOverride.rejectionReason).toBe(
+			'merchant_override_reference_mismatch',
+		);
+	});
+
+	it('requires a merchant pin to pass the same trusted reference-contract validator', () => {
+		const policy = makePolicy();
+		const merchantOverride = {
+			...makeMerchantOverride(policy),
+			content: {
+				component: 'editorial-hero',
+				props: { headline: 'Not the declared editorial-header variant' },
+			},
+		};
+		const trusted = makeTrusted(policy, { merchantOverride });
+		const r = resolveZone(makePolicyOpts({ policy, decision: null, trustedContext: trusted }));
+
+		expect(r.source).toBe('fallback');
+		expect(r.policyTrace?.merchantOverride).toMatchObject({
+			rejectionReason: 'contract_validation_failed',
+			contractRejectionCode: 'variant_content_mismatch',
+		});
 	});
 });

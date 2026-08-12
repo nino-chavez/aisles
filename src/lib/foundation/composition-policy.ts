@@ -112,6 +112,7 @@ export interface CompositionPolicyProvenance {
 }
 
 export interface EffectiveCompositionPolicy {
+	/** Deterministic composite of organization and brand policy versions. */
 	policyVersion: string;
 	capabilities: readonly AutonomyCapability[];
 	decisionMode: DecisionMode;
@@ -140,8 +141,8 @@ export function compileAutonomyPreset(preset: AutonomyPreset): readonly Autonomy
 export function compileCompositionPolicy(input: CompileCompositionPolicyInput): EffectiveCompositionPolicy {
 	assertIdentity(input.organizationId, 'organization');
 	assertIdentity(input.brandId, 'brand');
-	const organization = input.registry.organizations[input.organizationId];
-	if (!organization) {
+	const organization = ownLookup(input.registry.organizations, input.organizationId);
+	if (organization === undefined) {
 		throw new CompositionPolicyValidationError(`missing organization policy "${input.organizationId}"`);
 	}
 	if (organization.organizationId !== input.organizationId) {
@@ -152,8 +153,8 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 	assertVersion(organization.policyVersion, 'organization');
 	assertMaximum(organization.maximum, 'organization maximum');
 
-	const brand = input.registry.brands[input.brandId];
-	if (!brand) {
+	const brand = ownLookup(input.registry.brands, input.brandId);
+	if (brand === undefined) {
 		throw new CompositionPolicyValidationError(`missing brand policy "${input.brandId}"`);
 	}
 	if (brand.brandId !== input.brandId || brand.organizationId !== input.organizationId) {
@@ -173,11 +174,11 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 	assertNonBlank(brand.reference.referenceId, 'reference identifier');
 	assertNonBlank(brand.reference.referenceVersion, 'reference version');
 
-	if (!(input.surface in surfaceSet)) {
+	if (!surfaceSet.has(input.surface)) {
 		throw new CompositionPolicyValidationError(`unknown surface "${input.surface}"`);
 	}
-	const surfacePolicy = brand.surfaces[input.surface];
-	if (!surfacePolicy) {
+	const surfacePolicy = ownLookup(brand.surfaces, input.surface);
+	if (surfacePolicy === undefined) {
 		throw new CompositionPolicyValidationError(
 			`missing surface policy "${input.surface}" for brand "${input.brandId}"`,
 		);
@@ -246,7 +247,7 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 	}
 
 	return {
-		policyVersion: brand.policyVersion,
+		policyVersion: composeEffectivePolicyVersion(organization.policyVersion, brand.policyVersion),
 		capabilities: intersectCapabilities(
 			organization.maximum.capabilities,
 			brand.maximum.capabilities,
@@ -295,7 +296,7 @@ export function compileLegacyGeneratedCompatibilityPolicy(
 ): EffectiveCompositionPolicy {
 	assertIdentity(input.organizationId, 'organization');
 	assertIdentity(input.brandId, 'brand');
-	if (!(input.surface in surfaceSet)) {
+	if (!surfaceSet.has(input.surface)) {
 		throw new CompositionPolicyValidationError(`unknown surface "${input.surface}"`);
 	}
 	const componentVariantIds = uniqueVariantIds(
@@ -328,16 +329,16 @@ export function compileLegacyGeneratedCompatibilityPolicy(
 	};
 }
 
-const surfaceSet: Readonly<Record<Surface, true>> = {
-	home: true,
-	plp: true,
-	pdp: true,
-	cart: true,
-	checkout: true,
-	search: true,
-	'error-404': true,
-	'error-empty': true,
-};
+const surfaceSet = new Set<string>([
+	'home',
+	'plp',
+	'pdp',
+	'cart',
+	'checkout',
+	'search',
+	'error-404',
+	'error-empty',
+] satisfies Surface[]);
 
 const capabilitySet = new Set<string>(AUTONOMY_CAPABILITIES);
 const decisionSet = new Set<string>(DECISION_MODES);
@@ -443,6 +444,15 @@ function assertNonBlank(value: string, label: string): void {
 	if (typeof value !== 'string' || value.trim() === '') {
 		throw new CompositionPolicyValidationError(`${label} is required`);
 	}
+}
+
+function ownLookup<T>(registry: Readonly<Record<string, T>>, id: string): T | undefined {
+	return Object.prototype.hasOwnProperty.call(registry, id) ? registry[id] : undefined;
+}
+
+/** Length-prefixing makes the composite stable without delimiter collisions. */
+export function composeEffectivePolicyVersion(organizationVersion: string, brandVersion: string): string {
+	return `org:${organizationVersion.length}:${organizationVersion}|brand:${brandVersion.length}:${brandVersion}`;
 }
 
 function validateZoneOverrideKeys(policy: SurfaceCompositionPolicy, surface: Surface): void {
