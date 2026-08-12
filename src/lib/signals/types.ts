@@ -44,6 +44,14 @@ export type SignalEventType =
 	| 'commerce.remove_from_cart'
 	| 'commerce.promo_applied'
 	| 'commerce.tier_progress_view'
+	| 'commerce.autoship_mix'
+	// Subscription signals (Kibble only)
+	| 'subscription.cadence_selected'
+	| 'subscription.skip'
+	| 'subscription.swap'
+	| 'subscription.pause'
+	| 'subscription.due_proximity'
+	| 'subscription.tenure'
 	// Refinement signals (client-side)
 	| 'refine.message';
 
@@ -130,6 +138,8 @@ export interface InferenceRule {
  * Populated from the full SignalStore: request-time + behavioral events.
  */
 export interface InferenceContext {
+	// Active storefront brand. Kibble-only rules must not affect other brands.
+	brandId: string;
 	// Request-time signals
 	intentParam: string | null;
 	searchQuery: string | null;
@@ -164,4 +174,12 @@ export interface InferenceContext {
 	appliedCodeCount: number;        // Count of promo codes applied this session
 	walletBalanceMinor: number;      // Loyalty wallet active balance, minor units. 0 = no wallet.
 	tierUnitsToNext: number | null;  // Units to next tier. null = no tier, 0 = at top tier.
+	// Subscription signals. These are populated only from typed subscription events.
+	selectedCadenceMonths: 1 | 2 | 3 | null;
+	subscriptionSkipCount: number;
+	subscriptionSwapCount: number;
+	subscriptionPauseCount: number;
+	dueProximityDays: number | null;
+	subscriptionTenureMonths: number | null;
+	autoshipMix: number | null; // 0 = entirely one-time, 1 = entirely autoship
 }

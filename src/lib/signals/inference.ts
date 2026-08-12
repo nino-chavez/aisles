@@ -392,6 +392,72 @@ const rules: InferenceRule[] = [
 			return { gatherer: 0.2, familiarityWithStore: 0.3 };
 		},
 	},
+
+	// ─── Kibble subscription signals ───────────────────────────
+	// These rules are deliberately brand-gated: a standing order is meaningful
+	// for Kibble's replenishment model, but is not evidence for other brands.
+	{
+		name: 'kibble-subscription-cadence-selected',
+		weight: 0.5,
+		evaluate: (ctx) => {
+			if (ctx.brandId !== 'kibble' || !ctx.selectedCadenceMonths) return null;
+			if (ctx.selectedCadenceMonths === 1) {
+				return { hunter: 0.15, urgency: 0.25, familiarityWithStore: 0.1 };
+			}
+			return { hunter: 0.1, familiarityWithStore: 0.1 };
+		},
+	},
+	{
+		name: 'kibble-subscription-skip',
+		weight: 0.5,
+		evaluate: (ctx) => {
+			if (ctx.brandId !== 'kibble' || ctx.subscriptionSkipCount === 0) return null;
+			return { researcher: 0.15, priceSensitivity: 0.1, familiarityWithStore: 0.1 };
+		},
+	},
+	{
+		name: 'kibble-subscription-swap',
+		weight: 0.6,
+		evaluate: (ctx) => {
+			if (ctx.brandId !== 'kibble' || ctx.subscriptionSwapCount === 0) return null;
+			return { researcher: 0.25, familiarityWithStore: 0.1 };
+		},
+	},
+	{
+		name: 'kibble-subscription-pause',
+		weight: 0.5,
+		evaluate: (ctx) => {
+			if (ctx.brandId !== 'kibble' || ctx.subscriptionPauseCount === 0) return null;
+			return { researcher: 0.15, priceSensitivity: 0.15, familiarityWithStore: 0.1 };
+		},
+	},
+	{
+		name: 'kibble-subscription-due-proximity',
+		weight: 0.7,
+		evaluate: (ctx) => {
+			if (ctx.brandId !== 'kibble' || ctx.dueProximityDays == null || ctx.dueProximityDays > 7) return null;
+			return ctx.dueProximityDays <= 3
+				? { hunter: 0.2, urgency: 0.35, familiarityWithStore: 0.1 }
+				: { hunter: 0.1, urgency: 0.2, familiarityWithStore: 0.1 };
+		},
+	},
+	{
+		name: 'kibble-subscription-tenure',
+		weight: 0.7,
+		evaluate: (ctx) => {
+			if (ctx.brandId !== 'kibble' || ctx.subscriptionTenureMonths == null || ctx.subscriptionTenureMonths < 1) return null;
+			return { familiarityWithStore: Math.min(ctx.subscriptionTenureMonths / 12, 1) * 0.5 };
+		},
+	},
+	{
+		name: 'kibble-commerce-autoship-mix',
+		weight: 0.7,
+		evaluate: (ctx) => {
+			if (ctx.brandId !== 'kibble' || ctx.autoshipMix == null || ctx.autoshipMix <= 0) return null;
+			// A standing order proves repeat familiarity, not Haven-style hunting.
+			return { familiarityWithStore: ctx.autoshipMix * 0.5 };
+		},
+	},
 ];
 
 // ─── Bayesian Engine ───────────────────────────────────────────────
@@ -669,6 +735,20 @@ function describeRuleMatch(ruleName: string, ctx: InferenceContext, adj: Persona
 			return `${ctx.tierUnitsToNext} units from next loyalty tier — close to a reward`;
 		case 'wallet-balance-gatherer':
 			return `Loyalty wallet balance $${(ctx.walletBalanceMinor / 100).toFixed(2)} — returning member browsing with credit`;
+		case 'kibble-subscription-cadence-selected':
+			return `Kibble Auto-Refill cadence set to every ${ctx.selectedCadenceMonths} month${ctx.selectedCadenceMonths === 1 ? '' : 's'}`;
+		case 'kibble-subscription-skip':
+			return `${ctx.subscriptionSkipCount} Kibble shipment skip action(s) — actively managing a known subscription`;
+		case 'kibble-subscription-swap':
+			return `${ctx.subscriptionSwapCount} Kibble subscription swap action(s) — comparing a replacement item`;
+		case 'kibble-subscription-pause':
+			return `${ctx.subscriptionPauseCount} Kibble subscription pause action(s) — actively managing a known subscription`;
+		case 'kibble-subscription-due-proximity':
+			return `Kibble shipment due in ${ctx.dueProximityDays} day${ctx.dueProximityDays === 1 ? '' : 's'}`;
+		case 'kibble-subscription-tenure':
+			return `${ctx.subscriptionTenureMonths} month${ctx.subscriptionTenureMonths === 1 ? '' : 's'} subscribed to Kibble — strong store familiarity`;
+		case 'kibble-commerce-autoship-mix':
+			return `${Math.round((ctx.autoshipMix ?? 0) * 100)}% of the Kibble cart is on Auto-Refill — familiarity, not a new persona`;
 		default: {
 			const boosts = PERSONAS.filter((p) => adj[p] && adj[p]! > 0).map((p) => `+${adj[p]!.toFixed(1)} ${p}`);
 			return boosts.length ? boosts.join(', ') : 'Rule matched';
