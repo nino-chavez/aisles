@@ -371,13 +371,20 @@ the universal engine-first precedence with policy-driven resolution.
 
 Port or adapt the reference tokens, chrome, hero, bundle, proof strip, routine
 modules, product cards, and responsive rules. Register them under a versioned
-Kibble contract. Preserve the source's semantic token meanings.
+Kibble contract. Preserve the source's semantic token meanings. Record the
+source repository and exact commit in the contract. Adapt commerce actions and
+data through typed Kibble adapters; do not copy reference links to routes that
+Aisles does not implement.
 
 ### Phase 4: Integrate Kibble routes
 
 Render ordered reference zones on the Kibble home and product-listing surfaces.
 Keep the current whole-page renderer as an explicit legacy path for brands that
-have not adopted contracts. Kibble fallbacks must remain Kibble-native.
+have not adopted contracts. Select the path from trusted server-side brand and
+contract data. Kibble Preserve mode server-renders its fixed shell and does not
+request the whole-page layout stream. Kibble fallbacks must remain Kibble-native.
+Make its navigation, mobile menu, search, cart action, and unavailable account
+actions explicit rather than inheriting generic or broken URLs.
 
 ### Phase 5: Narrow generation to zone decisions
 
@@ -389,13 +396,16 @@ rather than asking the model not to use them.
 
 Add reference and policy versions to caches, generation logs, and Observe.
 Extend the existing synthetic-cache tests to cover organization, brand,
-reference, viewport, and preset isolation.
+reference, viewport, and preset isolation. Add the database migration required
+for the provenance fields before changing production writes.
 
 ### Phase 7: Make parity executable
 
 Add desktop and mobile reference fixtures, component-tree assertions, computed
 token checks, and screenshot comparisons. Force failure and cache-hit paths
-through the same suite.
+through the same suite. Include header actions, mobile navigation, Kibble-aware
+search and empty states, and fixed-shell server rendering in the acceptance
+matrix; a home-only screenshot is not route parity.
 
 ### Phase 8: Adopt the contract in `bealls-aisles`
 
