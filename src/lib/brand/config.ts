@@ -14,6 +14,15 @@ export interface BrandConfig {
 	footerNote: string;
 
 	/**
+	 * What the catalog's photography actually is. `lifestyle` imagery survives
+	 * an edge-to-edge crop with text over it; a `packshot` catalog — product on
+	 * a flat sweep — does not, because the crop cuts the product and the
+	 * overlay lands on the label. Hero sections read this to choose between
+	 * filling the frame and sitting the product inside it.
+	 */
+	imagery?: 'lifestyle' | 'packshot';
+
+	/**
 	 * Operating mode. `content` brands have no online catalog, so surfaces that
 	 * assume products (PDP, and the merchandised half of home) resolve to
 	 * nothing rather than to an empty grid. Defaults to `storefront`.
@@ -184,6 +193,7 @@ const BRANDS: Record<string, BrandConfig> = {
 
 	volt: {
 		id: 'volt',
+		imagery: 'packshot',
 		name: 'Volt',
 		tagline: 'Sound that moves with you',
 		domain: 'consumer audio & electronics',
@@ -346,6 +356,7 @@ const BRANDS: Record<string, BrandConfig> = {
 
 	kibble: {
 		id: 'kibble',
+		imagery: 'packshot',
 		name: 'Kibble & Co.',
 		tagline: 'The good stuff, chosen for you — never running out',
 		domain: 'pet supplies & Auto-Refill subscriptions',

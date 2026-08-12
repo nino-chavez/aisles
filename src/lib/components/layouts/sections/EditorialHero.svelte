@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { getBrand } from '$lib/brand/config';
+
 	let {
 		image,
 		eyebrow = '',
@@ -25,6 +27,11 @@
 				: 'justify-center text-center items-center'
 	);
 
+	// A packshot sits inside the frame over a light scrim instead of being
+	// cropped edge-to-edge under white text: cover-cropping a product on a
+	// flat sweep cuts the product and drops the overlay onto its label.
+	const isPackshot = $derived(getBrand().imagery === 'packshot');
+
 	const innerWidthClass = $derived(
 		textPosition === 'center' ? 'max-w-2xl' : 'max-w-md'
 	);
@@ -38,16 +45,20 @@
 				src={image}
 				alt={headline}
 				loading="lazy"
-				class="h-full w-full object-cover"
+				class="h-full w-full {isPackshot ? 'object-contain p-6' : 'object-cover'}"
 			/>
 		</div>
 
-		<div class="absolute inset-0 flex {positionClass} bg-gradient-to-r from-black/30 via-black/10 to-transparent p-8 sm:p-12">
-			<div class="{innerWidthClass} text-white">
+		<div
+			class="absolute inset-0 flex {positionClass} p-8 sm:p-12 {isPackshot
+				? 'bg-gradient-to-r from-surface-bg via-surface-bg/85 to-transparent'
+				: 'bg-gradient-to-r from-black/30 via-black/10 to-transparent'}"
+		>
+			<div class="{innerWidthClass} {isPackshot ? 'text-surface-fg' : 'text-white'}">
 				{#if eyebrow}
 					<p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] opacity-90">{eyebrow}</p>
 				{/if}
-				<h2 class="font-display text-3xl leading-tight tracking-tight drop-shadow-md sm:text-5xl">
+				<h2 class="font-display text-3xl leading-tight tracking-tight sm:text-5xl {isPackshot ? '' : 'drop-shadow-md'}">
 					{headline}
 				</h2>
 				{#if body}

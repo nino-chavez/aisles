@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { getBrand } from '$lib/brand/config';
+
 	let {
 		image,
 		category,
@@ -12,6 +14,10 @@
 		ctaLabel: string;
 		ctaHref: string;
 	} = $props();
+
+	// A packshot catalog sits the product inside the frame; cover-cropping one
+	// cuts the product and puts the price overlay on top of its label.
+	const isPackshot = $derived(getBrand().imagery === 'packshot');
 </script>
 
 {#if image}
@@ -24,13 +30,13 @@
 			<img
 				src={image}
 				alt={category}
-				class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+				class="h-full w-full transition-transform duration-500 group-hover:scale-[1.02] {isPackshot ? 'object-contain p-6' : 'object-cover'}"
 				loading="lazy"
 			/>
 		</div>
 
 		<!-- Bold price overlay, anchored to the right — the featured-price hero pattern. -->
-		<div class="absolute inset-0 flex items-center justify-end p-8 sm:p-12">
+		<div class="absolute inset-0 flex items-center justify-end p-8 sm:p-12 {isPackshot ? 'bg-gradient-to-l from-surface-bg via-surface-bg/80 to-transparent' : ''}">
 			<div class="flex flex-col items-end gap-2 text-right">
 				<p class="text-xs font-semibold uppercase tracking-[0.18em] text-surface-fg drop-shadow-sm">
 					{category}
