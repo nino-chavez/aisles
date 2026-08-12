@@ -14,6 +14,7 @@ const migration = readFileSync(
 	resolve(import.meta.dirname, '../../../../supabase/migrations/20260812204335_kibble_pet_enrichment_fields.sql'),
 	'utf8',
 );
+const enrichmentRunner = readFileSync(resolve(import.meta.dirname, 'enrich.ts'), 'utf8');
 
 describe('Kibble pet enrichment contract', () => {
 	it('keeps catalog-observed chicken and air-dried values distinct', () => {
@@ -52,5 +53,21 @@ describe('Kibble pet enrichment contract', () => {
 		expect(LIFE_STAGES).toEqual(['puppy', 'adult', 'senior', 'all']);
 		expect(DIETARY_OPTIONS).toEqual(['grain-free', 'limited-ingredient', 'prescription', 'none']);
 		expect(PET_SIZES).toEqual(['toy', 'small', 'medium', 'large', 'any']);
+	});
+
+	it('audits token usage when structured enrichment output fails', () => {
+		expect(enrichmentRunner).toContain('NoObjectGeneratedError.isInstance(error)');
+		expect(enrichmentRunner).toContain("'enrichment_failed'");
+		expect(enrichmentRunner).toContain('error.usage?.inputTokens');
+		expect(enrichmentRunner).toContain('error.usage?.outputTokens');
+	});
+
+	it('records paid model calls independently from atomic product publication', () => {
+		expect(enrichmentRunner).toContain('await logEnrichmentGeneration(\n\t\t\t\tsql,');
+		expect(enrichmentRunner).not.toContain('await logEnrichmentGeneration(tx');
+		expect(enrichmentRunner.indexOf('await logEnrichmentGeneration(')).toBeLessThan(
+			enrichmentRunner.indexOf("console.log('\\nGenerating embeddings...')"),
+		);
+		expect(enrichmentRunner).toContain('await sql.begin(async (tx) =>');
 	});
 });
