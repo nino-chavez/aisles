@@ -255,6 +255,7 @@ async function upsertEnrichment(product: BCProductNode, enrichment: z.infer<type
 // ─── Main ──────────────────────────────────────────────────────────
 
 async function main() {
+	try {
 	console.log('Fetching products from BigCommerce...');
 	const products = await fetchProducts();
 	console.log(`Found ${products.length} products`);
@@ -317,11 +318,17 @@ async function main() {
 		}
 
 		console.log(`Embeddings: ${embeddingCount} generated (${embeddings[0]?.length || 0} dimensions)`);
+		if (embeddingCount !== products.length) {
+			throw new Error(`Embedding generation incomplete: ${embeddingCount} of ${products.length} products received vectors.`);
+		}
 	} catch (err) {
 		throw new Error(`Embedding generation failed: ${err instanceof Error ? err.message : String(err)}`);
 	}
 
 	console.log('\nDone.');
+	} finally {
+		await sql.end({ timeout: 5 });
+	}
 }
 
 main().catch((err) => {
