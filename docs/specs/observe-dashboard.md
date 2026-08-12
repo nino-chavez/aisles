@@ -185,7 +185,7 @@ $effect(() => {
 
 ### Security
 
-The `/observe` route and its API endpoints should be gated behind a URL parameter or basic auth — it exposes session data. For the demo, `?key=aisles-observe` is sufficient. Production would need proper auth.
+The `/observe` route and its API endpoints are gated with HTTP Basic authentication. The password is the server-side `OBSERVE_ACCESS_TOKEN` secret. Local development is open only when no token is configured.
 
 ### Build Sequence
 

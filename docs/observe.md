@@ -14,15 +14,19 @@ It is designed for side-by-side use during demos: storefront in one window, Obse
 
 ## Accessing the Dashboard
 
-The dashboard is gated by a URL parameter to prevent casual discovery:
+The dashboard is gated with HTTP Basic authentication:
 
 ```
-https://aisles.bcsubs.app/observe?key=aisles-observe
+https://aisles.bcsubs.app/observe
 ```
 
-Any brand's Observe dashboard uses the same path and key on that brand's deployed domain. This fixed key is demo-only routing protection, not production authentication.
+Set `OBSERVE_ACCESS_TOKEN` as a Cloudflare Pages secret for every deployed
+environment. The browser prompts for credentials; the password must match that
+secret. The secret is never included in the page or its API URLs.
 
-Without `?key=aisles-observe`, the page will not load the dashboard content.
+Without valid credentials, the page and every `/api/observe/*` endpoint return
+`401 Unauthorized`. If the secret is absent in a deployed environment, Observe
+is disabled. Local `npm run dev` remains open only while no token is configured.
 
 ---
 
@@ -189,15 +193,15 @@ This is per-session cost, not per-user or per-day. It is useful for showing demo
 
 The dashboard polls two endpoints every 2 seconds:
 
-- `GET /api/observe/session?id={sessionId}&key=aisles-observe`
-- `GET /api/observe/logs?limit=20&session={sessionId}&key=aisles-observe`
+- `GET /api/observe/session?id={sessionId}`
+- `GET /api/observe/logs?limit=20&session={sessionId}`
 
 ### Synthetic Kibble demo scenarios
 
 For a deterministic local demo, use the Kibble-only endpoint:
 
 ```text
-POST /api/observe/scenarios?key=aisles-observe
+POST /api/observe/scenarios
 { "scenarioId": "first-time-puppy-owner" }
 ```
 

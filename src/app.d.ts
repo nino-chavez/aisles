@@ -9,6 +9,7 @@ declare global {
 		interface Platform {
 			env?: {
 				HYPERDRIVE?: Hyperdrive;
+				OBSERVE_ACCESS_TOKEN?: string;
 			};
 		}
 	}

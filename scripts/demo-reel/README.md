@@ -48,7 +48,7 @@ Without these, scene 14 falls back to a single-brand capture.
 ```bash
 # 1. Capture all 20 scenes (~3–5 min)
 AISLES_URL=http://localhost:5173 \
-  OBSERVE_KEY=aisles-observe \
+  OBSERVE_ACCESS_TOKEN=your-observe-token \
   node scripts/demo-reel/capture-bealls.mjs
 
 # 2. Generate the reel (~2–4 min depending on TTS)

@@ -141,7 +141,7 @@
 			try {
 				const sessionId = data.sessionId;
 				if (!sessionId) return;
-				const res = await fetch(`/api/observe/logs?session=${sessionId}&limit=50&key=aisles-observe`);
+				const res = await fetch(`/api/observe/logs?session=${sessionId}&limit=50`);
 				const { logs } = await res.json();
 				if (!logs?.length) return;
 				const totalCost = logs.reduce((s: number, l: any) => s + (l.estimatedCost ?? 0), 0);

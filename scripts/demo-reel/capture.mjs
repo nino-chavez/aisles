@@ -31,6 +31,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, 'screenshots');
 const BASE_URL = process.env.AISLES_URL ?? 'http://localhost:5173';
+const OBSERVE_ACCESS_TOKEN = process.env.OBSERVE_ACCESS_TOKEN;
 const VIEWPORT = { width: 1440, height: 900 };
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -153,11 +154,16 @@ document.getElementById('out').innerHTML = highlight(source);
 async function captureObserveIncentives(context) {
 	const page = await context.newPage();
 	await page.setViewportSize(VIEWPORT);
+	if (OBSERVE_ACCESS_TOKEN) {
+		await page.setExtraHTTPHeaders({
+			authorization: `Basic ${Buffer.from(`operator:${OBSERVE_ACCESS_TOKEN}`).toString('base64')}`,
+		});
+	}
 	log('→ warming a session by browsing a code-landing URL');
 	await page.goto(`${BASE_URL}/category/living-room?code=BLCKFRDY`, { waitUntil: 'networkidle' });
 	await page.waitForTimeout(1500);
 	log('→ opening the Observe dashboard');
-	await page.goto(`${BASE_URL}/observe?key=aisles-observe`, { waitUntil: 'networkidle' });
+	await page.goto(`${BASE_URL}/observe`, { waitUntil: 'networkidle' });
 	await page.waitForTimeout(2500);
 	// Pick the most recent session if a selector is present.
 	const sessionSelect = page.locator('select, [role="combobox"]').first();

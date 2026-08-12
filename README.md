@@ -134,7 +134,7 @@ Full environment reference and the enrichment/cache-warming scripts are in [`doc
 
 ## Observe
 
-`/observe` is the operator's window into the engine (gated by a demo-only soft access key). It shows, per session, the live signal timeline, the persona probability vector as it updates, every inference rule that fired with its weight and human-readable reason, and the generation log (model, tokens, cost) for each layout. Kibble demo scenarios are visibly labeled synthetic and excluded from fitting and calibration.
+`/observe` is the operator's window into the engine. It is protected in deployed environments with HTTP Basic authentication backed by the server-side `OBSERVE_ACCESS_TOKEN` secret. It shows, per session, the live signal timeline, the persona probability vector as it updates, every inference rule that fired with its weight and human-readable reason, and the generation log (model, tokens, cost) for each layout. Kibble demo scenarios are visibly labeled synthetic and excluded from fitting and calibration.
 
 This is the other half of the product's design principle: **invisible to the shopper, transparent to the operator.** A merchandiser, brand manager, or growth lead can see *why* the store behaved the way it did without opening the codebase.
 
