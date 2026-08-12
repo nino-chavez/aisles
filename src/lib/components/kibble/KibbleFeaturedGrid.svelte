@@ -1,20 +1,18 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibbleAutoRefillOffer, KibbleProduct } from './types';
+	import type { KibbleAutoRefillOffer, KibbleFeaturedCopy, KibbleProduct } from './types';
 
 	let {
-		title = 'New arrivals',
-		eyebrow = 'Catalog',
+		copy,
 		products,
 		productHrefs,
 		browseHref,
 		subscriptionOffers = {},
 	}: {
-		title?: string;
-		eyebrow?: string;
+		copy: KibbleFeaturedCopy;
 		products: KibbleProduct[];
-		productHrefs: Record<string, string>;
+		productHrefs: Partial<Record<string, string>>;
 		browseHref: string;
 		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
 	} = $props();
@@ -25,10 +23,10 @@
 		<div class="kc-reference-container">
 			<div class="kc-reference-section__header">
 				<div>
-					{#if eyebrow}<p class="kc-reference-eyebrow">{eyebrow}</p>{/if}
-					<h2 id="kibble-featured-heading" class="kc-reference-section__title">{title}</h2>
+					<p class="kc-reference-eyebrow">{copy.eyebrow}</p>
+					<h2 id="kibble-featured-heading" class="kc-reference-section__title">{copy.title}</h2>
 				</div>
-				<a href={browseHref} class="kc-reference-section__browse kc-reference-focus">Browse all →</a>
+				<a href={browseHref} class="kc-reference-section__browse kc-reference-focus">{copy.browseAllLabel} →</a>
 			</div>
 
 			<div class="kc-reference-product-grid">

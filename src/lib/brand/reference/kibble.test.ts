@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { KIBBLE_REFERENCE_CONTRACT, KibbleReferenceContractSchema } from './kibble';
 
-function cloneContract(): any {
+type MutableContract = ReturnType<typeof structuredClone<typeof KIBBLE_REFERENCE_CONTRACT>>;
+
+function cloneContract(): MutableContract {
 	return structuredClone(KIBBLE_REFERENCE_CONTRACT);
 }
 
 function remove(path: Array<string | number>): unknown {
-	const candidate = cloneContract();
-	let cursor = candidate;
-	for (const key of path.slice(0, -1)) cursor = cursor[key];
-	delete cursor[path.at(-1)!];
+	const candidate: unknown = cloneContract();
+	let cursor: unknown = candidate;
+	for (const key of path.slice(0, -1)) {
+		if (cursor === null || typeof cursor !== 'object') throw new Error('Invalid test path');
+		cursor = (cursor as Record<string | number, unknown>)[key];
+	}
+	if (cursor === null || typeof cursor !== 'object') throw new Error('Invalid test path');
+	delete (cursor as Record<string | number, unknown>)[path.at(-1)!];
 	return candidate;
 }
 
@@ -38,7 +44,7 @@ describe('Kibble reference contract', () => {
 			'account-control', 'cart-control', 'mobile-drawer',
 		]);
 		const candidate = cloneContract();
-		candidate.chrome.required[6] = 'cart-control';
+		(candidate.chrome.required as unknown as string[])[6] = 'cart-control';
 		expect(KibbleReferenceContractSchema.safeParse(candidate).success).toBe(false);
 	});
 
@@ -64,6 +70,10 @@ describe('Kibble reference contract', () => {
 			{ slot: 'service-proof', owner: 'home-recipe' },
 		]);
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.home.rootLayoutChrome).toBe('kibble.header');
+		expect(anatomy[0].variantId).toBe('kibble.header.responsive-chrome');
+		const header = KIBBLE_REFERENCE_CONTRACT.components.find(({ id }) => id === 'kibble.header')!;
+		expect(header.variants).toHaveLength(1);
+		expect(header.variants[0].cssVariantIds).toEqual(['kc.header.desktop', 'kc.header.mobile-drawer']);
 	});
 
 	it('rejects recipe slots that name unregistered components or full variants', () => {
@@ -88,7 +98,7 @@ describe('Kibble reference contract', () => {
 
 	it('rejects duplicate full variants, fields, and bounded copy definitions', () => {
 		const duplicateVariant = cloneContract();
-		duplicateVariant.components[0].variants[1].id = duplicateVariant.components[0].variants[0].id;
+		duplicateVariant.components[1].variants[0].id = duplicateVariant.components[0].variants[0].id;
 		expect(KibbleReferenceContractSchema.safeParse(duplicateVariant).success).toBe(false);
 		const duplicateField = cloneContract();
 		duplicateField.components[0].variants[0].dynamicPropFields.push('brandName');

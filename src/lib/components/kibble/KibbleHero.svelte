@@ -49,10 +49,10 @@
 			<article class="kc-reference-bundle">
 				<div class="kc-reference-bundle__media">
 					<img src={featured.image} alt={featured.imageAlt ?? featured.name} />
-					<span class="kc-reference-autorefill-seal kc-reference-bundle__seal">Auto-Refill</span>
+					<span class="kc-reference-autorefill-seal kc-reference-bundle__seal">{featured.autoRefillLabel}</span>
 				</div>
 				<div class="kc-reference-bundle__content">
-					<p class="kc-reference-eyebrow">Featured bundle</p>
+					<p class="kc-reference-eyebrow">{featured.eyebrow}</p>
 					<h2>{featured.name}</h2>
 					<ul class="kc-reference-bundle__list">
 						{#each featured.contents as content (content.role)}
@@ -62,9 +62,9 @@
 					<div class="kc-reference-bundle__price">
 						<span class="kc-reference-price kc-reference-bundle__price-current">{money(featured.subscribePrice)}</span>
 						<span class="kc-reference-price kc-reference-bundle__price-old">{money(featured.oneTimePrice)}</span>
-						<span class="kc-reference-savings">Save {featured.savingsPercent}%</span>
+						<span class="kc-reference-savings">{featured.savingsLabel} {featured.savingsPercent}%</span>
 					</div>
-					<a href={featured.href} class="kc-reference-button kc-reference-button--primary kc-reference-focus" style="width:100%;margin-top:1rem;">Shop the bundle</a>
+					<a href={featured.href} class="kc-reference-button kc-reference-button--primary kc-reference-focus" style="width:100%;margin-top:1rem;">{featured.ctaLabel}</a>
 				</div>
 			</article>
 	</div>

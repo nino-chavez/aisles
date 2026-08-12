@@ -5,6 +5,18 @@ export type KibbleNavItem = {
 	href: string;
 };
 
+export type KibbleChromeCopy = {
+	catalogLabel: string;
+	catalogEmptyLabel: string;
+	searchLabel: string;
+	searchPlaceholder: string;
+	accountLabel: string;
+	savedPicksLabel: string;
+	cartLabel: string;
+	cartUnavailableLabel: string;
+	browseAllLabel: string;
+};
+
 export type KibbleReferenceLinkTarget =
 	| 'home'
 	| 'catalog-category'
@@ -56,12 +68,24 @@ export type KibbleFeaturedBundle = {
 	oneTimePrice: number;
 	savingsPercent: number;
 	contents: Array<{ brand: string; role: string }>;
+	eyebrow: string;
+	autoRefillLabel: string;
+	savingsLabel: string;
+	ctaLabel: string;
 };
 
 export type KibbleAutoRefillOffer = {
 	price: number;
 	savingsPercent: number;
+	label: string;
+	savingsLabel: string;
 	cadenceLabel?: string;
+};
+
+export type KibbleFeaturedCopy = {
+	title: string;
+	eyebrow: string;
+	browseAllLabel: string;
 };
 
 export type KibbleVisualTile = {

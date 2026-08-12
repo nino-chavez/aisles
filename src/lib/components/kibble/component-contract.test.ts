@@ -31,9 +31,23 @@ describe('Kibble reference components fail closed', () => {
 	it('hides optional account and disables an unavailable cart in both chrome variants', () => {
 		const desktop = component('KibbleHeader.svelte');
 		expect(desktop).toContain('{#if accountHref}');
-		expect(desktop).toContain('aria-label="Cart unavailable"');
+		expect(desktop).toContain('aria-label={copy.cartUnavailableLabel}');
 		const mobile = component('KibbleMobileNavigation.svelte');
 		expect(mobile).toContain('{#if accountHref || onPicksClick || picksHref}');
-		expect(mobile).toContain('aria-label="Cart unavailable"');
+		expect(mobile).toContain('aria-label={copy.cartUnavailableLabel}');
+	});
+
+	it('requires visible section copy and fails closed without a product href', () => {
+		const featured = component('KibbleFeaturedGrid.svelte');
+		expect(featured).toMatch(/copy: KibbleFeaturedCopy/);
+		expect(featured).not.toContain("'New arrivals'");
+		expect(featured).not.toContain("'Catalog'");
+		const home = component('KibbleHomeReference.svelte');
+		expect(home).not.toContain("'Shop by category'");
+		expect(home).not.toContain("'Browse'");
+		const card = component('KibbleProductCard.svelte');
+		expect(card).toContain('{#if productHref}');
+		expect(card).toContain('<article');
+		expect(card).toContain('kc-reference-product-card--disabled');
 	});
 });

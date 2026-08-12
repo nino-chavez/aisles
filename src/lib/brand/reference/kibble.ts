@@ -206,16 +206,13 @@ const contractInput = {
 	components: [
 		{
 			id: 'kibble.header', implementation: 'KibbleHeader.svelte',
-			variants: [
-				variant('kibble.header.desktop', ['kc.header.desktop'], ['brandName', 'navItems', 'autoRefillState', 'statusItems', 'cartCount', 'picksCount'], [], ['home', 'catalog-category', 'search-results', 'account', 'cart', 'saved-picks'], ['open-mobile-navigation', 'open-search', 'close-search', 'open-cart-drawer', 'open-picks-tray'], [copy('brandName', 40, ['merchant-policy']), copy('statusItems[].label', 56, ['computed-fact'])]),
-				variant('kibble.header.mobile-drawer', ['kc.header.mobile-drawer'], ['brandName', 'navItems', 'cartCount', 'picksCount'], [], ['home', 'catalog-category', 'account', 'cart', 'saved-picks'], ['close-mobile-navigation', 'open-cart-drawer', 'open-picks-tray'], [copy('brandName', 40, ['merchant-policy']), copy('navItems[].label', 32, ['merchant-policy'])]),
-			],
+			variants: [variant('kibble.header.responsive-chrome', ['kc.header.desktop', 'kc.header.mobile-drawer'], ['brandName', 'navItems', 'autoRefillState', 'statusItems', 'copy', 'cartCount', 'picksCount'], [], ['home', 'catalog-category', 'search-results', 'account', 'cart', 'saved-picks'], ['open-mobile-navigation', 'close-mobile-navigation', 'open-search', 'close-search', 'open-cart-drawer', 'open-picks-tray'], [copy('brandName', 40, ['merchant-policy']), copy('statusItems[].label', 56, ['computed-fact']), copy('navItems[].label', 32, ['merchant-policy']), copy('copy.*', 48, ['reference-copy'])])],
 			referenceOwned: ['status-bar anatomy', 'wordmark treatment', 'navigation density', 'control shape', 'mobile drawer structure'],
 			aislesOwned: ['navigation labels and named targets', 'verified status facts', 'live counts', 'supported callbacks'],
 		},
 		{
 			id: 'kibble.hero', implementation: 'KibbleHero.svelte',
-			variants: [variant('kibble.hero.flagship-bundle', ['kc.hero.flagship-bundle'], ['eyebrow', 'headline', 'body', 'ctas', 'featured', 'proofItems'], ['featured.image'], ['catalog-category', 'featured-bundle'], [], [copy('eyebrow', 72, ['reference-copy']), copy('headline', 88, ['reference-copy']), copy('body', 360, ['reference-copy']), copy('ctas[].label', 32, ['reference-copy']), copy('proofItems[].label', 28, ['merchant-policy']), copy('proofItems[].value', 24, ['computed-fact']), copy('featured.name', 72, ['merchant-catalog'])])],
+			variants: [variant('kibble.hero.flagship-bundle', ['kc.hero.flagship-bundle'], ['eyebrow', 'headline', 'body', 'ctas', 'featured', 'proofItems'], ['featured.image'], ['catalog-category', 'featured-bundle'], [], [copy('eyebrow', 72, ['reference-copy']), copy('headline', 88, ['reference-copy']), copy('body', 360, ['reference-copy']), copy('ctas[].label', 32, ['reference-copy']), copy('proofItems[].label', 28, ['merchant-policy']), copy('proofItems[].value', 24, ['computed-fact']), copy('featured.name', 72, ['merchant-catalog']), copy('featured.eyebrow', 32, ['reference-copy']), copy('featured.autoRefillLabel', 24, ['reference-copy']), copy('featured.savingsLabel', 16, ['reference-copy']), copy('featured.ctaLabel', 32, ['reference-copy'])])],
 			referenceOwned: ['two-column composition', 'headline measure', 'flagship bundle anatomy', 'proof-strip anatomy', 'CTA treatments'],
 			aislesOwned: ['approved bounded copy', 'named CTA targets', 'featured catalog data', 'substantiated proof values'],
 		},
@@ -225,14 +222,14 @@ const contractInput = {
 				variant('kibble.product-card.catalog-card', ['kc.product-card.catalog-card'], ['product', 'productHref', 'merchantBrand'], ['product.image'], ['product-detail'], [], [copy('product.name', 96, ['merchant-catalog']), copy('merchantBrand', 48, ['merchant-catalog'])]),
 				variant('kibble.product-card.featured-tile', ['kc.product-card.featured-tile'], ['product', 'productHref', 'merchantBrand'], ['product.image'], ['product-detail'], [], [copy('product.name', 96, ['merchant-catalog']), copy('merchantBrand', 48, ['merchant-catalog'])]),
 				variant('kibble.product-card.sale', ['kc.product-card.sale'], ['product', 'productHref'], ['product.image'], ['product-detail'], [], [copy('product.name', 96, ['merchant-catalog'])]),
-				variant('kibble.product-card.auto-refill', ['kc.product-card.auto-refill'], ['product', 'productHref', 'autoRefill'], ['product.image'], ['product-detail'], [], [copy('product.name', 96, ['merchant-catalog']), copy('autoRefill.cadenceLabel', 28, ['merchant-policy'])]),
+				variant('kibble.product-card.auto-refill', ['kc.product-card.auto-refill'], ['product', 'productHref', 'autoRefill'], ['product.image'], ['product-detail'], [], [copy('product.name', 96, ['merchant-catalog']), copy('autoRefill.label', 24, ['reference-copy']), copy('autoRefill.savingsLabel', 16, ['reference-copy']), copy('autoRefill.cadenceLabel', 28, ['merchant-policy'])]),
 			],
 			referenceOwned: ['square media', 'one-pixel border', 'mono price treatment', 'mint Auto-Refill seal', 'coral savings semantics'],
 			aislesOwned: ['product identity', 'product imagery', 'vendor brand', 'prices', 'subscription eligibility'],
 		},
 		{
 			id: 'kibble.featured-grid', implementation: 'KibbleFeaturedGrid.svelte',
-			variants: [variant('kibble.featured-grid.four-column', ['kc.featured-grid.four-column'], ['title', 'eyebrow', 'products', 'productHrefs', 'subscriptionOffers'], [], ['browse-all', 'product-detail'], [], [copy('title', 64, ['reference-copy']), copy('eyebrow', 24, ['reference-copy'])])],
+			variants: [variant('kibble.featured-grid.four-column', ['kc.featured-grid.four-column'], ['copy', 'products', 'productHrefs', 'subscriptionOffers'], [], ['browse-all', 'product-detail'], [], [copy('copy.title', 64, ['reference-copy']), copy('copy.eyebrow', 24, ['reference-copy']), copy('copy.browseAllLabel', 24, ['reference-copy'])])],
 			referenceOwned: ['section spacing', 'four-column desktop grid', 'heading hierarchy', 'card density'],
 			aislesOwned: ['ranked product set', 'section copy', 'named browse target', 'subscription offers'],
 		},
@@ -256,7 +253,7 @@ const contractInput = {
 		home: {
 			id: 'kibble-home-reference-v1', implementation: 'KibbleHomeReference.svelte', rootLayoutChrome: 'kibble.header',
 			orderedAnatomy: [
-				{ slot: 'merchant-chrome', component: 'kibble.header', variantId: 'kibble.header.desktop', required: true, owner: 'root-layout' },
+				{ slot: 'merchant-chrome', component: 'kibble.header', variantId: 'kibble.header.responsive-chrome', required: true, owner: 'root-layout' },
 				{ slot: 'opening-merchandising', component: 'kibble.hero', variantId: 'kibble.hero.flagship-bundle', required: true, owner: 'home-recipe' },
 				{ slot: 'ranked-products', component: 'kibble.featured-grid', variantId: 'kibble.featured-grid.four-column', required: true, owner: 'home-recipe' },
 				{ slot: 'catalog-entry', component: 'kibble.visual-module', variantId: 'kibble.visual-module.category', required: true, owner: 'home-recipe' },

@@ -10,7 +10,7 @@
 		presentation = 'catalog-card',
 	}: {
 		product: KibbleProduct;
-		productHref: string;
+		productHref?: string;
 		merchantBrand?: string;
 		autoRefill?: KibbleAutoRefillOffer | null;
 		presentation?: 'catalog-card' | 'featured-tile';
@@ -35,11 +35,7 @@
 	}
 </script>
 
-<a
-	href={productHref}
-	class:kc-reference-product-card--featured={presentation === 'featured-tile'}
-	class="kibble-reference kc-reference-product-card kc-reference-focus"
->
+{#snippet cardContent()}
 	<div class="kc-reference-product-card__media">
 		{#if product.image}
 			<img src={product.image} alt={product.imageAlt || product.name} width="600" height="600" loading="lazy" decoding="async" />
@@ -54,8 +50,25 @@
 		</div>
 		{#if autoRefill}
 			<span class="kc-reference-autorefill-seal kc-reference-product-card__seal">
-				Auto-Refill · save {autoRefill.savingsPercent}%{#if autoRefill.cadenceLabel} · {autoRefill.cadenceLabel}{/if}
+				{autoRefill.label} · {autoRefill.savingsLabel} {autoRefill.savingsPercent}%{#if autoRefill.cadenceLabel} · {autoRefill.cadenceLabel}{/if}
 			</span>
 		{/if}
 	</div>
-</a>
+{/snippet}
+
+{#if productHref}
+	<a
+		href={productHref}
+		class:kc-reference-product-card--featured={presentation === 'featured-tile'}
+		class="kibble-reference kc-reference-product-card kc-reference-focus"
+	>
+		{@render cardContent()}
+	</a>
+{:else}
+	<article
+		class:kc-reference-product-card--featured={presentation === 'featured-tile'}
+		class="kibble-reference kc-reference-product-card kc-reference-product-card--disabled"
+	>
+		{@render cardContent()}
+	</article>
+{/if}

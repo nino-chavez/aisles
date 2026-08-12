@@ -11,7 +11,7 @@
 	}: {
 		variant: 'routine' | 'category';
 		title: string;
-		eyebrow?: string;
+		eyebrow: string;
 		tiles: KibbleVisualTile[];
 		columns?: 2 | 3 | 4;
 	} = $props();
@@ -22,7 +22,7 @@
 {#if tiles.length > 0}
 	<section class="kibble-reference kc-reference-section kc-reference-section--muted" aria-labelledby={headingId}>
 		<div class="kc-reference-container">
-			{#if eyebrow}<p class="kc-reference-eyebrow">{eyebrow}</p>{/if}
+			<p class="kc-reference-eyebrow">{eyebrow}</p>
 			<h2 id={headingId} class="kc-reference-section__title">{title}</h2>
 
 			<div class="kc-reference-visual-grid kc-reference-visual-grid--{columns}">

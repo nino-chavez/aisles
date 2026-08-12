@@ -7,6 +7,7 @@
 		KibbleAutoRefillOffer,
 		KibbleCta,
 		KibbleFeaturedBundle,
+		KibbleFeaturedCopy,
 		KibbleProduct,
 		KibbleProofItem,
 		KibbleServiceProofItem,
@@ -19,12 +20,11 @@
 		productHrefs,
 		categories,
 		serviceProof,
-		featuredTitle = 'New arrivals',
-		featuredEyebrow = 'Catalog',
+		featuredCopy,
 		browseHref,
 		subscriptionOffers = {},
-		categoryTitle = 'Shop by category',
-		categoryEyebrow = 'Browse',
+		categoryTitle,
+		categoryEyebrow,
 	}: {
 			hero: {
 				eyebrow: string;
@@ -35,15 +35,14 @@
 				proofItems: KibbleProofItem[];
 		};
 		products: KibbleProduct[];
-		productHrefs: Record<string, string>;
+		productHrefs: Partial<Record<string, string>>;
 		categories: KibbleVisualTile[];
 		serviceProof: KibbleServiceProofItem[];
-		featuredTitle?: string;
-		featuredEyebrow?: string;
+		featuredCopy: KibbleFeaturedCopy;
 		browseHref: string;
 		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
-		categoryTitle?: string;
-		categoryEyebrow?: string;
+		categoryTitle: string;
+		categoryEyebrow: string;
 	} = $props();
 </script>
 
@@ -57,8 +56,7 @@
 	proofItems={hero.proofItems}
 />
 <KibbleFeaturedGrid
-	title={featuredTitle}
-	eyebrow={featuredEyebrow}
+	copy={featuredCopy}
 	{products}
 	{productHrefs}
 	{browseHref}

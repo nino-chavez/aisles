@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import './kibble-reference.css';
-	import type { KibbleNavItem } from './types';
+	import type { KibbleChromeCopy, KibbleNavItem } from './types';
 
 	let {
 		open = $bindable(false),
 		brandName,
 		navItems,
+		copy,
 		cartCount = 0,
 		picksCount = 0,
 		accountHref,
@@ -18,6 +19,7 @@
 		open?: boolean;
 		brandName: string;
 		navItems: KibbleNavItem[];
+		copy: KibbleChromeCopy;
 		cartCount?: number;
 		picksCount?: number;
 		accountHref?: string;
@@ -106,25 +108,25 @@
 		</div>
 
 		<div class="kc-reference-drawer__body">
-			<p class="kc-reference-drawer__label">Shop</p>
-			<nav class="kc-reference-drawer__nav" aria-label="Catalog">
+			<p class="kc-reference-drawer__label">{copy.catalogLabel}</p>
+			<nav class="kc-reference-drawer__nav" aria-label={copy.catalogLabel}>
 				{#each navItems as item (item.href)}
 					<a href={item.href} onclick={close} class="kc-reference-drawer__link kc-reference-focus">{item.label}</a>
 				{:else}
-					<span class="kc-reference-drawer__link">Catalog loading…</span>
+					<span class="kc-reference-drawer__link">{copy.catalogEmptyLabel}</span>
 				{/each}
 			</nav>
 
 			{#if accountHref || onPicksClick || picksHref}
-			<p class="kc-reference-drawer__label" style="margin-top: 2rem;">Account and saved items</p>
+			<p class="kc-reference-drawer__label" style="margin-top: 2rem;">{copy.accountLabel}</p>
 			<nav class="kc-reference-drawer__nav" aria-label="Account and saved items">
-				{#if accountHref}<a href={accountHref} onclick={close} class="kc-reference-drawer__link kc-reference-focus">Account</a>{/if}
+				{#if accountHref}<a href={accountHref} onclick={close} class="kc-reference-drawer__link kc-reference-focus">{copy.accountLabel}</a>{/if}
 				{#if onPicksClick}
 					<button type="button" onclick={() => closeAndRun(onPicksClick)} class="kc-reference-drawer__link kc-reference-focus" style="border:0;background:transparent;font:inherit;text-align:left;cursor:pointer;">
-						Saved picks ({picksCount})
+						{copy.savedPicksLabel} ({picksCount})
 					</button>
 				{:else if picksHref}
-					<a href={picksHref} onclick={close} class="kc-reference-drawer__link kc-reference-focus">Saved picks ({picksCount})</a>
+					<a href={picksHref} onclick={close} class="kc-reference-drawer__link kc-reference-focus">{copy.savedPicksLabel} ({picksCount})</a>
 				{/if}
 			</nav>
 			{/if}
@@ -133,15 +135,15 @@
 		<div class="kc-reference-drawer__footer">
 			{#if onCartClick}
 				<button type="button" onclick={() => closeAndRun(onCartClick)} class="kc-reference-drawer__cart kc-reference-focus">
-					<span>View cart</span><span class="kc-reference-machinery">{cartCount || 'empty'}</span>
+					<span>{copy.cartLabel}</span><span class="kc-reference-machinery">{cartCount}</span>
 				</button>
 			{:else if cartHref}
 				<a href={cartHref} onclick={close} class="kc-reference-drawer__cart kc-reference-focus">
-					<span>View cart</span><span class="kc-reference-machinery">{cartCount || 'empty'}</span>
+					<span>{copy.cartLabel}</span><span class="kc-reference-machinery">{cartCount}</span>
 				</a>
 			{:else}
-				<button type="button" disabled class="kc-reference-drawer__cart" aria-label="Cart unavailable">
-					<span>Cart unavailable</span><span class="kc-reference-machinery">—</span>
+				<button type="button" disabled class="kc-reference-drawer__cart" aria-label={copy.cartUnavailableLabel}>
+					<span>{copy.cartUnavailableLabel}</span><span class="kc-reference-machinery">—</span>
 				</button>
 			{/if}
 		</div>

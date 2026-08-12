@@ -671,6 +671,14 @@
 	box-shadow: var(--kc-shadow-lifted);
 }
 
+.kc-reference-product-card--disabled,
+.kc-reference-product-card--disabled:hover {
+	cursor: default;
+	transform: none;
+	border-color: var(--kc-border);
+	box-shadow: var(--kc-shadow-card);
+}
+
 .kc-reference-product-card--featured {
 	overflow: visible;
 	border-color: transparent;
