@@ -80,6 +80,7 @@ interface SessionSnapshot {
 	events: SignalEvent[];
 	crossSession: {
 		brandId?: string;
+		scenarioId?: string | null;
 		storedPersona: string | null;
 		storedCategory: string | null;
 		visitCount: number;
@@ -209,6 +210,7 @@ function restoreFromSnapshot(snapshot: SessionSnapshot): SignalStore {
 		currentCategory: snapshot.crossSession.currentCategory,
 	});
 	store.setBrandId(snapshot.crossSession.brandId ?? 'haven');
+	store.setScenarioId(snapshot.crossSession.scenarioId ?? null);
 
 	// Restore events with original IDs and timestamps
 	for (const event of snapshot.events) {

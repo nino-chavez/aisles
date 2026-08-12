@@ -37,6 +37,8 @@ export interface GenerationLogEntry {
 	evalScore?: number;
 	model?: string;
 	sessionId?: string;
+	synthetic?: boolean;
+	scenarioId?: string | null;
 }
 
 export async function logGeneration(entry: GenerationLogEntry): Promise<void> {
@@ -47,13 +49,14 @@ export async function logGeneration(entry: GenerationLogEntry): Promise<void> {
 		INSERT INTO generation_logs (
 			brand_id, type, persona, category_slug, cache_hit, generation_ms,
 			product_count, input_tokens, output_tokens, eval_score,
-			model, estimated_cost, session_id
+			model, estimated_cost, session_id, synthetic, scenario_id
 		) VALUES (
 			${brandId}, ${entry.type}, ${entry.persona}, ${entry.categorySlug},
 			${entry.cacheHit}, ${entry.generationTimeMs},
 			${entry.productCount ?? null}, ${entry.inputTokens ?? null},
 			${entry.outputTokens ?? null}, ${entry.evalScore ?? null},
-			${entry.model ?? null}, ${cost}, ${entry.sessionId ?? null}
+			${entry.model ?? null}, ${cost}, ${entry.sessionId ?? null},
+			${entry.synthetic ?? false}, ${entry.scenarioId ?? null}
 		)
 	`;
 }

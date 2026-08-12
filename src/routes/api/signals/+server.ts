@@ -5,6 +5,7 @@ import { infer } from '$lib/signals/inference';
 import { finalizeSession } from '$lib/server/outcomes';
 import type { SignalEventType, SignalSource } from '$lib/signals/types';
 import { getBrand } from '$lib/brand/config';
+import { validatePublicSignalProvenance } from '$lib/signals/public-provenance';
 
 const SESSION_COOKIE = 'aisles_session';
 
@@ -31,7 +32,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		if (!event || typeof event !== 'object' || !('type' in event) || !('source' in event) || !('timestamp' in event)) {
 			return json({ error: 'Invalid event: missing type, source, or timestamp' }, { status: 400 });
 		}
-		const provenanceError = validateSubscriptionProvenance(event.type, event.source);
+		const provenanceError = validatePublicSignalProvenance(event.type, event.source);
 		if (provenanceError) return json({ error: provenanceError }, { status: 400 });
 	}
 
@@ -79,23 +80,3 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		return json({ error: 'Failed to process signals' }, { status: 500 });
 	}
 };
-
-/** Keep the signal domain separate from its origin. Browser subscription
- * controls are interactions; provider facts must explicitly identify as external. */
-function validateSubscriptionProvenance(type: unknown, source: unknown): string | null {
-	if (type === 'subscription.due_proximity' || type === 'subscription.tenure') {
-		return source === 'external' ? null : `${type} must use source "external"`;
-	}
-	if (
-		type === 'subscription.cadence_selected' ||
-		type === 'subscription.skip' ||
-		type === 'subscription.swap' ||
-		type === 'subscription.pause'
-	) {
-		return source === 'interaction' ? null : `${type} must use source "interaction"`;
-	}
-	if (type === 'commerce.autoship_mix') {
-		return source === 'commerce' ? null : `${type} must use source "commerce"`;
-	}
-	return null;
-}

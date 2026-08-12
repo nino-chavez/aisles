@@ -38,6 +38,8 @@ export interface SessionOutcome {
 	ruleMatches: string[];
 	labelSource: 'intent_param' | 'conversion' | 'behavior_pattern' | 'unknown';
 	labelPersona: Persona | null;
+	synthetic: boolean;
+	scenarioId: string | null;
 }
 
 /**
@@ -132,6 +134,8 @@ export async function finalizeSession(
 		ruleMatches,
 		labelSource,
 		labelPersona,
+		synthetic: Boolean(store.getCrossSessionContext().scenarioId),
+		scenarioId: store.getCrossSessionContext().scenarioId ?? null,
 	};
 
 	await recordOutcome(outcome);
@@ -149,7 +153,7 @@ export async function recordOutcome(outcome: SessionOutcome): Promise<void> {
 			category_view_count, refine_message_count, back_nav_count,
 			max_scroll_depth, avg_dwell_ms,
 			visit_count, current_category, rule_matches,
-			label_source, label_persona
+			label_source, label_persona, synthetic, scenario_id
 		) VALUES (
 			${brandId}, ${outcome.sessionId}, ${outcome.endedAt.toISOString()}, ${outcome.durationMs},
 			${outcome.primaryFinal}, ${JSON.stringify(outcome.probabilitiesFinal)}::jsonb,
@@ -160,7 +164,7 @@ export async function recordOutcome(outcome: SessionOutcome): Promise<void> {
 			${outcome.refineMessageCount}, ${outcome.backNavCount},
 			${outcome.maxScrollDepth}, ${outcome.avgDwellMs},
 			${outcome.visitCount}, ${outcome.currentCategory}, ${outcome.ruleMatches},
-			${outcome.labelSource}, ${outcome.labelPersona}
+			${outcome.labelSource}, ${outcome.labelPersona}, ${outcome.synthetic}, ${outcome.scenarioId}
 		)
 		ON CONFLICT (brand_id, session_id) DO UPDATE SET
 			ended_at = EXCLUDED.ended_at,
@@ -181,6 +185,7 @@ export async function recordOutcome(outcome: SessionOutcome): Promise<void> {
 			rule_matches = EXCLUDED.rule_matches,
 			label_source = EXCLUDED.label_source,
 			label_persona = EXCLUDED.label_persona
+			, synthetic = EXCLUDED.synthetic, scenario_id = EXCLUDED.scenario_id
 	`;
 }
 
@@ -197,14 +202,14 @@ export async function readOutcomesBatch(opts: {
 	const rows = opts.labeledOnly
 		? await sql`
 			SELECT * FROM session_outcomes
-			WHERE brand_id = ${brandId} AND label_source <> 'unknown'
+			WHERE brand_id = ${brandId} AND synthetic = FALSE AND label_source <> 'unknown'
 			${opts.since ? sql`AND ended_at >= ${opts.since.toISOString()}` : sql``}
 			ORDER BY ended_at DESC
 			LIMIT ${limit}
 		`
 		: await sql`
 			SELECT * FROM session_outcomes
-			WHERE brand_id = ${brandId}
+			WHERE brand_id = ${brandId} AND synthetic = FALSE
 			${opts.since ? sql`AND ended_at >= ${opts.since.toISOString()}` : sql``}
 			ORDER BY ended_at DESC
 			LIMIT ${limit}
@@ -237,6 +242,8 @@ function rowToOutcome(r: Record<string, unknown>): SessionOutcome {
 		ruleMatches: (r.rule_matches as string[]) ?? [],
 		labelSource: r.label_source as SessionOutcome['labelSource'],
 		labelPersona: (r.label_persona as Persona | null) ?? null,
+		synthetic: Boolean(r.synthetic),
+		scenarioId: (r.scenario_id as string | null) ?? null,
 	};
 }
 

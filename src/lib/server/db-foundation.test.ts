@@ -25,6 +25,7 @@ const schemaCreateMigration = readFileSync(
 	'utf8',
 );
 const wrangler = readFileSync(resolve(import.meta.dirname, '../../../wrangler.toml'), 'utf8');
+const syntheticMigration = readFileSync(resolve(import.meta.dirname, '../../../supabase/migrations/20260812210415_add_synthetic_scenario_provenance.sql'), 'utf8');
 
 describe('database foundation', () => {
 	it('fails required paths when DATABASE_URL is absent', () => {
@@ -76,5 +77,11 @@ describe('database foundation', () => {
 		expect(publicPrivilegeMigration).toContain('FROM PUBLIC, anon, authenticated');
 		expect(publicPrivilegeMigration).toContain('ALTER DEFAULT PRIVILEGES FOR ROLE postgres');
 		expect(schemaCreateMigration).toContain('REVOKE CREATE ON SCHEMA public FROM PUBLIC, aisles_app');
+	});
+
+	it('adds synthetic scenario provenance without speculative indexes', () => {
+		expect(syntheticMigration).toContain('ADD COLUMN synthetic BOOLEAN NOT NULL DEFAULT FALSE');
+		expect(syntheticMigration).toContain('ADD COLUMN scenario_id TEXT');
+		expect(syntheticMigration).not.toContain('CREATE INDEX');
 	});
 });

@@ -16,6 +16,8 @@
 		model: string | null;
 		estimatedCost: number | null;
 		createdAt: string;
+		synthetic?: boolean;
+		scenarioId?: string | null;
 	}
 
 	interface EnrichedProductRow {
@@ -48,12 +50,14 @@
 		inference: PersonaInference;
 		eventCount: number;
 		crossSession: {
+			scenarioId?: string | null;
 			storedPersona: string | null;
 			storedCategory: string | null;
 			visitCount: number;
 			currentCategory: string;
 		};
 		incentives: IncentiveSnapshot | null;
+		scenarioLabel?: string | null;
 	}
 
 	// ─── State ─────────────────────────────────────────────────────
@@ -313,6 +317,9 @@
 				</label>
 
 				{#if sessionData?.crossSession}
+					{#if sessionData.crossSession.scenarioId}
+						<span class="rounded bg-amber-950 px-2 py-1 font-mono text-[10px] font-semibold tracking-wide text-amber-300">SYNTHETIC SCENARIO · {sessionData.scenarioLabel ?? sessionData.crossSession.scenarioId}</span>
+					{/if}
 					<div class="ml-auto flex items-center gap-5 text-[12px]">
 						<div class="flex items-baseline gap-1.5">
 							<span class="text-neutral-500">visits</span>

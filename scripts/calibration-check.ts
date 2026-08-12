@@ -44,7 +44,7 @@ async function main() {
 	const rows = (await sql`
 		SELECT probabilities_final, label_persona, label_source, converted
 		FROM session_outcomes
-		WHERE brand_id = ${brandId} AND label_source <> 'unknown' AND label_persona IS NOT NULL
+		WHERE brand_id = ${brandId} AND synthetic = FALSE AND label_source <> 'unknown' AND label_persona IS NOT NULL
 	`) as unknown as LabeledRow[];
 
 	if (rows.length === 0) {

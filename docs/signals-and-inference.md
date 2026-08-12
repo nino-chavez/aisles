@@ -166,10 +166,10 @@ The route rejects a subscription control with any source other than
 rejects those provider-derived event types in the browser.
 
 There is **no subscription-control UI or provider webhook in this repository
-today**. Nothing emits these events until a real Kibble storefront control or
-authenticated provider integration calls this path. The API/store support is
-not a claim that an external producer exists, and no scenario fixtures are part
-of this slice.
+today**. The public route rejects `external` events, so provider facts need a
+future server-only authenticated producer. The included named demo fixtures are
+explicitly marked synthetic in the session, logs, outcomes, and Observe screen;
+fitting and calibration queries exclude them by default.
 
 ---
 

@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSessionStore, hasSession } from '$lib/signals/session';
 import { infer } from '$lib/signals/inference';
+import { scenarioLabel } from '$lib/signals/scenarios';
 
 const OBSERVE_KEY = 'aisles-observe';
 
@@ -54,6 +55,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		inference,
 		eventCount: events.length,
 		crossSession,
+		scenarioLabel: scenarioLabel(crossSession.scenarioId),
 		incentives,
 	});
 };

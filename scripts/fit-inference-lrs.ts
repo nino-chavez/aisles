@@ -65,7 +65,7 @@ async function main() {
 	const rows = (await sql`
 		SELECT rule_matches, label_persona
 		FROM session_outcomes
-		WHERE brand_id = ${brandId} AND label_source <> 'unknown' AND label_persona IS NOT NULL
+		WHERE brand_id = ${brandId} AND synthetic = FALSE AND label_source <> 'unknown' AND label_persona IS NOT NULL
 	`) as unknown as LabeledRow[];
 
 	console.log(`Loaded ${rows.length} labeled outcomes.`);
