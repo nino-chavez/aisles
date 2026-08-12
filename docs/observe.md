@@ -1,7 +1,7 @@
 # Aisles — Observe Dashboard Guide
 
 **Version**: 0.1.0
-**Last Updated**: 2026-04-06
+**Last Updated**: 2026-08-12
 **Audience**: Developers, Demo Presenters
 
 ## Overview
@@ -20,7 +20,7 @@ The dashboard is gated by a URL parameter to prevent casual discovery:
 https://aisles.bcsubs.app/observe?key=aisles-observe
 ```
 
-Any brand's Observe dashboard uses the same path and key on that brand's deployed domain.
+Any brand's Observe dashboard uses the same path and key on that brand's deployed domain. This fixed key is demo-only routing protection, not production authentication.
 
 Without `?key=aisles-observe`, the page will not load the dashboard content.
 
@@ -36,6 +36,7 @@ A dropdown listing all active session IDs currently stored in Redis. Sessions re
 
 - **Session ID**: a short identifier derived from the session cookie. Not user-identifying.
 - **Watch latest toggle**: when enabled, the dashboard auto-switches to the most recently active session. Useful for demos where you open the storefront in a separate private window.
+- **Synthetic scenario label**: Kibble fixtures are marked `SYNTHETIC · <scenario name>` in the picker before selection and again in the session header. They are demo data, not observed shopper behavior.
 
 To watch a session, select it from the dropdown. The dashboard polls `/api/observe/session` and `/api/observe/logs` every 2 seconds to refresh.
 
@@ -154,17 +155,21 @@ Products are sorted by the current persona's fit score, highest first. This is t
 
 The persona probabilities are normalized — they always sum to 1.0. A score of 0.55 for `hunter` does not mean "55% chance this is a hunter" in an absolute sense; it means hunter is 55% of the total weight across all four personas after signal aggregation.
 
-The base prior (no signals) is: `gatherer: 0.30, hunter: 0.20, researcher: 0.20, gifter: 0.10`. A gatherer score of 0.30 on a fresh session with no signals means the engine has no information and is using the prior.
+The base prior (no signals) is: `gatherer: 0.375, hunter: 0.25, researcher: 0.25, gifter: 0.125`. A gatherer score near 0.375 on a fresh session with no signals means the engine has no information and is using the prior.
 
 ### Signal Rules
 
-The inference engine runs ~15 weighted rules. Rules fire based on:
+The inference engine has 38 weighted rules: 31 shared rules plus seven Kibble-gated subscription rules. The shared rules fire based on:
 
 - Search query keywords (deal/budget/dorm → hunter boost; gift/birthday → gifter boost)
 - Referrer (Pinterest/Instagram → gatherer; Slickdeals → hunter; Wirecutter → researcher)
 - UTM campaign keywords (gift/holiday → gifter; sale/promo → hunter)
 - Device + time (mobile + late evening → mild hunter boost)
 - Cross-session continuity (returning to same category → stored persona gets a boost)
+
+For Kibble, subscription cadence, skips, swaps, pauses, due proximity, tenure,
+and Auto-Refill cart mix can also adjust the existing four-persona model. No
+fifth persona is added.
 
 Rules that don't fire contribute nothing — `signalCount` shows how many rules triggered. A `signalCount` of 0 means the engine is running on prior only.
 
@@ -186,6 +191,24 @@ The dashboard polls two endpoints every 2 seconds:
 
 - `GET /api/observe/session?id={sessionId}&key=aisles-observe`
 - `GET /api/observe/logs?limit=20&session={sessionId}&key=aisles-observe`
+
+### Synthetic Kibble demo scenarios
+
+For a deterministic local demo, use the Kibble-only endpoint:
+
+```text
+POST /api/observe/scenarios?key=aisles-observe
+{ "scenarioId": "first-time-puppy-owner" }
+```
+
+The other valid IDs are `lapsed-subscriber-returning` and
+`price-checking-reorder`. Seeding replaces the prior session for that ID. It
+does not call an external provider or write telemetry directly. The resulting
+session is visibly synthetic, and fitting/calibration reads exclude it.
+
+The public `POST /api/signals` route rejects all `external` events until a
+server-side authenticated provider producer is added. That prevents browsers
+from presenting provider facts as observed traffic.
 
 This is intentionally simple — no WebSockets, no SSE, no pub/sub infrastructure. For demo sessions with low event volumes, 2-second polling latency is imperceptible to the audience. See `docs/decisions/observe-dashboard.md` (inline in `docs/specs/observe-dashboard.md`) for the full rationale.
 

@@ -294,8 +294,10 @@ Requires the `aisles_session` cookie to be set (established server-side on the f
 | `refine.message` | refinement | Sent a refinement message |
 
 For the Kibble-only event types above, the route enforces the listed source.
-`subscription.due_proximity` and `subscription.tenure` are provider facts and
-cannot be sent through the browser emitter.
+The public route currently rejects **all** `external` events, including
+`subscription.due_proximity` and `subscription.tenure`, until an authenticated
+server-side provider producer exists. Synthetic scenarios replay those events
+inside the server-side session store; browsers cannot submit them.
 
 **Response**
 
@@ -336,6 +338,7 @@ If no valid session cookie exists, `inference` will be `null` and `received` wil
 |---|---|
 | 400 | Empty or missing `events` array |
 | 400 | Event missing `type`, `source`, or `timestamp` |
+| 400 | Public request submits an `external` event or provider-derived subscription fact |
 
 ---
 
@@ -416,7 +419,7 @@ If the cart ID in the cookie points to an expired BigCommerce cart, the cookie i
 
 ## Observe Endpoints
 
-All Observe endpoints require `?key=aisles-observe` in the query string. Requests without this parameter return `401 Unauthorized`.
+All Observe endpoints require `?key=aisles-observe` in the query string. Requests without this parameter return `401 Unauthorized`. This fixed key is demo-only routing protection, not production authentication.
 
 These endpoints are intended for the Observe dashboard (`/observe`) and are not rate-limited. Do not expose them in production without proper authentication.
 
@@ -535,11 +538,60 @@ Returns a list of active session IDs by scanning Redis for `aisles:session:*` ke
 
 ```json
 {
-  "sessionIds": ["abc-123", "def-456", "ghi-789"]
+  "sessionIds": ["abc-123", "synthetic:first-time-puppy-owner"],
+  "sessions": [
+    { "id": "abc-123", "scenarioId": null, "scenarioLabel": null },
+    {
+      "id": "synthetic:first-time-puppy-owner",
+      "scenarioId": "first-time-puppy-owner",
+      "scenarioLabel": "First-time puppy owner"
+    }
+  ]
 }
 ```
 
 Sessions appear here while they exist in Redis (30-minute TTL). A session with no activity for 30 minutes will not appear in this list.
+
+The legacy `sessionIds` array remains for existing consumers. `sessions` adds
+`scenarioId` and `scenarioLabel`; a non-null label means the session is synthetic.
+
+---
+
+### POST /api/observe/scenarios
+
+Seeds one named deterministic synthetic session for a local Kibble demo. It
+replaces that scenario's existing session rather than appending events. It does
+not call external APIs, generate a layout, or write telemetry rows directly.
+
+Available only when `BRAND_ID=kibble`. It uses the demo-only Observe key and is
+not an authenticated provider or operator endpoint.
+
+**Query parameters**
+
+| Parameter | Required | Description |
+|---|---|---|
+| `key` | Yes | Must be `aisles-observe` |
+
+**Request body**
+
+```json
+{ "scenarioId": "first-time-puppy-owner" }
+```
+
+Allowed values are `first-time-puppy-owner`, `lapsed-subscriber-returning`, and
+`price-checking-reorder`.
+
+**Response**
+
+```json
+{
+  "sessionId": "synthetic:first-time-puppy-owner",
+  "scenarioId": "first-time-puppy-owner",
+  "scenarioLabel": "First-time puppy owner",
+  "synthetic": true,
+  "inference": { "primary": "researcher" }
+}
+```
 
 ---
 

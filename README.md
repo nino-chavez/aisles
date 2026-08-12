@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="Aisles — an AI-native storefront engine that reads the intent behind each visit, runs 31 weighted rules to infer one of four shopper personas, and generates the category-page layout to fit. The same URL and the same products render as four different, schema-valid layouts.">
+  <img src="./assets/readme/hero.svg" width="100%" alt="Aisles — an AI-native storefront engine that reads the intent behind each visit, runs 38 weighted rules to infer one of four shopper personas, and generates the category-page layout to fit. The same URL and the same products render as four different, schema-valid layouts.">
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@ Every category page is generated at request time. Aisles reads the signals behin
 
 The result is a store that reorganizes itself for each visitor — **editorial for a browser, functional for a buyer** — while the operator can see exactly which signals and which rules produced it.
 
-Three brands run on this single codebase, separated only by configuration.
+Four brands run on this single codebase, separated only by configuration. The seven Kibble subscription rules are gated to `BRAND_ID=kibble`; the other brands continue to use the original 31 rules.
 
 ---
 
@@ -33,7 +33,7 @@ And because it's AI-generated, the obvious risk is that the AI produces somethin
 | | Typical rule-based personalization | Aisles |
 |---|---|---|
 | Unit of change | A widget or product slot | The entire page layout |
-| How intent is set | Hand-written `if` rules | 31 weighted rules → a probability across 4 personas |
+| How intent is set | Hand-written `if` rules | 38 weighted rules → a probability across 4 personas |
 | Cold start | Static default | Gatherer-biased prior that self-corrects as signals arrive |
 | Safety | Trusts the template | Every AI layout validated against a typed schema, with fallbacks |
 | Explainability | Opaque | Every firing rule and probability shift visible in Observe |
@@ -46,13 +46,13 @@ Every category page load runs the same three stages.
 
 ```
   Signals ─────────────▶ Inference ─────────────▶ Layout
-  request + behavioral    infer() · 31 rules       AI picks from 4 components
+  request + behavioral    infer() · 38 rules       AI picks from 4 components
                           → persona vector          → validated → cached
 ```
 
 **1 · Signals.** Two sources feed inference. *Request-time* signals are available on every load — search query, HTTP referrer, UTM tags, device, time of day, and a cross-session cookie (stored persona, visit count). *Behavioral* signals are emitted after load and batched to `POST /api/signals` — category and product views, dwell time, scroll depth, cart adds and removals, and refinement-chat messages.
 
-**2 · Inference.** `src/lib/signals/inference.ts` starts from a gatherer-biased prior (`gatherer 0.375, hunter 0.25, researcher 0.25, gifter 0.125`, with category-specific variants), runs 31 weighted rules against the accumulated context, and normalizes to a probability distribution over four personas. It reports the primary persona, a confidence gap, behavioral modifiers (`priceSensitivity`, `urgency`, `familiarity`), and whether the persona **shifted** from the stored one.
+**2 · Inference.** `src/lib/signals/inference.ts` starts from a gatherer-biased prior (`gatherer 0.375, hunter 0.25, researcher 0.25, gifter 0.125`, with category-specific variants), runs 38 weighted rules against the accumulated context, and normalizes to a probability distribution over four personas. Seven subscription rules run only for Kibble; the other brands retain the original 31-rule behavior. It reports the primary persona, a confidence gap, behavioral modifiers (`priceSensitivity`, `urgency`, `familiarity`), and whether the persona **shifted** from the stored one.
 
 | Persona | Intent | Typical generated layout |
 |---|---|---|
@@ -134,7 +134,7 @@ Full environment reference and the enrichment/cache-warming scripts are in [`doc
 
 ## Observe
 
-`/observe` is the operator's window into the engine (gated by a soft access key). It shows, per session, the live signal timeline, the persona probability vector as it updates, every inference rule that fired with its weight and human-readable reason, and the generation log (model, tokens, cost) for each layout.
+`/observe` is the operator's window into the engine (gated by a demo-only soft access key). It shows, per session, the live signal timeline, the persona probability vector as it updates, every inference rule that fired with its weight and human-readable reason, and the generation log (model, tokens, cost) for each layout. Kibble demo scenarios are visibly labeled synthetic and excluded from fitting and calibration.
 
 This is the other half of the product's design principle: **invisible to the shopper, transparent to the operator.** A merchandiser, brand manager, or growth lead can see *why* the store behaved the way it did without opening the codebase.
 
@@ -161,7 +161,7 @@ This is the other half of the product's design principle: **invisible to the sho
 
 ```
 src/lib/schema/layout.ts        The invariant — the Zod contract between AI and renderer
-src/lib/signals/inference.ts    Inference engine — 31 weighted rules → persona vector
+src/lib/signals/inference.ts    Inference engine — 38 weighted rules → persona vector
 src/lib/signals/store.ts        Session store — accumulates signals into an inference context
 src/lib/brand/config.ts         All brand configuration (the only file to edit per brand)
 src/lib/server/layout-prompt.ts Prompt construction from persona + catalog
