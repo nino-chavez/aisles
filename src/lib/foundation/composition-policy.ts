@@ -52,6 +52,7 @@ export interface ZoneCompositionPolicy {
 	decisionMode?: DecisionMode;
 	publicationMode?: PublicationMode;
 	allowedComponentVariantIds?: readonly string[];
+	allowedCssVariantIds?: readonly string[];
 	allowedCopyVariantIds?: readonly string[];
 }
 
@@ -62,6 +63,7 @@ export interface SurfaceCompositionPolicy {
 	decisionMode: DecisionMode;
 	publicationMode: PublicationMode;
 	allowedComponentVariantIds: readonly string[];
+	allowedCssVariantIds: readonly string[];
 	allowedCopyVariantIds: readonly string[];
 	zoneOverrides?: Partial<Record<ZoneId, ZoneCompositionPolicy>>;
 }
@@ -72,8 +74,9 @@ export interface BrandCompositionPolicy {
 	policyVersion: string;
 	maximum: PolicyMaximum;
 	registeredComponentVariantIds: readonly string[];
+	registeredCssVariantIds: readonly string[];
 	registeredCopyVariantIds: readonly string[];
-	reference?: {
+	reference: {
 		referenceId: string;
 		referenceVersion: string;
 	};
@@ -114,6 +117,7 @@ export interface EffectiveCompositionPolicy {
 	decisionMode: DecisionMode;
 	publicationMode: PublicationMode;
 	allowedComponentVariantIds: readonly string[];
+	allowedCssVariantIds: readonly string[];
 	allowedCopyVariantIds: readonly string[];
 	provenance: CompositionPolicyProvenance;
 }
@@ -134,6 +138,8 @@ export function compileAutonomyPreset(preset: AutonomyPreset): readonly Autonomy
 }
 
 export function compileCompositionPolicy(input: CompileCompositionPolicyInput): EffectiveCompositionPolicy {
+	assertIdentity(input.organizationId, 'organization');
+	assertIdentity(input.brandId, 'brand');
 	const organization = input.registry.organizations[input.organizationId];
 	if (!organization) {
 		throw new CompositionPolicyValidationError(`missing organization policy "${input.organizationId}"`);
@@ -159,11 +165,13 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 	assertMaximum(brand.maximum, 'brand maximum');
 	assertNarrowerMaximum(brand.maximum, organization.maximum, 'brand maximum');
 	assertVariantIds(brand.registeredComponentVariantIds, 'brand component registry');
+	assertVariantIds(brand.registeredCssVariantIds, 'brand CSS registry');
 	assertVariantIds(brand.registeredCopyVariantIds, 'brand copy registry');
-	if (brand.reference) {
-		assertVersion(brand.reference.referenceId, 'reference identifier');
-		assertVersion(brand.reference.referenceVersion, 'reference');
+	if (!brand.reference) {
+		throw new CompositionPolicyValidationError('brand reference contract is required');
 	}
+	assertNonBlank(brand.reference.referenceId, 'reference identifier');
+	assertNonBlank(brand.reference.referenceVersion, 'reference version');
 
 	if (!(input.surface in surfaceSet)) {
 		throw new CompositionPolicyValidationError(`unknown surface "${input.surface}"`);
@@ -189,8 +197,10 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 		throw new CompositionPolicyValidationError('explore surface requires holdout or approval publication');
 	}
 	const surfaceComponents = uniqueVariantIds(surfacePolicy.allowedComponentVariantIds, `${input.surface} surface components`);
+	const surfaceCss = uniqueVariantIds(surfacePolicy.allowedCssVariantIds, `${input.surface} surface CSS`);
 	const surfaceCopy = uniqueVariantIds(surfacePolicy.allowedCopyVariantIds, `${input.surface} surface copy`);
 	assertSubset(surfaceComponents, brand.registeredComponentVariantIds, `${input.surface} surface components`, 'brand registry');
+	assertSubset(surfaceCss, brand.registeredCssVariantIds, `${input.surface} surface CSS`, 'brand registry');
 	assertSubset(surfaceCopy, brand.registeredCopyVariantIds, `${input.surface} surface copy`, 'brand registry');
 
 	validateZoneOverrideKeys(surfacePolicy, input.surface);
@@ -219,11 +229,17 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 	const zoneComponents = zonePolicy?.allowedComponentVariantIds
 		? uniqueVariantIds(zonePolicy.allowedComponentVariantIds, `${input.zoneId} zone components`)
 		: surfaceComponents;
+	const zoneCss = zonePolicy?.allowedCssVariantIds
+		? uniqueVariantIds(zonePolicy.allowedCssVariantIds, `${input.zoneId} zone CSS`)
+		: surfaceCss;
 	const zoneCopy = zonePolicy?.allowedCopyVariantIds
 		? uniqueVariantIds(zonePolicy.allowedCopyVariantIds, `${input.zoneId} zone copy`)
 		: surfaceCopy;
 	if (zonePolicy?.allowedComponentVariantIds) {
 		assertSubset(zoneComponents, surfaceComponents, `${input.zoneId} zone components`, 'surface');
+	}
+	if (zonePolicy?.allowedCssVariantIds) {
+		assertSubset(zoneCss, surfaceCss, `${input.zoneId} zone CSS`, 'surface');
 	}
 	if (zonePolicy?.allowedCopyVariantIds) {
 		assertSubset(zoneCopy, surfaceCopy, `${input.zoneId} zone copy`, 'surface');
@@ -245,6 +261,7 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 			surfaceComponents,
 			zoneComponents,
 		),
+		allowedCssVariantIds: intersectStrings(brand.registeredCssVariantIds, surfaceCss, zoneCss),
 		allowedCopyVariantIds: intersectStrings(brand.registeredCopyVariantIds, surfaceCopy, zoneCopy),
 		provenance: {
 			kind: 'compiled',
@@ -252,8 +269,8 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 			organizationPolicyVersion: organization.policyVersion,
 			brandId: input.brandId,
 			brandPolicyVersion: brand.policyVersion,
-			referenceId: brand.reference?.referenceId ?? null,
-			referenceVersion: brand.reference?.referenceVersion ?? null,
+			referenceId: brand.reference.referenceId,
+			referenceVersion: brand.reference.referenceVersion,
 			surface: input.surface,
 			zoneId: input.zoneId ?? null,
 			preset: surfacePolicy.preset,
@@ -268,6 +285,7 @@ export interface CompileLegacyGeneratedPolicyInput {
 	brandId: string;
 	surface: Surface;
 	registeredComponentVariantIds: readonly string[];
+	registeredCssVariantIds: readonly string[];
 	registeredCopyVariantIds: readonly string[];
 }
 
@@ -275,6 +293,8 @@ export interface CompileLegacyGeneratedPolicyInput {
 export function compileLegacyGeneratedCompatibilityPolicy(
 	input: CompileLegacyGeneratedPolicyInput,
 ): EffectiveCompositionPolicy {
+	assertIdentity(input.organizationId, 'organization');
+	assertIdentity(input.brandId, 'brand');
 	if (!(input.surface in surfaceSet)) {
 		throw new CompositionPolicyValidationError(`unknown surface "${input.surface}"`);
 	}
@@ -282,6 +302,7 @@ export function compileLegacyGeneratedCompatibilityPolicy(
 		input.registeredComponentVariantIds,
 		'legacy component registry',
 	);
+	const cssVariantIds = uniqueVariantIds(input.registeredCssVariantIds, 'legacy CSS registry');
 	const copyVariantIds = uniqueVariantIds(input.registeredCopyVariantIds, 'legacy copy registry');
 
 	return {
@@ -290,6 +311,7 @@ export function compileLegacyGeneratedCompatibilityPolicy(
 		decisionMode: 'model',
 		publicationMode: 'live',
 		allowedComponentVariantIds: componentVariantIds,
+		allowedCssVariantIds: cssVariantIds,
 		allowedCopyVariantIds: copyVariantIds,
 		provenance: {
 			kind: 'legacy_generated_compatibility',
@@ -410,8 +432,16 @@ function intersectStrings(...lists: readonly (readonly string[])[]): string[] {
 }
 
 function assertVersion(version: string, label: string): void {
-	if (typeof version !== 'string' || version.trim() === '') {
-		throw new CompositionPolicyValidationError(`${label} policy version is required`);
+	assertNonBlank(version, `${label} policy version`);
+}
+
+function assertIdentity(identity: string, label: string): void {
+	assertNonBlank(identity, `${label} identity`);
+}
+
+function assertNonBlank(value: string, label: string): void {
+	if (typeof value !== 'string' || value.trim() === '') {
+		throw new CompositionPolicyValidationError(`${label} is required`);
 	}
 }
 

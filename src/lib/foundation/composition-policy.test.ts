@@ -30,6 +30,7 @@ const brand: BrandCompositionPolicy = {
 		publicationMode: 'live',
 	},
 	registeredComponentVariantIds: ['hero.editorial', 'hero.compact', 'rail.products'],
+	registeredCssVariantIds: ['hero.airy', 'hero.dense', 'rail.standard'],
 	registeredCopyVariantIds: ['hero.spring', 'hero.evergreen'],
 	reference: { referenceId: 'merchant-storefront', referenceVersion: 'reference-12' },
 	surfaces: {
@@ -45,6 +46,7 @@ const brand: BrandCompositionPolicy = {
 			decisionMode: 'model',
 			publicationMode: 'holdout',
 			allowedComponentVariantIds: ['hero.editorial', 'hero.compact'],
+			allowedCssVariantIds: ['hero.airy', 'hero.dense'],
 			allowedCopyVariantIds: ['hero.spring', 'hero.evergreen'],
 			zoneOverrides: {
 				'home.hero': {
@@ -52,6 +54,7 @@ const brand: BrandCompositionPolicy = {
 					decisionMode: 'rules',
 					publicationMode: 'holdout',
 					allowedComponentVariantIds: ['hero.compact'],
+					allowedCssVariantIds: ['hero.dense'],
 					allowedCopyVariantIds: ['hero.evergreen'],
 				},
 			},
@@ -109,6 +112,7 @@ describe('hierarchy compilation', () => {
 
 		expect(effective.capabilities).toEqual(['select_products', 'select_copy_variant']);
 		expect(effective.allowedComponentVariantIds).toEqual(['hero.compact']);
+		expect(effective.allowedCssVariantIds).toEqual(['hero.dense']);
 		expect(effective.allowedCopyVariantIds).toEqual(['hero.evergreen']);
 		expect(effective.decisionMode).toBe('rules');
 		expect(effective.publicationMode).toBe('holdout');
@@ -172,7 +176,7 @@ describe('hierarchy compilation', () => {
 		expect(effective.publicationMode).toBe('approval_required');
 	});
 
-	it('rejects unregistered component and copy variant IDs', () => {
+	it('rejects unregistered component, CSS, and copy variant IDs', () => {
 		const unregisteredComponent: BrandCompositionPolicy = {
 			...brand,
 			surfaces: {
@@ -184,6 +188,19 @@ describe('hierarchy compilation', () => {
 		};
 		expect(() => compileHome({ registry: registry(organization, unregisteredComponent) })).toThrow(
 			/home surface components expands brand registry/,
+		);
+
+		const unregisteredCss: BrandCompositionPolicy = {
+			...brand,
+			surfaces: {
+				home: {
+					...brand.surfaces.home!,
+					allowedCssVariantIds: ['invented.css'],
+				},
+			},
+		};
+		expect(() => compileHome({ registry: registry(organization, unregisteredCss) })).toThrow(
+			/home surface CSS expands brand registry/,
 		);
 
 		const unregisteredCopy: BrandCompositionPolicy = {
@@ -228,6 +245,34 @@ describe('policy lookup and provenance', () => {
 		).toThrow(/missing surface policy/);
 	});
 
+	it('fails when the brand reference contract is missing or blank', () => {
+		const missingReference = { ...brand, reference: undefined } as unknown as BrandCompositionPolicy;
+		expect(() => compileHome({ registry: registry(organization, missingReference) })).toThrow(
+			/brand reference contract is required/,
+		);
+
+		const blankReference: BrandCompositionPolicy = {
+			...brand,
+			reference: { referenceId: ' ', referenceVersion: '' },
+		};
+		expect(() => compileHome({ registry: registry(organization, blankReference) })).toThrow(
+			/reference identifier is required/,
+		);
+
+		const blankReferenceVersion: BrandCompositionPolicy = {
+			...brand,
+			reference: { referenceId: 'merchant-storefront', referenceVersion: ' ' },
+		};
+		expect(() => compileHome({ registry: registry(organization, blankReferenceVersion) })).toThrow(
+			/reference version is required/,
+		);
+	});
+
+	it('fails when trusted organization or brand identity is blank', () => {
+		expect(() => compileHome({ organizationId: ' ' })).toThrow(/organization identity is required/);
+		expect(() => compileHome({ brandId: '' })).toThrow(/brand identity is required/);
+	});
+
 	it('fails for an unknown or cross-surface zone', () => {
 		expect(() => compileHome({ zoneId: 'pdp.related' })).toThrow(/unknown zone/);
 		expect(() => compileHome({ zoneId: 'home.unknown' as never })).toThrow(/unknown zone/);
@@ -259,6 +304,7 @@ describe('legacy generated compatibility', () => {
 			brandId: 'haven',
 			surface: 'home',
 			registeredComponentVariantIds: ['editorial-header', 'product-carousel'],
+			registeredCssVariantIds: ['homepage-default'],
 			registeredCopyVariantIds: ['homepage-default'],
 		});
 
@@ -267,11 +313,25 @@ describe('legacy generated compatibility', () => {
 		expect(effective.decisionMode).toBe('model');
 		expect(effective.publicationMode).toBe('live');
 		expect(effective.allowedComponentVariantIds).toEqual(['editorial-header', 'product-carousel']);
+		expect(effective.allowedCssVariantIds).toEqual(['homepage-default']);
 		expect(effective.provenance).toMatchObject({
 			kind: 'legacy_generated_compatibility',
 			referenceId: null,
 			referenceVersion: null,
 			preset: null,
 		});
+	});
+
+	it('rejects blank trusted identity', () => {
+		expect(() =>
+			compileLegacyGeneratedCompatibilityPolicy({
+				organizationId: '',
+				brandId: 'haven',
+				surface: 'home',
+				registeredComponentVariantIds: [],
+				registeredCssVariantIds: [],
+				registeredCopyVariantIds: [],
+			}),
+		).toThrow(/organization identity is required/);
 	});
 });
