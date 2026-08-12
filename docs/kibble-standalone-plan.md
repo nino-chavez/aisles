@@ -81,8 +81,9 @@ following the existing `<Service> <project-slug>` convention.
 
 ### The Kibble enrichment schema
 
-Replace the furniture columns with these. Keep the four fit scores, the tags, and
-the price tier.
+Add these alongside the furniture columns first. Keep the four fit scores, the
+tags, and the price tier. The furniture columns stay through the deployment that
+switches every reader to the pet fields; a later contract migration removes them.
 
 - `protein` — beef, chicken, salmon, turkey, plant, mixed, none
 - `life_stage` — puppy, adult, senior, all

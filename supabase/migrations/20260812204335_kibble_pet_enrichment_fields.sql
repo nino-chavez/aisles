@@ -3,6 +3,9 @@
 -- actual catalog rather than the initial furniture-derived plan.
 -- Price tiers are assigned by application code using these Kibble bands:
 -- budget < $20; mid $20-$49.99; premium $50-$99.99; luxury >= $100.
+-- This is deliberately expand-only. material, style, use_case, and dimensions
+-- remain until the pet-aware application is deployed everywhere that reads
+-- enriched_products. A later contract migration will remove them.
 
 ALTER TABLE public.enriched_products
   ADD COLUMN protein TEXT NOT NULL DEFAULT 'none'
@@ -19,9 +22,3 @@ ALTER TABLE public.enriched_products
     CHECK (replenishment_days IS NULL OR replenishment_days BETWEEN 1 AND 365),
   ADD COLUMN subscription_fit REAL NOT NULL DEFAULT 0.5
     CHECK (subscription_fit >= 0 AND subscription_fit <= 1);
-
-ALTER TABLE public.enriched_products
-  DROP COLUMN material,
-  DROP COLUMN style,
-  DROP COLUMN use_case,
-  DROP COLUMN dimensions;

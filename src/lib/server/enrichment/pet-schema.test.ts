@@ -34,7 +34,7 @@ describe('Kibble pet enrichment contract', () => {
 		expect(kibblePriceTier(240)).toBe('luxury');
 	});
 
-	it('persists only pet vocabulary and enforces safe cadence and fit ranges', () => {
+	it('adds pet vocabulary while retaining legacy columns for the rollout', () => {
 		for (const column of ['protein', 'life_stage', 'format', 'dietary', 'pet_size', 'replenishment_days', 'subscription_fit']) {
 			expect(migration).toContain(`ADD COLUMN ${column}`);
 		}
@@ -43,8 +43,9 @@ describe('Kibble pet enrichment contract', () => {
 		expect(migration).toContain('replenishment_days BETWEEN 1 AND 365');
 		expect(migration).toContain('subscription_fit >= 0 AND subscription_fit <= 1');
 		for (const column of ['material', 'style', 'use_case', 'dimensions']) {
-			expect(migration).toContain(`DROP COLUMN ${column}`);
+			expect(migration).not.toContain(`DROP COLUMN ${column}`);
 		}
+		expect(migration).toContain('This is deliberately expand-only');
 	});
 
 	it('keeps every controlled pet axis available to the enrichment schema', () => {
