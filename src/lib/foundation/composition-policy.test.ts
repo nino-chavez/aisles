@@ -105,6 +105,13 @@ describe('autonomy presets', () => {
 	it('rejects an unknown preset at runtime', () => {
 		expect(() => compileAutonomyPreset('unbounded' as never)).toThrow(/unknown autonomy preset/);
 	});
+
+	it.each(['toString', '__proto__', 'constructor'])(
+		'rejects inherited-object preset name %s through the domain error',
+		(preset) => {
+			expect(() => compileAutonomyPreset(preset as never)).toThrow(/unknown autonomy preset/);
+		},
+	);
 });
 
 describe('hierarchy compilation', () => {

@@ -131,10 +131,11 @@ export class CompositionPolicyValidationError extends Error {
 }
 
 export function compileAutonomyPreset(preset: AutonomyPreset): readonly AutonomyCapability[] {
-	const capabilities = (PRESET_CAPABILITIES as Readonly<Record<string, readonly AutonomyCapability[]>>)[preset];
-	if (!capabilities) {
+	const presets = PRESET_CAPABILITIES as Readonly<Record<string, readonly AutonomyCapability[]>>;
+	if (!Object.prototype.hasOwnProperty.call(presets, preset)) {
 		throw new CompositionPolicyValidationError(`unknown autonomy preset "${preset}"`);
 	}
+	const capabilities = presets[preset];
 	return [...capabilities];
 }
 

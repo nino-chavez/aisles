@@ -48,5 +48,8 @@ const FALLBACKS: Partial<Record<ZoneId, ZoneFallback>> = {
  * for any zone without a registered fallback.
  */
 export function getFallback(family: ZoneId, brandId: string): unknown | null {
-	return (FALLBACKS[family] ?? HIDDEN)(brandId);
+	const fallback = Object.prototype.hasOwnProperty.call(FALLBACKS, family)
+		? FALLBACKS[family]
+		: undefined;
+	return (fallback ?? HIDDEN)(brandId);
 }

@@ -28,6 +28,7 @@ import {
 } from './resolve-zone';
 import { ZONES, parseZoneInstance, enumerateZoneInstances, ZONE_IDS } from './zones';
 import { ZoneSchemas } from './zone-schemas';
+import { getFallback } from './fallbacks';
 import {
 	composeEffectivePolicyVersion,
 	type CompositionPolicyProvenance,
@@ -211,6 +212,21 @@ describe('unknown zone IDs', () => {
 	it('unknown zone ID throws', () => {
 		expect(() => resolveZone({ zoneId: 'home.does-not-exist', brandId: 'haven' })).toThrow();
 	});
+
+	it.each(['toString', '__proto__', 'constructor', 'toString.1', '__proto__.1'])(
+		'rejects inherited-object zone instance %s',
+		(zoneId) => {
+			expect(parseZoneInstance(zoneId)).toBeNull();
+			expect(() => resolveZone({ zoneId, brandId: 'haven' })).toThrow(/unknown zone instance/);
+		},
+	);
+
+	it.each(['toString', '__proto__', 'constructor'])(
+		'keeps inherited-object fallback key %s hidden',
+		(zoneId) => {
+			expect(getFallback(zoneId as never, 'haven')).toBeNull();
+		},
+	);
 });
 
 describe('PDP recommendation zones', () => {

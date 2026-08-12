@@ -112,14 +112,14 @@ export function parseZoneInstance(id: ZoneInstanceId): {
 	family: ZoneId;
 	index?: number;
 } | null {
-	if (id in ZONES) {
+	if (hasOwnZone(id)) {
 		// Direct match — singleton or array zone (or someone passed the family of an indexed zone)
 		return { family: id as ZoneId };
 	}
 	const match = INDEXED_INSTANCE_RE.exec(id);
 	if (match) {
 		const [, candidate, indexStr] = match;
-		if (candidate in ZONES) {
+		if (hasOwnZone(candidate)) {
 			const meta = ZONES[candidate as ZoneId] as ZoneMetadata;
 			if (meta.multiplicity === 'indexed' && meta.maxIndex) {
 				const index = Number(indexStr);
@@ -130,6 +130,10 @@ export function parseZoneInstance(id: ZoneInstanceId): {
 		}
 	}
 	return null;
+}
+
+function hasOwnZone(id: string): id is ZoneId {
+	return Object.prototype.hasOwnProperty.call(ZONES, id);
 }
 
 /** Enumerate all valid instance IDs in the catalog (for tests + future admin UI). */
