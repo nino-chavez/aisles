@@ -1,7 +1,7 @@
 schema: work-library-publication/0
 case_id: aisles-competitive-position
 adapter: git-manifest
-canonical_output: competitive-assessment
+canonical_output: assessment
 
 catalog:
   title: Aisles Competitive Position
@@ -28,8 +28,79 @@ outputs:
     clearance: internal
     assurance:
       human_validation: pending
+  - id: assessment
+    type: strategy-decision
+    status: draft
+    artifact: docs/case/assessment.md
+    clearance: internal
+    assurance:
+      human_validation: pending
+  - id: findings
+    type: evidence-register
+    status: draft
+    artifact: docs/case/findings.md
+    clearance: internal
+    assurance:
+      human_validation: pending
+  - id: side-by-side
+    type: reference-tables
+    status: draft
+    artifact: docs/case/side-by-side.md
+    clearance: internal
+    assurance:
+      human_validation: pending
+  - id: provenance-method
+    type: evidence-register
+    status: draft
+    artifact: docs/case/provenance-and-method.md
+    clearance: internal
+    assurance:
+      human_validation: pending
 
 projections:
+  # kind values come from the library's controlled vocabulary —
+  # work-library/docs/ONTOLOGY.md. It decides which rail group a document
+  # lands in; render_as is only the renderer.
+  # "ask for, or record, a decision" — this document carries the bottom line,
+  # the decision table, the ordered steps, and the stop conditions.
+  - id: assessment
+    output: assessment
+    artifact: docs/case/assessment.md
+    render_as: markdown-document
+    kind: decision
+    label: Aisles competitive position assessment
+    nav_label: Assessment
+    route: /
+  # "record claim-by-claim how assertions were checked" — five findings, each
+  # with its own verdict and the evidence behind it.
+  - id: findings
+    output: findings
+    artifact: docs/case/findings.md
+    render_as: markdown-document
+    kind: evidence
+    label: Five findings, in the order they matter
+    nav_label: Findings
+    route: /evidence/findings
+  # "hold source material for lookup" — the three reference tables the
+  # argument rests on, kept separate so the assessment stays readable.
+  - id: side-by-side
+    output: side-by-side
+    artifact: docs/case/side-by-side.md
+    render_as: markdown-document
+    kind: reference
+    label: Side-by-side reference
+    nav_label: Side-by-side
+    route: /reference/side-by-side
+  # "record claim-by-claim how assertions were checked" — what was checked
+  # against what, what was not verified, and what would overturn the read.
+  - id: provenance-method
+    output: provenance-method
+    artifact: docs/case/provenance-and-method.md
+    render_as: markdown-document
+    kind: evidence
+    label: Provenance, method, and what would change this
+    nav_label: Provenance & method
+    route: /evidence/provenance-method
   - id: competitive-assessment
     output: competitive-assessment
     artifact: docs/memos/aisles-competitive-position.html
