@@ -9,19 +9,14 @@ import type {
 	KibbleVisualTile,
 } from '$lib/components/kibble/types';
 import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
+import { getContractSurfaceDecision } from '$lib/brand/composition-policy';
+import type { Surface } from '$lib/foundation/zones';
 
 export type MerchantRenderMode = 'reference-preserve' | 'legacy-generated';
 export type KibbleFeaturedSource = 'featured' | 'newest' | 'deterministic-catalog';
 
-const REFERENCE_RENDERERS: Record<string, MerchantRenderMode> = Object.freeze({
-	kibble: 'reference-preserve',
-});
-
-export function selectMerchantRenderMode(brandId: unknown): MerchantRenderMode {
-	if (typeof brandId !== 'string' || !Object.hasOwn(REFERENCE_RENDERERS, brandId)) {
-		return 'legacy-generated';
-	}
-	return REFERENCE_RENDERERS[brandId];
+export function selectMerchantRenderMode(brandId: unknown, surface: Surface | null): MerchantRenderMode {
+	return getContractSurfaceDecision(brandId, surface).mode;
 }
 
 export function buildKibbleChrome(brand: BrandConfig): {
@@ -189,7 +184,7 @@ function supportedProductHref(product: Product): string | null {
 }
 
 function assertKibbleBrand(brand: BrandConfig): void {
-	if (selectMerchantRenderMode(brand.id) !== 'reference-preserve') {
+	if (brand.id !== 'kibble') {
 		throw new Error(`Kibble Preserve adapter cannot materialize brand "${brand.id}".`);
 	}
 }

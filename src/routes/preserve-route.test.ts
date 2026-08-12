@@ -22,6 +22,7 @@ describe('Preserve route boundaries', () => {
 			const kibble = await loadLayout({ url: new URL('https://aisles.test/'), cookies } as never);
 			if (!kibble) throw new Error('Expected the Kibble root layout server load to return data.');
 			expect(kibble.renderMode).toBe('reference-preserve');
+			expect(kibble.chromeMode).toBe('reference');
 			expect(kibble.kibbleChrome?.navItems[0]).toEqual({ label: 'Dog Food', href: '/category/dog-food' });
 			expect(kibble.kibbleChrome?.statusItems).toEqual([]);
 
@@ -29,7 +30,14 @@ describe('Preserve route boundaries', () => {
 			const legacy = await loadLayout({ url: new URL('https://aisles.test/'), cookies } as never);
 			if (!legacy) throw new Error('Expected the legacy root layout server load to return data.');
 			expect(legacy.renderMode).toBe('legacy-generated');
+			expect(legacy.chromeMode).toBe('legacy');
 			expect(legacy.kibbleChrome).toBeNull();
+
+			process.env.BRAND_ID = 'kibble';
+			const unsupported = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);
+			if (!unsupported) throw new Error('Expected the unsupported Kibble surface load to return data.');
+			expect(unsupported.renderMode).toBe('legacy-generated');
+			expect(unsupported.chromeMode).toBe('reference');
 		} finally {
 			if (previousBrand === undefined) delete process.env.BRAND_ID;
 			else process.env.BRAND_ID = previousBrand;

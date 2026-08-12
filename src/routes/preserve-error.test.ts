@@ -7,7 +7,7 @@ const source = (path: string) => readFileSync(resolve(import.meta.dirname, path)
 describe('Kibble Preserve failure surface', () => {
 	it('uses a Kibble-native conditional error shell and retains a legacy branch', () => {
 		const errorRoute = source('+error.svelte');
-		expect(errorRoute).toContain("renderMode === 'reference-preserve'");
+		expect(errorRoute).toContain("chromeMode === 'reference'");
 		expect(errorRoute).toContain('<KibbleErrorReference');
 		expect(errorRoute).toContain('{:else}');
 	});

@@ -3,14 +3,14 @@
 	import { KibbleErrorReference } from '$lib/components/kibble';
 
 	let { status, error }: { status: number; error: App.Error } = $props();
-	let renderMode = $derived($page.data.renderMode);
+	let chromeMode = $derived($page.data.chromeMode);
 </script>
 
 <svelte:head>
 	<title>{status} — Page unavailable</title>
 </svelte:head>
 
-{#if renderMode === 'reference-preserve'}
+{#if chromeMode === 'reference'}
 	<KibbleErrorReference {status} message={error.message} {...$page.data.kibbleError} />
 {:else}
 	<section class="mx-auto max-w-3xl px-6 py-24 text-center">

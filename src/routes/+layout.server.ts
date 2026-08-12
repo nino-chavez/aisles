@@ -2,10 +2,12 @@ import type { LayoutServerLoad } from './$types';
 import { getBrand } from '$lib/brand/config';
 import { buildKibbleChrome, selectMerchantRenderMode } from '$lib/brand/reference/kibble-runtime';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
+import { hasKibbleReferenceChrome, surfaceForPath } from '$lib/brand/composition-policy';
 
 export const load: LayoutServerLoad = async ({ url, cookies }) => {
 	const brand = getBrand();
-	const renderMode = selectMerchantRenderMode(brand.id);
+	const renderMode = selectMerchantRenderMode(brand.id, surfaceForPath(url.pathname));
+	const chromeMode = hasKibbleReferenceChrome(brand.id) ? 'reference' : 'legacy';
 
 	// Dev mode: ?dev=true turns it on, ?dev=false turns it off, cookie persists
 	const devParam = url.searchParams.get('dev');
@@ -18,8 +20,9 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 
 	return {
 		renderMode,
-		kibbleChrome: renderMode === 'reference-preserve' ? buildKibbleChrome(brand) : null,
-		kibbleError: renderMode === 'reference-preserve' ? KIBBLE_PRESERVE_MANIFEST.display.error : null,
+		chromeMode,
+		kibbleChrome: chromeMode === 'reference' ? buildKibbleChrome(brand) : null,
+		kibbleError: chromeMode === 'reference' ? KIBBLE_PRESERVE_MANIFEST.display.error : null,
 		brand: {
 			id: brand.id,
 			name: brand.name,

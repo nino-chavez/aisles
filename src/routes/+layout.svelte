@@ -125,7 +125,7 @@
 		{@render children()}
 	{:else}
 		<div class="flex min-h-screen flex-col">
-			{#if data.renderMode === 'reference-preserve' && data.kibbleChrome}
+			{#if data.chromeMode === 'reference' && data.kibbleChrome}
 				<KibbleHeader
 					{brandName}
 					navItems={data.kibbleChrome.navItems}
@@ -141,10 +141,10 @@
 			{:else}
 				<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} categories={data.brand?.categories ?? {}} />
 			{/if}
-			<main id={data.renderMode === 'reference-preserve' ? 'kibble-main' : undefined} class="flex-1" tabindex="-1">
+			<main id={data.chromeMode === 'reference' ? 'kibble-main' : undefined} class="flex-1" tabindex="-1">
 				{@render children()}
 			</main>
-			{#if data.renderMode === 'reference-preserve' && data.kibbleChrome}
+			{#if data.chromeMode === 'reference' && data.kibbleChrome}
 				<KibbleFooter {...data.kibbleChrome.footer} />
 			{:else}
 				<Footer {brandName} footerNote={brandFooterNote} tagline={brandTagline} />
