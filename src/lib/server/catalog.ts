@@ -42,7 +42,7 @@ export async function loadCategoryProducts(
 	if (!bcCategory) return null;
 
 	const { products: bcProducts } = await getProductsByCategory(bcCategory.entityId);
-	const products = bcProducts.map(transformProduct);
+	const products = uniqueProductsByEntityId(bcProducts.map(transformProduct));
 
 	const enrichedProducts = await enrichAndSortByFit(products, persona);
 
@@ -77,7 +77,7 @@ export async function loadHomeProducts(
 		}),
 	);
 
-	const products = perCategoryProducts.flat();
+	const products = uniqueProductsByEntityId(perCategoryProducts.flat());
 	if (products.length === 0) return null;
 
 	const enrichedProducts = await enrichAndSortByFit(products, persona);
@@ -139,4 +139,8 @@ function transformProduct(p: BCProduct): Product {
 
 function stripHtml(html: string): string {
 	return html.replace(/<[^>]*>/g, '').trim();
+}
+
+function uniqueProductsByEntityId(products: Product[]): Product[] {
+	return [...new Map(products.map((product) => [product.entityId, product])).values()];
 }

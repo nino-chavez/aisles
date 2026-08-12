@@ -88,6 +88,8 @@ console.log('\nSharp vs flat probability vector');
 
 console.log('\nKibble product profile injection');
 {
+	const originalBrand = process.env.BRAND_ID;
+	process.env.BRAND_ID = 'kibble';
 	const prompt = buildLayoutPrompt('hunter', 'Dog Food', products);
 	assert(
 		'Prompt includes the pet profile and Auto-Refill fit',
@@ -99,6 +101,13 @@ console.log('\nKibble product profile injection');
 		prompt.includes('typical reorder: 30 days'),
 		'replenishment cadence missing from product summary',
 	);
+	assert(
+		'Kibble prompt uses its brand persona and excludes furniture vocabulary',
+		prompt.includes('the 24lb bag we already use') && !/furniture|walnut|living room|material|dimensions/i.test(prompt),
+		'Kibble prompt leaked global furniture guidance or missed its own persona definition',
+	);
+	if (originalBrand === undefined) delete process.env.BRAND_ID;
+	else process.env.BRAND_ID = originalBrand;
 }
 
 console.log('\nPrompt without probabilities omits the blend hint');

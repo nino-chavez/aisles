@@ -561,10 +561,10 @@ Returns enriched product data for a category, sorted by persona-fit score. Used 
 {
   "products": [
     {
-      "id": "products/haven-linen-sofa",
+      "id": "harvest-chicken-air-dried-recipe",
       "entityId": 127,
-      "name": "Haven Linen Sofa",
-      "price": 1299,
+      "name": "Harvest Chicken Air Dried Recipe",
+      "price": 34.99,
       "salePrice": null,
       "personaFit": {
         "gatherer": 0.91,
@@ -572,7 +572,14 @@ Returns enriched product data for a category, sorted by persona-fit score. Used 
         "researcher": 0.55,
         "gifter": 0.68
       },
-      "semanticTags": ["statement-piece", "natural-material", "living-room-anchor", "photogenic", "investment-piece"]
+      "semanticTags": ["daily-kibble", "adult-dog", "air-dried", "grain-free", "auto-refill"],
+      "compatibleWith": ["chicken", "adult", "grain-free", "daily feeding"],
+      "priceTier": "mid",
+      "petProfile": {
+        "protein": "chicken", "lifeStage": "adult", "format": "air-dried",
+        "dietary": "grain-free", "petSize": "any", "replenishmentDays": 30,
+        "subscriptionFit": 0.9
+      }
     }
   ],
   "categoryName": "Living Room"

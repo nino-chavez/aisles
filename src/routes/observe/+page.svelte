@@ -26,6 +26,12 @@
 		salePrice?: number;
 		personaFit: { gatherer: number; hunter: number; researcher: number; gifter: number } | null;
 		semanticTags: string[];
+		compatibleWith: string[];
+		priceTier: string | null;
+		petProfile: {
+			protein: string; lifeStage: string; format: string; dietary: string; petSize: string;
+			replenishmentDays: number | null; subscriptionFit: number;
+		} | null;
 	}
 
 	interface IncentiveSnapshot {
@@ -705,9 +711,17 @@
 												{@const fit = product.personaFit}
 												{@const primaryFit = fit?.[currentPersona as keyof typeof fit] ?? 0.5}
 												<tr class="border-b border-neutral-900 {i < 3 ? 'bg-neutral-900/50' : ''}">
-													<td class="py-1.5 pr-2 truncate text-neutral-200" title={product.name}>
+													<td class="py-1.5 pr-2 text-neutral-200" title={product.name}>
 														{#if i < 3}<span class="mr-1 text-amber-500">★</span>{/if}{product.name}
-													</td>
+														{#if product.petProfile}
+															<div class="mt-0.5 truncate text-[9px] text-neutral-500" title={`${product.petProfile.protein} · ${product.petProfile.lifeStage} · ${product.petProfile.format} · ${product.petProfile.dietary} · ${product.petProfile.petSize}`}>
+																{product.petProfile.protein} · {product.petProfile.lifeStage} · {product.petProfile.format} · {product.petProfile.dietary} · {product.petProfile.petSize}
+															</div>
+															<div class="text-[9px] text-neutral-600">
+																{product.priceTier ?? 'unpriced'} · Auto-Refill {Math.round(product.petProfile.subscriptionFit * 100)}%{product.petProfile.replenishmentDays ? ` · ${product.petProfile.replenishmentDays}d` : ''}
+															</div>
+														{/if}
+														</td>
 													<td class="py-1.5 px-1 text-right font-mono tabular-nums {PERSONA_TEXT_COLORS[currentPersona]}">
 														{(primaryFit * 100).toFixed(0)}
 													</td>

@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { generateText, Output } from 'ai';
-import { model as anthropicModel, PRIMARY_MODEL } from '$lib/server/model';
+import { model as anthropicModel } from '$lib/server/model';
 import { z } from 'zod';
 import { loadCategoryProducts, CATEGORY_MAP } from '$lib/server/catalog';
 import { getBrand } from '$lib/brand/config';
@@ -53,14 +53,15 @@ export const POST: RequestHandler = async ({ request }) => {
 			}
 		}
 
+		const catalogProducts = [...new Map(allProducts.map((product) => [product.id, product])).values()];
 		const pickIds = new Set(picks.map((pick: { id?: string }) => pick.id).filter(Boolean));
-		const pickedProfiles = allProducts
+		const pickedProfiles = catalogProducts
 			.filter((product) => pickIds.has(product.id))
 			.map((product) => product.petProfile);
 
 		// Resolve picked profiles before filtering them out, then rank remaining
 		// candidates by shared pet profile and their compatible-with keywords.
-		const scored = allProducts
+		const scored = catalogProducts
 			.filter((product) => !pickIds.has(product.id))
 			.map((product) => ({
 				...product,
@@ -68,11 +69,11 @@ export const POST: RequestHandler = async ({ request }) => {
 			}));
 
 		// Sort by compatibility score, then take top 25 for the AI
-		scored.sort((a, b) => b.compatScore - a.compatScore);
+		scored.sort((a, b) => b.compatScore - a.compatScore || a.id.localeCompare(b.id));
 		const candidates = scored.slice(0, 25);
 
 		const picksSummary = picks.map((p: any) => {
-			const catalogProduct = allProducts.find((product) => product.id === p.id);
+			const catalogProduct = catalogProducts.find((product) => product.id === p.id);
 			const topSpecs = Object.entries(p.specs || {}).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(', ');
 			const profile = catalogProduct?.petProfile
 				? ` | ${catalogProduct.petProfile.protein}, ${catalogProduct.petProfile.lifeStage}, ${catalogProduct.petProfile.format}, ${catalogProduct.petProfile.dietary}, ${catalogProduct.petProfile.petSize}; Auto-Refill ${Math.round(catalogProduct.petProfile.subscriptionFit * 100)}%${catalogProduct.petProfile.replenishmentDays ? `, ${catalogProduct.petProfile.replenishmentDays}-day cadence` : ''}`
@@ -120,7 +121,7 @@ IMPORTANT:
 
 		// Resolve suggestions to include name/price for the UI
 		const suggestions = (result.output?.suggestions || []).map((s) => {
-			const product = candidates.find((p) => p.id === s.productId) || allProducts.find((p) => p.id === s.productId);
+			const product = candidates.find((p) => p.id === s.productId) || catalogProducts.find((p) => p.id === s.productId);
 			return {
 				id: s.productId,
 				name: product?.name || s.productId,

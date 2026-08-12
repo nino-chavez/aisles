@@ -21,66 +21,6 @@ export const MAX_LAYOUT_PRODUCTS = 15;
  * It returns a Layout schema that the renderer interprets.
  */
 
-const PERSONA_DEFINITIONS: Record<string, string> = {
-	gatherer: `GATHERER persona — an exploratory, inspiration-driven shopper.
-They browse at a leisurely pace, relying on visual cues and editorial storytelling.
-They want to discover, be inspired, and imagine how pieces fit their space.
-
-Layout principles:
-- Lead with an editorial header (eyebrow + headline + body copy)
-- Feature one hero product with a large lifestyle image and detailed specs
-- Use a 2-column editorial grid with landscape (4:3) images
-- Show product descriptions — the story matters
-- No quick-add buttons — this shopper wants to browse, not rush
-- Copy should be warm, editorial, magazine-like (think shelter magazine)
-- Order products by visual appeal and narrative flow, not price
-- New vocabulary: prefer "editorial-hero" over "hero-product" for the opening visual; "category-tile-grid" (2-3 columns) or "cluster-chip-row" for thematic browsing; skip "lifestyle-price-hero" and "service-callouts-grid" — price-led and trust-strip elements break the editorial mood`,
-
-	hunter: `HUNTER persona — a goal-oriented, efficiency-driven shopper.
-They know what they need and want to find it fast. Price and specs matter most.
-The interface should get out of the way.
-
-Layout principles:
-- Lead with a compact category header showing count and sort/filter controls
-- Use a dense 3-4 column grid with square images
-- Show specs inline (material, dimensions — the facts)
-- Show quick-add buttons on every card
-- No editorial copy — no hero product, no lifestyle stories
-- Sort products by price (low to high) by default
-- Copy should be minimal and functional
-- New vocabulary: "product-carousel" only as a secondary "more like this" rail after the grid, never the lead; "service-callouts-grid" for shipping/returns trust signals; skip "editorial-hero", "cluster-chip-row", and "category-tile-grid" — this shopper wants the grid, not more browsing surfaces`,
-
-	researcher: `RESEARCHER persona — a methodical, evidence-driven shopper.
-They compare options systematically, reading specs, reviews, and expert opinions.
-They want data to make an informed decision, not inspiration or speed.
-
-Layout principles:
-- Lead with a category header showing count, sort by rating, and filter controls
-- Use a 2-3 column grid with square images
-- Show full specs inline on every card (material, dimensions, weight, features)
-- Show product descriptions — detail matters
-- No quick-add buttons — they're not ready to buy yet, they're evaluating
-- No editorial fluff — factual, structured, comparison-friendly
-- Order products by relevance to query, then by rating/review count
-- Copy should be informative and precise
-- New vocabulary: skip hero-style and thematic-browsing components entirely ("editorial-hero", "lifestyle-price-hero", "cluster-chip-row", "category-tile-grid") — they add narrative or navigation, not comparison data. "service-callouts-grid" only if a callout states a fact (e.g. return window), never a marketing line`,
-
-	gifter: `GIFTER persona — shopping for someone else, often with a budget and occasion.
-They need guidance on what makes a good gift, price tiers, and giftability.
-They want curation and confidence that the recipient will love it.
-
-Layout principles:
-- Lead with an editorial header framing the gift context (occasion, recipient type)
-- Feature one hero product as the "top pick" with a clear value proposition
-- Use a 2-3 column grid with landscape images (gifts should look appealing)
-- Show product descriptions focused on why it makes a great gift
-- Show quick-add buttons — gifters decide faster once convinced
-- Group or call out price tiers ("Under $100", "Splurge-worthy")
-- Copy should be warm, reassuring, and focused on the recipient's experience
-- Order products by giftability score (universal appeal, presentation, value)
-- New vocabulary: "lifestyle-price-hero" works well as the "top pick" in place of "hero-product" when price/value is the hook; "cluster-chip-row" for named gift themes ("Under $50", "For Her"); "category-tile-grid" (2-3 columns) for occasion browsing`,
-};
-
 const COMPONENT_GUIDE = `You have 11 components to work with, grouped by what they're for.
 
 Single-product spotlights (a detail-page idiom — never the lead or only section on a browse page):
@@ -164,6 +104,17 @@ RULES:
 - Images and links are resolved from the product ID you provide — never write a raw image URL or href; the renderer fills in the asset and route from the catalog
 - The "reasoning" field should explain your layout choices in 1-2 sentences`;
 
+const KIBBLE_COMPONENT_GUIDE = `You have 11 layout components. Compose a pet-supply browse page built around feeding, care, gear, and Auto-Refill.
+
+- Gatherer and Gifter may lead with editorial-header, editorial-hero, category-tile-grid, or cluster-chip-row for routines such as puppy setup, sensitive digestion, or Auto-Refill.
+- Hunter and Researcher lead with category-header and product-grid. Hunter favors clear price, pack-size, and Auto-Refill decisions. Researcher favors ingredients, dietary position, life stage, and comparison.
+- product-grid, product-carousel, or category-tile-grid must appear in every layout. A single-product hero cannot be the only section.
+- hero-product and image-gallery are secondary product spotlights, never the only browse surface.
+- lifestyle-price-hero is only appropriate when the real product price and Auto-Refill value are the hook.
+- service-callouts-grid can explain shipping, return, Auto-Refill, or subscription controls.
+- Use only product IDs supplied below. Do not invent raw URLs, prices, ingredients, claims, or refill savings.
+- The "reasoning" field should explain the layout choice in one or two sentences.`;
+
 interface PromptProduct {
 	id: string;
 	name: string;
@@ -245,7 +196,8 @@ export function buildLayoutPrompt(
 	isHome = false,
 ): string {
 	const brand = getBrand();
-	const personaDef = PERSONA_DEFINITIONS[persona] || PERSONA_DEFINITIONS.gatherer;
+	const personaDef = brand.prompt.personaDefinitions[persona] || brand.prompt.personaDefinitions.gatherer;
+	const componentGuide = brand.id === 'kibble' ? KIBBLE_COMPONENT_GUIDE : COMPONENT_GUIDE;
 
 	// Pre-filter to top MAX_LAYOUT_PRODUCTS by persona-fit for layout
 	// efficiency. The AI only selects 4-8 products; sending 50 wastes tokens.
@@ -291,7 +243,7 @@ ${isHome ? formatHomeFraming(brand) : `CATEGORY: ${categoryName}`}
 AVAILABLE PRODUCTS (${filtered.length} items, top by ${persona} fit):
 ${productSummaries}
 ${picksContext || ''}${rulesContext || ''}${formatIncentivesContext(incentives)}
-${COMPONENT_GUIDE}
+${componentGuide}
 
 Generate a layout for this ${persona} shopper ${isHome ? `landing on the ${categoryName} home page` : `browsing the ${categoryName} category`}.`;
 }

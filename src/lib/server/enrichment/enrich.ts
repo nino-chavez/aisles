@@ -8,7 +8,7 @@
  */
 
 import 'dotenv/config';
-import postgres from 'postgres';
+import postgres, { type TransactionSql } from 'postgres';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { generateText, Output, embedMany } from 'ai';
@@ -63,14 +63,16 @@ function estimateCost(inputTokens: number, outputTokens: number): number {
 	return (inputTokens / 1_000_000) * PRICING.input + (outputTokens / 1_000_000) * PRICING.output;
 }
 
-async function logEnrichmentGeneration(entityId: number, inputTokens: number, outputTokens: number, generationMs: number) {
+type DbExecutor = typeof sql | TransactionSql<{}>;
+
+async function logEnrichmentGeneration(db: DbExecutor, entityId: number, inputTokens: number, outputTokens: number, generationMs: number) {
 	const cost = estimateCost(inputTokens, outputTokens);
 	stats.totalInputTokens += inputTokens;
 	stats.totalOutputTokens += outputTokens;
 	stats.totalCost += cost;
 	stats.count++;
 
-	await sql`
+	await db`
 		INSERT INTO generation_logs (
 			brand_id, type, persona, category_slug, cache_hit, generation_ms,
 			input_tokens, output_tokens, model, estimated_cost
@@ -158,7 +160,15 @@ async function fetchProducts(): Promise<BCProductNode[]> {
 
 // ─── Enrichment ────────────────────────────────────────────────────
 
-async function enrichProduct(product: BCProductNode) {
+interface CompletedEnrichment {
+	product: BCProductNode;
+	enrichment: z.infer<typeof EnrichmentSchema>;
+	inputTokens: number;
+	outputTokens: number;
+	generationMs: number;
+}
+
+async function enrichProduct(product: BCProductNode): Promise<CompletedEnrichment> {
 	const specs = product.customFields.edges
 		.map((e) => `${e.node.name}: ${e.node.value}`)
 		.join('\n');
@@ -200,35 +210,33 @@ Generate semantic tags that capture how someone might search for this product by
 	if (!output) throw new Error('No enrichment output generated');
 
 	const elapsed = Date.now() - start;
-	if (usage) {
-		await logEnrichmentGeneration(
-			product.entityId,
-			usage.inputTokens ?? 0,
-			usage.outputTokens ?? 0,
-			elapsed,
-		);
-	}
-
-	return output;
+	return {
+		product,
+		enrichment: output,
+		inputTokens: usage?.inputTokens ?? 0,
+		outputTokens: usage?.outputTokens ?? 0,
+		generationMs: elapsed,
+	};
 }
 
 // ─── Database ──────────────────────────────────────────────────────
 
-async function upsertEnrichment(product: BCProductNode, enrichment: z.infer<typeof EnrichmentSchema>) {
+async function upsertEnrichment(db: DbExecutor, product: BCProductNode, enrichment: z.infer<typeof EnrichmentSchema>, embedding: number[]) {
 	const e = enrichment;
 	const price = product.prices.salePrice?.value || product.prices.price.value;
 	const priceTier = kibblePriceTier(price);
-	await sql`
+	const embeddingValue = `[${embedding.join(',')}]`;
+	await db`
 		INSERT INTO enriched_products (
 			brand_id, bc_entity_id, bc_product_path,
 			protein, life_stage, format, dietary, pet_size, replenishment_days, subscription_fit, price_tier,
 			fit_gatherer, fit_hunter, fit_researcher, fit_gifter,
-			semantic_tags, compatible_with, enriched_at, enrichment_model, updated_at
+			semantic_tags, compatible_with, embedding, enriched_at, enrichment_model, updated_at
 		) VALUES (
 			${brandId}, ${product.entityId}, ${product.path},
 			${e.protein}, ${e.lifeStage}, ${e.format}, ${e.dietary}, ${e.petSize}, ${e.replenishmentDays}, ${e.subscriptionFit}, ${priceTier},
 			${e.personaFit.gatherer}, ${e.personaFit.hunter}, ${e.personaFit.researcher}, ${e.personaFit.gifter},
-			${e.semanticTags}, ${e.compatibleWith}, NOW(), ${ENRICHMENT_MODEL_FULL}, NOW()
+			${e.semanticTags}, ${e.compatibleWith}, ${embeddingValue}::extensions.vector, NOW(), ${ENRICHMENT_MODEL_FULL}, NOW()
 		)
 		ON CONFLICT (brand_id, bc_entity_id) DO UPDATE SET
 			bc_product_path = EXCLUDED.bc_product_path,
@@ -246,6 +254,7 @@ async function upsertEnrichment(product: BCProductNode, enrichment: z.infer<type
 			fit_gifter = EXCLUDED.fit_gifter,
 			semantic_tags = EXCLUDED.semantic_tags,
 			compatible_with = EXCLUDED.compatible_with,
+			embedding = EXCLUDED.embedding,
 			enriched_at = NOW(),
 			enrichment_model = EXCLUDED.enrichment_model,
 			updated_at = NOW()
@@ -260,26 +269,22 @@ async function main() {
 	const products = await fetchProducts();
 	console.log(`Found ${products.length} products`);
 
-	let enriched = 0;
 	let failed = 0;
-	const enrichments = new Map<number, z.infer<typeof EnrichmentSchema>>();
+	const completed: CompletedEnrichment[] = [];
 
 	for (const product of products) {
 		try {
 			process.stdout.write(`  Enriching: ${product.name}... `);
-			const enrichment = await enrichProduct(product);
-			await upsertEnrichment(product, enrichment);
-			enrichments.set(product.entityId, enrichment);
-			console.log(`OK (${enrichment.format}, ${enrichment.lifeStage}, Auto-Refill:${enrichment.subscriptionFit.toFixed(2)})`);
-			enriched++;
+			const result = await enrichProduct(product);
+			completed.push(result);
+			console.log(`OK (${result.enrichment.format}, ${result.enrichment.lifeStage}, Auto-Refill:${result.enrichment.subscriptionFit.toFixed(2)})`);
 		} catch (err) {
 			console.log(`FAILED: ${err instanceof Error ? err.message : err}`);
 			failed++;
 		}
 	}
 
-	console.log(`\nEnrichment: ${enriched} enriched, ${failed} failed out of ${products.length} total`);
-	console.log(`Cost: $${stats.totalCost.toFixed(4)} (${stats.totalInputTokens.toLocaleString()} in / ${stats.totalOutputTokens.toLocaleString()} out tokens across ${stats.count} calls)`);
+	console.log(`\nEnrichment: ${completed.length} prepared, ${failed} failed out of ${products.length} total`);
 	if (failed > 0) {
 		throw new Error(`Enrichment stopped: ${failed} of ${products.length} products failed. Embeddings were not generated.`);
 	}
@@ -288,13 +293,10 @@ async function main() {
 	console.log('\nGenerating embeddings...');
 
 	// Build embedding text from the completed pet profile, not absent BC custom fields.
-	const embeddingTexts = products.map((p) => {
-		const enrichment = enrichments.get(p.entityId);
-		const desc = p.description.replace(/<[^>]*>/g, '').trim();
-		const profile = enrichment
-			? `${enrichment.protein} ${enrichment.lifeStage} ${enrichment.format} ${enrichment.dietary} ${enrichment.petSize}. ${enrichment.semanticTags.join(', ')}. ${enrichment.compatibleWith.join(', ')}`
-			: '';
-		return `${p.name}. ${desc} ${profile}`.slice(0, 8000); // text-embedding-3-small max ~8k tokens
+	const embeddingTexts = completed.map(({ product, enrichment }) => {
+		const desc = product.description.replace(/<[^>]*>/g, '').trim();
+		const profile = `${enrichment.protein} ${enrichment.lifeStage} ${enrichment.format} ${enrichment.dietary} ${enrichment.petSize}. ${enrichment.semanticTags.join(', ')}. ${enrichment.compatibleWith.join(', ')}`;
+		return `${product.name}. ${desc} ${profile}`.slice(0, 8000); // text-embedding-3-small max ~8k tokens
 	});
 
 	try {
@@ -303,24 +305,23 @@ async function main() {
 			values: embeddingTexts,
 		});
 
-		let embeddingCount = 0;
-		for (let i = 0; i < products.length; i++) {
-			const vec = embeddings[i];
-			if (!vec) continue;
-
-			const vecStr = `[${vec.join(',')}]`;
-			await sql`
-				UPDATE enriched_products
-				SET embedding = ${vecStr}::extensions.vector
-				WHERE brand_id = ${brandId} AND bc_entity_id = ${products[i].entityId}
-			`;
-			embeddingCount++;
+		console.log(`Embeddings: ${embeddings.length} generated (${embeddings[0]?.length || 0} dimensions)`);
+		if (embeddings.length !== completed.length || embeddings.some((embedding) => embedding.length === 0)) {
+			throw new Error(`Embedding generation incomplete: ${embeddings.length} of ${completed.length} products received vectors.`);
 		}
 
-		console.log(`Embeddings: ${embeddingCount} generated (${embeddings[0]?.length || 0} dimensions)`);
-		if (embeddingCount !== products.length) {
-			throw new Error(`Embedding generation incomplete: ${embeddingCount} of ${products.length} products received vectors.`);
-		}
+		await sql.begin(async (tx) => {
+			for (let i = 0; i < completed.length; i++) {
+				const record = completed[i];
+				const embedding = embeddings[i];
+				if (!embedding) throw new Error(`Missing embedding for ${record.product.entityId}`);
+				await upsertEnrichment(tx, record.product, record.enrichment, embedding);
+				await logEnrichmentGeneration(tx, record.product.entityId, record.inputTokens, record.outputTokens, record.generationMs);
+			}
+		});
+
+		console.log(`Published ${completed.length} enriched products and generation logs atomically.`);
+		console.log(`Cost: $${stats.totalCost.toFixed(4)} (${stats.totalInputTokens.toLocaleString()} in / ${stats.totalOutputTokens.toLocaleString()} out tokens across ${stats.count} calls)`);
 	} catch (err) {
 		throw new Error(`Embedding generation failed: ${err instanceof Error ? err.message : String(err)}`);
 	}

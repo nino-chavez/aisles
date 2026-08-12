@@ -1,6 +1,6 @@
 # Kibble on Aisles — standalone plan
 
-**Status:** proposed, 2026-08-12. Nothing here is built yet.
+**Status:** implementation in progress, 2026-08-12. The standalone database foundation and pet enrichment contract are built locally; hosted migration, paid enrichment, and production deployment remain gated.
 **Audience:** whoever picks this up next, including a future session with no memory of today.
 
 ## Recommendation
@@ -18,11 +18,10 @@ Do not reuse the Neon database. It is Vercel-era legacy, it belongs to
 
 Three reasons, in order of how hard they are to argue with.
 
-**Product IDs collide.** `enriched_products.bc_entity_id` is `INTEGER UNIQUE`
-with no store or brand column (`src/lib/server/enrichment/enrich.ts`). Kibble and
-Bealls are different BigCommerce stores whose product IDs are independent
-integers, so the same ID means a different product in each catalog. One table for
-both means rows silently overwrite each other. This alone settles it.
+**Product IDs could collide without brand scoping.** Kibble and Bealls are
+different BigCommerce stores whose product IDs are independent integers. The
+implemented schema prevents that with `UNIQUE (brand_id, bc_entity_id)`; Kibble
+still keeps its own project so operational data and credentials remain isolated.
 
 **The public site would display private data.** `/observe` on the public Kibble
 storefront reads `generation_logs`. Sharing the database renders Bealls personas,

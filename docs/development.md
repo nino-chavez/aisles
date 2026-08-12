@@ -135,7 +135,6 @@ The script will:
 **Expected output**:
 
 ```
-Creating table...
 Fetching products from BigCommerce...
 Found 49 products
   Enriching: Harvest Chicken Air Dried Recipe... OK (air-dried, adult, Auto-Refill:0.90)
@@ -152,7 +151,7 @@ Done.
 
 **Cost**: enrichment runs Claude Sonnet per product. Kibble's current catalog has 49 products. The script prints the measured cost after a complete run; do not treat the example above as a quote. A partial enrichment or embedding failure exits nonzero and does not report success.
 
-**Re-running**: the script uses `ON CONFLICT (brand_id, bc_entity_id) DO UPDATE` — re-running overwrites only the active brand's enrichment data. Safe to run again after product updates.
+**Re-running**: the script prepares every product and embedding before one Postgres transaction publishes the active brand's rows and generation logs. A failed run leaves the prior published set intact; re-running replaces rows by `(brand_id, bc_entity_id)` only after the complete batch is ready.
 
 ---
 
