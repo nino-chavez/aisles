@@ -11,7 +11,7 @@ import 'dotenv/config';
 import postgres, { type TransactionSql } from 'postgres';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { generateText, Output, embedMany } from 'ai';
+import { generateText, NoObjectGeneratedError, Output, embedMany } from 'ai';
 import { z } from 'zod';
 import { getBrand } from '../../brand/config';
 import {
@@ -78,6 +78,31 @@ async function logEnrichmentGeneration(db: DbExecutor, entityId: number, inputTo
 			input_tokens, output_tokens, model, estimated_cost
 		) VALUES (
 			${brandId}, 'enrichment', 'n/a', ${String(entityId)},
+			false, ${generationMs},
+			${inputTokens}, ${outputTokens},
+			${ENRICHMENT_MODEL_FULL}, ${cost}
+		)
+	`;
+}
+
+async function logFailedEnrichmentGeneration(
+	db: DbExecutor,
+	entityId: number,
+	inputTokens: number,
+	outputTokens: number,
+	generationMs: number,
+) {
+	const cost = estimateCost(inputTokens, outputTokens);
+	stats.totalInputTokens += inputTokens;
+	stats.totalOutputTokens += outputTokens;
+	stats.totalCost += cost;
+	stats.count++;
+	await db`
+		INSERT INTO generation_logs (
+			brand_id, type, persona, category_slug, cache_hit, generation_ms,
+			input_tokens, output_tokens, model, estimated_cost
+		) VALUES (
+			${brandId}, 'enrichment_failed', 'n/a', ${String(entityId)},
 			false, ${generationMs},
 			${inputTokens}, ${outputTokens},
 			${ENRICHMENT_MODEL_FULL}, ${cost}
@@ -201,11 +226,32 @@ For compatibleWith, describe shared pet profile and routine, not furniture style
 Generate semantic tags that capture how someone might search for this product by pet need or routine rather than keyword.`;
 
 	const start = Date.now();
-	const { output, usage } = await generateText({
-		model: anthropic(ENRICHMENT_MODEL),
-		output: Output.object({ schema: EnrichmentSchema }),
-		prompt,
-	});
+	let result;
+	try {
+		result = await generateText({
+			model: anthropic(ENRICHMENT_MODEL),
+			output: Output.object({ schema: EnrichmentSchema }),
+			prompt,
+		});
+	} catch (error) {
+		if (NoObjectGeneratedError.isInstance(error)) {
+			const inputTokens = error.usage?.inputTokens ?? 0;
+			const outputTokens = error.usage?.outputTokens ?? 0;
+			await logFailedEnrichmentGeneration(
+				sql,
+				product.entityId,
+				inputTokens,
+				outputTokens,
+				Date.now() - start,
+			);
+			console.error(
+				`Recorded failed enrichment call for product ${product.entityId}: ${inputTokens} input / ${outputTokens} output tokens, finish reason ${error.finishReason ?? 'unknown'}.`,
+			);
+		}
+		throw error;
+	}
+
+	const { output, usage } = result;
 
 	if (!output) throw new Error('No enrichment output generated');
 
@@ -276,6 +322,13 @@ async function main() {
 		try {
 			process.stdout.write(`  Enriching: ${product.name}... `);
 			const result = await enrichProduct(product);
+			await logEnrichmentGeneration(
+				sql,
+				result.product.entityId,
+				result.inputTokens,
+				result.outputTokens,
+				result.generationMs,
+			);
 			completed.push(result);
 			console.log(`OK (${result.enrichment.format}, ${result.enrichment.lifeStage}, Auto-Refill:${result.enrichment.subscriptionFit.toFixed(2)})`);
 		} catch (err) {
@@ -286,6 +339,7 @@ async function main() {
 
 	console.log(`\nEnrichment: ${completed.length} prepared, ${failed} failed out of ${products.length} total`);
 	if (failed > 0) {
+		console.log(`Cost incurred: $${stats.totalCost.toFixed(4)} (${stats.totalInputTokens.toLocaleString()} in / ${stats.totalOutputTokens.toLocaleString()} out tokens across ${stats.count} calls)`);
 		throw new Error(`Enrichment stopped: ${failed} of ${products.length} products failed. Embeddings were not generated.`);
 	}
 
@@ -316,11 +370,10 @@ async function main() {
 				const embedding = embeddings[i];
 				if (!embedding) throw new Error(`Missing embedding for ${record.product.entityId}`);
 				await upsertEnrichment(tx, record.product, record.enrichment, embedding);
-				await logEnrichmentGeneration(tx, record.product.entityId, record.inputTokens, record.outputTokens, record.generationMs);
 			}
 		});
 
-		console.log(`Published ${completed.length} enriched products and generation logs atomically.`);
+		console.log(`Published ${completed.length} enriched products atomically; generation logs were recorded per model call.`);
 		console.log(`Cost: $${stats.totalCost.toFixed(4)} (${stats.totalInputTokens.toLocaleString()} in / ${stats.totalOutputTokens.toLocaleString()} out tokens across ${stats.count} calls)`);
 	} catch (err) {
 		throw new Error(`Embedding generation failed: ${err instanceof Error ? err.message : String(err)}`);
