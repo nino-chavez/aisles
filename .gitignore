@@ -24,3 +24,6 @@ cookies.txt
 /*.png
 /audit-v3/
 .env*
+
+# Supabase CLI link cache
+supabase/.temp/

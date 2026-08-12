@@ -1,0 +1,21 @@
+name = "aisles-kibble"
+pages_build_output_dir = ".svelte-kit/cloudflare"
+compatibility_date = "2026-08-12"
+compatibility_flags = ["nodejs_compat"]
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "7ad29b1caf5845d48f93b59fa15fc83b"
+
+[env.production]
+compatibility_date = "2026-08-12"
+compatibility_flags = ["nodejs_compat"]
+
+[[env.production.hyperdrive]]
+binding = "HYPERDRIVE"
+id = "7ad29b1caf5845d48f93b59fa15fc83b"
+
+[env.production.vars]
+BIGCOMMERCE_STORE_HASH = "cdfqf9k6zf"
+BRAND_ID = "kibble"
+VITE_BRAND_ID = "kibble"

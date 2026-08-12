@@ -8,6 +8,7 @@ const migration = readFileSync(
 	resolve(import.meta.dirname, '../../../supabase/migrations/20260812200405_create_brand_scoped_aisles_schema.sql'),
 	'utf8',
 );
+const wrangler = readFileSync(resolve(import.meta.dirname, '../../../wrangler.toml'), 'utf8');
 
 describe('database foundation', () => {
 	it('fails required paths when DATABASE_URL is absent', () => {
@@ -32,6 +33,12 @@ describe('database foundation', () => {
 			getRequestDb(firstRequest, 'postgresql://hyperdrive', create),
 		);
 		expect(created).toBe(2);
+	});
+
+	it('enables Node compatibility and binds Hyperdrive in Pages', () => {
+		expect(wrangler).toContain('compatibility_flags = ["nodejs_compat"]');
+		expect(wrangler).toContain('binding = "HYPERDRIVE"');
+		expect(wrangler).toContain('id = "7ad29b1caf5845d48f93b59fa15fc83b"');
 	});
 
 	it('scopes product and session identities by brand', () => {
