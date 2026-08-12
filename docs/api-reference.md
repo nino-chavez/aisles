@@ -284,7 +284,18 @@ Requires the `aisles_session` cookie to be set (established server-side on the f
 | `interact.filter_use` | interaction | Used a filter |
 | `interact.sort_change` | interaction | Changed sort order |
 | `commerce.add_to_cart` | commerce | Added item to cart |
+| `commerce.autoship_mix` | commerce | Cart share on Auto-Refill; `data.mix` must be a finite number from 0 through 1 |
+| `subscription.cadence_selected` | interaction | Selected Auto-Refill cadence; `data.months` must be 1, 2, or 3 |
+| `subscription.skip` | interaction | Skipped a scheduled shipment |
+| `subscription.swap` | interaction | Swapped a subscription item |
+| `subscription.pause` | interaction | Paused a subscription |
+| `subscription.due_proximity` | external | Days until the next shipment; `data.days` must be non-negative |
+| `subscription.tenure` | external | Months subscribed; `data.months` must be non-negative |
 | `refine.message` | refinement | Sent a refinement message |
+
+For the Kibble-only event types above, the route enforces the listed source.
+`subscription.due_proximity` and `subscription.tenure` are provider facts and
+cannot be sent through the browser emitter.
 
 **Response**
 

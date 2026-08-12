@@ -11,6 +11,7 @@
 import type { Persona } from './types';
 import { PERSONAS } from './types';
 import { getSessionStore, persistSession } from './session';
+import { getBrand } from '$lib/brand/config';
 
 const SESSION_COOKIE = 'aisles_session';
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -39,6 +40,7 @@ export async function createStoreFromRequest(ctx: RequestContext): Promise<{ sto
 	}
 
 	const store = await getSessionStore(sessionId);
+	store.setBrandId(getBrand().id);
 
 	// Cross-session state from cookies
 	const storedPersonaRaw = ctx.cookies.get('aisles_persona') || null;

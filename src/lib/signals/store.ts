@@ -25,6 +25,7 @@ export class SignalStore {
 	private storedCategory: string | null = null;
 	private visitCount = 0;
 	private currentCategory = '';
+	private brandId = 'haven';
 
 	// Loyalty state (populated from UIP evaluator at render time)
 	private walletBalanceMinor = 0;
@@ -45,6 +46,11 @@ export class SignalStore {
 		this.storedCategory = opts.storedCategory;
 		this.visitCount = opts.visitCount;
 		this.currentCategory = opts.currentCategory;
+	}
+
+	/** Set the active storefront brand. Persisted with the session for API events. */
+	setBrandId(brandId: string) {
+		this.brandId = brandId;
 	}
 
 	/** Set loyalty state from the UIP evaluator. Called after cart eval, before inference. */
@@ -94,6 +100,7 @@ export class SignalStore {
 	/** Get cross-session context (for Redis persistence). */
 	getCrossSessionContext() {
 		return {
+			brandId: this.brandId,
 			storedPersona: this.storedPersona as string | null,
 			storedCategory: this.storedCategory,
 			visitCount: this.visitCount,
@@ -130,6 +137,13 @@ export class SignalStore {
 		let cartRemovalCount = 0;
 		let landedWithCode = false;
 		let appliedCodeCount = 0;
+		let selectedCadenceMonths: 1 | 2 | 3 | null = null;
+		let subscriptionSkipCount = 0;
+		let subscriptionSwapCount = 0;
+		let subscriptionPauseCount = 0;
+		let dueProximityDays: number | null = null;
+		let subscriptionTenureMonths: number | null = null;
+		let autoshipMix: number | null = null;
 
 		for (const event of this.events) {
 			switch (event.type) {
@@ -195,6 +209,35 @@ export class SignalStore {
 				case 'commerce.promo_applied':
 					appliedCodeCount++;
 					break;
+				case 'subscription.cadence_selected': {
+					const months = event.data.months;
+					if (months === 1 || months === 2 || months === 3) selectedCadenceMonths = months;
+					break;
+				}
+				case 'subscription.skip':
+					subscriptionSkipCount++;
+					break;
+				case 'subscription.swap':
+					subscriptionSwapCount++;
+					break;
+				case 'subscription.pause':
+					subscriptionPauseCount++;
+					break;
+				case 'subscription.due_proximity': {
+					const days = event.data.days;
+					if (typeof days === 'number' && Number.isFinite(days) && days >= 0) dueProximityDays = days;
+					break;
+				}
+				case 'subscription.tenure': {
+					const months = event.data.months;
+					if (typeof months === 'number' && Number.isFinite(months) && months >= 0) subscriptionTenureMonths = months;
+					break;
+				}
+				case 'commerce.autoship_mix': {
+					const mix = event.data.mix;
+					if (typeof mix === 'number' && Number.isFinite(mix) && mix >= 0 && mix <= 1) autoshipMix = mix;
+					break;
+				}
 			}
 
 			// Time context from the most recent event
@@ -206,6 +249,7 @@ export class SignalStore {
 		}
 
 		return {
+			brandId: this.brandId,
 			intentParam,
 			searchQuery,
 			referrer,
@@ -235,6 +279,13 @@ export class SignalStore {
 			appliedCodeCount,
 			walletBalanceMinor: this.walletBalanceMinor,
 			tierUnitsToNext: this.tierUnitsToNext,
+			selectedCadenceMonths,
+			subscriptionSkipCount,
+			subscriptionSwapCount,
+			subscriptionPauseCount,
+			dueProximityDays,
+			subscriptionTenureMonths,
+			autoshipMix,
 		};
 	}
 }

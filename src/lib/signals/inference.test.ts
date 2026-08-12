@@ -12,6 +12,7 @@ import type { InferenceContext } from './types';
 // ─── Helpers ───────────────────────────────────────────────────────
 
 const defaults: InferenceContext = {
+	brandId: 'haven',
 	intentParam: null,
 	searchQuery: null,
 	referrer: null,
@@ -41,6 +42,13 @@ const defaults: InferenceContext = {
 	appliedCodeCount: 0,
 	walletBalanceMinor: 0,
 	tierUnitsToNext: null,
+	selectedCadenceMonths: null,
+	subscriptionSkipCount: 0,
+	subscriptionSwapCount: 0,
+	subscriptionPauseCount: 0,
+	dueProximityDays: null,
+	subscriptionTenureMonths: null,
+	autoshipMix: null,
 };
 
 function ctx(overrides: Partial<InferenceContext>): InferenceContext {
@@ -370,6 +378,53 @@ console.log('\nPhase 2: Multi-code stacking compounds hunter signal');
 		'Stacked session has very high priceSensitivity',
 		stacked.modifiers.priceSensitivity > 0.5,
 		`priceSensitivity = ${stacked.modifiers.priceSensitivity}`,
+	);
+}
+
+console.log('\nKibble: subscription signals remain inside the four-persona taxonomy');
+{
+	const kibble = infer(ctx({
+		brandId: 'kibble',
+		selectedCadenceMonths: 1,
+		subscriptionSkipCount: 1,
+		subscriptionSwapCount: 1,
+		subscriptionPauseCount: 1,
+		dueProximityDays: 3,
+		subscriptionTenureMonths: 12,
+		autoshipMix: 1,
+	}));
+	const rules = kibble.ruleMatches.map((r) => r.ruleName);
+
+	assert('All Kibble subscription rules fire', [
+		'kibble-subscription-cadence-selected',
+		'kibble-subscription-skip',
+		'kibble-subscription-swap',
+		'kibble-subscription-pause',
+		'kibble-subscription-due-proximity',
+		'kibble-subscription-tenure',
+		'kibble-commerce-autoship-mix',
+	].every((name) => rules.includes(name)), `rules fired: ${rules.join(', ')}`);
+	assert('Due-soon subscription adds urgency', kibble.modifiers.urgency > 0.2, `urgency = ${kibble.modifiers.urgency}`);
+	assert('Tenure and autoship add familiarity', kibble.modifiers.familiarityWithStore > 0.6, `familiarity = ${kibble.modifiers.familiarityWithStore}`);
+	assert('Only the established personas are returned', ['gatherer', 'hunter', 'researcher', 'gifter'].includes(kibble.primary), `primary = ${kibble.primary}`);
+}
+
+console.log('\nKibble: subscription rules do not affect other brands');
+{
+	const sameSignalsOnHaven = infer(ctx({
+		brandId: 'haven',
+		selectedCadenceMonths: 1,
+		subscriptionSkipCount: 1,
+		subscriptionSwapCount: 1,
+		subscriptionPauseCount: 1,
+		dueProximityDays: 3,
+		subscriptionTenureMonths: 12,
+		autoshipMix: 1,
+	}));
+	assert(
+		'No Kibble rule fires for Haven',
+		!sameSignalsOnHaven.ruleMatches.some((rule) => rule.ruleName.startsWith('kibble-')),
+		`rules fired: ${sameSignalsOnHaven.ruleMatches.map((r) => r.ruleName).join(', ')}`,
 	);
 }
 

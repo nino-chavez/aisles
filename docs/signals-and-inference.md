@@ -1,14 +1,14 @@
 # Aisles — Signals and Inference
 
 **Version**: 0.3.0
-**Last Updated**: 2026-04-09
+**Last Updated**: 2026-08-12
 **Audience**: Developers
 
 ## Overview
 
-The Aisles persona inference system is a continuous signal stream → probability vector pipeline. It reads signals from two sources (server-side request data and client-side behavioral events), evaluates 27 weighted rules against the accumulated context, and produces a `PersonaInference` object that drives layout generation.
+The Aisles persona inference system is a continuous signal stream → probability vector pipeline. It reads server-side request data and client-side behavioral events, evaluates weighted rules against the accumulated context, and produces a `PersonaInference` object that drives layout generation.
 
-This document covers all 16 signal types, all 27 inference rules organized by category, the `InferenceContext` field reference, the probability vector, modifier system, shift detection, and rule attribution.
+This document covers all typed signal families, their inference rules, the `InferenceContext` field reference, the probability vector, modifier system, shift detection, and rule attribution.
 
 ---
 
@@ -36,7 +36,7 @@ interface PersonaProbabilities {
 
 ---
 
-## The 16 Signal Types
+## Signal Types
 
 Signals are typed events with a fixed schema. Each event has a `type`, a `source`, a `data` payload, and a `context` (current page, category, viewport).
 
@@ -61,6 +61,14 @@ type SignalEventType =
   // Commerce signals — client-side
   | 'commerce.add_to_cart'
   | 'commerce.remove_from_cart'
+  | 'commerce.autoship_mix'
+  // Subscription signals — Kibble only
+  | 'subscription.cadence_selected'
+  | 'subscription.skip'
+  | 'subscription.swap'
+  | 'subscription.pause'
+  | 'subscription.due_proximity'
+  | 'subscription.tenure'
   // Refinement signals — client-side
   | 'refine.message';
 ```
@@ -84,6 +92,13 @@ type SignalEventType =
 | `interact.sort_change` | Client | Sort order changes | **Not consumed** — no rule reads this yet |
 | `commerce.add_to_cart` | Client | Product added to cart | **Consumed** — increments `cartAddCount` |
 | `commerce.remove_from_cart` | Client | Product removed from cart | **Consumed** — increments `cartRemovalCount` |
+| `commerce.autoship_mix` | Commerce | Share of cart on Auto-Refill, `0..1` | **Consumed for Kibble only** — adds store familiarity, not a fifth persona |
+| `subscription.cadence_selected` | Interaction | Selected cadence, `months: 1 \| 2 \| 3` | **Consumed for Kibble only** |
+| `subscription.skip` | Interaction | Shipment skip action | **Consumed for Kibble only** |
+| `subscription.swap` | Interaction | Subscription product swap action | **Consumed for Kibble only** |
+| `subscription.pause` | Interaction | Subscription pause action | **Consumed for Kibble only** |
+| `subscription.due_proximity` | External | Days to next shipment, `days >= 0` | **Consumed for Kibble only** |
+| `subscription.tenure` | External | Months subscribed, `months >= 0` | **Consumed for Kibble only** |
 | `refine.message` | Client | Refinement chat message sent | **Consumed** — increments `refineMessageCount` |
 
 ---
@@ -126,6 +141,35 @@ Key computations in `toInferenceContext()`:
 - `longDwellCount` — count of dwell events >= 15000 ms
 - `quickBounceCount` — count of dwell events < 3000 ms
 - `cartRemovalCount` — incremented on every `commerce.remove_from_cart`
+
+### Kibble subscription path and producer boundary
+
+The implemented path is intentionally short and real:
+
+```text
+storefront control (interaction) or authenticated subscription API (external)
+  -> SignalEmitter.emit(...) or POST /api/signals with that provenance
+  -> SignalStore.emit(...) -> toInferenceContext()
+  -> infer() Kibble-gated rule -> PersonaInference
+```
+
+`POST /api/signals` already stores typed client events for an existing
+`aisles_session`; the subscription event types use that same route. Server-side
+request loads and `POST /api/signals` both set the session's `brandId` from
+`BRAND_ID`; the API assignment is authoritative and upgrades legacy Redis
+snapshots that predate this field. The value is persisted so events remain
+brand-gated between requests.
+
+The route rejects a subscription control with any source other than
+`interaction`, and rejects `subscription.due_proximity` or
+`subscription.tenure` unless their source is `external`. `SignalEmitter` also
+rejects those provider-derived event types in the browser.
+
+There is **no subscription-control UI or provider webhook in this repository
+today**. Nothing emits these events until a real Kibble storefront control or
+authenticated provider integration calls this path. The API/store support is
+not a claim that an external producer exists, and no scenario fixtures are part
+of this slice.
 
 ---
 
@@ -172,10 +216,17 @@ Key computations in `toInferenceContext()`:
 | `longDwellCount` | `number` | Count of dwell events >= 15,000 ms |
 | `quickBounceCount` | `number` | Count of dwell events < 3,000 ms |
 | `cartRemovalCount` | `number` | Total `commerce.remove_from_cart` events |
+| `selectedCadenceMonths` | `1 \| 2 \| 3 \| null` | Latest valid `subscription.cadence_selected.data.months` |
+| `subscriptionSkipCount` | `number` | Total `subscription.skip` events |
+| `subscriptionSwapCount` | `number` | Total `subscription.swap` events |
+| `subscriptionPauseCount` | `number` | Total `subscription.pause` events |
+| `dueProximityDays` | `number \| null` | Latest valid non-negative `subscription.due_proximity.data.days` |
+| `subscriptionTenureMonths` | `number \| null` | Latest valid non-negative `subscription.tenure.data.months` |
+| `autoshipMix` | `number \| null` | Latest valid `commerce.autoship_mix.data.mix`, bounded `0..1` |
 
 ---
 
-## The 27 Inference Rules
+## Inference Rules
 
 All rules are defined in `src/lib/signals/inference.ts`. Each rule has a `name`, a `weight` (confidence multiplier, 0.0–1.0), and an `evaluate` function that takes an `InferenceContext` and returns a `PersonaScoreAdjustment | null`.
 
@@ -261,6 +312,28 @@ Negative rules detect behaviors that disconfirm a persona. They act as correctiv
 
 ---
 
+### Kibble subscription rules
+
+These hand-tuned rules run only when the persisted session `brandId` is
+`kibble`. They preserve the existing four personas. In particular, Auto-Refill
+is evidence of familiarity with the store, not proof that a shopper is a
+Haven-style `hunter`. The mappings need calibration from real Kibble outcomes
+before their weights should be treated as behavioral facts.
+
+| Rule | Event/context | Condition | Output |
+|---|---|---|---|
+| `kibble-subscription-cadence-selected` | `selectedCadenceMonths` | Cadence is 1, 2, or 3 months | Modest `hunter` + familiarity; 1 month also adds urgency |
+| `kibble-subscription-skip` | `subscriptionSkipCount` | At least one skip | `researcher`, price sensitivity, familiarity |
+| `kibble-subscription-swap` | `subscriptionSwapCount` | At least one swap | `researcher`, familiarity |
+| `kibble-subscription-pause` | `subscriptionPauseCount` | At least one pause | `researcher`, price sensitivity, familiarity |
+| `kibble-subscription-due-proximity` | `dueProximityDays` | Shipment is due within 7 days | `hunter`, urgency, familiarity; stronger within 3 days |
+| `kibble-subscription-tenure` | `subscriptionTenureMonths` | At least one month subscribed | Familiarity scaled to a 12-month cap |
+| `kibble-commerce-autoship-mix` | `autoshipMix` | Any Auto-Refill share in the cart | Familiarity scaled by the `0..1` mix |
+
+No Kibble subscription rule fires for Haven, Volt, Ember, or another brand.
+
+---
+
 ## Posterior Computation
 
 The engine runs every rule against the current `InferenceContext`. For each rule that returns a non-null adjustment:
@@ -341,7 +414,7 @@ interface RuleMatch {
 }
 ```
 
-The `reason` string is generated by `describeRuleMatch()` in `inference.ts`, which produces human-readable descriptions for all 27 rule names. This is the primary tool for debugging inference behavior. The Observe dashboard's signal timeline surfaces these matches, and the `/observe` endpoint exposes them directly.
+The `reason` string is generated by `describeRuleMatch()` in `inference.ts`, which produces human-readable descriptions for every rule name. This is the primary tool for debugging inference behavior. The Observe dashboard's signal timeline surfaces these matches, and the `/observe` endpoint exposes them directly.
 
 ---
 
@@ -390,7 +463,7 @@ The posterior computation assumes each rule's evidence is conditionally independ
 
 **Accepted mitigation**: the `TEMPERATURE = 0.5` sharpening in `infer()` is working in the opposite direction (making the posterior *more* decisive), and once empirical likelihood ratios are fit from real outcomes (`scripts/fit-inference-lrs.ts`), the learned values will partially correct for correlation by measuring actual co-occurrence rather than assumed independence. This is a known trade-off, not a bug.
 
-**Not fixing**: explicit dependency modeling (factor graphs, TAN Bayes, etc.) is overkill for 27 rules. Revisit only if calibration checks show >15% systematic overconfidence that empirical LRs can't correct.
+**Not fixing**: explicit dependency modeling (factor graphs, TAN Bayes, etc.) is overkill for the current rule set. Revisit only if calibration checks show >15% systematic overconfidence that empirical LRs can't correct.
 
 ### Labels are biased
 

@@ -77,6 +77,7 @@ console.log('\nStore: inference result matches direct construction');
 {
 	// Build context directly (the old way)
 	const directCtx: InferenceContext = {
+		brandId: 'haven',
 		intentParam: null,
 		searchQuery: 'dorm room desk',
 		referrer: null,
@@ -106,6 +107,13 @@ console.log('\nStore: inference result matches direct construction');
 		appliedCodeCount: 0,
 		walletBalanceMinor: 0,
 		tierUnitsToNext: null,
+		selectedCadenceMonths: null,
+		subscriptionSkipCount: 0,
+		subscriptionSwapCount: 0,
+		subscriptionPauseCount: 0,
+		dueProximityDays: null,
+		subscriptionTenureMonths: null,
+		autoshipMix: null,
 	};
 
 	// Build same context via store
@@ -178,6 +186,38 @@ console.log('\nStore: empty store → default InferenceContext');
 
 	const result = infer(ctx);
 	assert('defaults to gatherer', result.primary === 'gatherer', `got ${result.primary}`);
+}
+
+// ─── Test 4: Kibble subscription event payloads ────────────────────
+
+console.log('\nStore: subscription events → Kibble inference fields');
+{
+	const store = new SignalStore('test-session-subscription');
+	store.setBrandId('kibble');
+	store.setCrossSessionContext({
+		storedPersona: null,
+		storedCategory: null,
+		visitCount: 1,
+		currentCategory: 'dog-food',
+	});
+	store.emit('subscription.cadence_selected', 'interaction', { months: 2 });
+	store.emit('subscription.skip', 'interaction', {});
+	store.emit('subscription.swap', 'interaction', {});
+	store.emit('subscription.pause', 'interaction', {});
+	store.emit('subscription.due_proximity', 'external', { days: 3 });
+	store.emit('subscription.tenure', 'external', { months: 8 });
+	store.emit('commerce.autoship_mix', 'commerce', { mix: 0.75 });
+	// Invalid numeric payloads are deliberately ignored rather than coerced.
+	store.emit('subscription.due_proximity', 'external', { days: -1 });
+	store.emit('commerce.autoship_mix', 'commerce', { mix: 2 });
+
+	const ctx = store.toInferenceContext();
+	assert('retains Kibble brand', ctx.brandId === 'kibble', `got ${ctx.brandId}`);
+	assert('retains selected cadence', ctx.selectedCadenceMonths === 2, `got ${ctx.selectedCadenceMonths}`);
+	assert('counts subscription controls', ctx.subscriptionSkipCount === 1 && ctx.subscriptionSwapCount === 1 && ctx.subscriptionPauseCount === 1, `got skip=${ctx.subscriptionSkipCount}, swap=${ctx.subscriptionSwapCount}, pause=${ctx.subscriptionPauseCount}`);
+	assert('retains valid due proximity', ctx.dueProximityDays === 3, `got ${ctx.dueProximityDays}`);
+	assert('retains subscription tenure', ctx.subscriptionTenureMonths === 8, `got ${ctx.subscriptionTenureMonths}`);
+	assert('retains valid autoship mix', ctx.autoshipMix === 0.75, `got ${ctx.autoshipMix}`);
 }
 
 // ─── Summary ───────────────────────────────────────────────────────

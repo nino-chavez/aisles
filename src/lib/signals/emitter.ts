@@ -26,6 +26,10 @@ interface EmittedEvent {
 
 const HIGH_PRIORITY: SignalEventType[] = [
 	'commerce.add_to_cart',
+	'subscription.cadence_selected',
+	'subscription.skip',
+	'subscription.swap',
+	'subscription.pause',
 	'refine.message',
 	'nav.search',
 ];
@@ -42,6 +46,10 @@ export class SignalEmitter {
 	}
 
 	emit(type: SignalEventType, data: Record<string, unknown> = {}) {
+		if (type === 'subscription.due_proximity' || type === 'subscription.tenure') {
+			throw new Error(`${type} is provider-derived and must be sent to /api/signals as an external event`);
+		}
+
 		const event: EmittedEvent = {
 			type,
 			source: inferSource(type),
@@ -133,6 +141,7 @@ function inferSource(type: SignalEventType): SignalSource {
 	if (type.startsWith('nav.')) return 'navigation';
 	if (type.startsWith('interact.')) return 'interaction';
 	if (type.startsWith('commerce.')) return 'commerce';
+	if (type.startsWith('subscription.')) return 'interaction';
 	if (type.startsWith('refine.')) return 'refinement';
 	return 'navigation';
 }
