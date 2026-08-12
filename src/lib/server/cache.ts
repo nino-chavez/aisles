@@ -9,6 +9,7 @@
 
 import { env } from '$env/dynamic/private';
 import type { Layout } from '$lib/schema/layout';
+import { PROMPT_VERSION } from './layout-prompt';
 
 const LAYOUT_TTL_S = 60 * 60; // 1 hour
 
@@ -33,7 +34,10 @@ async function getRedis(): Promise<import('@upstash/redis').Redis | null> {
 }
 
 function layoutKey(persona: string, categorySlug: string, picksHash?: string): string {
-	const base = `aisles:layout:${persona}:${categorySlug}`;
+	// The generation contract is part of the key: changing the component guide
+	// or the schema must invalidate every layout composed under the old one,
+	// otherwise a deployed rules change is invisible until the TTL expires.
+	const base = `aisles:layout:${PROMPT_VERSION}:${persona}:${categorySlug}`;
 	return picksHash ? `${base}:picks:${picksHash}` : base;
 }
 

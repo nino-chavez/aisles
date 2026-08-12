@@ -1,5 +1,14 @@
 
 /**
+ * Generation-contract version. BUMP THIS whenever COMPONENT_GUIDE,
+ * PERSONA_DEFINITIONS, or the layout schema changes — it is part of the
+ * layout cache key, and without a bump a rules change deploys to a site that
+ * keeps serving compositions generated under the old rules until the TTL
+ * happens to expire.
+ */
+export const PROMPT_VERSION = 'v2';
+
+/**
  * Build the system prompt for layout generation.
  * The AI receives persona definitions, component vocabulary, and product summaries.
  * It returns a Layout schema that the renderer interprets.
