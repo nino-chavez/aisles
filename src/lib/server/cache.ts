@@ -1,17 +1,23 @@
 /**
- * Layout cache backed by Upstash Redis.
+ * Versioned layout cache backed by Upstash Redis.
  *
- * Caches generated layouts by persona + category slug.
- * First visitor generates (8-13s), subsequent visitors get sub-100ms.
- *
- * Falls back gracefully — cache miss just means a fresh generation.
+ * The key describes the trusted merchant, contract/policy boundary, render
+ * surface, complete generation input, and synthetic identity. Values retain
+ * the exact provenance envelope written on a miss. Unversioned legacy values
+ * are deliberately treated as misses.
  */
 
 import { env } from '$env/dynamic/private';
-import type { Layout } from '$lib/schema/layout';
-import { PROMPT_VERSION } from './layout-prompt';
+import { LayoutSchema, type Layout } from '$lib/schema/layout';
+import { LayoutProvenanceSchema, stableHash, type LayoutProvenance } from './layout-provenance';
 
-const LAYOUT_TTL_S = 60 * 60; // 1 hour
+const LAYOUT_TTL_S = 60 * 60;
+const CACHE_PREFIX = 'aisles:layout:v2';
+
+export interface CachedLayout {
+	layout: Layout;
+	provenance: LayoutProvenance;
+}
 
 let redis: import('@upstash/redis').Redis | null = null;
 let initialized = false;
@@ -33,73 +39,100 @@ async function getRedis(): Promise<import('@upstash/redis').Redis | null> {
 	}
 }
 
-function layoutKey(persona: string, categorySlug: string, picksHash?: string): string {
-	// The generation contract is part of the key: changing the component guide
-	// or the schema must invalidate every layout composed under the old one,
-	// otherwise a deployed rules change is invisible until the TTL expires.
-	const base = `aisles:layout:${PROMPT_VERSION}:${persona}:${categorySlug}`;
-	return picksHash ? `${base}:picks:${picksHash}` : base;
+export function layoutCacheKey(provenance: LayoutProvenance): string {
+	const parsed = LayoutProvenanceSchema.parse(provenance);
+	const reference = parsed.reference.status === 'contracted'
+		? `${parsed.reference.id}@${parsed.reference.version}`
+		: 'uncontracted_legacy';
+	const capabilityHash = stableHash(parsed.autonomy.effectiveCapabilities);
+
+	return [
+		CACHE_PREFIX,
+		'org', encode(parsed.organizationId),
+		'brand', encode(parsed.brandId),
+		'reference', encode(reference),
+		'policy', encode(parsed.policyVersion),
+		'surface', parsed.surface,
+		'route', encode(parsed.route),
+		'viewport', parsed.viewportClass,
+		'preset', parsed.autonomy.preset ?? 'none',
+		'capabilities', capabilityHash,
+		'decision', parsed.autonomy.decisionMode,
+		'publication', parsed.autonomy.publicationMode,
+		'renderer', encode(`${parsed.renderer.componentId}@${parsed.renderer.variantId}`),
+		'catalog', parsed.catalogVersion,
+		'input', parsed.inputHash,
+		'shopper', parsed.shopperContextHash,
+		'picks', parsed.picksHash ?? 'none',
+		'incentive', parsed.incentiveHash ?? 'none',
+		'persona', encode(parsed.persona),
+		'synthetic', parsed.synthetic.value ? encode(parsed.synthetic.scenarioId!) : 'real',
+		'prompt', encode(parsed.promptVersion),
+		'schema', encode(parsed.schemaVersion),
+	].join(':');
 }
 
 /**
- * Simple hash of picks IDs for cache key differentiation.
- * Empty/undefined picks returns undefined (use standard cache).
+ * Preserve the older helper export for non-authoritative UI fingerprints.
+ * Cache authority comes from the complete provenance envelope above.
  */
 export function hashPicks(picksContext?: string): string | undefined {
-	if (!picksContext) return undefined;
-	// Simple hash: sum of char codes mod a large prime
-	let hash = 0;
-	for (let i = 0; i < picksContext.length; i++) {
-		hash = ((hash << 5) - hash + picksContext.charCodeAt(i)) | 0;
-	}
-	return Math.abs(hash).toString(36);
+	return picksContext ? stableHash(picksContext) : undefined;
 }
 
-/**
- * Get a cached layout for a persona + category + picks combination.
- * Returns null on cache miss or any error.
- */
-export async function getCachedLayout(persona: string, categorySlug: string, picksHash?: string): Promise<Layout | null> {
+export function parseCachedLayoutValue(value: unknown): CachedLayout | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const candidate = value as { layout?: unknown; provenance?: unknown };
+	if (!Object.prototype.hasOwnProperty.call(candidate, 'layout')) return null;
+	const layout = LayoutSchema.safeParse(candidate.layout);
+	if (!layout.success) return null;
+	const provenance = LayoutProvenanceSchema.safeParse(candidate.provenance);
+	if (!provenance.success) return null;
+	return { layout: layout.data, provenance: provenance.data };
+}
+
+export async function getCachedLayout(provenance: LayoutProvenance): Promise<CachedLayout | null> {
 	const r = await getRedis();
 	if (!r) return null;
 
 	try {
-		return await r.get<Layout>(layoutKey(persona, categorySlug, picksHash));
+		const requestKey = layoutCacheKey(provenance);
+		const cached = parseCachedLayoutValue(await r.get<unknown>(requestKey));
+		if (!cached || layoutCacheKey(cached.provenance) !== requestKey) return null;
+		return cached;
 	} catch {
 		return null;
 	}
 }
 
-/**
- * Store a generated layout in the cache.
- */
-export async function cacheLayout(persona: string, categorySlug: string, layout: Layout, picksHash?: string): Promise<void> {
+export async function cacheLayout(
+	provenance: LayoutProvenance,
+	layout: Layout,
+): Promise<void> {
 	const r = await getRedis();
 	if (!r) return;
 
 	try {
-		// Picks-specific layouts get shorter TTL (picks change more often)
-		const ttl = picksHash ? Math.floor(LAYOUT_TTL_S / 4) : LAYOUT_TTL_S;
-		await r.set(layoutKey(persona, categorySlug, picksHash), layout, { ex: ttl });
+		const value: CachedLayout = { layout, provenance: LayoutProvenanceSchema.parse(provenance) };
+		const ttl = provenance.picksHash || provenance.incentiveHash
+			? Math.floor(LAYOUT_TTL_S / 4)
+			: LAYOUT_TTL_S;
+		await r.set(layoutCacheKey(provenance), value, { ex: ttl });
 	} catch {
-		// Cache write failure is non-fatal
+		// Cache write failure is non-fatal.
 	}
 }
 
 /**
- * Invalidate cached layouts. Called after enrichment runs or manual flush.
- * If no args, invalidates all layout caches.
+ * Invalidate current and old layout caches. Targeted invalidation matches the
+ * explicit route and shopper persona markers in v2 keys; no old cache value is
+ * read as if it carried provenance.
  */
 export async function invalidateLayoutCache(persona?: string, categorySlug?: string): Promise<number> {
 	const r = await getRedis();
 	if (!r) return 0;
 
 	try {
-		if (persona && categorySlug) {
-			return await r.del(layoutKey(persona, categorySlug));
-		}
-
-		// Scan and delete all layout keys
 		const keys: string[] = [];
 		let cursor = 0;
 		do {
@@ -108,9 +141,23 @@ export async function invalidateLayoutCache(persona?: string, categorySlug?: str
 			keys.push(...found);
 		} while (cursor !== 0);
 
-		if (keys.length === 0) return 0;
-		return await r.del(...keys);
+		const selected = persona && categorySlug
+			? keys.filter((key) => (
+				key.includes(`:route:${encode(routeForCategory(categorySlug))}:`)
+				&& key.includes(`:persona:${encode(persona)}:`)
+			))
+			: keys;
+		if (selected.length === 0) return 0;
+		return await r.del(...selected);
 	} catch {
 		return 0;
 	}
+}
+
+function encode(value: string): string {
+	return encodeURIComponent(value);
+}
+
+function routeForCategory(categorySlug: string): string {
+	return categorySlug === 'home' ? '/' : `/category/${categorySlug}`;
 }

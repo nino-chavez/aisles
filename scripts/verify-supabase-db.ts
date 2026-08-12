@@ -24,6 +24,51 @@ const adminSql = runtimeDatabaseUrl === databaseUrl
 
 async function main() {
 	try {
+		const expectedProvenanceColumns = [
+			'organization_id', 'provenance_version', 'reference_status', 'reference_id',
+			'reference_version', 'policy_version', 'surface', 'route', 'viewport_class',
+			'renderer_component_id', 'renderer_variant_id', 'decision_source', 'input_hash',
+			'catalog_version', 'shopper_context_hash', 'picks_hash', 'incentive_hash',
+			'autonomy_preset', 'effective_capabilities', 'decision_mode', 'publication_mode',
+			'schema_version',
+		];
+		const provenanceColumns = await adminSql`
+			SELECT column_name
+			FROM information_schema.columns
+			WHERE table_schema = 'public'
+				AND table_name = 'generation_logs'
+				AND column_name = ANY(${expectedProvenanceColumns})
+		`;
+		const actualColumns = new Set(provenanceColumns.map((row) => row.column_name as string));
+		const missingColumns = expectedProvenanceColumns.filter((column) => !actualColumns.has(column));
+		if (missingColumns.length > 0) {
+			throw new Error(`Missing generation provenance columns: ${missingColumns.join(', ')}`);
+		}
+
+		const provenanceConstraints = await adminSql`
+			SELECT conname
+			FROM pg_constraint
+			WHERE conrelid = 'public.generation_logs'::regclass
+				AND conname LIKE 'generation_logs_%_check'
+		`;
+		const constraintNames = new Set(provenanceConstraints.map((row) => row.conname as string));
+		for (const required of [
+			'generation_logs_provenance_completeness_check',
+			'generation_logs_reference_identity_check',
+			'generation_logs_viewport_class_check',
+			'generation_logs_effective_capabilities_check',
+			'generation_logs_decision_mode_check',
+			'generation_logs_publication_mode_check',
+		]) {
+			if (!constraintNames.has(required)) throw new Error(`Missing generation provenance constraint: ${required}`);
+		}
+		const [rls] = await adminSql`
+			SELECT relrowsecurity
+			FROM pg_class
+			WHERE oid = 'public.generation_logs'::regclass
+		`;
+		if (!rls?.relrowsecurity) throw new Error('generation_logs RLS is not enabled');
+
 		if (runtimeDatabaseUrl !== databaseUrl) {
 			const [role] = await sql`
 				SELECT current_user, rolsuper, rolcreatedb, rolcreaterole, rolbypassrls
@@ -87,8 +132,21 @@ async function main() {
 				VALUES (${brandId}, ${entityId}, ${`/${runId}`}, 'db-smoke')
 			`;
 			await sql`
-				INSERT INTO generation_logs (brand_id, type, persona, category_slug, generation_ms, session_id)
-				VALUES (${brandId}, 'layout', 'hunter', 'db-smoke', 1, ${sessionId})
+				INSERT INTO generation_logs (
+					organization_id, brand_id, type, persona, category_slug, generation_ms, session_id,
+					prompt_version, provenance_version, reference_status, policy_version,
+					surface, route, viewport_class, renderer_component_id, renderer_variant_id,
+					decision_source, input_hash, catalog_version, shopper_context_hash,
+					effective_capabilities, decision_mode, publication_mode, schema_version
+				) VALUES (
+					${`${brandId}-org`}, ${brandId}, 'layout', 'hunter', 'db-smoke', 1, ${sessionId},
+					'v5', 'layout-provenance-v1', 'uncontracted_legacy', 'legacy_generated_v1',
+					'plp', '/category/db-smoke', 'responsive',
+					'legacy.layout-renderer', 'legacy.whole-page-responsive-v1',
+					'model', '0123456789abcdef', 'catalog:0123456789abcdef',
+					'fedcba9876543210', ${JSON.stringify(['rank_products'])}::jsonb,
+					'model', 'live', 'legacy-layout-schema-v1'
+				)
 			`;
 			await sql`
 				INSERT INTO session_outcomes (

@@ -10,7 +10,7 @@
  */
 
 import { getDb } from './db';
-import { getBrand } from '$lib/brand/config';
+import { LayoutProvenanceSchema, type LayoutProvenance } from './layout-provenance';
 
 // Per-1M token pricing (USD) — update when Anthropic changes pricing
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -37,26 +37,43 @@ export interface GenerationLogEntry {
 	evalScore?: number;
 	model?: string;
 	sessionId?: string;
-	synthetic?: boolean;
-	scenarioId?: string | null;
+	provenance: LayoutProvenance;
 }
 
 export async function logGeneration(entry: GenerationLogEntry): Promise<void> {
 	const sql = getDb();
-	const brandId = getBrand().id;
+	const provenance = LayoutProvenanceSchema.parse(entry.provenance);
 	const cost = estimateCost(entry.model, entry.inputTokens, entry.outputTokens);
 	await sql`
 		INSERT INTO generation_logs (
-			brand_id, type, persona, category_slug, cache_hit, generation_ms,
+			organization_id, brand_id, type, persona, category_slug, cache_hit, generation_ms,
 			product_count, input_tokens, output_tokens, eval_score,
-			model, estimated_cost, session_id, synthetic, scenario_id
+			prompt_version, model, estimated_cost, session_id, synthetic, scenario_id,
+			provenance_version, reference_status, reference_id, reference_version,
+			policy_version, surface, route, viewport_class,
+			renderer_component_id, renderer_variant_id, decision_source,
+			input_hash, catalog_version, shopper_context_hash, picks_hash, incentive_hash,
+			autonomy_preset, effective_capabilities, decision_mode, publication_mode,
+			schema_version
 		) VALUES (
-			${brandId}, ${entry.type}, ${entry.persona}, ${entry.categorySlug},
+			${provenance.organizationId}, ${provenance.brandId}, ${entry.type},
+			${entry.persona}, ${entry.categorySlug},
 			${entry.cacheHit}, ${entry.generationTimeMs},
 			${entry.productCount ?? null}, ${entry.inputTokens ?? null},
 			${entry.outputTokens ?? null}, ${entry.evalScore ?? null},
-			${entry.model ?? null}, ${cost}, ${entry.sessionId ?? null},
-			${entry.synthetic ?? false}, ${entry.scenarioId ?? null}
+			${provenance.promptVersion}, ${entry.model ?? null}, ${cost}, ${entry.sessionId ?? null},
+			${provenance.synthetic.value}, ${provenance.synthetic.scenarioId},
+			${provenance.version}, ${provenance.reference.status},
+			${provenance.reference.id}, ${provenance.reference.version},
+			${provenance.policyVersion}, ${provenance.surface}, ${provenance.route},
+			${provenance.viewportClass}, ${provenance.renderer.componentId},
+			${provenance.renderer.variantId}, ${provenance.decisionSource},
+			${provenance.inputHash}, ${provenance.catalogVersion},
+			${provenance.shopperContextHash}, ${provenance.picksHash},
+			${provenance.incentiveHash}, ${provenance.autonomy.preset},
+			${JSON.stringify(provenance.autonomy.effectiveCapabilities)}::jsonb,
+			${provenance.autonomy.decisionMode}, ${provenance.autonomy.publicationMode},
+			${provenance.schemaVersion}
 		)
 	`;
 }

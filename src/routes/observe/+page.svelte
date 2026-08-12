@@ -18,6 +18,32 @@
 		createdAt: string;
 		synthetic?: boolean;
 		scenarioId?: string | null;
+		provenance: {
+			version: string;
+			organizationId: string;
+			brandId: string;
+			reference: { status: 'contracted' | 'uncontracted_legacy'; id: string | null; version: string | null };
+			policyVersion: string;
+			surface: string;
+			route: string;
+			viewportClass: string;
+			renderer: { componentId: string; variantId: string };
+			decisionSource: string;
+			inputHash: string;
+			catalogVersion: string;
+			shopperContextHash: string;
+			picksHash: string | null;
+			incentiveHash: string | null;
+			autonomy: {
+				preset: string | null;
+				effectiveCapabilities: string[];
+				decisionMode: string;
+				publicationMode: string;
+			};
+			promptVersion: string;
+			schemaVersion: string;
+			synthetic: { value: boolean; scenarioId: string | null };
+		} | null;
 	}
 
 	interface EnrichedProductRow {
@@ -624,6 +650,57 @@
 							</div>
 						{:else}
 							<p class="text-[11px] text-neutral-600">No generations yet.</p>
+						{/if}
+					</div>
+
+					<!-- ─── Layout Provenance ──────────────────────── -->
+					<div class="bg-neutral-950 p-5">
+						<h2 class="mb-3 text-[11px] font-semibold tracking-[0.18em] text-neutral-400 uppercase">Layout Provenance</h2>
+
+						{#if latestLog?.provenance}
+							{@const provenance = latestLog.provenance}
+							<div class="mb-3 rounded border border-neutral-800 bg-neutral-900/60 px-3 py-2">
+								<div class="font-mono text-[10px] font-semibold tracking-wide {provenance.reference.status === 'contracted' ? 'text-emerald-400' : 'text-amber-400'} uppercase">
+									{provenance.reference.status === 'contracted'
+										? `CONTRACTED · ${provenance.reference.id}@${provenance.reference.version}`
+										: 'UNCONTRACTED LEGACY GENERATION'}
+								</div>
+								{#if provenance.reference.status === 'uncontracted_legacy'}
+									<p class="mt-1 text-[10px] leading-snug text-neutral-500">This decision did not use an approved reference contract. It is not Preserve.</p>
+								{/if}
+							</div>
+
+							<dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[11px]">
+								<dt class="text-neutral-500">merchant</dt>
+								<dd class="truncate font-mono text-neutral-300" title={`${provenance.organizationId} / ${provenance.brandId}`}>{provenance.organizationId} / {provenance.brandId}</dd>
+								<dt class="text-neutral-500">surface</dt>
+								<dd class="font-mono text-neutral-300">{provenance.surface} · {provenance.route} · {provenance.viewportClass}</dd>
+								<dt class="text-neutral-500">policy</dt>
+								<dd class="truncate font-mono text-neutral-300" title={provenance.policyVersion}>{provenance.policyVersion}</dd>
+								<dt class="text-neutral-500">renderer</dt>
+								<dd class="truncate font-mono text-neutral-300" title={`${provenance.renderer.componentId} / ${provenance.renderer.variantId}`}>{provenance.renderer.componentId} / {provenance.renderer.variantId}</dd>
+								<dt class="text-neutral-500">decision</dt>
+								<dd class="font-mono text-neutral-300">{provenance.decisionSource} · {provenance.autonomy.decisionMode} · {provenance.autonomy.publicationMode}</dd>
+								<dt class="text-neutral-500">preset</dt>
+								<dd class="font-mono text-neutral-300">{provenance.autonomy.preset ?? 'none (legacy)'}</dd>
+								<dt class="text-neutral-500">capabilities</dt>
+								<dd class="break-words font-mono text-[10px] leading-relaxed text-neutral-400">{provenance.autonomy.effectiveCapabilities.join(', ')}</dd>
+								<dt class="text-neutral-500">input</dt>
+								<dd class="font-mono text-neutral-400">{provenance.inputHash} · {provenance.catalogVersion}</dd>
+								<dt class="text-neutral-500">context</dt>
+								<dd class="break-all font-mono text-[10px] text-neutral-500">shopper {provenance.shopperContextHash} · picks {provenance.picksHash ?? 'none'} · incentive {provenance.incentiveHash ?? 'none'}</dd>
+								<dt class="text-neutral-500">contract</dt>
+								<dd class="font-mono text-neutral-400">{provenance.promptVersion} · {provenance.schemaVersion} · {provenance.version}</dd>
+								<dt class="text-neutral-500">scenario</dt>
+								<dd class="font-mono {provenance.synthetic.value ? 'text-amber-400' : 'text-neutral-400'}">{provenance.synthetic.value ? `synthetic · ${provenance.synthetic.scenarioId}` : 'real shopper'}</dd>
+							</dl>
+						{:else if latestLog}
+							<div class="rounded border border-neutral-800 bg-neutral-900/60 px-3 py-2">
+								<div class="font-mono text-[10px] font-semibold tracking-wide text-neutral-400 uppercase">PROVENANCE UNAVAILABLE · PRE-V1 LOG</div>
+								<p class="mt-1 text-[10px] leading-snug text-neutral-500">This historical record predates the versioned envelope. No reference or policy identity is inferred.</p>
+							</div>
+						{:else}
+							<p class="text-[11px] text-neutral-600">No layout provenance yet.</p>
 						{/if}
 					</div>
 

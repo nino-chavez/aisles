@@ -7,6 +7,8 @@
  */
 
 export interface BrandConfig {
+	/** Trusted merchant boundary. Standalone demo brands do not share an organization. */
+	organizationId: string;
 	id: string;
 	name: string;
 	tagline: string;
@@ -109,6 +111,7 @@ export interface BrandIncentivesConfig {
 
 const BRANDS: Record<string, BrandConfig> = {
 	haven: {
+		organizationId: 'haven-demo-merchant',
 		id: 'haven',
 		name: 'Haven',
 		tagline: 'Furniture for how you actually live',
@@ -192,6 +195,7 @@ const BRANDS: Record<string, BrandConfig> = {
 	},
 
 	volt: {
+		organizationId: 'volt-demo-merchant',
 		id: 'volt',
 		imagery: 'packshot',
 		name: 'Volt',
@@ -274,6 +278,7 @@ const BRANDS: Record<string, BrandConfig> = {
 	},
 
 	ember: {
+		organizationId: 'ember-demo-merchant',
 		id: 'ember',
 		name: 'Ember',
 		tagline: 'Gather around something real',
@@ -355,6 +360,7 @@ const BRANDS: Record<string, BrandConfig> = {
 	},
 
 	kibble: {
+		organizationId: 'kibble-demo-merchant',
 		id: 'kibble',
 		imagery: 'packshot',
 		name: 'Kibble & Co.',
@@ -439,12 +445,12 @@ export function getBrand(): BrandConfig {
 		(typeof process !== 'undefined' && process.env?.BRAND_ID) ||
 		'haven';
 
-	return BRANDS[brandId] || BRANDS.haven;
+	return Object.prototype.hasOwnProperty.call(BRANDS, brandId) ? BRANDS[brandId] : BRANDS.haven;
 }
 
 /** Get a brand by explicit ID */
 export function getBrandById(id: string): BrandConfig | undefined {
-	return BRANDS[id];
+	return Object.prototype.hasOwnProperty.call(BRANDS, id) ? BRANDS[id] : undefined;
 }
 
 /** All available brand IDs */

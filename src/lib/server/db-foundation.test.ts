@@ -26,6 +26,7 @@ const schemaCreateMigration = readFileSync(
 );
 const wrangler = readFileSync(resolve(import.meta.dirname, '../../../wrangler.toml'), 'utf8');
 const syntheticMigration = readFileSync(resolve(import.meta.dirname, '../../../supabase/migrations/20260812210415_add_synthetic_scenario_provenance.sql'), 'utf8');
+const layoutProvenanceMigration = readFileSync(resolve(import.meta.dirname, '../../../supabase/migrations/20260812233217_add_layout_provenance.sql'), 'utf8');
 
 describe('database foundation', () => {
 	it('fails required paths when DATABASE_URL is absent', () => {
@@ -86,5 +87,43 @@ describe('database foundation', () => {
 		expect(syntheticMigration).toContain('generation_logs_synthetic_scenario_provenance');
 		expect(syntheticMigration).toContain('session_outcomes_synthetic_scenario_provenance');
 		expect(syntheticMigration).not.toContain('CREATE INDEX');
+	});
+
+	it('adds constrained layout provenance without changing the access posture', () => {
+		for (const column of [
+			'organization_id',
+			'provenance_version',
+			'reference_status',
+			'reference_id',
+			'reference_version',
+			'policy_version',
+			'surface',
+			'route',
+			'viewport_class',
+			'renderer_component_id',
+			'renderer_variant_id',
+			'decision_source',
+			'input_hash',
+			'catalog_version',
+			'shopper_context_hash',
+			'picks_hash',
+			'incentive_hash',
+			'autonomy_preset',
+			'effective_capabilities',
+			'decision_mode',
+			'publication_mode',
+			'schema_version',
+		]) {
+			expect(layoutProvenanceMigration).toContain(`ADD COLUMN ${column}`);
+		}
+		expect(layoutProvenanceMigration).toContain("reference_status = 'uncontracted_legacy'");
+		expect(layoutProvenanceMigration).toContain('generation_logs_provenance_completeness_check');
+		expect(layoutProvenanceMigration).toContain("provenance_version = 'layout-provenance-v1'");
+		expect(layoutProvenanceMigration).toContain('AND organization_id IS NOT NULL');
+		expect(layoutProvenanceMigration).toContain('AND prompt_version IS NOT NULL');
+		expect(layoutProvenanceMigration).toContain("viewport_class = 'responsive'");
+		expect(layoutProvenanceMigration).toContain("jsonb_typeof(effective_capabilities) = 'array'");
+		expect(layoutProvenanceMigration).not.toMatch(/\b(GRANT|REVOKE|CREATE POLICY|SECURITY DEFINER)\b/);
+		expect(layoutProvenanceMigration).not.toContain('CREATE INDEX');
 	});
 });

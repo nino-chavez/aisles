@@ -8,6 +8,12 @@ import { logGeneration } from '$lib/server/generation-log';
 import { getSessionStore, hasSession } from '$lib/signals/session';
 import { getBrand } from '$lib/brand/config';
 import { getActiveRules, rulesToPromptContext } from '$lib/server/rules';
+import {
+	buildLegacyLayoutProvenance,
+	LEGACY_REFINE_SCHEMA_VERSION,
+} from '$lib/server/layout-provenance';
+
+const REFINE_PROMPT_VERSION = 'legacy-refine-prompt-v1';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const startTime = Date.now();
@@ -102,6 +108,23 @@ RESPONSE STYLE:
 AVAILABLE COMPONENTS: editorial-header, hero-product, product-grid, category-header
 
 Generate a refined layout with a conversational response.`;
+		const provenance = buildLegacyLayoutProvenance({
+			brand,
+			surface: 'plp',
+			route: `/category/${categorySlug}`,
+			persona,
+			promptVersion: REFINE_PROMPT_VERSION,
+			schemaVersion: LEGACY_REFINE_SCHEMA_VERSION,
+			prompt,
+			catalogInput: { categoryName, crossCategoryName, products },
+			shopperContext: {
+				persona,
+				message,
+				currentLayout: currentLayout ?? null,
+				constraints: constraints ?? [],
+			},
+			scenarioId: scenario,
+		});
 
 		// Haiku primary, Sonnet fallback — handled by AI Gateway
 		const aiResult = await generateText({
@@ -126,7 +149,7 @@ Generate a refined layout with a conversational response.`;
 			outputTokens: usage?.outputTokens,
 			model,
 			sessionId,
-			synthetic: Boolean(scenario), scenarioId: scenario,
+			provenance,
 		});
 
 		return json({
@@ -138,6 +161,7 @@ Generate a refined layout with a conversational response.`;
 				generationTimeMs: elapsed,
 				persona,
 				constraintCount: (constraints?.length || 0) + 1,
+				provenance,
 			},
 		});
 	} catch (err) {

@@ -3,12 +3,17 @@ import type { RequestHandler } from './$types';
 import { generateText, Output } from 'ai';
 import { model, withModelFallback } from '$lib/server/model';
 import { layoutSchemaFor } from '$lib/schema/layout';
-import { buildLayoutPrompt, type IncentivesPromptContext } from '$lib/server/layout-prompt';
+import { buildLayoutPrompt, PROMPT_VERSION, type IncentivesPromptContext } from '$lib/server/layout-prompt';
 import { loadCategoryProducts, loadHomeProducts } from '$lib/server/catalog';
-import { getCachedLayout, cacheLayout, hashPicks } from '$lib/server/cache';
+import { getCachedLayout, cacheLayout } from '$lib/server/cache';
 import { logGeneration } from '$lib/server/generation-log';
 import { getActiveRules, rulesToPromptContext } from '$lib/server/rules';
 import { getSessionStore, hasSession } from '$lib/signals/session';
+import { getBrand } from '$lib/brand/config';
+import {
+	buildLegacyLayoutProvenance,
+	LEGACY_LAYOUT_SCHEMA_VERSION,
+} from '$lib/server/layout-provenance';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const startTime = Date.now();
@@ -31,18 +36,47 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return json({ error: 'Missing required fields: persona, categorySlug' }, { status: 400 });
 		}
 
-		// ─── Cache check ───────────────────────────────────────────
-		const incentivesFingerprint = incentives
-			? JSON.stringify({
-					w: incentives.walletBalanceMinor ?? 0,
-					t: incentives.tierUnitsToNext ?? null,
-					c: (incentives.appliedCodes ?? []).slice().sort(),
-				})
-			: '';
-		const ph = hashPicks((picksContext ?? '') + '|' + incentivesFingerprint);
-		// Scenario sessions are synthetic. Their prompt includes deterministic
-		// scenario signals that a real shopper must never receive (or populate).
-		const cached = scenario ? null : await getCachedLayout(persona, categorySlug, ph);
+		// Catalog, rules, and prompt are part of the cache identity. Build them
+		// before lookup so catalog or merchandising changes cannot hit a stale key.
+		const isHome = categorySlug === 'home';
+		const result = isHome
+			? await loadHomeProducts(persona)
+			: await loadCategoryProducts(categorySlug, persona);
+		if (!result) {
+			return json({ error: `Category "${categorySlug}" not found` }, { status: 404 });
+		}
+
+		const { products, categoryName } = result;
+		const rules = await getActiveRules(persona, categorySlug);
+		const rulesContext = rulesToPromptContext(rules);
+		const prompt = buildLayoutPrompt(
+			persona,
+			categoryName,
+			products,
+			picksContext,
+			rulesContext,
+			probabilities,
+			incentives ?? undefined,
+			isHome,
+		);
+		const provenance = buildLegacyLayoutProvenance({
+			brand: getBrand(),
+			surface: isHome ? 'home' : 'plp',
+			route: isHome ? '/' : `/category/${categorySlug}`,
+			persona,
+			promptVersion: PROMPT_VERSION,
+			schemaVersion: LEGACY_LAYOUT_SCHEMA_VERSION,
+			prompt,
+			catalogInput: { categoryName, products },
+			shopperContext: { persona, probabilities: probabilities ?? null },
+			picksContext: picksContext || undefined,
+			incentiveContext: incentives ?? undefined,
+			scenarioId: scenario,
+		});
+
+		// Scenario sessions are synthetic. Their deterministic signals must never
+		// read or populate the cache shared by real shoppers.
+		const cached = scenario ? null : await getCachedLayout(provenance);
 		if (cached) {
 			const elapsed = Date.now() - startTime;
 
@@ -53,37 +87,23 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				cacheHit: true,
 				generationTimeMs: elapsed,
 				sessionId,
-				synthetic: Boolean(scenario), scenarioId: scenario,
+				provenance: cached.provenance,
 			});
 
 			return json({
-				layout: cached,
+				layout: cached.layout,
 				meta: {
 					persona,
 					categoryName: categorySlug,
-					productCount: 0,
+					productCount: products.length,
 					generationTimeMs: elapsed,
 					cacheHit: true,
+					provenance: cached.provenance,
 				},
 			});
 		}
 
 		// ─── Cache miss — generate via AI Gateway ──────────────────
-		const isHome = categorySlug === 'home';
-		const result = isHome
-			? await loadHomeProducts(persona)
-			: await loadCategoryProducts(categorySlug, persona);
-		if (!result) {
-			return json({ error: `Category "${categorySlug}" not found` }, { status: 404 });
-		}
-
-		const { products, categoryName } = result;
-		// Fetch merchandising rules from the admin app's shared DB
-		const rules = await getActiveRules(persona, categorySlug);
-		const rulesContext = rulesToPromptContext(rules);
-
-		const prompt = buildLayoutPrompt(persona, categoryName, products, picksContext, rulesContext, probabilities, incentives ?? undefined, isHome);
-
 		// Haiku primary, Sonnet fallback — explicit retry in withModelFallback
 		const { result: aiResult, modelId } = await withModelFallback((id) =>
 			generateText({
@@ -96,7 +116,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		const usage = aiResult.usage;
 
 		if (layout && !scenario) {
-			cacheLayout(persona, categorySlug, layout, ph).catch(() => {});
+			cacheLayout(provenance, layout).catch(() => {});
 		}
 
 		const elapsed = Date.now() - startTime;
@@ -112,7 +132,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			outputTokens: usage?.outputTokens,
 			model: modelId,
 			sessionId,
-			synthetic: Boolean(scenario), scenarioId: scenario,
+			provenance,
 		});
 
 		return json({
@@ -123,6 +143,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				productCount: products.length,
 				generationTimeMs: elapsed,
 				cacheHit: false,
+				provenance,
 			},
 		});
 	} catch (err) {
