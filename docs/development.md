@@ -137,20 +137,20 @@ The script will:
 ```
 Creating table...
 Fetching products from BigCommerce...
-Found 24 products
-  Enriching: Haven Linen Sofa... OK (G:0.91 H:0.42 R:0.55 Gi:0.68)
-  Enriching: Walnut Coffee Table... OK (G:0.85 H:0.51 R:0.62 Gi:0.72)
+Found 49 products
+  Enriching: Harvest Chicken Air Dried Recipe... OK (air-dried, adult, Auto-Refill:0.90)
+  Enriching: GoodGut Harvest Chicken... OK (wet, adult, Auto-Refill:0.85)
   ...
-Enrichment: 24 enriched, 0 failed out of 24 total
-Cost: $0.0412 (28,340 in / 9,120 out tokens across 24 calls)
+Enrichment: 49 enriched, 0 failed out of 49 total
+Cost: $<actual run total> (<actual input> in / <actual output> out tokens across 49 calls)
 
 Generating embeddings...
-Embeddings: 24 generated (1536 dimensions)
+Embeddings: 49 generated (1536 dimensions)
 
 Done.
 ```
 
-**Cost**: enrichment runs Claude Sonnet per product. For 24 products, expect $0.03–0.05. Run it once per channel, then only re-run when products change significantly.
+**Cost**: enrichment runs Claude Sonnet per product. Kibble's current catalog has 49 products. The script prints the measured cost after a complete run; do not treat the example above as a quote. A partial enrichment or embedding failure exits nonzero and does not report success.
 
 **Re-running**: the script uses `ON CONFLICT (brand_id, bc_entity_id) DO UPDATE` — re-running overwrites only the active brand's enrichment data. Safe to run again after product updates.
 

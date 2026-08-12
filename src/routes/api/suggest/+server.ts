@@ -5,11 +5,13 @@ import { model as anthropicModel, PRIMARY_MODEL } from '$lib/server/model';
 import { z } from 'zod';
 import { loadCategoryProducts, CATEGORY_MAP } from '$lib/server/catalog';
 import { getBrand } from '$lib/brand/config';
+import { scorePetCompatibility } from '$lib/server/pet-compatibility';
+import type { PetProfile } from '$lib/server/enrichment/types';
 
 const SuggestionSchema = z.object({
 	suggestions: z.array(z.object({
 		productId: z.string().describe('Product ID from the catalog'),
-		reason: z.string().describe('Brief reason this product complements the picks (e.g., "matches the walnut finish", "fits 19-inch pits", "completes the audio setup")'),
+		reason: z.string().describe('Brief reason this product complements the picks (e.g., "same chicken recipe", "fits an adult dog routine", "supports daily refills")'),
 		type: z.enum(['accessory', 'upsell', 'cross-sell', 'complement']).describe('Why this is suggested: accessory (goes with), upsell (better version), cross-sell (different category), complement (same category, pairs well)'),
 	})).refine((a) => a.length >= 1 && a.length <= 5, { message: 'Between 1 and 5 suggestions' }).describe('1-5 product suggestions that complement the shopper\'s picks'),
 });
@@ -31,12 +33,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		const brand = getBrand();
 
 		// Load products from all categories
-		const allProducts: Array<{ id: string; name: string; price: number; category: string; specs: Record<string, string>; salePrice?: number; compatibleWith: string[] }> = [];
+		const allProducts: Array<{ id: string; name: string; price: number; category: string; specs: Record<string, string>; salePrice?: number; compatibleWith: string[]; petProfile: PetProfile | null; priceTier: string | null }> = [];
 		for (const [slug] of Object.entries(CATEGORY_MAP)) {
 			const result = await loadCategoryProducts(slug);
 			if (result) {
 				for (const p of result.products) {
-					if (picks.some((pick: any) => pick.id === p.id)) continue;
 					allProducts.push({
 						id: p.id,
 						name: p.name,
@@ -44,39 +45,50 @@ export const POST: RequestHandler = async ({ request }) => {
 						salePrice: p.salePrice,
 						category: result.categoryName,
 						specs: p.specs,
-						compatibleWith: (p as any).compatibleWith || [],
+						compatibleWith: p.compatibleWith,
+						petProfile: p.petProfile,
+						priceTier: p.priceTier,
 					});
 				}
 			}
 		}
 
-		// Pre-filter: boost products with compatible_with matches against picks
-		const picksKeywords = picks.flatMap((p: any) => [
-			p.name?.toLowerCase(),
-			p.category?.toLowerCase(),
-			...Object.values(p.specs || {}).map((v: any) => String(v).toLowerCase()),
-		].filter(Boolean));
+		const pickIds = new Set(picks.map((pick: { id?: string }) => pick.id).filter(Boolean));
+		const pickedProfiles = allProducts
+			.filter((product) => pickIds.has(product.id))
+			.map((product) => product.petProfile);
 
-		const scored = allProducts.map((p) => {
-			const compatMatches = p.compatibleWith.filter((kw) =>
-				picksKeywords.some((pk: string) => pk.includes(kw.toLowerCase()) || kw.toLowerCase().includes(pk))
-			).length;
-			return { ...p, compatScore: compatMatches };
-		});
+		// Resolve picked profiles before filtering them out, then rank remaining
+		// candidates by shared pet profile and their compatible-with keywords.
+		const scored = allProducts
+			.filter((product) => !pickIds.has(product.id))
+			.map((product) => ({
+				...product,
+				compatScore: scorePetCompatibility(product, pickedProfiles),
+			}));
 
 		// Sort by compatibility score, then take top 25 for the AI
 		scored.sort((a, b) => b.compatScore - a.compatScore);
 		const candidates = scored.slice(0, 25);
 
 		const picksSummary = picks.map((p: any) => {
+			const catalogProduct = allProducts.find((product) => product.id === p.id);
 			const topSpecs = Object.entries(p.specs || {}).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(', ');
-			return `- ${p.name} | $${p.price} | ${p.category} | ${topSpecs}`;
+			const profile = catalogProduct?.petProfile
+				? ` | ${catalogProduct.petProfile.protein}, ${catalogProduct.petProfile.lifeStage}, ${catalogProduct.petProfile.format}, ${catalogProduct.petProfile.dietary}, ${catalogProduct.petProfile.petSize}; Auto-Refill ${Math.round(catalogProduct.petProfile.subscriptionFit * 100)}%${catalogProduct.petProfile.replenishmentDays ? `, ${catalogProduct.petProfile.replenishmentDays}-day cadence` : ''}`
+				: '';
+			const priceTier = catalogProduct?.priceTier ? ` | ${catalogProduct.priceTier} price tier` : '';
+			return `- ${p.name} | $${p.price} | ${p.category} | ${topSpecs}${profile}${priceTier}`;
 		}).join('\n');
 
 		const catalogSummary = candidates.map((p) => {
 			const topSpecs = Object.entries(p.specs).slice(0, 2).map(([k, v]) => `${k}: ${v}`).join(', ');
 			const compat = p.compatScore > 0 ? ` | COMPATIBLE (${p.compatScore} matches)` : '';
-			return `- ID:"${p.id}" | ${p.name} | $${p.salePrice || p.price} | ${p.category} | ${topSpecs}${compat}`;
+			const profile = p.petProfile
+				? ` | ${p.petProfile.protein}, ${p.petProfile.lifeStage}, ${p.petProfile.format}, ${p.petProfile.dietary}, ${p.petProfile.petSize}; Auto-Refill ${Math.round(p.petProfile.subscriptionFit * 100)}%${p.petProfile.replenishmentDays ? `, ${p.petProfile.replenishmentDays}-day cadence` : ''}`
+				: '';
+			const priceTier = p.priceTier ? ` | ${p.priceTier} price tier` : '';
+			return `- ID:"${p.id}" | ${p.name} | $${p.salePrice || p.price} | ${p.category} | ${topSpecs}${profile}${priceTier}${compat}`;
 		}).join('\n');
 
 		const prompt = `You are a merchandising AI for ${brand.prompt.storeName}, ${brand.prompt.storeDescription}.
@@ -88,14 +100,14 @@ Available products in the catalog (not already picked):
 ${catalogSummary}
 
 Suggest 3-5 products that complement the shopper's picks:
-- ACCESSORIES: items that physically work with or enhance the picked products (e.g., a cover that fits a specific fire pit size, tips for specific earbuds)
+- ACCESSORIES: items that help with the same pet's routine (e.g., feeding, storage, grooming, or travel)
 - UPSELLS: better versions of what they're considering, if the price jump is reasonable
-- CROSS-SELLS: products from other categories they might need (e.g., picked a desk → suggest a chair)
-- COMPLEMENTS: same-category products that pair well (e.g., matching nightstand for a dresser)
+- CROSS-SELLS: products from other categories the same pet might need
+- COMPLEMENTS: same-category products that suit the same pet profile or replenishment routine
 
 IMPORTANT:
-- Match physical compatibility when possible (dimensions, sizes, connectors)
-- Match style/material/price tier to what the shopper already picked
+- Match pet compatibility where possible (protein, life stage, dietary needs, pet size, and replenishment cadence)
+- Match price tier to what the shopper already picked
 - Explain WHY each suggestion complements their picks in 5-10 words
 - Only suggest products from the available catalog list above
 - Use the exact product IDs from the catalog`;

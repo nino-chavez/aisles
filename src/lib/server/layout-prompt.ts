@@ -6,7 +6,7 @@
  * keeps serving compositions generated under the old rules until the TTL
  * happens to expire.
  */
-export const PROMPT_VERSION = 'v4';
+export const PROMPT_VERSION = 'v5';
 
 /**
  * Cap on products sent into a layout prompt, shared with catalog loading so
@@ -171,6 +171,15 @@ interface PromptProduct {
 	salePrice?: number;
 	specs: Record<string, string>;
 	personaFit?: { gatherer: number; hunter: number; researcher: number; gifter: number } | null;
+	petProfile?: {
+		protein: string;
+		lifeStage: string;
+		format: string;
+		dietary: string;
+		petSize: string;
+		replenishmentDays: number | null;
+		subscriptionFit: number;
+	} | null;
 }
 
 import { getBrand, type BrandConfig } from '$lib/brand/config';
@@ -261,7 +270,10 @@ export function buildLayoutPrompt(
 		const fit = p.personaFit
 			? ` | ${persona}-fit: ${(p.personaFit[persona as keyof typeof p.personaFit] * 100).toFixed(0)}%`
 			: '';
-		return `- ID: "${p.id}" | ${p.name} | ${price} | ${specs}${fit}`;
+		const petProfile = p.petProfile
+			? ` | pet profile: ${p.petProfile.protein}, ${p.petProfile.lifeStage}, ${p.petProfile.format}, ${p.petProfile.dietary}, ${p.petProfile.petSize} | Auto-Refill fit: ${(p.petProfile.subscriptionFit * 100).toFixed(0)}%${p.petProfile.replenishmentDays ? ` | typical reorder: ${p.petProfile.replenishmentDays} days` : ''}`
+			: '';
+		return `- ID: "${p.id}" | ${p.name} | ${price} | ${specs}${fit}${petProfile}`;
 	}).join('\n');
 
 	return `You are a merchandising AI for ${brand.prompt.storeDescription} called ${brand.prompt.storeName}. Your job is to arrange a ${isHome ? 'storefront home page' : 'category page'} layout that serves the shopper's intent.

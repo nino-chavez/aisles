@@ -14,6 +14,14 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { generateText, Output, embedMany } from 'ai';
 import { z } from 'zod';
 import { getBrand } from '../../brand/config';
+import {
+	DIETARY_OPTIONS,
+	kibblePriceTier,
+	LIFE_STAGES,
+	PET_SIZES,
+	PRODUCT_FORMATS,
+	PROTEINS,
+} from './types';
 
 // ─── Config ────────────────────────────────────────────────────────
 
@@ -36,7 +44,8 @@ const brandId = getBrand().id;
 const anthropic = createAnthropic({ apiKey: ANTHROPIC_API_KEY });
 const openrouter = createOpenRouter({ apiKey: OPENROUTER_API_KEY });
 
-const ENRICHMENT_MODEL_FULL = 'anthropic/claude-sonnet-4-20250514';
+const ENRICHMENT_MODEL = 'claude-sonnet-5';
+const ENRICHMENT_MODEL_FULL = 'anthropic/claude-sonnet-5';
 
 // Per-1M token pricing (USD)
 const PRICING = { input: 3.00, output: 15.00 };
@@ -77,19 +86,21 @@ async function logEnrichmentGeneration(entityId: number, inputTokens: number, ou
 // ─── Schema ────────────────────────────────────────────────────────
 
 const EnrichmentSchema = z.object({
-	material: z.string().nullable().describe('Primary material (e.g., "solid walnut", "performance velvet")'),
-	style: z.string().nullable().describe('Design style (e.g., "mid-century modern", "minimalist", "industrial")'),
-	useCase: z.string().nullable().describe('Primary use case (e.g., "living room seating", "desk lighting", "storage")'),
-	dimensions: z.string().nullable().describe('Key dimensions if available'),
-	priceTier: z.enum(['budget', 'mid', 'premium', 'luxury']).describe('Price tier: budget (<$100), mid ($100-500), premium ($500-2000), luxury ($2000+)'),
+	protein: z.enum(PROTEINS).describe('Primary protein. Use mixed for multi-animal blends and none for non-food products.'),
+	lifeStage: z.enum(LIFE_STAGES).describe('Life stage this item is marketed for. Use all when not stage-specific.'),
+	format: z.enum(PRODUCT_FORMATS).describe('Product format. Air-dried is distinct from freeze-dried.'),
+	dietary: z.enum(DIETARY_OPTIONS).describe('Primary dietary position. Use none when no listed dietary restriction applies.'),
+	petSize: z.enum(PET_SIZES).describe('Pet size the item targets. Use any when size does not apply.'),
+	replenishmentDays: z.number().int().min(1).max(365).nullable().describe('Typical days one unit lasts. Null for products without a repeat-purchase cadence, such as toys.'),
+	subscriptionFit: z.number().min(0).max(1).describe('How appropriate the product is for Auto-Refill: recurring food/treat/supplement items score high; durable hardgoods score low.'),
 	personaFit: z.object({
 		gatherer: z.number().min(0).max(1).describe('How well this appeals to an exploratory, inspiration-driven shopper (visual appeal, storytelling potential, lifestyle fit)'),
 		hunter: z.number().min(0).max(1).describe('How well this appeals to a goal-oriented, efficiency-driven shopper (clear specs, good value, practical)'),
 		researcher: z.number().min(0).max(1).describe('How well this appeals to a methodical, evidence-driven shopper (detailed specs, comparable, well-documented)'),
 		gifter: z.number().min(0).max(1).describe('How well this appeals to someone shopping for others (universal appeal, giftable price point, presentation value)'),
 	}),
-	semanticTags: z.array(z.string()).describe('5-10 semantic tags for intent-based discovery (e.g., "compact", "dorm-friendly", "statement piece", "easy-care")'),
-	compatibleWith: z.array(z.string()).describe('3-8 keywords describing what this product pairs with physically or stylistically. For accessories: the product type/size it fits (e.g., "19-inch fire pit", "USB-C devices"). For furniture: matching materials/styles (e.g., "walnut furniture", "mid-century pieces"). For audio: compatible devices/use cases (e.g., "iPhone", "PS5", "running").'),
+	semanticTags: z.array(z.string()).min(5).max(10).describe('5-10 pet-shopping intent tags, such as "sensitive stomach", "puppy training", "daily kibble", or "long-lasting chew".'),
+	compatibleWith: z.array(z.string()).min(3).max(8).describe('3-8 profile keywords for products that fit the same pet: protein, life stage, diet, size, or routine. Examples: "chicken", "adult", "grain-free", "daily feeding".'),
 });
 
 // ─── BigCommerce GraphQL ───────────────────────────────────────────
@@ -156,7 +167,8 @@ async function enrichProduct(product: BCProductNode) {
 	const price = product.prices.salePrice?.value || product.prices.price.value;
 	const category = product.categories.edges[0]?.node.name || 'Unknown';
 
-	const prompt = `Analyze this furniture product and provide enrichment data.
+	const requiredPriceTier = kibblePriceTier(price);
+	const prompt = `Analyze this pet-supply product for Kibble and provide enrichment data.
 
 PRODUCT: ${product.name}
 PRICE: $${price}
@@ -165,17 +177,22 @@ DESCRIPTION: ${stripHtml(product.description)}
 SPECS:
 ${specs || 'None provided'}
 
-Score persona-fit based on:
-- Gatherer: visual appeal, lifestyle/editorial storytelling potential, aspirational quality
-- Hunter: clear value proposition, practical specs, efficiency of purchase decision
-- Researcher: depth of specifications, comparability, documented features
-- Gifter: universal appeal, appropriate price point for gifting, presentation value
+Its price tier is set by code to ${requiredPriceTier}; do not return a price-tier field.
 
-Generate semantic tags that capture how someone might search for this product by intent rather than keyword.`;
+Score persona-fit based on:
+- Gatherer: discovery appeal, pet-routine storytelling, and approachable everyday use
+- Hunter: clear value, pack size, availability, and fast reorder utility
+- Researcher: ingredient detail, feeding guidance, dietary claims, and comparability
+- Gifter: giftability for a pet owner, universal appeal, and presentation value
+
+For protein, use mixed when multiple animal proteins are central to the product. For non-food items use none.
+For format, air-dried and freeze-dried are different. Do not treat them as interchangeable.
+For compatibleWith, describe shared pet profile and routine, not furniture style or dimensions.
+Generate semantic tags that capture how someone might search for this product by pet need or routine rather than keyword.`;
 
 	const start = Date.now();
 	const { output, usage } = await generateText({
-		model: anthropic('claude-sonnet-4-20250514'),
+		model: anthropic(ENRICHMENT_MODEL),
 		output: Output.object({ schema: EnrichmentSchema }),
 		prompt,
 	});
@@ -199,24 +216,29 @@ Generate semantic tags that capture how someone might search for this product by
 
 async function upsertEnrichment(product: BCProductNode, enrichment: z.infer<typeof EnrichmentSchema>) {
 	const e = enrichment;
+	const price = product.prices.salePrice?.value || product.prices.price.value;
+	const priceTier = kibblePriceTier(price);
 	await sql`
 		INSERT INTO enriched_products (
 			brand_id, bc_entity_id, bc_product_path,
-			material, style, use_case, dimensions, price_tier,
+			protein, life_stage, format, dietary, pet_size, replenishment_days, subscription_fit, price_tier,
 			fit_gatherer, fit_hunter, fit_researcher, fit_gifter,
 			semantic_tags, compatible_with, enriched_at, enrichment_model, updated_at
 		) VALUES (
 			${brandId}, ${product.entityId}, ${product.path},
-			${e.material}, ${e.style}, ${e.useCase}, ${e.dimensions}, ${e.priceTier},
+			${e.protein}, ${e.lifeStage}, ${e.format}, ${e.dietary}, ${e.petSize}, ${e.replenishmentDays}, ${e.subscriptionFit}, ${priceTier},
 			${e.personaFit.gatherer}, ${e.personaFit.hunter}, ${e.personaFit.researcher}, ${e.personaFit.gifter},
-			${e.semanticTags}, ${e.compatibleWith}, NOW(), ${'claude-sonnet-4-20250514'}, NOW()
+			${e.semanticTags}, ${e.compatibleWith}, NOW(), ${ENRICHMENT_MODEL_FULL}, NOW()
 		)
 		ON CONFLICT (brand_id, bc_entity_id) DO UPDATE SET
 			bc_product_path = EXCLUDED.bc_product_path,
-			material = EXCLUDED.material,
-			style = EXCLUDED.style,
-			use_case = EXCLUDED.use_case,
-			dimensions = EXCLUDED.dimensions,
+			protein = EXCLUDED.protein,
+			life_stage = EXCLUDED.life_stage,
+			format = EXCLUDED.format,
+			dietary = EXCLUDED.dietary,
+			pet_size = EXCLUDED.pet_size,
+			replenishment_days = EXCLUDED.replenishment_days,
+			subscription_fit = EXCLUDED.subscription_fit,
 			price_tier = EXCLUDED.price_tier,
 			fit_gatherer = EXCLUDED.fit_gatherer,
 			fit_hunter = EXCLUDED.fit_hunter,
@@ -239,13 +261,15 @@ async function main() {
 
 	let enriched = 0;
 	let failed = 0;
+	const enrichments = new Map<number, z.infer<typeof EnrichmentSchema>>();
 
 	for (const product of products) {
 		try {
 			process.stdout.write(`  Enriching: ${product.name}... `);
 			const enrichment = await enrichProduct(product);
 			await upsertEnrichment(product, enrichment);
-			console.log(`OK (G:${enrichment.personaFit.gatherer.toFixed(2)} H:${enrichment.personaFit.hunter.toFixed(2)} R:${enrichment.personaFit.researcher.toFixed(2)} Gi:${enrichment.personaFit.gifter.toFixed(2)})`);
+			enrichments.set(product.entityId, enrichment);
+			console.log(`OK (${enrichment.format}, ${enrichment.lifeStage}, Auto-Refill:${enrichment.subscriptionFit.toFixed(2)})`);
 			enriched++;
 		} catch (err) {
 			console.log(`FAILED: ${err instanceof Error ? err.message : err}`);
@@ -255,15 +279,21 @@ async function main() {
 
 	console.log(`\nEnrichment: ${enriched} enriched, ${failed} failed out of ${products.length} total`);
 	console.log(`Cost: $${stats.totalCost.toFixed(4)} (${stats.totalInputTokens.toLocaleString()} in / ${stats.totalOutputTokens.toLocaleString()} out tokens across ${stats.count} calls)`);
+	if (failed > 0) {
+		throw new Error(`Enrichment stopped: ${failed} of ${products.length} products failed. Embeddings were not generated.`);
+	}
 
 	// ─── Generate embeddings ───────────────────────────────────────
 	console.log('\nGenerating embeddings...');
 
-	// Build embedding text per product: name + description + semantic tags
+	// Build embedding text from the completed pet profile, not absent BC custom fields.
 	const embeddingTexts = products.map((p) => {
+		const enrichment = enrichments.get(p.entityId);
 		const desc = p.description.replace(/<[^>]*>/g, '').trim();
-		const tags = p.customFields.edges.map((e) => e.node.value).join(', ');
-		return `${p.name}. ${desc} ${tags}`.slice(0, 8000); // text-embedding-3-small max ~8k tokens
+		const profile = enrichment
+			? `${enrichment.protein} ${enrichment.lifeStage} ${enrichment.format} ${enrichment.dietary} ${enrichment.petSize}. ${enrichment.semanticTags.join(', ')}. ${enrichment.compatibleWith.join(', ')}`
+			: '';
+		return `${p.name}. ${desc} ${profile}`.slice(0, 8000); // text-embedding-3-small max ~8k tokens
 	});
 
 	try {
@@ -288,10 +318,13 @@ async function main() {
 
 		console.log(`Embeddings: ${embeddingCount} generated (${embeddings[0]?.length || 0} dimensions)`);
 	} catch (err) {
-		console.error('Embedding generation failed:', err instanceof Error ? err.message : err);
+		throw new Error(`Embedding generation failed: ${err instanceof Error ? err.message : String(err)}`);
 	}
 
 	console.log('\nDone.');
 }
 
-main().catch(console.error);
+main().catch((err) => {
+	console.error(err);
+	process.exitCode = 1;
+});

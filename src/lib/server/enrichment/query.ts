@@ -5,7 +5,7 @@
 
 import { getDb } from '../db';
 import { getBrand } from '$lib/brand/config';
-import type { PersonaFitScores } from './types';
+import type { PersonaFitScores, PetProfile } from './types';
 
 export interface ProductEnrichment {
 	bcEntityId: number;
@@ -13,8 +13,7 @@ export interface ProductEnrichment {
 	semanticTags: string[];
 	compatibleWith: string[];
 	priceTier: string | null;
-	style: string | null;
-	material: string | null;
+	petProfile: PetProfile;
 }
 
 /**
@@ -31,7 +30,8 @@ export async function getEnrichmentByEntityIds(entityIds: number[]): Promise<Map
 			SELECT
 				bc_entity_id,
 				fit_gatherer, fit_hunter, fit_researcher, fit_gifter,
-				semantic_tags, compatible_with, price_tier, style, material
+				semantic_tags, compatible_with, price_tier,
+				protein, life_stage, format, dietary, pet_size, replenishment_days, subscription_fit
 			FROM enriched_products
 			WHERE brand_id = ${brandId} AND bc_entity_id = ANY(${entityIds})
 		`;
@@ -49,8 +49,15 @@ export async function getEnrichmentByEntityIds(entityIds: number[]): Promise<Map
 				semanticTags: (row.semantic_tags as string[]) || [],
 				compatibleWith: (row.compatible_with as string[]) || [],
 				priceTier: row.price_tier as string | null,
-				style: row.style as string | null,
-				material: row.material as string | null,
+				petProfile: {
+					protein: row.protein as PetProfile['protein'],
+					lifeStage: row.life_stage as PetProfile['lifeStage'],
+					format: row.format as PetProfile['format'],
+					dietary: row.dietary as PetProfile['dietary'],
+					petSize: row.pet_size as PetProfile['petSize'],
+					replenishmentDays: row.replenishment_days as number | null,
+					subscriptionFit: row.subscription_fit as number,
+				},
 			});
 		}
 		return map;

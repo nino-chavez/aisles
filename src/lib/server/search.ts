@@ -5,7 +5,7 @@
  *    by cosine similarity. Best results, requires OpenRouter API key.
  *
  * 2. Tag search (fallback) — matches query terms against enrichment data
- *    (semantic tags, material, style, use case). No API call needed.
+ *    (semantic tags and Kibble pet-profile fields). No API call needed.
  */
 
 import { env } from '$env/dynamic/private';
@@ -24,6 +24,15 @@ export interface SearchResult {
 	};
 	semanticTags: string[];
 	priceTier: string | null;
+	petProfile: {
+		protein: string;
+		lifeStage: string;
+		format: string;
+		dietary: string;
+		petSize: string;
+		replenishmentDays: number | null;
+		subscriptionFit: number;
+	};
 }
 
 /**
@@ -65,6 +74,7 @@ async function vectorSearch(query: string, limit: number): Promise<SearchResult[
 				fit_gatherer, fit_hunter, fit_researcher, fit_gifter,
 				semantic_tags,
 				price_tier,
+				protein, life_stage, format, dietary, pet_size, replenishment_days, subscription_fit,
 				1 - (embedding <=> ${vecStr}::extensions.vector) as similarity
 			FROM enriched_products
 			WHERE brand_id = ${brandId} AND embedding IS NOT NULL
@@ -82,8 +92,9 @@ async function vectorSearch(query: string, limit: number): Promise<SearchResult[
 				researcher: r.fit_researcher as number,
 				gifter: r.fit_gifter as number,
 			},
-			semanticTags: (r.semantic_tags as string[]) || [],
-			priceTier: r.price_tier as string | null,
+				semanticTags: (r.semantic_tags as string[]) || [],
+				priceTier: r.price_tier as string | null,
+				petProfile: rowToPetProfile(r),
 		}));
 	} catch (err) {
 		console.warn('[search] Vector search failed, falling back to tags:', err instanceof Error ? err.message : err);
@@ -109,13 +120,16 @@ async function tagSearch(query: string, limit: number): Promise<SearchResult[]> 
 				fit_gatherer, fit_hunter, fit_researcher, fit_gifter,
 				semantic_tags,
 				price_tier,
+				protein, life_stage, format, dietary, pet_size, replenishment_days, subscription_fit,
 				(
 					SELECT COUNT(*)::int FROM unnest(${likePatterns}::text[]) AS term
 					WHERE
 						bc_product_path ILIKE term
-						OR material ILIKE term
-						OR style ILIKE term
-						OR use_case ILIKE term
+						OR protein ILIKE term
+						OR life_stage ILIKE term
+						OR format ILIKE term
+						OR dietary ILIKE term
+						OR pet_size ILIKE term
 						OR EXISTS (
 							SELECT 1 FROM unnest(semantic_tags) AS tag WHERE tag ILIKE term
 						)
@@ -125,9 +139,11 @@ async function tagSearch(query: string, limit: number): Promise<SearchResult[]> 
 				SELECT 1 FROM unnest(${likePatterns}::text[]) AS term
 				WHERE
 					bc_product_path ILIKE term
-					OR material ILIKE term
-					OR style ILIKE term
-					OR use_case ILIKE term
+					OR protein ILIKE term
+					OR life_stage ILIKE term
+					OR format ILIKE term
+					OR dietary ILIKE term
+					OR pet_size ILIKE term
 					OR EXISTS (
 						SELECT 1 FROM unnest(semantic_tags) AS tag WHERE tag ILIKE term
 					)
@@ -146,11 +162,24 @@ async function tagSearch(query: string, limit: number): Promise<SearchResult[]> 
 				researcher: r.fit_researcher as number,
 				gifter: r.fit_gifter as number,
 			},
-			semanticTags: (r.semantic_tags as string[]) || [],
-			priceTier: r.price_tier as string | null,
+				semanticTags: (r.semantic_tags as string[]) || [],
+				priceTier: r.price_tier as string | null,
+				petProfile: rowToPetProfile(r),
 		}));
 	} catch (err) {
 		console.warn('[search] Tag search failed:', err);
 		return [];
 	}
+}
+
+function rowToPetProfile(row: Record<string, unknown>): SearchResult['petProfile'] {
+	return {
+		protein: row.protein as string,
+		lifeStage: row.life_stage as string,
+		format: row.format as string,
+		dietary: row.dietary as string,
+		petSize: row.pet_size as string,
+		replenishmentDays: row.replenishment_days as number | null,
+		subscriptionFit: row.subscription_fit as number,
+	};
 }

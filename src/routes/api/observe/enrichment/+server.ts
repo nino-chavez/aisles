@@ -33,6 +33,9 @@ export const GET: RequestHandler = async ({ url }) => {
 		salePrice: p.salePrice,
 		personaFit: p.personaFit,
 		semanticTags: p.semanticTags,
+		compatibleWith: p.compatibleWith,
+		priceTier: p.priceTier,
+		petProfile: p.petProfile,
 	}));
 
 	return json({ products, categoryName: result.categoryName });

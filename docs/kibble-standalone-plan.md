@@ -84,9 +84,9 @@ following the existing `<Service> <project-slug>` convention.
 Replace the furniture columns with these. Keep the four fit scores, the tags, and
 the price tier.
 
-- `protein` — beef, salmon, turkey, plant, mixed, none
+- `protein` — beef, chicken, salmon, turkey, plant, mixed, none
 - `life_stage` — puppy, adult, senior, all
-- `format` — dry, wet, freeze-dried, treat, supplement, hardgood
+- `format` — dry, wet, air-dried, freeze-dried, treat, supplement, hardgood
 - `dietary` — grain-free, limited-ingredient, prescription, none
 - `pet_size` — toy, small, medium, large, any
 - `replenishment_days` — typical consumption window for one unit, the field that
@@ -97,6 +97,11 @@ the price tier.
 `replenishment_days` and `subscription_fit` are the two fields no previous Aisles
 brand had, and they are the ones that let the storefront merchandise Auto-Refill
 rather than just display it.
+
+**Catalog correction, 2026-08-12:** Kibble has chicken recipes and air-dried food,
+so both are explicit enum values. The observed catalog range is $9–$240 (49
+products): budget under $20, mid $20–$49.99, premium $50–$99.99, and luxury
+$100 or more. These bands are calculated in code, not chosen by the model.
 
 ## Signals
 

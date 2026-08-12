@@ -178,7 +178,8 @@ Before layout generation can work well, products need persona-fit scores. The en
 
 1. Fetches all products from BigCommerce (up to 50 per channel)
 2. For each product, calls Claude Sonnet to extract:
-   - Material, style, use case, dimensions, price tier
+   - Protein, life stage, food/supply format, dietary position, pet size, replenishment cadence, and Auto-Refill fit
+   - Price tier is calculated from the Kibble price bands, not inferred by the model
    - Persona-fit scores (0.0–1.0 for each of the four personas)
    - Semantic tags for intent-based discovery
 3. Generates embeddings via OpenRouter (text-embedding-3-small)

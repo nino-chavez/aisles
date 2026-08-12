@@ -23,11 +23,20 @@ function assert(name: string, condition: boolean, detail: string) {
 const products = [
 	{
 		id: 'p1',
-		name: 'Walnut coffee table',
-		price: 499,
+		name: 'Harvest Chicken Air Dried Recipe',
+		price: 34.99,
 		salePrice: null,
-		specs: { material: 'walnut', width: '48in', finish: 'matte' },
+		specs: { brand: 'Open Farm', recipe: 'chicken' },
 		personaFit: { gatherer: 0.8, hunter: 0.4, researcher: 0.6, gifter: 0.3 },
+		petProfile: {
+			protein: 'chicken',
+			lifeStage: 'adult',
+			format: 'air-dried',
+			dietary: 'grain-free',
+			petSize: 'any',
+			replenishmentDays: 30,
+			subscriptionFit: 0.9,
+		},
 	} as unknown as Parameters<typeof buildLayoutPrompt>[2][number],
 ];
 
@@ -35,7 +44,7 @@ console.log('\nSharp vs flat probability vector');
 {
 	const sharp = buildLayoutPrompt(
 		'hunter',
-		'Sale Furniture',
+		'Dog Food',
 		products,
 		undefined,
 		undefined,
@@ -43,7 +52,7 @@ console.log('\nSharp vs flat probability vector');
 	);
 	const flat = buildLayoutPrompt(
 		'hunter',
-		'Sale Furniture',
+		'Dog Food',
 		products,
 		undefined,
 		undefined,
@@ -77,10 +86,25 @@ console.log('\nSharp vs flat probability vector');
 	);
 }
 
+console.log('\nKibble product profile injection');
+{
+	const prompt = buildLayoutPrompt('hunter', 'Dog Food', products);
+	assert(
+		'Prompt includes the pet profile and Auto-Refill fit',
+		prompt.includes('chicken, adult, air-dried, grain-free, any') && prompt.includes('Auto-Refill fit: 90%'),
+		'pet profile or subscription fit missing from product summary',
+	);
+	assert(
+		'Prompt includes the expected replenishment cadence',
+		prompt.includes('typical reorder: 30 days'),
+		'replenishment cadence missing from product summary',
+	);
+}
+
 console.log('\nPrompt without probabilities omits the blend hint');
 {
-	const noProbs = buildLayoutPrompt('hunter', 'Sale Furniture', products);
-	const withProbs = buildLayoutPrompt('hunter', 'Sale Furniture', products, undefined, undefined, {
+	const noProbs = buildLayoutPrompt('hunter', 'Dog Food', products);
+	const withProbs = buildLayoutPrompt('hunter', 'Dog Food', products, undefined, undefined, {
 		gatherer: 0.05,
 		hunter: 0.9,
 		researcher: 0.03,
@@ -103,7 +127,7 @@ console.log('\nIncentive context injection');
 {
 	const withIncentives = buildLayoutPrompt(
 		'hunter',
-		'Sale Furniture',
+		'Dog Food',
 		products,
 		undefined,
 		undefined,
@@ -117,7 +141,7 @@ console.log('\nIncentive context injection');
 			appliedCodes: ['BLCKFRDY'],
 		},
 	);
-	const withoutIncentives = buildLayoutPrompt('hunter', 'Sale Furniture', products);
+	const withoutIncentives = buildLayoutPrompt('hunter', 'Dog Food', products);
 
 	assert(
 		'Prompt surfaces wallet balance line',
@@ -143,7 +167,7 @@ console.log('\nIncentive context injection');
 
 console.log('\nIncentive context with empty/zero values stays silent');
 {
-	const empty = buildLayoutPrompt('hunter', 'Sale Furniture', products, undefined, undefined, undefined, {
+	const empty = buildLayoutPrompt('hunter', 'Dog Food', products, undefined, undefined, undefined, {
 		walletBalanceMinor: 0,
 		appliedCodes: [],
 	});

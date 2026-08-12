@@ -124,5 +124,5 @@ export function picksContextForPrompt(): string {
 		return `- ${item.name} | ${price} | ${item.category} | ${topSpecs}`;
 	});
 
-	return `\nSHOPPER'S CONSIDERATION SET (${items.length} items, $${totalPrice().toLocaleString()} total):\n${lines.join('\n')}\nThe shopper is actively considering these items. Prioritize compatible products (matching style, material, price tier). If showing accessories, suggest ones that physically fit or complement these specific picks.\n`;
+	return `\nSHOPPER'S CONSIDERATION SET (${items.length} items, $${totalPrice().toLocaleString()} total):\n${lines.join('\n')}\nThe shopper is actively considering these items. Prioritize products that fit the same pet profile (protein, life stage, diet, size, and routine) and price tier. If showing accessories, suggest items that are useful for the same pet or replenishment routine.\n`;
 }

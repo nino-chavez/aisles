@@ -11,6 +11,7 @@ import { getEnrichmentByEntityIds } from './enrichment/query';
 import { getBrand } from '$lib/brand/config';
 import { MAX_LAYOUT_PRODUCTS } from './layout-prompt';
 import type { Product } from '$lib/types';
+import type { PetProfile } from './enrichment/types';
 
 /** Category map — driven by the active brand config */
 export const CATEGORY_MAP: Record<string, { bcName: string; displayName: string }> = getBrand().categories;
@@ -18,6 +19,9 @@ export const CATEGORY_MAP: Record<string, { bcName: string; displayName: string 
 export interface EnrichedProduct extends Product {
 	personaFit: { gatherer: number; hunter: number; researcher: number; gifter: number } | null;
 	semanticTags: string[];
+	compatibleWith: string[];
+	priceTier: string | null;
+	petProfile: PetProfile | null;
 }
 
 /**
@@ -97,6 +101,9 @@ async function enrichAndSortByFit(products: Product[], persona?: string): Promis
 			...p,
 			personaFit: enrichment?.personaFit ?? null,
 			semanticTags: enrichment?.semanticTags ?? [],
+			compatibleWith: enrichment?.compatibleWith ?? [],
+			priceTier: enrichment?.priceTier ?? null,
+			petProfile: enrichment?.petProfile ?? null,
 		};
 	});
 
