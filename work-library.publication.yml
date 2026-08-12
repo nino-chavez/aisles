@@ -21,13 +21,6 @@ publication:
     human_validation: pending
 
 outputs:
-  - id: competitive-assessment
-    type: html-work-product
-    status: draft
-    artifact: docs/memos/aisles-competitive-position.html
-    clearance: internal
-    assurance:
-      human_validation: pending
   - id: assessment
     type: strategy-decision
     status: draft
@@ -101,14 +94,12 @@ projections:
     label: Provenance, method, and what would change this
     nav_label: Provenance & method
     route: /evidence/provenance-method
-  - id: competitive-assessment
-    output: competitive-assessment
-    artifact: docs/memos/aisles-competitive-position.html
-    render_as: html-presentation
-    asset_path: index.html
-    label: Aisles competitive position assessment
-    route: /presentation
 
 exclude:
   - .env*
   - docs/private/**
+  # The memo this case was built from stays in the repository as source
+  # history, but it is retired as a published artifact: the four documents
+  # above are the case. Excluding it makes re-projecting it a build failure
+  # rather than a quiet republication.
+  - docs/memos/**
