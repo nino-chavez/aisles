@@ -15,7 +15,6 @@ export interface ExternalZoneDefinition {
 	engineComposable: boolean;
 	adminAuthorable: boolean;
 }
-
 export type ExternalZoneRegistry = Readonly<Record<string, ExternalZoneDefinition>>;
 
 export function findBeallsCheckout(
@@ -98,4 +97,3 @@ export async function verifyLocalBeallsSnapshot(checkout: string): Promise<strin
 	}
 	return issues;
 }
-

@@ -13,4 +13,3 @@ if (!checkout) {
 		console.log('Bealls zone snapshot matches the pinned source ref, module registry, and file digests.');
 	}
 }
-
