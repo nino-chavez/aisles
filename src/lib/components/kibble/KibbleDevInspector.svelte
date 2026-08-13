@@ -56,7 +56,7 @@
 				<p class="kc-dev-inspector__label">Inferred persona</p>
 				<p class="kc-dev-inspector__persona">{currentInference.primary}</p>
 			</div>
-			<p class="kc-dev-inspector__confidence">{percent(currentInference.confidence)} confidence · {currentInference.dominantSource}</p>
+			<p class="kc-dev-inspector__confidence">{percent(currentInference.confidence)} confidence gap · {currentInference.dominantSource}</p>
 		</div>
 
 		<div class="kc-dev-inspector__probabilities" aria-label="Persona probabilities">
@@ -95,7 +95,7 @@
 
 	<section class="kc-dev-inspector__scenarios" aria-labelledby="kibble-dev-scenarios">
 		<h3 id="kibble-dev-scenarios">Deterministic demo signal</h3>
-		<p>Explicit intent changes inference only. It does not change policy authority or invent signals.</p>
+		<p>Explicit intent adds one deterministic request signal. It does not change policy authority.</p>
 		<nav aria-label="Intent scenarios">
 			{#each KIBBLE_INSPECTOR_PERSONAS as persona}
 				<a href={`?dev=true&intent=${persona}`}>{persona}</a>

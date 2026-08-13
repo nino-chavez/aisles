@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import { env as privateEnv } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 import { buildKibbleHomeReference } from '$lib/brand/reference/kibble-runtime';
@@ -76,11 +77,18 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				generationTimeMs: Date.now() - preserveStartedAt, productCount: homeDecision.products.length, sessionId: cookies.get('aisles_session') || undefined,
 				provenance,
 			});
+			const kibbleHomeInspector = dev && devMode
+				? {
+					...homeDecision.inspector,
+					dataSourceLabel: privateEnv.KIBBLE_SHOWCASE_DATA_SOURCE || homeDecision.inspector.dataSourceLabel,
+					provenance,
+				}
+				: null;
 			return {
 				renderMode,
 				provenance,
 				kibbleHome,
-				kibbleHomeInspector: dev && devMode ? homeDecision.inspector : null,
+				kibbleHomeInspector,
 				featured: [],
 				categories: Object.entries(brand.categories).map(([slug, config]) => ({
 					name: config.displayName,

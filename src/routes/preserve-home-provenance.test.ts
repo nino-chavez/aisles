@@ -98,9 +98,9 @@ describe('Kibble Preserve home publication', () => {
 			dataSourceLabel: 'merchant-order-fallback',
 			inference: { primary: 'gatherer', ruleMatches: [] },
 		});
-		const productZone = data.kibbleHomeInspector?.zones.find(({ id }) => id === 'ranked-products');
-		expect(productZone?.outputProducts?.map(({ id }) => id))
-			.toEqual(data.kibbleHome?.products.map(({ id }) => id));
+		const productZone = data.kibbleHomeInspector?.zones.find((zone: { id: string }) => zone.id === 'ranked-products');
+		expect(productZone?.outputProducts?.map((product: { id: string }) => product.id))
+			.toEqual(data.kibbleHome?.products.map((product: { id: string }) => product.id));
 	});
 
 	it('turns request-state failures into the branded Preserve 503 boundary', async () => {

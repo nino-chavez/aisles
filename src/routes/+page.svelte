@@ -2,7 +2,7 @@
 	import type { PageData } from './$types';
 	import type { Layout } from '$lib/schema/layout';
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
-	import { KibbleHomeReference } from '$lib/components/kibble';
+	import { KibbleDevInspector, KibbleHomeReference } from '$lib/components/kibble';
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 	import { KIBBLE_PARITY_FIXED_DATA_IDENTITY } from '$lib/brand/reference/kibble-parity';
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
@@ -117,6 +117,9 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleHome}
+	{#if data.kibbleHomeInspector}
+		<KibbleDevInspector inspector={data.kibbleHomeInspector} />
+	{/if}
 	<div
 		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}
 		data-reference-contract-version={KIBBLE_REFERENCE_CONTRACT.version}
