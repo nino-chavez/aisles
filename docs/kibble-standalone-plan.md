@@ -1,8 +1,9 @@
 # Kibble on Aisles — standalone plan
 
 **Status:** Home and the approved PDP model action have live evidence. The PLP
-first-eight ranking boundary is local and pending release; it has no deployment,
-provider, or live-runtime claim. No database migration has been applied.
+first-eight ranking boundary has one bounded production smoke on merge `571e203`
+at `/category/dog-food?sort=FEATURED&observe=true`; it is not visual-parity,
+cart, or subscription acceptance. No database migration has been applied.
 Reference-preservation visual parity and named human approval remain open. Weight
 fitting waits for real labeled shopper sessions by design.
 **Audience:** whoever picks this up next, including a future session with no memory of today.
@@ -20,7 +21,7 @@ source-native unavailable shells, not commerce implementations. The bare
 28 zone families as 36 exact expanded identities: 11 Kibble-native adapters
 with semantic content and 25 Trusted Hidden terminals. A 15-route ×
 three-viewport local harness provides mechanical evidence only. None of this is
-accepted as complete visual parity, and the PLP action is not deployed. The
+accepted as complete visual parity. The PLP smoke does not change that limit. The
 remaining reference-preservation and merchant-control work is tracked in the
 [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md);
 the reason for the boundary is recorded in the
@@ -35,8 +36,18 @@ Items after that prefix remain an exact fixed tail. The new local
 `plp.product-ranking` identity maps to the dedicated
 `kibble.category-listing.ranked-prefix` adapter: it owns grid ordering, not
 product-card anatomy. Failure, exhausted budget, or invalid model output retains
-the complete server order. This is local integration scope; the pinned Bealls
-snapshot remains 28 families and 36 expanded identities.
+the complete server order. Production merge `571e203` had one verified smoke on
+that URL against contract/reference `1.8.0`: it started with 10 products, five
+Template zones, and zero AI calls; one action returned Rustic Stew, Goodbowl,
+Harvest Chicken Hearty Stew, Epic Blend Salmon, RawMix Great Plains, GoodGut
+Wild-Caught Salmon, Harvest Chicken Air Dried, Salmon & Cod while positions 9
+GoodGut Harvest Chicken and 10 GoodGut Grass-Fed Beef stayed fixed. The rail
+reported 4 Template / 0 Rules / 1 AI. The grid reported `plp.product-ranking`
+as `model`, one call, `live`, adapter `kibble.zone.plp.product-ranking`, and
+variant `kibble.category-listing.ranked-prefix`. `observe=false` removed the
+rail/action and its POST endpoint returned `404 Not found`. This is one bounded
+production smoke, not visual-parity acceptance or commerce capability evidence.
+The pinned Bealls snapshot remains 28 families and 36 expanded identities.
 
 Search deliberately remains fixed. The pinned source provides only fixed
 empty-state copy and Browse all categories; it has no merchant-authored
