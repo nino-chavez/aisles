@@ -68,4 +68,18 @@ describe('KibbleDevInspector', () => {
 		expect(result.body).toContain('Production applies decisions on a route boundary; this live change is a development preview.');
 		expect(result.body).toContain('aria-live="polite"');
 	});
+
+	it('offers real signal-pipeline rehearsal controls only for a synthetic scenario', () => {
+		const synthetic = {
+			...inspector,
+			provenance: { synthetic: { value: true, scenarioId: 'local-showcase' } },
+		};
+		const result = render(KibbleDevInspector, { props: { inspector: synthetic } });
+		expect(result.body).toContain('Live synthetic signal rehearsal');
+		expect(result.body).toContain('actual signal endpoint');
+		for (const persona of ['gatherer', 'hunter', 'researcher', 'gifter']) {
+			expect(result.body).toContain(`Signal ${persona}`);
+		}
+		expect(render(KibbleDevInspector, { props: { inspector } }).body).not.toContain('Live synthetic signal rehearsal');
+	});
 });
