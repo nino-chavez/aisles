@@ -12,10 +12,12 @@ Synthetic demo enrichment — not merchant data. The launcher prints the storefr
 http://127.0.0.1:5174/
 ```
 
-Use **Show decision inspector** on the storefront. No query parameter knowledge
-is required. The inspector header can collapse or expand the panel, hide it,
-or open the exact simulated shopper session in Observe in a new tab. Observe
-starts pinned to that session instead of silently switching to the newest one.
+Use **Show decision inspector** on any storefront page. No query parameter
+knowledge is required. The lightweight rail remains available while you follow
+ordinary catalog links. It can show zone outlines, collapse or expand, explain
+the commerce boundary, or open the exact simulated shopper session in Observe
+in a new tab. Home also links to the full signal lab. Observe starts pinned to
+that session instead of silently switching to the newest one.
 
 Set `KIBBLE_SHOWCASE_PORT` to another non-privileged port if `5174` is occupied. The launcher accepts only `localhost`, `127.0.0.1`, or `::1` for `KIBBLE_SHOWCASE_HOST`.
 Every local response also carries a URL-encoded `x-kibble-showcase-enrichment-source` header. Its decoded value is `Synthetic demo enrichment — not merchant data`.
@@ -45,11 +47,12 @@ The fixture interceptor, no-op Postgres replacement, and enrichment alias are se
 
 The launcher blanks the app's production database, Redis, model, incentive, and Observe credentials before it starts Vite. It stamps the run with scenario ID `kibble-local-showcase`, so contracted provenance reports the catalog and scores as synthetic. The inspector and response header both display `Synthetic demo enrichment — not merchant data`.
 
-The Kibble Home launcher is available in both the local showcase and deployed
-demo. It opens the inspector with the explicit `?observe=true` query. A
-previously stored site-wide dev cookie cannot reopen it, and a normal storefront
-request does not receive inspector data. Shopper page data never includes
-persona-fit scores.
+The Kibble launcher is available on every reference-owned shopper route in both
+the local showcase and deployed demo. Its explicit `?observe=true` request sets
+a four-hour, HTTP-only demo cookie so the rail survives normal navigation;
+`?observe=false` clears it. The unrelated site-wide dev cookie cannot reopen
+the rail, and a normal storefront request does not receive inspector data.
+Shopper page data never includes persona-fit scores.
 
 The behavior simulator appears only after the explicit demo inspector stamps a
 synthetic scenario. In this local runner, its catalog and fit data also come

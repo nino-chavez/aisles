@@ -107,6 +107,18 @@ describe('Kibble Preserve PDP route', () => {
 		}));
 	});
 
+	it('omits catalog description blocks that advertise unavailable subscription commerce', async () => {
+		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce({
+			...detail,
+			description: '<p>For growing puppies. Auto-Refill $47, one-time $60. Reset the cadence as the puppy grows.</p>',
+		});
+		const data = await load(preserveEvent('verified-food') as never);
+		if (!data || !('kibblePdp' in data)) throw new Error('Expected Kibble PDP data.');
+		expect(data.kibblePdp.product.description).toBe('');
+		expect(data.kibblePdp.product.descriptionPlain).toBe('');
+		expect(JSON.stringify(data.kibblePdp)).not.toMatch(/Auto-Refill \$47|one-time \$60/);
+	});
+
 	it('keeps validated rich description semantics and rejects executable markup', async () => {
 		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce({
 			...detail,

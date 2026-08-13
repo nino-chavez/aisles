@@ -148,10 +148,14 @@ synthetic demo data, not merchant data. See
 [`docs/kibble-local-showcase.md`](docs/kibble-local-showcase.md) for the exact
 evidence boundary and the four deterministic scenarios.
 
-The deployed Kibble demo exposes the same prospect-facing inspector from the
-**Show decision inspector** launcher, or directly at `/?observe=true`. It labels
-each page zone as Template, Rules, or AI model and can simulate customer
-behaviors against the current demo session.
+The deployed Kibble demo exposes a prospect-facing observability rail from the
+**Show decision inspector** launcher on every shopper route, or directly with
+`?observe=true`. That explicit flag starts a four-hour demo session that stays
+active during ordinary catalog navigation; `?observe=false` exits it. The rail
+labels visible zones as Template, Rules, or AI and reports actual model-call
+count. Home also exposes the expanded signal lab, where synthetic customer
+behaviors update inference and the approved rules-ranked shelf in the same
+session.
 
 ---
 

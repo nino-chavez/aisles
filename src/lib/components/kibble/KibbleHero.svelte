@@ -30,7 +30,7 @@
 	}
 </script>
 
-<section class="kibble-reference kc-reference-hero" aria-labelledby="kibble-reference-hero-heading" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256}>
+<section class="kibble-reference kc-reference-hero" aria-labelledby="kibble-reference-hero-heading" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256} data-aisles-zone-instance={zoneAdapter?.instanceId} data-aisles-zone-label={zoneAdapter?.instanceId} data-aisles-authority={zoneAdapter?.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter?.modelCallCount ?? 0}>
 	<div class="kc-reference-container kc-reference-hero__inner">
 		<div class="kc-reference-hero__copy">
 			<span class="kc-reference-hero__tag">{zoneAdapter?.content.props.eyebrow ?? eyebrow}</span>

@@ -63,6 +63,10 @@ export function kibbleNativeAdapterBinding(result: KibbleZoneTerminalExecution) 
 		instanceId: result.terminal.instanceId,
 		sharedStatus: result.execution.status,
 		sharedContentKind: sharedRender.kind,
+		decisionMode: result.execution.status === 'approval_candidate'
+			? result.execution.candidate.decisionMode
+			: result.execution.decisionMode,
+		modelCallCount: 0,
 		...result.adapter,
 	};
 }

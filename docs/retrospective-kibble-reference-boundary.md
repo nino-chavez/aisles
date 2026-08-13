@@ -61,8 +61,10 @@ signals can change an approved merchandising field while the reference-owned
 shell remains unchanged. Model-backed Assist behavior still requires its own
 contract, approval, and acceptance evidence.
 Normal production applies that decision at the Home route boundary. The public
-demo inspector has a narrower purpose: only an explicit `?observe=true` query
-can call `POST /api/kibble/home-decision?observe=true` to preview the current scoped-session
+demo begins only with an explicit `?observe=true` request, then keeps a
+lightweight observability rail active across shopper navigation for four hours.
+The full Home signal lab can call
+`POST /api/kibble/home-decision?observe=true` to preview the current scoped-session
 decision. The endpoint derives inference and the approved nine-product shelf on
 the server. It fails closed without the active Kibble brand, the trusted
 `reference-preserve` Home policy, or a valid `aisles_session`; it accepts no
@@ -73,10 +75,11 @@ model, generate a layout, mutate the session, read or write the layout-decision
 cache, write telemetry, or write a database. It does read the existing scoped
 session from the in-memory session cache or Redis when configured.
 
-The behavior simulator is an explicit demo control, not a commerce control. It
+The behavior simulator is an explicit Home signal-lab control, not a commerce control. It
 emits recognizable typed event sequences through `/api/signals`, then requests
-the server preview. The inspector is discoverable from a public demo storefront
-control, can collapse or hide, and opens Observe pinned to the same session.
+the server preview. The site-wide rail is discoverable from a public demo
+storefront control, can collapse, show zone outlines, or exit, and opens Observe
+pinned to the same session.
 Each demo receipt is correlated to the exact client sequence and strictly
 validates the returned inference. It has a
 ten-second uncertain-delivery fail-safe. The showcase transport normally

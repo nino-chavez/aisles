@@ -26,6 +26,40 @@ const product: Product = {
 };
 
 describe('Preserve route boundaries', () => {
+	it('keeps the public observability demo active across ordinary shopper navigation', async () => {
+		const previousBrand = process.env.BRAND_ID;
+		const values = new Map<string, string>();
+		const cookies = {
+			get: (name: string) => values.get(name),
+			set: (name: string, value: string) => values.set(name, value),
+			delete: (name: string) => values.delete(name),
+		};
+		try {
+			process.env.BRAND_ID = 'kibble';
+			const started = await loadLayout({ url: new URL('https://aisles.test/?observe=true&utm_source=demo'), cookies } as never);
+			if (!started) throw new Error('Expected observability PageData.');
+			expect(started.observeMode).toBe(true);
+			expect(started.observeSessionId).toMatch(/^[0-9a-f-]{36}$/);
+			expect(started.observeEnableHref).toBe('/?observe=true&utm_source=demo');
+			expect(started.observeDisableHref).toBe('/?observe=false&utm_source=demo');
+			expect(values.get('aisles_observe_demo')).toBe('1');
+
+			const continued = await loadLayout({ url: new URL('https://aisles.test/category/dog-food?sort=NEWEST'), cookies } as never);
+			if (!continued) throw new Error('Expected persistent observability PageData.');
+			expect(continued.observeMode).toBe(true);
+			expect(continued.observeEnableHref).toBe('/category/dog-food?sort=NEWEST&observe=true');
+			expect(continued.observeDisableHref).toBe('/category/dog-food?sort=NEWEST&observe=false');
+
+			const stopped = await loadLayout({ url: new URL('https://aisles.test/category/dog-food?observe=false'), cookies } as never);
+			if (!stopped) throw new Error('Expected stopped observability PageData.');
+			expect(stopped.observeMode).toBe(false);
+			expect(values.has('aisles_observe_demo')).toBe(false);
+		} finally {
+			if (previousBrand === undefined) delete process.env.BRAND_ID;
+			else process.env.BRAND_ID = previousBrand;
+		}
+	});
+
 	it('accepts only the seven canonical sorts and bounded opaque cursors', () => {
 		expect(_parseKibblePlpRequest(new URL('https://aisles.test/category/dog-food'))).toEqual({
 			sort: 'FEATURED', after: null,

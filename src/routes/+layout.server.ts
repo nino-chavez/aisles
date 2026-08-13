@@ -76,6 +76,26 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 	}
 	const devMode = devParam === 'true' || (devParam !== 'false' && cookies.get('aisles_dev') === '1');
 
+	// Public prospect demo: the explicit URL starts or stops a short-lived,
+	// site-wide observability session. The cookie keeps the rail available while
+	// the prospect follows ordinary catalog links that do not carry the query.
+	const observeParam = url.searchParams.get('observe');
+	if (observeParam === 'true') {
+		cookies.set('aisles_observe_demo', '1', {
+			path: '/', maxAge: 60 * 60 * 4, httpOnly: true, sameSite: 'lax', secure: !dev,
+		});
+	} else if (observeParam === 'false') {
+		cookies.delete('aisles_observe_demo', { path: '/' });
+	}
+	const observeMode = chromeMode === 'reference' && audience === 'shopper' && (
+		observeParam === 'true' || (observeParam !== 'false' && cookies.get('aisles_observe_demo') === '1')
+	);
+	let observeSessionId = cookies.get('aisles_session') || null;
+	if (observeMode && !observeSessionId) {
+		observeSessionId = crypto.randomUUID();
+		cookies.set('aisles_session', observeSessionId, { path: '/', maxAge: 60 * 60 * 24 * 30 });
+	}
+
 	return {
 		renderMode,
 		chromeMode,
@@ -108,8 +128,20 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 			categories: brand.categories,
 		},
 		devMode,
+		observeMode,
+		observeEnableHref: buildObserveModeHref(url, true),
+		observeDisableHref: buildObserveModeHref(url, false),
+		observeSessionId,
+		observeInitialPersona: cookies.get('aisles_persona') || null,
 	};
 };
+
+function buildObserveModeHref(url: URL, enabled: boolean): string {
+	const params = new URLSearchParams(url.searchParams);
+	params.set('observe', enabled ? 'true' : 'false');
+	const query = params.toString();
+	return `${url.pathname}${query ? `?${query}` : ''}`;
+}
 
 async function buildKibble404State(brandId: string, routePath: string) {
 	return buildKibblePreserveErrorState({

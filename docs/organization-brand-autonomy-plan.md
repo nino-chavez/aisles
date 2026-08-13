@@ -431,7 +431,9 @@ contract. Enrichment scores stay server-side and are removed before shopper
 page data is serialized.
 
 Normal production applies that bounded decision when the Home route renders.
-For a prospect-facing demo, the public Home launcher adds `?observe=true` and
+For a prospect-facing demo, the public launcher on every shopper route adds
+`?observe=true`, starts a four-hour site-wide observability session, and shows
+the current route's visible Template, Rules, and AI authority. On Home it also
 immediately previews the latest persisted-session decision at
 `POST /api/kibble/home-decision?observe=true`. The endpoint is server-authoritative:
 it accepts no persona, score, policy, candidate, or product-order input from the
@@ -446,12 +448,13 @@ layout-decision cache, write telemetry, or write a database. It does read the
 existing scoped session from the in-memory session cache or Redis when
 configured.
 
-The behavior simulator is an explicit demo inspector control, not a commerce
+The behavior simulator is an explicit Home signal-lab control, not a commerce
 control. It emits named typed event sequences—category views, product views,
 returns, dwell, and search—through `/api/signals`, then requests that
-server-derived preview. Its header can collapse the panel, hide it, or open
-Observe pinned to the same scoped session. A public demo launcher makes the
-inspector discoverable without requiring query-parameter knowledge. The
+server-derived preview. The lightweight route rail and full Home panel can
+collapse, show zone outlines, exit the demo, or open Observe pinned to the same
+scoped session. The public launcher makes the demo discoverable without
+requiring query-parameter knowledge. The
 simulator uses the showcase's pinned synthetic catalog and fit fixture; it does
 not create production decision authority or change the fixed Preserve shell.
 Keep the current whole-page renderer as an explicit legacy path for brands that
@@ -473,7 +476,8 @@ The first executable contracted decision is deliberately the smaller rules case:
 Kibble Home can rank and select products, while every other Home zone remains
 fixed. An opt-in demo inspector shows the inference, policy, permitted
 capabilities, input and output order, and zero model calls. Its live preview
-requires an explicit `?observe=true` request;
+requires a site-wide demo session that begins with an explicit `?observe=true`
+request;
 the route then re-derives the persisted-session decision server-side rather than
 accepting browser-controlled decision data. A separate local showcase supplies
 a pinned catalog and clearly labeled synthetic fit scores; its behavior controls

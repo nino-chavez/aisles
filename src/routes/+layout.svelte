@@ -6,6 +6,7 @@
 	import CartDrawer from '$lib/components/CartDrawer.svelte';
 	import PicksTray from '$lib/components/PicksTray.svelte';
 	import { KibbleFooter, KibbleHeader } from '$lib/components/kibble';
+	import KibbleObserveRail from '$lib/components/kibble/KibbleObserveRail.svelte';
 	import { pickCount } from '$lib/stores/picks.svelte';
 	import { initEmitter, destroyEmitter, getEmitter } from '$lib/signals/emitter';
 	import type { LayoutData } from './$types';
@@ -156,7 +157,15 @@
 			{:else}
 				<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} categories={data.brand?.categories ?? {}} />
 			{/if}
-			<main id={data.chromeMode === 'reference' ? 'kibble-main' : undefined} class="flex-1" tabindex="-1">
+			<main
+				id={data.chromeMode === 'reference' ? 'kibble-main' : undefined}
+				class="flex-1"
+				tabindex="-1"
+				data-aisles-zone-instance={data.chromeMode === 'reference' ? `${data.kibbleProvenance?.surface ?? 'unknown'}.page-recipe` : undefined}
+				data-aisles-zone-label={data.chromeMode === 'reference' ? 'Page recipe' : undefined}
+				data-aisles-authority={data.chromeMode === 'reference' ? 'fixed' : undefined}
+				data-aisles-model-calls={data.chromeMode === 'reference' ? '0' : undefined}
+			>
 				{@render children()}
 			</main>
 			{#if data.chromeMode === 'reference' && data.kibbleChrome}
@@ -169,6 +178,18 @@
 		{#if data.chromeMode !== 'reference'}
 			<CartDrawer open={cartOpen} onclose={closeCart} />
 			<PicksTray open={picksOpen} onclose={() => picksOpen = false} />
+		{:else if data.kibbleProvenance}
+			<KibbleObserveRail
+				active={data.observeMode}
+				enableHref={data.observeEnableHref}
+				disableHref={data.observeDisableHref}
+				surface={data.kibbleProvenance.surface}
+				policyVersion={data.kibbleRoutePolicy?.policyVersion}
+				referenceId={data.kibbleProvenance.referenceId}
+				referenceVersion={data.kibbleProvenance.referenceVersion}
+				sessionId={data.observeSessionId}
+				initialPersona={data.observeInitialPersona}
+			/>
 		{/if}
 	{/if}
 </div>
