@@ -123,12 +123,25 @@ describe('zone decision schema', () => {
 	it('makes incompatible component, CSS, and copy combinations impossible', () => {
 		const contract = modelContract();
 		expect(contract.outputSchema.safeParse({ componentVariantId: 'component.grid', copyVariantId: 'copy.spring' }).success).toBe(false);
+		expect(contract.outputSchema.safeParse({ componentVariantId: 'component.grid' }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ componentVariantId: 'component.grid', cssVariantId: 'css.airy' }).success).toBe(false);
 		const decision = materializeTrustedZoneDecision(contract, { componentVariantId: 'component.grid', copyVariantId: 'copy.evergreen' });
 		expect(decision.envelope.cssVariantId).toBe('css.dense');
 		expect(decision.envelope.rawModelContent).not.toHaveProperty('cssVariantId');
 		const narrowedCss = modelContract({ allowedCssVariantIds: ['css.airy'] });
 		expect(narrowedCss.outputSchema.safeParse({ componentVariantId: 'component.grid' }).success).toBe(false);
+	});
+
+	it('fails closed when rank-only output cannot fit the complete trusted rankable set', () => {
+		const tooManyProducts = Array.from({ length: 13 }, (_, index) => `product.${index + 1}`);
+		expect(() => createZoneDecisionContract(
+			policy({ capabilities: ['rank_products'] }),
+			catalog({
+				registeredProductIds: tooManyProducts,
+				allowedProductIds: tooManyProducts,
+				fixed: { componentVariantId: 'component.hero', copyVariantId: 'copy.spring', recipeId: 'recipe.home', productIds: [] },
+			}),
+		)).toThrow('rank-only policy has 13 trusted products, exceeding the 12-item output bound');
 	});
 
 	it('enforces copy bounds and source classes from the trusted catalog', () => {

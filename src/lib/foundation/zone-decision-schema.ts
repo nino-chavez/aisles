@@ -112,6 +112,7 @@ export interface MaterializedTrustedZoneDecision {
 	policyVersion: string;
 }
 
+
 /**
  * Builds the only shape a rules engine or model may emit for a zone.
  * A fixed policy intentionally yields no schema and cannot initiate a model
@@ -134,6 +135,15 @@ export function createZoneDecisionContract(
 		boundedCopyFields: catalog.boundedCopyFields.map((field) => ({ ...field, sourceClasses: [...field.sourceClasses] })),
 	};
 	validateFixed(catalog.fixed, allowed);
+	if (
+		policy.capabilities.includes('rank_products') &&
+		!policy.capabilities.includes('select_products') &&
+		allowed.productIds.length > 12
+	) {
+		throw new ZoneDecisionSchemaError(
+			`rank-only policy has ${allowed.productIds.length} trusted products, exceeding the 12-item output bound`,
+		);
+	}
 
 	if (policy.decisionMode === 'fixed') {
 		return {
@@ -196,7 +206,7 @@ export function createZoneDecisionContract(
 			const completeVariant = allowed.completeComponentVariants.find(
 				(binding) => binding.componentVariantId === componentVariantId,
 			);
-			const copyVariantId = readOptionalString(value, 'copyVariantId');
+			const copyVariantId = readOptionalString(value, 'copyVariantId') ?? catalog.fixed.copyVariantId;
 			if (copyVariantId !== undefined && !completeVariant?.compatibleCopyVariantIds.includes(copyVariantId)) {
 				ctx.addIssue({ code: 'custom', message: 'copy variant is not compatible with the selected complete component variant' });
 			}
@@ -225,6 +235,13 @@ export function aiSdkObjectOutput(contract: GenerativeZoneDecisionContract) {
 	}
 	return Output.object({ schema: contract.outputSchema });
 }
+
+/**
+ * Safe prompt-facing description of the schema. It is generated from the
+ * same contract as Zod, which prevents a prompt from describing fields the
+ * parser will reject. CSS, policy identity, publication approval, and
+ * requiredCapabilityIds are never projected.
+ */
 
 /**
  * Parse structured output and construct the resolver's trusted envelope.
