@@ -173,6 +173,7 @@ describe('zone decision schema', () => {
 		expect(contract.outputSchema.safeParse({ boundedCopy: { invented: 'Nope' } }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ boundedCopy: {} }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ boundedCopy: { headline: 'Pinned headline' } }).success).toBe(true);
+		expect(contract.outputSchema.safeParse({ boundedCopy: { headline: 'Invented but short' } }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ productIds: ['product.a', 'product.a'] }).success).toBe(false);
 	});
 
@@ -198,6 +199,12 @@ describe('zone decision schema', () => {
 				sourceBindings: [{ sourceClass: 'merchant-policy', sourceId: 'merchant.shipping-policy', value: 'Free delivery' }],
 			}],
 		}))).toThrow('missing a server-bound source class');
+		expect(() => createZoneDecisionContract(policy(), catalog({
+			boundedCopyFields: [{
+				key: 'headline', maxLength: 4, sourceClasses: ['reference-copy'],
+				sourceBindings: [{ sourceClass: 'reference-copy', sourceId: 'reference.hero.headline', value: 'Too long' }],
+			}],
+		}))).toThrow('over maxLength');
 	});
 
 	it('keeps fixed and rules contracts independent of model copy-source bindings', () => {
@@ -262,7 +269,7 @@ describe('zone decision schema', () => {
 			productIds: ['product.b'],
 			visible: true,
 			placementId: 'placement.after-grid',
-			boundedCopy: { headline: 'Bounded and sourced' },
+			boundedCopy: { headline: 'Pinned headline' },
 		});
 		expect(decision.publicationMode).toBe('holdout');
 		expect(decision.policyVersion).toBe(policy().policyVersion);
@@ -278,7 +285,7 @@ describe('zone decision schema', () => {
 			productIds: ['product.b'],
 			visible: true,
 			placementId: 'placement.after-grid',
-			boundedCopy: { headline: 'Bounded and sourced' },
+			boundedCopy: { headline: 'Pinned headline' },
 		});
 	});
 

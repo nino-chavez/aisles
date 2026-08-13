@@ -19,6 +19,7 @@ vi.mock('@upstash/redis', () => ({
 vi.mock('$env/dynamic/private', () => ({ env: process.env }));
 
 import { findSessionStore, getSessionStore, listSessionIds, persistSession } from './session';
+import { SignalStore } from './store';
 
 const ownedSessionId = 'owned-id';
 const havenKey = `aisles:session:haven-demo-merchant:haven:${ownedSessionId}`;
@@ -81,5 +82,26 @@ describe('scoped signal sessions', () => {
 		expect((await findSessionStore(legacySessionId, { fresh: true }))?.getCrossSessionContext()).toMatchObject({
 			organizationId: 'haven-demo-merchant', brandId: 'haven',
 		});
+	});
+
+	it('does not let a crafted cookie ID alias a scoped Redis key through the legacy reader', async () => {
+		const victimSessionId = 'victim-id';
+		redisState.values.set(`aisles:session:haven-demo-merchant:haven:${victimSessionId}`, {
+			sessionId: victimSessionId,
+			events: [],
+			crossSession: {
+				organizationId: 'haven-demo-merchant', brandId: 'haven', storedPersona: null,
+				storedCategory: null, visitCount: 0, currentCategory: '',
+			},
+		});
+
+		expect(await findSessionStore(`haven-demo-merchant:haven:${victimSessionId}`, { fresh: true })).toBeNull();
+	});
+
+	it('rejects a write whose stored identity is outside the active scope', async () => {
+		const foreign = new SignalStore('foreign-write');
+		foreign.setOrganizationId('volt-demo-merchant');
+		foreign.setBrandId('volt');
+		await expect(persistSession(foreign)).rejects.toThrow('outside the active organization');
 	});
 });

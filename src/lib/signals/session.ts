@@ -87,7 +87,9 @@ function scopedSessionKey(scope: SessionScope, sessionId: string): string {
 }
 
 function legacySessionKey(sessionId: string): string {
-	return `aisles:session:${sessionId}`;
+	// Session IDs come from a browser cookie. Encode them even on the legacy
+	// read path so a crafted value cannot alias a scoped Redis key.
+	return `aisles:session:${encodeURIComponent(sessionId)}`;
 }
 
 /** Serializable snapshot of a SignalStore for Redis persistence. */
@@ -160,8 +162,15 @@ export async function getSessionStore(sessionId: string, { fresh = false } = {})
 	if (r) {
 		try {
 			const snapshot = await r.get<SessionSnapshot>(scopedSessionKey(scope, sessionId));
-			if (snapshot && snapshotMatchesScope(snapshot, scope)) {
-				const store = restoreFromSnapshot(snapshot);
+			if (snapshot) {
+				if (snapshotMatchesScope(snapshot, scope)) {
+					const store = restoreFromSnapshot(snapshot);
+					cacheStore(store, scope);
+					return store;
+				}
+				// A scoped key with foreign contents is corrupt. Do not hide it by
+				// falling back to an older global key.
+				const store = createStore(sessionId, scope);
 				cacheStore(store, scope);
 				return store;
 			}
@@ -192,7 +201,9 @@ export async function getSessionStore(sessionId: string, { fresh = false } = {})
  */
 export async function persistSession(store: SignalStore): Promise<void> {
 	const scope = activeScope();
-	if (!storeMatchesScope(store, scope)) return;
+	if (!storeMatchesScope(store, scope)) {
+		throw new Error('Cannot persist a signal session outside the active organization and brand scope.');
+	}
 	const r = await getRedis();
 	if (!r) return;
 
@@ -212,7 +223,9 @@ export async function persistSession(store: SignalStore): Promise<void> {
 /** Replace a session atomically for deterministic scenario seeding. Never appends events. */
 export async function replaceSessionStore(store: SignalStore): Promise<void> {
 	const scope = activeScope();
-	if (!storeMatchesScope(store, scope)) return;
+	if (!storeMatchesScope(store, scope)) {
+		throw new Error('Cannot replace a signal session outside the active organization and brand scope.');
+	}
 	cacheStore(store, scope);
 	await persistSession(store);
 }
@@ -239,10 +252,13 @@ export async function findSessionStore(sessionId: string, { fresh = false } = {}
 
 	try {
 		const snapshot = await r.get<SessionSnapshot>(scopedSessionKey(scope, sessionId));
-		if (snapshot && snapshotMatchesScope(snapshot, scope)) {
-			const store = restoreFromSnapshot(snapshot);
-			cacheStore(store, scope);
-			return store;
+		if (snapshot) {
+			if (snapshotMatchesScope(snapshot, scope)) {
+				const store = restoreFromSnapshot(snapshot);
+				cacheStore(store, scope);
+				return store;
+			}
+			return null;
 		}
 		const legacy = await r.get<SessionSnapshot>(legacySessionKey(sessionId));
 		if (legacy && snapshotMatchesScope(legacy, scope, { allowLegacyOrganization: true })) {
@@ -259,7 +275,12 @@ export async function findSessionStore(sessionId: string, { fresh = false } = {}
 
 /** Number of active sessions in the hot cache (for observability). */
 export function sessionCount(): number {
-	return sessions.size;
+	const scope = activeScope();
+	return [...sessions.values()].filter((entry) =>
+		entry.scope.organizationId === scope.organizationId &&
+		entry.scope.brandId === scope.brandId &&
+		storeMatchesScope(entry.store, scope),
+	).length;
 }
 
 /** List all active session IDs from Redis (scanning aisles:session:* keys). */

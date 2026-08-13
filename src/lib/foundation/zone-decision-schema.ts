@@ -27,7 +27,7 @@ export interface TrustedBoundedCopySource {
 	sourceClass: CopySourceClass;
 	/** Stable server-side identity for auditing and prompt construction. */
 	sourceId: string;
-	/** The server-owned value; model output must never supply or replace it. */
+	/** The server-owned value; model output may select it but never replace it. */
 	value: string;
 }
 
@@ -201,7 +201,9 @@ export function createZoneDecisionContract(
 	if (policy.capabilities.includes('generate_bounded_copy') && allowed.boundedCopyFields.length > 0) {
 		const copyShape: Record<string, z.ZodType> = {};
 		for (const field of allowed.boundedCopyFields) {
-			copyShape[field.key] = z.string().trim().min(1).max(field.maxLength).optional();
+			copyShape[field.key] = policy.decisionMode === 'model'
+				? enumFor(field.sourceBindings!.map(({ value }) => value)).optional()
+				: z.string().trim().min(1).max(field.maxLength).optional();
 		}
 		shape.boundedCopy = z.object(copyShape).strict().superRefine((copy, ctx) => {
 			if (Object.keys(copy).length === 0) {
@@ -369,6 +371,7 @@ function validateModelBoundedCopyAuthority(
 		}
 		const coveredClasses = new Set<CopySourceClass>();
 		const identities = new Set<string>();
+		const values = new Set<string>();
 		for (const binding of bindings) {
 			if (!field.sourceClasses.includes(binding.sourceClass)) {
 				throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" binds an undeclared source class`);
@@ -379,11 +382,18 @@ function validateModelBoundedCopyAuthority(
 			if (typeof binding.value !== 'string' || binding.value.trim().length === 0) {
 				throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" has an empty server-bound source value`);
 			}
+			if (binding.value.length > field.maxLength) {
+				throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" has a server-bound value over maxLength`);
+			}
 			const identity = `${binding.sourceClass}:${binding.sourceId}`;
 			if (identities.has(identity)) {
 				throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" repeats a server-bound source identity`);
 			}
 			identities.add(identity);
+			if (values.has(binding.value)) {
+				throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" repeats a server-bound source value`);
+			}
+			values.add(binding.value);
 			coveredClasses.add(binding.sourceClass);
 		}
 		if (field.sourceClasses.some((sourceClass) => !coveredClasses.has(sourceClass))) {

@@ -422,14 +422,18 @@ actions explicit rather than inheriting generic or broken URLs.
 
 Derive the prompt and output schema from the effective policy. Support fixed,
 rules, and model decision modes. Remove forbidden fields from the model schema
-rather than asking the model not to use them.
+rather than asking the model not to use them. A model may select only exact
+server-bound copy values until a separate factual-copy verifier is approved;
+source-class labels alone are not authority.
 
 ### Phase 6: Version cache and provenance
 
 Add reference and policy versions to caches, generation logs, and Observe.
 Extend the existing synthetic-cache tests to cover organization, brand,
 reference, viewport, and preset isolation. Add the database migration required
-for the provenance fields before changing production writes.
+for the provenance fields before changing production writes. Scope signal-
+session memory and Redis keys by organization and brand, and reject any stored
+identity that does not match the active deployment.
 
 ### Phase 7: Make parity executable
 
