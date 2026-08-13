@@ -61,9 +61,9 @@ const IMMEDIATE_SIGNAL_TYPES = new Set<SignalEventType>([
 ]);
 
 /**
- * Development-only exact-sequence receipt. The shared SignalEmitter remains
- * the only queue and transport; this helper merely observes its validated
- * batch result and never enters the production shopper bundle.
+ * Opt-in exact-sequence demo receipt. The shared SignalEmitter remains the
+ * only queue and transport; this helper merely observes its validated batch
+ * result while the public inspector is mounted.
  */
 export function registerConfirmedSignal(
 	emitter: SignalEmitter,
@@ -87,11 +87,11 @@ export function registerConfirmedDeferredSignalBatch(
 	timeoutMs = SIGNAL_CONFIRMATION_TIMEOUT_MS,
 ): ConfirmedSignalBatch {
 	if (events.length === 0 || events.length > 20) {
-		throw new Error('A confirmed development behavior requires 1 through 20 signals.');
+		throw new Error('A confirmed demo behavior requires 1 through 20 signals.');
 	}
 	for (const event of events) {
 		if (IMMEDIATE_SIGNAL_TYPES.has(event.type)) {
-			throw new Error(`${event.type} auto-flushes and cannot enter a deferred development batch.`);
+			throw new Error(`${event.type} auto-flushes and cannot enter a deferred demo batch.`);
 		}
 	}
 
@@ -161,7 +161,7 @@ function isBatchEventDetail(value: unknown): value is {
 		&& typeof detail.report === 'object';
 }
 
-/** Called only from SignalEmitter's compile-time development branch. */
+/** Called only when the emitter has exact confirmation reporting enabled. */
 export function reportConfirmedSignalBatch(
 	emitter: SignalEmitter,
 	sequences: readonly number[],

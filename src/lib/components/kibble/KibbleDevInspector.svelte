@@ -8,7 +8,7 @@
 		type ConfirmedSignal,
 		type ConfirmedSignalBatch,
 	} from '$lib/signals/confirmed-signal.dev';
-	import { getEmitter } from '$lib/signals/emitter';
+	import { getEmitter, setDemoSignalConfirmationReporting } from '$lib/signals/emitter';
 	import { buildObserveSessionHref } from '$lib/signals/observe-session-link';
 	import {
 		KIBBLE_SYNTHETIC_BEHAVIORS,
@@ -60,6 +60,7 @@
 	});
 
 	onMount(() => {
+		setDemoSignalConfirmationReporting(true);
 		const onInferenceUpdate = (event: Event) => {
 			const detail = event instanceof CustomEvent ? event.detail : null;
 			const candidate = detail && typeof detail === 'object' && 'inference' in detail
@@ -70,6 +71,7 @@
 		};
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
 		return () => {
+			setDemoSignalConfirmationReporting(false);
 			rehearsalGeneration += 1;
 			activeConfirmation?.cancel();
 			activeConfirmation = null;
