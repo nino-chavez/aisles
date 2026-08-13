@@ -66,9 +66,10 @@ trusted reference and policy identity, sanitized inference, the score-free
 zone trace, runner data-source label, and contracted provenance.
 
 The preview does not generate a layout, call a model, write a database, mutate
-the session, write telemetry, or use a cache. Preserve keeps the Kibble shell
-fixed. Allowed signals can only rank and select products from the approved
-shelf. The local catalog and fit data remain pinned synthetic fixtures, not
-merchant data.
+the session, write telemetry, or read or write the layout-decision cache. It
+does read the existing scoped session from the in-memory session cache or
+Redis when configured. Preserve keeps the Kibble shell fixed. Allowed signals
+can only rank and select products from the approved shelf. The local catalog
+and fit data remain pinned synthetic fixtures, not merchant data.
 
 Stop the process with `Ctrl-C`.

@@ -66,7 +66,7 @@ describe('KibbleDevInspector', () => {
 		const result = render(KibbleDevInspector, { props: { inspector, livePreview: { state: 'applied', persona: 'hunter' } } });
 		expect(result.body).toContain('preview applied for hunter');
 		expect(result.body).toContain('Production applies decisions on a route boundary; this live change is a development preview.');
-		expect(result.body).toContain('aria-live="polite"');
+		expect(result.body).not.toContain('View changed shelf');
 	});
 
 	it('offers real signal-pipeline rehearsal controls only for a synthetic scenario', () => {
@@ -81,7 +81,7 @@ describe('KibbleDevInspector', () => {
 			expect(result.body).toContain(`Signal ${persona}`);
 		}
 		expect(result.body).not.toContain('Reset session view');
-		expect(result.body).toContain('Decision: waiting for a signal.');
+		expect(result.body).toContain('Choose a persona to send one synthetic search signal.');
 		expect(render(KibbleDevInspector, { props: { inspector } }).body).not.toContain('Live synthetic signal rehearsal');
 	});
 });

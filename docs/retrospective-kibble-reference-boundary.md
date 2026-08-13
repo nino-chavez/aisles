@@ -59,8 +59,9 @@ the server. It fails closed without the active Kibble brand, the trusted
 browser-supplied persona, policy, scores, candidates, or order. The no-store,
 versioned preview exposes sanitized inference, a score-free zone trace, runner
 data-source labeling, and contracted `rules` provenance. It does not call a
-model, generate a layout, mutate the session, use a cache, write telemetry, or
-write a database.
+model, generate a layout, mutate the session, read or write the layout-decision
+cache, write telemetry, or write a database. It does read the existing scoped
+session from the in-memory session cache or Redis when configured.
 
 The local synthetic rehearsal buttons are inspector controls, not shopper
 controls. They emit allowed `nav.search` signals through `/api/signals`, then

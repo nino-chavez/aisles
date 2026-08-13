@@ -437,8 +437,10 @@ fails closed with `404` for an unavailable surface or `409` for a missing or
 unknown session. Its no-store response is versioned and carries sanitized
 inference, the score-free zone trace, a runner data-source override when set,
 and contracted `rules` provenance for the current scenario. It does not create
-or mutate a session, call a model, generate a layout, read or write a cache,
-write telemetry, or write a database.
+or mutate a session, call a model, generate a layout, read or write the
+layout-decision cache, write telemetry, or write a database. It does read the
+existing scoped session from the in-memory session cache or Redis when
+configured.
 
 The local synthetic rehearsal buttons are development inspector controls, not
 shopper controls. They emit real allowed `nav.search` events through

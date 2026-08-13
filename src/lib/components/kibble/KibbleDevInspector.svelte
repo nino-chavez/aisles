@@ -22,7 +22,8 @@
 		livePreview?: KibbleLivePreviewStatus;
 	} = $props();
 	let liveInference = $state<KibbleInspectorInference | null>(null);
-	let rehearsalMessage = $state('Choose a persona to send one synthetic search signal.');
+	let rehearsalPersona = $state<KibbleInspectorPersona | null>(null);
+	let rehearsalError = $state<string | null>(null);
 	const safeInspectorInference = $derived(sanitizeInspectorInference(inspector.inference));
 	const currentInference = $derived(liveInference ?? safeInspectorInference);
 	const syntheticScenario = $derived.by(() => {
@@ -65,13 +66,25 @@
 		if (status.state === 'failed') return 'preview failed; last approved shelf retained';
 		return 'waiting for a signal';
 	};
+	const rehearsalStatus = $derived.by(() => {
+		if (rehearsalError) return rehearsalError;
+		if (!rehearsalPersona) return 'Choose a persona to send one synthetic search signal.';
+		if (livePreview.state === 'updating') return `Signal ${rehearsalPersona} accepted. Server decision updating.`;
+		if (livePreview.state === 'failed') return `Signal ${rehearsalPersona} accepted. Preview failed; last approved shelf retained.`;
+		if (livePreview.state === 'applied' && livePreview.persona === rehearsalPersona) {
+			return `Signal ${rehearsalPersona} applied. The approved shelf order changed.`;
+		}
+		return `Signal ${rehearsalPersona} queued. Waiting for the signal endpoint.`;
+	});
 	const sendRehearsalSignal = (signal: (typeof rehearsalSignals)[number]) => {
 		const emitter = getEmitter();
 		if (!emitter) {
-			rehearsalMessage = 'Signal emitter unavailable; no event was sent.';
+			rehearsalPersona = null;
+			rehearsalError = 'Signal emitter unavailable; no event was sent.';
 			return;
 		}
-		rehearsalMessage = `Sent one synthetic nav.search signal for ${signal.persona}.`;
+		rehearsalError = null;
+		rehearsalPersona = signal.persona;
 		emitter.emit('nav.search', { query: signal.query });
 	};
 </script>
@@ -115,7 +128,7 @@
 			{/if}
 		</div>
 
-		<p class="kc-dev-inspector__notice" aria-live="polite">
+		<p class="kc-dev-inspector__notice">
 			<b>Live shelf preview:</b> {previewMessage(livePreview)}. Production applies decisions on a route boundary; this live change is a development preview.
 		</p>
 	</section>
@@ -147,7 +160,10 @@
 					<button type="button" onclick={() => sendRehearsalSignal(signal)}>Signal {signal.persona}</button>
 				{/each}
 			</div>
-			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite">{rehearsalMessage} Decision: {previewMessage(livePreview)}.</p>
+			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite">{rehearsalStatus}</p>
+			{#if livePreview.state === 'applied' && livePreview.persona === rehearsalPersona}
+				<a class="kc-dev-inspector__view-shelf" href="#kibble-featured-shelf">View changed shelf</a>
+			{/if}
 		</section>
 	{/if}
 
@@ -256,6 +272,7 @@
 	.kc-dev-inspector button:hover { background:#ddf1ea; }
 	.kc-dev-inspector a:focus-visible, .kc-dev-inspector button:focus-visible, .kc-dev-inspector summary:focus-visible { outline:3px solid var(--dev-blue); outline-offset:3px; }
 	.kc-dev-inspector__rehearsal-status { font-weight:700; }
+	.kc-dev-inspector__view-shelf { margin-top:.55rem; }
 	.kc-dev-inspector__zones ol { display:grid; gap:.65rem; margin:.7rem 0 0; padding:0; list-style:none; }
 	.kc-dev-inspector__zone { border:1px solid var(--dev-border); background:#fff; padding:.75rem; }
 	.kc-dev-inspector__ordinal { color:var(--dev-muted); font-weight:700; }

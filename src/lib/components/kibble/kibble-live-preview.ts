@@ -18,6 +18,22 @@ const RULE_KEYS = new Set(['ruleName', 'reason', 'weight', 'adjustment']);
 const ADJUSTMENT_KEYS = new Set([...PERSONAS, ...MODIFIER_KEYS]);
 const PRODUCT_SUMMARY_KEYS = new Set(['id', 'name', 'variant']);
 const MODEL_STATUS_KEYS = new Set(['calls', 'authorized']);
+const PROVENANCE_KEYS = new Set(['version', 'organizationId', 'brandId', 'reference', 'policyVersion', 'surface', 'route', 'persona', 'viewportClass', 'renderer', 'decisionSource', 'inputHash', 'catalogVersion', 'shopperContextHash', 'picksHash', 'incentiveHash', 'autonomy', 'promptVersion', 'schemaVersion', 'synthetic']);
+const PROVENANCE_REFERENCE_KEYS = new Set(['status', 'id', 'version']);
+const RENDERER_KEYS = new Set(['componentId', 'variantId']);
+const AUTONOMY_KEYS = new Set(['preset', 'effectiveCapabilities', 'decisionMode', 'publicationMode']);
+const SYNTHETIC_KEYS = new Set(['value', 'scenarioId']);
+const HOME_CAPABILITIES = ['rank_products', 'select_products'] as const;
+const HOME_ZONES = [
+	{ id: 'merchant-chrome', label: 'Root header', authority: 'fixed', componentVariant: 'kibble.header.responsive-chrome', capabilities: [] },
+	{ id: 'opening-merchandising', label: 'Opening hero', authority: 'fixed', componentVariant: 'kibble.hero.flagship-bundle', capabilities: [] },
+	{ id: 'ranked-products', label: 'Ranked products', authority: 'rules', componentVariant: 'kibble.featured-grid.four-column', capabilities: HOME_CAPABILITIES },
+	{ id: 'catalog-entry', label: 'Catalog entry', authority: 'fixed', componentVariant: 'kibble.visual-module.category', capabilities: [] },
+	{ id: 'service-proof', label: 'Service proof', authority: 'fixed', componentVariant: 'kibble.service-proof.three-column', capabilities: [] },
+	{ id: 'merchant-footer', label: 'Root footer', authority: 'fixed', componentVariant: 'kibble.footer.four-column', capabilities: [] },
+] as const;
+const HEX_16 = /^[0-9a-f]{16}$/;
+const CATALOG_HASH = /^catalog:[0-9a-f]{16}$/;
 
 export type KibbleLivePreviewExpectation = {
 	reference: { id: string; version: string };
@@ -104,7 +120,7 @@ export function validateKibbleLivePreview(
 	if (!isPersona(value.persona)) return invalid('persona');
 	if (!Array.isArray(value.products) || value.products.length < 1 || value.products.length > 8) return invalid('products');
 	if (!value.products.every(isKibbleProduct) || new Set(value.products.map((product) => product.id)).size !== value.products.length) return invalid('products');
-	if (!isInspector(value.inspector, expected, value.persona)) return invalid('inspector');
+	if (!isInspector(value.inspector, expected, value.persona, value.products)) return invalid('inspector');
 
 	return { ok: true, preview: { persona: value.persona, products: value.products, inspector: value.inspector } };
 }
@@ -149,34 +165,82 @@ function isKibbleProduct(value: unknown): value is KibbleProduct {
 	return isRecord(value.specs) && Object.values(value.specs).every((spec) => typeof spec === 'string');
 }
 
-function isInspector(value: unknown, expected: KibbleLivePreviewExpectation, persona: KibbleInspectorPersona): value is KibbleDevInspectorData {
+function isInspector(
+	value: unknown,
+	expected: KibbleLivePreviewExpectation,
+	persona: KibbleInspectorPersona,
+	products: KibbleProduct[],
+): value is KibbleDevInspectorData {
 	if (!isRecord(value) || !hasOnlyKeys(value, INSPECTOR_KEYS)) return false;
 	const inference = value.inference;
 	if (!isInference(inference)) return false;
 	if (!matchesReference(value.reference, expected.reference)
 		|| value.policyVersion !== expected.policyVersion
-		|| typeof value.surface !== 'string'
-		|| typeof value.preset !== 'string'
-		|| typeof value.publicationMode !== 'string'
+		|| value.surface !== 'home'
+		|| value.preset !== 'preserve'
+		|| value.publicationMode !== 'live'
 		|| typeof value.dataSourceLabel !== 'string'
-		|| !Array.isArray(value.zones)
-		|| !value.zones.every(isZone)) return false;
+		|| !Array.isArray(value.zones) || value.zones.length !== HOME_ZONES.length
+		|| !value.zones.every((zone, index) => isZone(zone, HOME_ZONES[index], products))) return false;
 	if (inference.primary !== persona) return false;
-	return !('provenance' in value) || isRecord(value.provenance);
+	return isContractedHomeProvenance(value.provenance, expected, persona);
 }
 
-function isZone(value: unknown): value is KibbleInspectorZone {
+function isZone(
+	value: unknown,
+	expected: (typeof HOME_ZONES)[number],
+	products: KibbleProduct[],
+): value is KibbleInspectorZone {
 	if (!isRecord(value) || !hasOnlyKeys(value, ZONE_KEYS)) return false;
-	if (typeof value.id !== 'string' || typeof value.label !== 'string' || typeof value.componentVariant !== 'string'
+	if (value.id !== expected.id || value.label !== expected.label || value.componentVariant !== expected.componentVariant
 		|| typeof value.decisionSummary !== 'string' || typeof value.changed !== 'boolean') return false;
-	if (value.authority !== 'fixed' && value.authority !== 'rules' && value.authority !== 'model') return false;
-	if (!Array.isArray(value.capabilities) || !value.capabilities.every((capability) => typeof capability === 'string')) return false;
-	if ('modelCallStatus' in value && (!isRecord(value.modelCallStatus) || !hasOnlyKeys(value.modelCallStatus, MODEL_STATUS_KEYS)
-		|| typeof value.modelCallStatus.calls !== 'number' || typeof value.modelCallStatus.authorized !== 'boolean')) return false;
-	if ('inputProducts' in value && !isProductSummaryList(value.inputProducts)) return false;
-	if ('outputProducts' in value && !isProductSummaryList(value.outputProducts)) return false;
-	if ('decision' in value && !isRecord(value.decision)) return false;
-	return true;
+	if (value.authority !== expected.authority || !sameStringArray(value.capabilities, expected.capabilities)) return false;
+	if (!isRecord(value.modelCallStatus) || !hasOnlyKeys(value.modelCallStatus, MODEL_STATUS_KEYS)
+		|| value.modelCallStatus.calls !== 0 || value.modelCallStatus.authorized !== false) return false;
+	if ('decision' in value) return false;
+
+	if (expected.id !== 'ranked-products') {
+		return value.changed === false && !('inputProducts' in value) && !('outputProducts' in value);
+	}
+	if (!isProductSummaryList(value.inputProducts) || !isProductSummaryList(value.outputProducts)) return false;
+	const input = value.inputProducts as Array<{ id: string; name: string; variant?: string }>;
+	const output = value.outputProducts as Array<{ id: string; name: string; variant?: string }>;
+	if (new Set(input.map(({ id }) => id)).size !== input.length || input.some(({ variant }) => variant !== undefined)) return false;
+	if (output.length !== products.length || output.some(({ variant }) => variant !== undefined)) return false;
+	if (!output.every((summary, index) => summary.id === products[index].id && summary.name === products[index].name)) return false;
+	const orderChanged = input.length !== output.length || input.some((summary, index) => summary.id !== output[index]?.id);
+	return value.changed === orderChanged;
+}
+
+function isContractedHomeProvenance(
+	value: unknown,
+	expected: KibbleLivePreviewExpectation,
+	persona: KibbleInspectorPersona,
+) {
+	if (!isRecord(value) || !hasOnlyKeys(value, PROVENANCE_KEYS)) return false;
+	if (value.version !== 'layout-provenance-v1' || value.organizationId !== 'kibble-demo-merchant'
+		|| value.brandId !== 'kibble' || value.policyVersion !== expected.policyVersion
+		|| value.surface !== 'home' || value.route !== '/' || value.persona !== persona
+		|| value.viewportClass !== 'responsive' || value.decisionSource !== 'rules'
+		|| value.promptVersion !== 'no-model-preserve-v1'
+		|| value.schemaVersion !== `kibble-reference-${expected.reference.version}`
+		|| typeof value.inputHash !== 'string' || !HEX_16.test(value.inputHash)
+		|| typeof value.catalogVersion !== 'string' || !CATALOG_HASH.test(value.catalogVersion)
+		|| typeof value.shopperContextHash !== 'string' || !HEX_16.test(value.shopperContextHash)
+		|| value.picksHash !== null || value.incentiveHash !== null) return false;
+	if (!isRecord(value.reference) || !hasOnlyKeys(value.reference, PROVENANCE_REFERENCE_KEYS)
+		|| value.reference.status !== 'contracted' || value.reference.id !== expected.reference.id
+		|| value.reference.version !== expected.reference.version) return false;
+	if (!isRecord(value.renderer) || !hasOnlyKeys(value.renderer, RENDERER_KEYS)
+		|| value.renderer.componentId !== 'kibble.home' || value.renderer.variantId !== 'kibble-home-reference-v1') return false;
+	if (!isRecord(value.autonomy) || !hasOnlyKeys(value.autonomy, AUTONOMY_KEYS)
+		|| value.autonomy.preset !== 'preserve' || !sameStringArray(value.autonomy.effectiveCapabilities, HOME_CAPABILITIES)
+		|| value.autonomy.decisionMode !== 'rules' || value.autonomy.publicationMode !== 'live') return false;
+	return isRecord(value.synthetic) && hasOnlyKeys(value.synthetic, SYNTHETIC_KEYS)
+		&& typeof value.synthetic.value === 'boolean'
+		&& (value.synthetic.value
+			? typeof value.synthetic.scenarioId === 'string' && value.synthetic.scenarioId.length > 0
+			: value.synthetic.scenarioId === null);
 }
 
 function isInference(value: unknown): value is { primary: KibbleInspectorPersona } {
@@ -214,6 +278,11 @@ function isRuleMatch(value: unknown) {
 function isProductSummaryList(value: unknown) {
 	return Array.isArray(value) && value.every((product) => isRecord(product) && hasOnlyKeys(product, PRODUCT_SUMMARY_KEYS) && typeof product.id === 'string'
 		&& typeof product.name === 'string' && (!('variant' in product) || typeof product.variant === 'string'));
+}
+
+function sameStringArray(value: unknown, expected: readonly string[]) {
+	return Array.isArray(value) && value.length === expected.length
+		&& value.every((entry, index) => entry === expected[index]);
 }
 
 function isFiniteNumber(value: unknown): value is number {
