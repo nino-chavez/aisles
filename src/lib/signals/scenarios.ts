@@ -1,5 +1,6 @@
 import { infer } from './inference';
 import { SignalStore } from './store';
+import { getBrandById } from '$lib/brand/config';
 import type { SignalEvent, SignalEventType, SignalSource } from './types';
 
 export const KIBBLE_SCENARIOS = {
@@ -42,6 +43,7 @@ export function replayKibbleScenario(id: KibbleScenarioId, sessionId = `syntheti
 	const scenario = KIBBLE_SCENARIOS[id];
 	const store = new SignalStore(sessionId);
 	store.setBrandId('kibble');
+	store.setOrganizationId(getBrandById('kibble')!.organizationId);
 	store.setScenarioId(id);
 	store.setCrossSessionContext({ storedPersona: null, storedCategory: null, visitCount: 1, currentCategory: 'dog-food' });
 	const baseTimestamp = 1_735_689_600_000;

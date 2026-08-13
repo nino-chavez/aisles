@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getSessionStore, hasSession } from '$lib/signals/session';
+import { findSessionStore } from '$lib/signals/session';
 import { infer } from '$lib/signals/inference';
 import { scenarioLabel } from '$lib/signals/scenarios';
 
@@ -14,11 +14,12 @@ export const GET: RequestHandler = async ({ url }) => {
 		return json({ error: 'Missing id parameter' }, { status: 400 });
 	}
 
-	if (!(await hasSession(sessionId))) {
+	// This is an identity-checked read. Do not fall back to getSessionStore:
+	// that function creates a fresh store for a missing or foreign session ID.
+	const store = await findSessionStore(sessionId, { fresh: true });
+	if (!store) {
 		return json({ error: 'Session not found' }, { status: 404 });
 	}
-
-	const store = await getSessionStore(sessionId, { fresh: true });
 	const events = store.getEvents();
 	const inference = infer(store.toInferenceContext());
 	const crossSession = store.getCrossSessionContext();

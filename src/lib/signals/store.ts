@@ -26,6 +26,7 @@ export class SignalStore {
 	private visitCount = 0;
 	private currentCategory = '';
 	private brandId = 'haven';
+	private organizationId = 'haven-demo-merchant';
 	private scenarioId: string | null = null;
 
 	// Loyalty state (populated from UIP evaluator at render time)
@@ -52,6 +53,11 @@ export class SignalStore {
 	/** Set the active storefront brand. Persisted with the session for API events. */
 	setBrandId(brandId: string) {
 		this.brandId = brandId;
+	}
+
+	/** Set the merchant boundary that owns this session. */
+	setOrganizationId(organizationId: string) {
+		this.organizationId = organizationId;
 	}
 
 	/** Scenario provenance is explicit so demo sessions never pass as observed behavior. */
@@ -107,6 +113,7 @@ export class SignalStore {
 	getCrossSessionContext() {
 		return {
 			brandId: this.brandId,
+			organizationId: this.organizationId,
 			scenarioId: this.scenarioId,
 			storedPersona: this.storedPersona as string | null,
 			storedCategory: this.storedCategory,
