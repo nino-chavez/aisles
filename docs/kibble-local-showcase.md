@@ -26,7 +26,7 @@ Real in this local process:
 
 - signal extraction and the explicit `intent` inference rule;
 - policy evaluation, deterministic product ranking, and the Preserve renderer;
-- the six-zone decision trace shown by the development inspector; and
+- the six-zone decision trace shown by the Aisles demo inspector; and
 - the production enrichment query interface, supplied by a runner-only provider.
 
 Synthetic demo enrichment — not merchant data:
@@ -45,13 +45,15 @@ The fixture interceptor, no-op Postgres replacement, and enrichment alias are se
 
 The launcher blanks the app's production database, Redis, model, incentive, and Observe credentials before it starts Vite. It stamps the run with scenario ID `kibble-local-showcase`, so contracted provenance reports the catalog and scores as synthetic. The inspector and response header both display `Synthetic demo enrichment — not merchant data`.
 
-The inspector still requires compile-time development mode and `?dev=true` on
-the current request, but the local-only launcher adds that parameter. A
-previously stored site-wide dev cookie cannot reopen it. Shopper page data never
-includes persona-fit scores.
+The Kibble Home launcher is available in both the local showcase and deployed
+demo. It opens the inspector with the explicit `?observe=true` query. A
+previously stored site-wide dev cookie cannot reopen it, and a normal storefront
+request does not receive inspector data. Shopper page data never includes
+persona-fit scores.
 
-The behavior simulator appears only for this synthetic local scenario. Its
-controls are not shopper controls. They model recognizable actions—browsing
+The behavior simulator appears only after the explicit demo inspector stamps a
+synthetic scenario. In this local runner, its catalog and fit data also come
+from the pinned fixture. Its controls are not commerce controls. They model recognizable actions—browsing
 departments, comparing products, searching for a deal, or shopping for a
 gift—and emit the listed typed storefront events through the normal client
 emitter and `/api/signals` endpoint. Multi-event behaviors travel as one batch.
@@ -59,11 +61,11 @@ The inspector shows the event types, updated inference, fired rules, and shelf
 result. **Start a fresh shopper** clears the local session so scenarios do not
 silently inherit earlier evidence.
 
-Every development receipt is bound to the exact emitted sequence, so an older
+Every demo receipt is bound to the exact emitted sequence, so an older
 in-flight inference cannot confirm a newer control. The receipt has a ten-second
 fail-safe and always describes an unconfirmed delivery as uncertain.
 After a validated signal persists,
-the inspector immediately asks `POST /api/kibble/home-decision?dev=true` for a
+the inspector immediately asks `POST /api/kibble/home-decision?observe=true` for a
 server-derived shelf preview. The endpoint accepts no decision inputs from the
 browser. It reads the existing `aisles_session`, derives inference, loads the
 pinned nine-product reference shelf, and applies the trusted Kibble Home
@@ -76,14 +78,13 @@ The preview request has a separate ten-second watchdog; timeout retains the
 last approved shelf and marks the preview failed. Before replacing that shelf,
 the client strictly validates the complete versioned preview payload: reference
 and policy identity, data-source label, zone decisions, contracted rules
-provenance, and the absence of protected scores. The receipt helper, inspector,
-and live-preview client are development-only lazy modules and are absent from
-the production shopper bundle.
+provenance, and the absence of protected scores. The inspector and live-preview
+client are opt-in production chunks loaded only when the inspector is open.
 
-The preview endpoint fails closed unless all of these are true: the compiled
-app is in development mode, the request includes `?dev=true`, the active brand
-is Kibble, the trusted Home policy is `reference-preserve`, and the session
-exists in the active brand scope. It returns `404` for an unavailable surface,
+The preview endpoint fails closed unless all of these are true: the request
+includes `?observe=true`, the active brand is Kibble, the trusted Home policy is
+`reference-preserve`, and the session exists in the active brand scope. It
+returns `404` for an unavailable surface,
 `409` for a missing or unknown session, and `Cache-Control: no-store` on every
 response. Its response is a preview-only, versioned decision record with the
 trusted reference and policy identity, sanitized inference, the score-free

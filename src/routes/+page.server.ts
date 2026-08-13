@@ -1,5 +1,4 @@
 import type { PageServerLoad } from './$types';
-import { dev } from '$app/environment';
 import { env as privateEnv } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
@@ -30,8 +29,11 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 		const preserveStartedAt = Date.now();
 		try {
 			const { store, visitCount, inference } = await loadRequestState();
-			const showcaseScenarioId = dev ? privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() : '';
-			if (showcaseScenarioId) store.setScenarioId(showcaseScenarioId);
+			const inspectorRequested = url.searchParams.get('observe') === 'true';
+			const inspectorScenarioId = inspectorRequested
+				? privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo'
+				: '';
+			if (inspectorScenarioId) store.setScenarioId(inspectorScenarioId);
 			const storedPersona = cookies.get('aisles_persona') || null;
 			const storedCategory = cookies.get('aisles_last_category') || null;
 			cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
@@ -89,9 +91,9 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				generationTimeMs: Date.now() - preserveStartedAt, productCount: homeDecision.products.length, sessionId: cookies.get('aisles_session') || undefined,
 				provenance,
 			});
-			// Kibble's decision inspector requires an explicit query on this request.
-			// The older site-wide dev cookie must never reopen it on a later visit.
-			const kibbleHomeInspector = dev && devMode && url.searchParams.get('dev') === 'true'
+			// Kibble's public demo inspector requires an explicit query on this
+			// request. The older site-wide dev cookie never reopens it.
+			const kibbleHomeInspector = inspectorRequested
 				? {
 					...homeDecision.inspector,
 					inference: shopperInference,

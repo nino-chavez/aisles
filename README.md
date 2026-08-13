@@ -141,12 +141,17 @@ or model connections, run the isolated synthetic showcase:
 npm run dev:kibble-showcase
 ```
 
-Then open `http://127.0.0.1:5174/?dev=true&intent=gatherer`. The inspector shows
+Then open `http://127.0.0.1:5174/?observe=true&intent=gatherer`. The inspector shows
 the inferred persona, the fixed and rules-owned zones, the product order before
 and after the decision, and zero model calls. Its catalog and fit scores are
 synthetic demo data, not merchant data. See
 [`docs/kibble-local-showcase.md`](docs/kibble-local-showcase.md) for the exact
 evidence boundary and the four deterministic scenarios.
+
+The deployed Kibble demo exposes the same prospect-facing inspector from the
+**Show decision inspector** launcher, or directly at `/?observe=true`. It labels
+each page zone as Template, Rules, or AI model and can simulate customer
+behaviors against the current demo session.
 
 ---
 

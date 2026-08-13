@@ -141,7 +141,7 @@ describe('validateKibbleLivePreview', () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
 		await vi.waitFor(() => expect(applied).toHaveBeenCalledTimes(1));
-		expect(fetchMock).toHaveBeenCalledWith('/api/kibble/home-decision?dev=true', expect.objectContaining({ method: 'POST' }));
+		expect(fetchMock).toHaveBeenCalledWith('/api/kibble/home-decision?observe=true', expect.objectContaining({ method: 'POST' }));
 		expect(statuses).toEqual([{ state: 'updating' }, { state: 'applied', persona: 'hunter', changed: true }]);
 
 		cleanup();

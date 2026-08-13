@@ -29,7 +29,7 @@ export function readShowcaseHost(value: string | undefined): string {
 
 export function showcaseUrl(host: string, port: number, persona: string): string {
 	const formattedHost = host.includes(':') ? `[${host}]` : host;
-	return `http://${formattedHost}:${port}/?dev=true&intent=${persona}`;
+	return `http://${formattedHost}:${port}/?observe=true&intent=${persona}`;
 }
 
 export function showcaseRootUrl(host: string, port: number): string {

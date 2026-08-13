@@ -89,7 +89,7 @@ describe('Kibble local showcase', () => {
 		expect(readShowcaseHost(undefined)).toBe('127.0.0.1');
 		expect(() => readShowcaseHost('0.0.0.0')).toThrow(/localhost/);
 		expect(showcaseRootUrl('127.0.0.1', 5174)).toBe('http://127.0.0.1:5174/');
-		expect(showcaseUrl('127.0.0.1', 5174, 'hunter')).toBe('http://127.0.0.1:5174/?dev=true&intent=hunter');
+		expect(showcaseUrl('127.0.0.1', 5174, 'hunter')).toBe('http://127.0.0.1:5174/?observe=true&intent=hunter');
 	});
 
 	it('blanks production connections and stamps synthetic provenance in the child environment', () => {

@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '$lib/types';
 
 const state = vi.hoisted(() => ({
-	dev: true,
 	brandId: 'kibble',
 	store: null as Record<string, any> | null,
 	dataSourceOverride: '',
@@ -17,7 +16,6 @@ const mocks = vi.hoisted(() => ({
 	assertPolicy: vi.fn(),
 }));
 
-vi.mock('$app/environment', () => ({ get dev() { return state.dev; } }));
 vi.mock('$env/dynamic/private', () => ({ env: new Proxy({}, { get: () => state.dataSourceOverride }) }));
 vi.mock('$lib/brand/config', () => ({ getBrand: () => ({ id: state.brandId }) }));
 vi.mock('$lib/brand/composition-policy', () => ({
@@ -44,13 +42,12 @@ const inference = {
 	dominantSource: 'interaction', ruleMatches: [{ ruleName: 'test', reason: 'private raw value', weight: 1, adjustment: { gatherer: 1 } }],
 };
 
-function request(devQuery = true) {
-	return { url: new URL(`http://localhost/api/kibble/home-decision${devQuery ? '?dev=true' : ''}`), cookies: { get: () => 'session-one' } } as never;
+function request(observeQuery = true) {
+	return { url: new URL(`http://localhost/api/kibble/home-decision${observeQuery ? '?observe=true' : ''}`), cookies: { get: () => 'session-one' } } as never;
 }
 
 describe('POST /api/kibble/home-decision', () => {
 	beforeEach(() => {
-		state.dev = true;
 		state.brandId = 'kibble';
 		state.dataSourceOverride = 'runner-fixture';
 		state.scenarioId = 'runner-scenario';
@@ -70,10 +67,7 @@ describe('POST /api/kibble/home-decision', () => {
 		mocks.assertPolicy.mockReset();
 	});
 
-	it('requires server dev, the explicit query, and the active Kibble brand', async () => {
-		state.dev = false;
-		expect((await POST(request())).status).toBe(404);
-		state.dev = true;
+	it('requires the explicit public demo query and the active Kibble brand', async () => {
 		expect((await POST(request(false))).status).toBe(404);
 		state.brandId = 'haven';
 		expect((await POST(request())).status).toBe(404);
@@ -81,7 +75,7 @@ describe('POST /api/kibble/home-decision', () => {
 	});
 
 	it('requires an existing scoped session without creating or mutating one', async () => {
-		const missingCookie = { url: new URL('http://localhost/api/kibble/home-decision?dev=true'), cookies: { get: () => undefined } } as never;
+		const missingCookie = { url: new URL('http://localhost/api/kibble/home-decision?observe=true'), cookies: { get: () => undefined } } as never;
 		expect((await POST(missingCookie)).status).toBe(409);
 		mocks.findSessionStore.mockResolvedValueOnce(null);
 		const response = await POST(request());
@@ -89,7 +83,7 @@ describe('POST /api/kibble/home-decision', () => {
 		expect(mocks.findSessionStore).toHaveBeenCalledWith('session-one');
 	});
 
-	it('accepts the scoped hot session in dev when Redis is unavailable', async () => {
+	it('accepts the scoped demo session when Redis is unavailable', async () => {
 		const response = await POST(request());
 
 		expect(response.status).toBe(200);

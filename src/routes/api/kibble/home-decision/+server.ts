@@ -1,4 +1,3 @@
-import { dev } from '$app/environment';
 import { json } from '@sveltejs/kit';
 import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
@@ -15,9 +14,9 @@ import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 const SESSION_COOKIE = 'aisles_session';
 const PREVIEW_VERSION = 'kibble-live-home-preview-v1';
 
-/** A dev-only, server-derived view of the bounded Kibble Preserve Home decision. */
+/** A public-demo, server-derived view of the bounded Kibble Preserve Home decision. */
 export const POST: RequestHandler = async ({ url, cookies }) => {
-	if (!dev || url.searchParams.get('dev') !== 'true' || getBrand().id !== 'kibble') {
+	if (url.searchParams.get('observe') !== 'true' || getBrand().id !== 'kibble') {
 		return unavailable();
 	}
 
@@ -44,6 +43,7 @@ export const POST: RequestHandler = async ({ url, cookies }) => {
 		const decision = decideKibbleHome(surfaceDecision.policy, inference, referenceProducts.products);
 		const products = decision.products.map(({ personaFit: _personaFit, ...product }) => product);
 		const rankedProductIds = products.map(({ entityId }) => entityId);
+		const scenarioId = privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo';
 		const provenance = buildContractedLayoutProvenance({
 			policy: surfaceDecision.policy,
 			surface: 'home',
@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ url, cookies }) => {
 			},
 			catalogInput: { source: referenceProducts.source, candidates: referenceProducts.products, rankedProductIds },
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
-			scenarioId: store.getCrossSessionContext().scenarioId,
+			scenarioId,
 		});
 
 		return previewJson({

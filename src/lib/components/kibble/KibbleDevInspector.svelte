@@ -32,7 +32,7 @@
 		inspector,
 		livePreview = { state: 'waiting' },
 		sessionId = null,
-		hideHref = '?dev=false',
+		hideHref = '/',
 	}: {
 		inspector: KibbleDevInspectorData;
 		livePreview?: KibbleLivePreviewStatus;
@@ -133,7 +133,7 @@
 		try {
 			const response = await fetch('/api/session/reset', { method: 'POST' });
 			if (!response.ok) throw new Error(`Session reset returned ${response.status}.`);
-			window.location.assign('/?dev=true');
+			window.location.assign('/?observe=true');
 		} catch (error) {
 			resetBusy = false;
 			rehearsalError = error instanceof Error ? error.message : 'Synthetic shopper reset failed.';
@@ -152,8 +152,8 @@
 <aside class:kc-dev-inspector--collapsed={!inspectorExpanded} class="kc-dev-inspector" aria-labelledby="kibble-dev-inspector-title">
 	<header class="kc-dev-inspector__header">
 		<div>
-			<p class="kc-dev-inspector__eyebrow">Local development only</p>
-			<h2 id="kibble-dev-inspector-title">Dev Mode — Kibble decision inspector</h2>
+			<p class="kc-dev-inspector__eyebrow">Live demo controls</p>
+			<h2 id="kibble-dev-inspector-title">Aisles decision inspector</h2>
 		</div>
 		<div class="kc-dev-inspector__header-controls">
 			<p class="kc-dev-inspector__surface">{inspector.surface}</p>
@@ -199,7 +199,7 @@
 		</div>
 
 		<p class="kc-dev-inspector__notice">
-			<b>Live shelf preview:</b> {previewMessage(livePreview)}. Production applies decisions on a route boundary; this live change is a development preview.
+			<b>Current demo session:</b> {previewMessage(livePreview)}. Signals may reorder the approved product shelf; the Kibble template remains fixed.
 		</p>
 	</section>
 
@@ -216,7 +216,7 @@
 		<p>Reload with one deterministic request hint, then use the behavior simulator below. These shortcuts do not change policy authority.</p>
 		<nav aria-label="Intent scenarios">
 			{#each KIBBLE_INSPECTOR_PERSONAS as persona}
-				<a href={`?dev=true&intent=${persona}`}>{persona}</a>
+				<a href={`?observe=true&intent=${persona}`}>{persona}</a>
 			{/each}
 		</nav>
 	</section>
@@ -264,7 +264,10 @@
 
 	<section class="kc-dev-inspector__zones" aria-labelledby="kibble-dev-zones">
 		<div class="kc-dev-inspector__section-heading">
-			<h3 id="kibble-dev-zones">Ordered zones</h3>
+			<div>
+				<h3 id="kibble-dev-zones">Page zones</h3>
+				<p>Template stays fixed. Rules react to signals. AI model appears only where policy authorizes generation.</p>
+			</div>
 			<span>{inspector.zones.length} recipe slots</span>
 		</div>
 		<ol>
@@ -277,7 +280,7 @@
 							<h4>{zone.label}</h4>
 							<p>{zone.id}</p>
 						</div>
-						<span class={`kc-dev-inspector__authority kc-dev-inspector__authority--${zone.authority}`}>{zone.authority === 'fixed' ? 'Fixed' : zone.authority === 'rules' ? 'Rules' : 'Model'}</span>
+						<span class={`kc-dev-inspector__authority kc-dev-inspector__authority--${zone.authority}`}>{zone.authority === 'fixed' ? 'Template' : zone.authority === 'rules' ? 'Rules' : 'AI model'}</span>
 						<span class:kc-dev-inspector__changed={zone.changed} class="kc-dev-inspector__change">{zone.changed ? 'changed' : 'no change'}</span>
 					</div>
 					<dl>
