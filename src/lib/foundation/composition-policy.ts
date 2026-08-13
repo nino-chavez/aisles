@@ -1,3 +1,9 @@
+import { tryNormalizeTrustedErrorRoute, tryNormalizeTrustedShopperRoute } from './autonomy-zone-route';
+import {
+	isAislesRendererIdentity,
+	isIssuedTrustedZoneIdentity,
+	type TrustedZoneIdentityDefinition,
+} from './trusted-zone-identity';
 import { ZONES, type Surface, type ZoneId } from './zones';
 
 export const AUTONOMY_CAPABILITIES = [
@@ -94,8 +100,25 @@ export interface CompileCompositionPolicyInput {
 	/** Trusted deploy or host identity, not a browser-authored policy field. */
 	brandId: string;
 	surface: Surface;
+	/** Existing local family-only compiler path. Not sufficient for zone execution. */
 	zoneId?: ZoneId;
+	/** Registry-issued exact identity required by the identity-bound executor. */
+	zoneIdentity?: TrustedZoneIdentityDefinition;
+	routeSource?: 'pathname' | 'error-state';
+	routePath?: string;
 	registry: CompositionPolicyRegistry;
+}
+
+export interface TrustedZonePolicyBinding {
+	zoneOrigin: 'aisles' | 'bealls-aisles';
+	familyId: string;
+	instanceId: string;
+	rendererContract: 'aisles-renderer' | 'trusted-hidden';
+	routeSource: 'pathname' | 'error-state';
+	routePath: string;
+	routeManifestVersion: string;
+	routeManifestDigest: string;
+	allowedDecisionModes: readonly DecisionMode[];
 }
 
 export interface CompositionPolicyProvenance {
@@ -110,6 +133,8 @@ export interface CompositionPolicyProvenance {
 	/** String keeps provenance compatible with externally pinned union families;
 	 * compiler inputs and override keys remain the local typed ZoneId boundary. */
 	zoneId: string | null;
+	/** Present only for an exact registry-issued identity and compiler-normalized route. */
+	zoneBinding?: TrustedZonePolicyBinding | null;
 	preset: AutonomyPreset | null;
 }
 
@@ -130,6 +155,26 @@ export class CompositionPolicyValidationError extends Error {
 		super(`composition policy: ${message}`);
 		this.name = 'CompositionPolicyValidationError';
 	}
+}
+
+interface NormalizedZoneTarget {
+	familyId: string | null;
+	localZoneId?: ZoneId;
+	identity?: TrustedZoneIdentityDefinition;
+	routeSource?: 'pathname' | 'error-state';
+	route?: {
+		routePath: string;
+		surface: Surface;
+		routeManifestVersion: string;
+		routeManifestDigest: string;
+	};
+}
+
+const compiledTrustedZonePolicies = new WeakSet<object>();
+
+/** Runtime attestation: the executor does not accept hand-built provenance. */
+export function isCompiledTrustedZonePolicy(value: unknown): value is EffectiveCompositionPolicy {
+	return typeof value === 'object' && value !== null && compiledTrustedZonePolicies.has(value);
 }
 
 export function compileAutonomyPreset(preset: AutonomyPreset): readonly AutonomyCapability[] {
@@ -180,6 +225,7 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 	if (!surfaceSet.has(input.surface)) {
 		throw new CompositionPolicyValidationError(`unknown surface "${input.surface}"`);
 	}
+	const zoneTarget = normalizeZoneTarget(input);
 	const surfacePolicy = ownLookup(brand.surfaces, input.surface);
 	if (surfacePolicy === undefined) {
 		throw new CompositionPolicyValidationError(
@@ -209,47 +255,49 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 
 	validateZoneOverrideKeys(surfacePolicy, input.surface);
 	let zonePolicy: ZoneCompositionPolicy | undefined;
-	if (input.zoneId !== undefined) {
-		const zoneMetadata = ZONES[input.zoneId];
+	if (zoneTarget.localZoneId !== undefined) {
+		const zoneMetadata = ZONES[zoneTarget.localZoneId];
 		if (!zoneMetadata || zoneMetadata.surface !== input.surface) {
 			throw new CompositionPolicyValidationError(
-				`unknown zone "${input.zoneId}" for surface "${input.surface}"`,
+				`unknown zone "${zoneTarget.localZoneId}" for surface "${input.surface}"`,
 			);
 		}
-		zonePolicy = surfacePolicy.zoneOverrides?.[input.zoneId];
+		zonePolicy = surfacePolicy.zoneOverrides?.[zoneTarget.localZoneId];
 	}
 
-	const zoneCapabilities = zonePolicy?.capabilities
-		? uniqueCapabilities(zonePolicy.capabilities, `${input.zoneId} zone`)
+	const trustedHidden = zoneTarget.identity?.rendererContract === 'trusted-hidden';
+	const zoneLabel = zoneTarget.familyId ?? input.surface;
+	const zoneCapabilities = trustedHidden ? [] : zonePolicy?.capabilities
+		? uniqueCapabilities(zonePolicy.capabilities, `${zoneLabel} zone`)
 		: surfaceCapabilities;
 	if (zonePolicy?.capabilities) {
-		assertSubset(zoneCapabilities, surfaceCapabilities, `${input.zoneId} zone`, 'surface');
+		assertSubset(zoneCapabilities, surfaceCapabilities, `${zoneLabel} zone`, 'surface');
 	}
-	const decisionMode = zonePolicy?.decisionMode ?? surfacePolicy.decisionMode;
+	const decisionMode = trustedHidden ? 'fixed' : zonePolicy?.decisionMode ?? surfacePolicy.decisionMode;
 	const publicationMode = zonePolicy?.publicationMode ?? surfacePolicy.publicationMode;
-	assertDecisionNarrower(decisionMode, surfacePolicy.decisionMode, `${input.zoneId ?? input.surface} effective policy`);
-	assertPublicationNarrower(publicationMode, surfacePolicy.publicationMode, `${input.zoneId ?? input.surface} effective policy`);
+	assertDecisionNarrower(decisionMode, surfacePolicy.decisionMode, `${zoneLabel} effective policy`);
+	assertPublicationNarrower(publicationMode, surfacePolicy.publicationMode, `${zoneLabel} effective policy`);
 
-	const zoneComponents = zonePolicy?.allowedComponentVariantIds
-		? uniqueVariantIds(zonePolicy.allowedComponentVariantIds, `${input.zoneId} zone components`)
+	const zoneComponents = trustedHidden ? [] : zonePolicy?.allowedComponentVariantIds
+		? uniqueVariantIds(zonePolicy.allowedComponentVariantIds, `${zoneLabel} zone components`)
 		: surfaceComponents;
-	const zoneCss = zonePolicy?.allowedCssVariantIds
-		? uniqueVariantIds(zonePolicy.allowedCssVariantIds, `${input.zoneId} zone CSS`)
+	const zoneCss = trustedHidden ? [] : zonePolicy?.allowedCssVariantIds
+		? uniqueVariantIds(zonePolicy.allowedCssVariantIds, `${zoneLabel} zone CSS`)
 		: surfaceCss;
-	const zoneCopy = zonePolicy?.allowedCopyVariantIds
-		? uniqueVariantIds(zonePolicy.allowedCopyVariantIds, `${input.zoneId} zone copy`)
+	const zoneCopy = trustedHidden ? [] : zonePolicy?.allowedCopyVariantIds
+		? uniqueVariantIds(zonePolicy.allowedCopyVariantIds, `${zoneLabel} zone copy`)
 		: surfaceCopy;
 	if (zonePolicy?.allowedComponentVariantIds) {
-		assertSubset(zoneComponents, surfaceComponents, `${input.zoneId} zone components`, 'surface');
+		assertSubset(zoneComponents, surfaceComponents, `${zoneLabel} zone components`, 'surface');
 	}
 	if (zonePolicy?.allowedCssVariantIds) {
-		assertSubset(zoneCss, surfaceCss, `${input.zoneId} zone CSS`, 'surface');
+		assertSubset(zoneCss, surfaceCss, `${zoneLabel} zone CSS`, 'surface');
 	}
 	if (zonePolicy?.allowedCopyVariantIds) {
-		assertSubset(zoneCopy, surfaceCopy, `${input.zoneId} zone copy`, 'surface');
+		assertSubset(zoneCopy, surfaceCopy, `${zoneLabel} zone copy`, 'surface');
 	}
 
-	return {
+	const effective: EffectiveCompositionPolicy = {
 		policyVersion: composeEffectivePolicyVersion(organization.policyVersion, brand.policyVersion),
 		capabilities: intersectCapabilities(
 			organization.maximum.capabilities,
@@ -276,10 +324,22 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 			referenceId: brand.reference.referenceId,
 			referenceVersion: brand.reference.referenceVersion,
 			surface: input.surface,
-			zoneId: input.zoneId ?? null,
+			zoneId: zoneTarget.familyId,
+			zoneBinding: zoneTarget.identity && zoneTarget.route ? {
+				zoneOrigin: zoneTarget.identity.origin,
+				familyId: zoneTarget.identity.familyId,
+				instanceId: zoneTarget.identity.instanceId,
+				rendererContract: zoneTarget.identity.rendererContract,
+				routeSource: zoneTarget.routeSource!,
+				routePath: zoneTarget.route.routePath,
+				routeManifestVersion: zoneTarget.route.routeManifestVersion,
+				routeManifestDigest: zoneTarget.route.routeManifestDigest,
+				allowedDecisionModes: trustedHidden ? ['fixed'] : decisionModesAtOrBelow(surfacePolicy.decisionMode),
+			} : null,
 			preset: surfacePolicy.preset,
 		},
 	};
+	return zoneTarget.identity ? attestTrustedZonePolicy(effective) : effective;
 }
 
 export const LEGACY_GENERATED_POLICY_VERSION = 'legacy_generated_v1';
@@ -332,6 +392,62 @@ export function compileLegacyGeneratedCompatibilityPolicy(
 	};
 }
 
+function normalizeZoneTarget(input: CompileCompositionPolicyInput): NormalizedZoneTarget {
+	if (input.zoneIdentity === undefined) {
+		if (input.routeSource !== undefined || input.routePath !== undefined) {
+			throw new CompositionPolicyValidationError('route binding requires an exact trusted zone identity');
+		}
+		return {
+			familyId: input.zoneId ?? null,
+			...(input.zoneId === undefined ? {} : { localZoneId: input.zoneId }),
+		};
+	}
+	if (input.zoneId !== undefined) {
+		throw new CompositionPolicyValidationError('zoneId and zoneIdentity are mutually exclusive');
+	}
+	if (!isIssuedTrustedZoneIdentity(input.zoneIdentity)) {
+		throw new CompositionPolicyValidationError('zone identity must be an exact registry-issued object');
+	}
+	if (input.zoneIdentity.surface !== input.surface) {
+		throw new CompositionPolicyValidationError(
+			`zone identity "${input.zoneIdentity.instanceId}" does not belong to surface "${input.surface}"`,
+		);
+	}
+	if ((input.routeSource !== 'pathname' && input.routeSource !== 'error-state') || input.routePath === undefined) {
+		throw new CompositionPolicyValidationError('trusted zone identity requires routeSource and routePath');
+	}
+	const route = input.routeSource === 'pathname'
+		? tryNormalizeTrustedShopperRoute(input.routePath)
+		: tryNormalizeTrustedErrorRoute(input.routePath, input.surface);
+	if (!route || route.surface !== input.surface) {
+		throw new CompositionPolicyValidationError(
+			`route "${String(input.routePath)}" is not trusted for surface "${input.surface}"`,
+		);
+	}
+	return {
+		familyId: input.zoneIdentity.familyId,
+		...(isAislesRendererIdentity(input.zoneIdentity) ? { localZoneId: input.zoneIdentity.familyId } : {}),
+		identity: input.zoneIdentity,
+		routeSource: input.routeSource,
+		route,
+	};
+}
+
+function attestTrustedZonePolicy(policy: EffectiveCompositionPolicy): EffectiveCompositionPolicy {
+	const binding = policy.provenance.zoneBinding;
+	if (!binding) throw new CompositionPolicyValidationError('trusted zone policy binding is required');
+	Object.freeze(binding.allowedDecisionModes);
+	Object.freeze(binding);
+	Object.freeze(policy.provenance);
+	Object.freeze(policy.capabilities);
+	Object.freeze(policy.allowedComponentVariantIds);
+	Object.freeze(policy.allowedCssVariantIds);
+	Object.freeze(policy.allowedCopyVariantIds);
+	Object.freeze(policy);
+	compiledTrustedZonePolicies.add(policy);
+	return policy;
+}
+
 const surfaceSet = new Set<string>([
 	'home',
 	'plp',
@@ -349,6 +465,10 @@ const capabilitySet = new Set<string>(AUTONOMY_CAPABILITIES);
 const decisionSet = new Set<string>(DECISION_MODES);
 const publicationSet = new Set<string>(PUBLICATION_MODES);
 const decisionAuthority: Record<DecisionMode, number> = { fixed: 0, rules: 1, model: 2 };
+
+function decisionModesAtOrBelow(maximum: DecisionMode): DecisionMode[] {
+	return DECISION_MODES.filter((mode) => decisionAuthority[mode] <= decisionAuthority[maximum]);
+}
 
 function assertMaximum(maximum: PolicyMaximum, label: string): void {
 	uniqueCapabilities(maximum.capabilities, label);

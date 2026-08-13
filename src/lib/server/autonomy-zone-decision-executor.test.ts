@@ -1,7 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AUTONOMY_CAPABILITIES, PRESET_CAPABILITIES, PUBLICATION_MODES, type DecisionMode, type EffectiveCompositionPolicy } from '$lib/foundation/composition-policy';
+import {
+	AUTONOMY_CAPABILITIES,
+	compileCompositionPolicy,
+	PRESET_CAPABILITIES,
+	PUBLICATION_MODES,
+	type BrandCompositionPolicy,
+	type DecisionMode,
+	type EffectiveCompositionPolicy,
+	type OrganizationCompositionPolicy,
+} from '$lib/foundation/composition-policy';
 import { SHOPPER_ROUTE_MANIFEST_DIGEST, SHOPPER_ROUTE_MANIFEST_VERSION } from '$lib/foundation/autonomy-zone-route';
-import { TRUSTED_ZONE_IDENTITIES, type TrustedZoneIdentityDefinition } from '$lib/foundation/zone-catalog';
+import { findTrustedZoneIdentity, TRUSTED_ZONE_IDENTITIES, type TrustedZoneIdentityDefinition } from '$lib/foundation/zone-catalog';
 import type { TrustedZoneFieldCatalog } from '$lib/foundation/zone-decision-schema';
 import { ZONE_IDS, ZONES, type ZoneId } from '$lib/foundation/zones';
 import { SectionSchema } from '$lib/schema/layout';
@@ -47,6 +56,12 @@ const identity: TrustedZoneExecutionIdentity = {
 	allowedDecisionModes: ['fixed', 'rules', 'model'],
 };
 
+const organizationPolicy: OrganizationCompositionPolicy = {
+	organizationId: identity.organizationId,
+	policyVersion: 'o',
+	maximum: { capabilities: AUTONOMY_CAPABILITIES, decisionMode: 'model', publicationMode: 'live' },
+};
+
 const headerContent = { component: 'editorial-header', props: { eyebrow: 'TRUSTED', headline: 'Trusted content', body: 'Server materialized.' } } as const;
 const carouselContent = { component: 'product-carousel', props: { title: 'Trusted products', products: productIds.map((productId) => ({ productId, role: 'standard' as const })), showQuickAdd: false } } as const;
 const serviceContent = { component: 'service-callouts-grid', props: { columns: 3, callouts: [{ icon: 'shipping', label: 'Shipping' }, { icon: 'returns', label: 'Returns' }, { icon: 'secure', label: 'Secure' }] } } as const;
@@ -90,25 +105,75 @@ function identityForDefinition(definition: TrustedZoneIdentityDefinition): Trust
 		zoneOrigin: definition.origin,
 		familyId: definition.familyId,
 		instanceId: definition.instanceId,
+		allowedDecisionModes: definition.rendererContract === 'trusted-hidden' ? ['fixed'] : ['fixed', 'rules', 'model'],
 	};
 }
 
-function policy(overrides: Partial<EffectiveCompositionPolicy> = {}): EffectiveCompositionPolicy {
-	return {
-		policyVersion: identity.policyVersion,
-		capabilities: [...AUTONOMY_CAPABILITIES],
-		decisionMode: 'model',
-		publicationMode: 'live',
-		allowedComponentVariantIds: ['component.carousel'],
-		allowedCssVariantIds: ['css.reference'],
-		allowedCopyVariantIds: ['copy.reference'],
-		provenance: {
-			kind: 'compiled', organizationId: identity.organizationId, organizationPolicyVersion: 'o', brandId: identity.brandId,
-			brandPolicyVersion: 'b', referenceId: identity.referenceId, referenceVersion: identity.referenceVersion,
-			surface: identity.surface, zoneId: identity.familyId, preset: 'compose',
+type PolicyOverrides = Partial<Omit<EffectiveCompositionPolicy, 'provenance'>>;
+
+function policy(
+	overrides: PolicyOverrides = {},
+	executionIdentity: TrustedZoneExecutionIdentity = identity,
+	bindZone = true,
+): EffectiveCompositionPolicy {
+	const definition = findTrustedZoneIdentity(
+		executionIdentity.zoneOrigin,
+		executionIdentity.familyId,
+		executionIdentity.instanceId,
+	);
+	if (!definition) throw new Error(`test identity is not registered: ${executionIdentity.instanceId}`);
+	const decisionMode = overrides.decisionMode ?? 'model';
+	const publicationMode = overrides.publicationMode ?? 'live';
+	const capabilities = overrides.capabilities ?? AUTONOMY_CAPABILITIES;
+	const allowedComponentVariantIds = overrides.allowedComponentVariantIds ?? ['component.carousel'];
+	const allowedCssVariantIds = overrides.allowedCssVariantIds ?? ['css.reference'];
+	const allowedCopyVariantIds = overrides.allowedCopyVariantIds ?? ['copy.reference'];
+	const localOverride = definition.origin === 'aisles' ? {
+		[definition.familyId]: {
+			capabilities,
+			decisionMode,
+			publicationMode,
+			allowedComponentVariantIds,
+			allowedCssVariantIds,
+			allowedCopyVariantIds,
 		},
-		...overrides,
+	} : undefined;
+	const brandPolicy: BrandCompositionPolicy = {
+		organizationId: identity.organizationId,
+		brandId: identity.brandId,
+		policyVersion: 'b',
+		maximum: { capabilities: AUTONOMY_CAPABILITIES, decisionMode: 'model', publicationMode: 'live' },
+		registeredComponentVariantIds: ['component.carousel'],
+		registeredCssVariantIds: ['css.reference'],
+		registeredCopyVariantIds: ['copy.reference'],
+		reference: { referenceId: identity.referenceId, referenceVersion: identity.referenceVersion },
+		surfaces: {
+			[definition.surface]: {
+				preset: 'compose',
+				capabilities: AUTONOMY_CAPABILITIES,
+				decisionMode: 'model',
+				publicationMode: 'live',
+				allowedComponentVariantIds: ['component.carousel'],
+				allowedCssVariantIds: ['css.reference'],
+				allowedCopyVariantIds: ['copy.reference'],
+				...(localOverride ? { zoneOverrides: localOverride } : {}),
+			},
+		},
 	};
+	return compileCompositionPolicy({
+		organizationId: executionIdentity.organizationId,
+		brandId: executionIdentity.brandId,
+		surface: definition.surface,
+		...(bindZone ? {
+			zoneIdentity: definition,
+			routeSource: executionIdentity.routeSource,
+			routePath: executionIdentity.routePath,
+		} : {}),
+		registry: {
+			organizations: { [organizationPolicy.organizationId]: organizationPolicy },
+			brands: { [brandPolicy.brandId]: brandPolicy },
+		},
+	});
 }
 
 function decisionProductIds(input: Parameters<TrustedBoundZoneCatalog['materialize']>[0]): readonly string[] {
@@ -185,8 +250,7 @@ describe('identity-bound zone decision executor', () => {
 					decisionMode,
 					capabilities: decisionMode === 'fixed' ? [] : ['select_products'],
 					publicationMode: decisionMode === 'model' ? 'holdout' : 'live',
-					provenance: { ...policy().provenance, surface: zoneIdentity.surface, zoneId },
-				}),
+				}, zoneIdentity),
 				catalog: catalog({ identity: zoneIdentity, materialize: () => contentForZone(zoneId) }),
 				fallback: { identity: zoneIdentity, kind: 'hidden' },
 				runRules,
@@ -211,26 +275,40 @@ describe('identity-bound zone decision executor', () => {
 		expect(new Set(bealls.map(({ familyId }) => familyId)).size).toBe(28);
 		expect(bealls).toHaveLength(36);
 		expect(new Set(bealls.map(({ instanceId }) => instanceId)).size).toBe(36);
+		expect(bealls.map(({ instanceId }) => instanceId)).toContain('account.welcome');
 		for (const definition of bealls) {
 			const zoneIdentity = identityForDefinition(definition);
-			const localZone = ZONE_IDS.find((zoneId) => zoneId === definition.familyId);
+			const materialize = vi.fn(() => headerContent);
+			const compiledPolicy = policy({}, zoneIdentity);
+			expect(compiledPolicy, definition.instanceId).toMatchObject({
+				capabilities: [], decisionMode: 'fixed',
+				provenance: { zoneBinding: { rendererContract: 'trusted-hidden', instanceId: definition.instanceId } },
+			});
 			const result = await executeZoneDecision({
-				policy: policy({
-					decisionMode: 'fixed', capabilities: [],
-					provenance: { ...policy().provenance, surface: definition.surface, zoneId: definition.familyId },
-				}),
+				policy: compiledPolicy,
 				catalog: catalog({
 					identity: zoneIdentity,
-					materialize: () => localZone ? contentForZone(localZone) : headerContent,
+					materialize,
 				}),
 				fallback: { identity: zoneIdentity, kind: 'hidden' },
 			});
-			if (definition.rendererContract === 'aisles-renderer') {
-				expect(result, `${definition.instanceId} must use strict local renderer`).toMatchObject({ status: 'live', render: { kind: 'content' } });
-			} else {
-				expect(result, `${definition.instanceId} must remain trusted Hidden`).toMatchObject({ status: 'live', render: { kind: 'hidden' } });
-			}
+			expect(result, `${definition.instanceId} must remain trusted Hidden`).toMatchObject({ status: 'live', render: { kind: 'hidden' } });
+			expect(materialize, `${definition.instanceId} must not cross into the local materializer`).not.toHaveBeenCalled();
 		}
+	});
+
+	it('does not infer the local home.editorial-strip schema across the Bealls origin', async () => {
+		const definition = findTrustedZoneIdentity('bealls-aisles', 'home.editorial-strip', 'home.editorial-strip');
+		expect(definition).toMatchObject({ rendererContract: 'trusted-hidden' });
+		const zoneIdentity = identityForDefinition(definition!);
+		const materialize = vi.fn(() => headerContent);
+		const result = await executeZoneDecision({
+			policy: policy({}, zoneIdentity),
+			catalog: catalog({ identity: zoneIdentity, materialize }),
+			fallback: { identity: zoneIdentity, kind: 'content', content: headerContent },
+		});
+		expect(result).toMatchObject({ status: 'live', render: { kind: 'hidden' } });
+		expect(materialize).not.toHaveBeenCalled();
 	});
 
 	it.each(PUBLICATION_MODES)('enforces %s as a result-level publication gate', async (publicationMode) => {
@@ -270,8 +348,17 @@ describe('identity-bound zone decision executor', () => {
 
 	it('rejects a surface-level policy before any runner call', async () => {
 		const runRules = vi.fn();
-		const result = await executeZoneDecision({ policy: policy({ decisionMode: 'rules', capabilities: ['select_products'], provenance: { ...policy().provenance, zoneId: null } }), catalog: catalog(), fallback: fallback(), runRules });
+		const result = await executeZoneDecision({ policy: policy({ decisionMode: 'rules', capabilities: ['select_products'] }, identity, false), catalog: catalog(), fallback: fallback(), runRules });
 		expect(result).toMatchObject({ status: 'fallback', reason: 'policy_not_zone_scoped' });
+		expect(runRules).not.toHaveBeenCalled();
+	});
+
+	it('rejects hand-built provenance even when every visible binding field is copied', async () => {
+		const compiled = policy({ decisionMode: 'rules', capabilities: ['select_products'] });
+		const forged: EffectiveCompositionPolicy = { ...compiled, provenance: { ...compiled.provenance } };
+		const runRules = vi.fn(() => ({ productIds }));
+		const result = await executeZoneDecision({ policy: forged, catalog: catalog(), fallback: fallback(), runRules });
+		expect(result).toMatchObject({ status: 'fallback', reason: 'identity_mismatch', render: { kind: 'hidden' } });
 		expect(runRules).not.toHaveBeenCalled();
 	});
 
@@ -293,14 +380,14 @@ describe('identity-bound zone decision executor', () => {
 		expect(runRules).not.toHaveBeenCalled();
 	});
 
-	it('rejects null/surface mismatches and unapproved modes before runners', async () => {
+	it('rejects null, surface, and compiler-bound decision-mode identity mismatches before runners', async () => {
 		const runModel = vi.fn();
 		const wrongSurface = { ...identity, surface: 'plp' as const };
-		expect(await executeZoneDecision({ policy: policy({ provenance: { ...policy().provenance, surface: 'plp' } }), catalog: catalog({ identity: wrongSurface }), fallback: fallback({ identity: wrongSurface }), runModel })).toMatchObject({ status: 'fallback', reason: 'route_surface_mismatch' });
+		expect(await executeZoneDecision({ policy: policy(), catalog: catalog({ identity: wrongSurface }), fallback: fallback({ identity: wrongSurface }), runModel })).toMatchObject({ status: 'fallback', reason: 'route_surface_mismatch' });
 		const wrongZone = { ...identity, routePath: '/category/dog-food', surface: 'plp' as const };
-		expect(await executeZoneDecision({ policy: policy({ provenance: { ...policy().provenance, surface: 'plp' } }), catalog: catalog({ identity: wrongZone }), fallback: fallback({ identity: wrongZone }), runModel })).toMatchObject({ status: 'fallback', reason: 'surface_zone_mismatch' });
+		expect(await executeZoneDecision({ policy: policy(), catalog: catalog({ identity: wrongZone }), fallback: fallback({ identity: wrongZone }), runModel })).toMatchObject({ status: 'fallback', reason: 'surface_zone_mismatch' });
 		const fixedApprovalOnly = { ...identity, allowedDecisionModes: ['fixed'] as const };
-		expect(await executeZoneDecision({ policy: policy(), catalog: catalog({ identity: fixedApprovalOnly }), fallback: fallback({ identity: fixedApprovalOnly }), runModel })).toMatchObject({ status: 'fallback', reason: 'decision_mode_not_approved' });
+		expect(await executeZoneDecision({ policy: policy(), catalog: catalog({ identity: fixedApprovalOnly }), fallback: fallback({ identity: fixedApprovalOnly }), runModel })).toMatchObject({ status: 'fallback', reason: 'identity_mismatch' });
 		expect(runModel).not.toHaveBeenCalled();
 	});
 
@@ -317,7 +404,7 @@ describe('identity-bound zone decision executor', () => {
 	it('blocks rules/model on an engine-disabled zone before runners', async () => {
 		const plpIdentity = { ...identity, routePath: '/category/dog-food', surface: 'plp' as const, familyId: 'plp.below-grid', instanceId: 'plp.below-grid' };
 		const runRules = vi.fn();
-		const result = await executeZoneDecision({ policy: policy({ decisionMode: 'rules', capabilities: ['select_products'], provenance: { ...policy().provenance, surface: 'plp', zoneId: 'plp.below-grid' } }), catalog: catalog({ identity: plpIdentity }), fallback: { identity: plpIdentity, kind: 'hidden' }, runRules });
+		const result = await executeZoneDecision({ policy: policy({ decisionMode: 'rules', capabilities: ['select_products'] }, plpIdentity), catalog: catalog({ identity: plpIdentity }), fallback: { identity: plpIdentity, kind: 'hidden' }, runRules });
 		expect(result).toMatchObject({ status: 'fallback', reason: 'fixed_only_zone' });
 		expect(runRules).not.toHaveBeenCalled();
 	});

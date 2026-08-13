@@ -1,8 +1,9 @@
 /** Strict, identity-bound and provider-free zone decision execution seam. */
 
-import type { DecisionMode, EffectiveCompositionPolicy, PublicationMode } from '$lib/foundation/composition-policy';
+import { isCompiledTrustedZonePolicy, type DecisionMode, type EffectiveCompositionPolicy, type PublicationMode } from '$lib/foundation/composition-policy';
 import { tryNormalizeTrustedErrorRoute, tryNormalizeTrustedShopperRoute } from '$lib/foundation/autonomy-zone-route';
-import { findTrustedZoneIdentity, isAislesRendererIdentity, ZONE_CATALOG, type TrustedZoneIdentityDefinition } from '$lib/foundation/zone-catalog';
+import { ZONE_CATALOG } from '$lib/foundation/zone-catalog';
+import { findTrustedZoneIdentity, isAislesRendererIdentity, type TrustedZoneIdentityDefinition } from '$lib/foundation/trusted-zone-identity';
 import {
 	createZoneDecisionContract,
 	materializeTrustedZoneDecision,
@@ -248,6 +249,7 @@ function validateBindings(
 	identityDefinition: TrustedZoneIdentityDefinition | null,
 ): ZoneExecutionFailureReason | null {
 	const identity = catalog.identity;
+	const policyBinding = policy.provenance.zoneBinding;
 	const normalizedRoute = identity.routeSource === 'pathname'
 		? tryNormalizeTrustedShopperRoute(identity.routePath)
 		: identity.routeSource === 'error-state'
@@ -259,17 +261,28 @@ function validateBindings(
 	if (!identityDefinition || identityDefinition.surface !== identity.surface || policy.provenance.surface !== identity.surface) {
 		return 'surface_zone_mismatch';
 	}
+	if (policy.provenance.zoneId === null) return 'policy_not_zone_scoped';
 	if (
+		!isCompiledTrustedZonePolicy(policy) ||
 		policy.provenance.kind !== 'compiled' ||
+		!policyBinding ||
 		![identity.organizationId, identity.brandId, identity.referenceId, identity.referenceVersion, identity.policyVersion, identity.routePath].every(isNonBlank) ||
 		policy.policyVersion !== identity.policyVersion ||
 		policy.provenance.organizationId !== identity.organizationId ||
 		policy.provenance.brandId !== identity.brandId ||
 		policy.provenance.referenceId !== identity.referenceId ||
 		policy.provenance.referenceVersion !== identity.referenceVersion ||
+		policyBinding.zoneOrigin !== identity.zoneOrigin ||
+		policyBinding.familyId !== identity.familyId ||
+		policyBinding.instanceId !== identity.instanceId ||
+		policyBinding.rendererContract !== identityDefinition.rendererContract ||
+		policyBinding.routeSource !== identity.routeSource ||
+		policyBinding.routePath !== identity.routePath ||
+		policyBinding.routeManifestVersion !== identity.routeManifestVersion ||
+		policyBinding.routeManifestDigest !== identity.routeManifestDigest ||
+		!sameDecisionModes(policyBinding.allowedDecisionModes, identity.allowedDecisionModes) ||
 		!sameIdentity(fallback.identity, identity)
 	) return 'identity_mismatch';
-	if (policy.provenance.zoneId === null) return 'policy_not_zone_scoped';
 	if (policy.provenance.zoneId !== identity.familyId) return 'identity_mismatch';
 	const products = catalog.products;
 	if (
@@ -383,6 +396,10 @@ function isNonBlank(value: unknown): value is string {
 
 function isSafeId(value: unknown): value is string {
 	return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
+}
+
+function sameDecisionModes(left: readonly DecisionMode[], right: readonly DecisionMode[]): boolean {
+	return left.length === right.length && left.every((mode, index) => mode === right[index]);
 }
 
 function liveModelApprovedFor(zoneId: string): boolean {

@@ -5,11 +5,13 @@ import {
 	compileCompositionPolicy,
 	compileLegacyGeneratedCompatibilityPolicy,
 	composeEffectivePolicyVersion,
+	isCompiledTrustedZonePolicy,
 	LEGACY_GENERATED_POLICY_VERSION,
 	type BrandCompositionPolicy,
 	type CompositionPolicyRegistry,
 	type OrganizationCompositionPolicy,
 } from './composition-policy';
+import { findTrustedZoneIdentity } from './zone-catalog';
 
 const organization: OrganizationCompositionPolicy = {
 	organizationId: 'merchant-co',
@@ -165,6 +167,87 @@ describe('hierarchy compilation', () => {
 		})).toThrow(/unknown zone override "account\.welcome" for surface "account"/);
 	});
 
+	it('compiles the registry-issued Bealls account identity only as fixed trusted Hidden', () => {
+		const accountIdentity = findTrustedZoneIdentity('bealls-aisles', 'account.welcome', 'account.welcome');
+		expect(accountIdentity).not.toBeNull();
+		const accountBrand: BrandCompositionPolicy = {
+			...brand,
+			surfaces: {
+				account: {
+					preset: 'compose',
+					capabilities: AUTONOMY_CAPABILITIES,
+					decisionMode: 'model',
+					publicationMode: 'live',
+					allowedComponentVariantIds: ['hero.editorial'],
+					allowedCssVariantIds: ['hero.airy'],
+					allowedCopyVariantIds: ['hero.spring'],
+				},
+			},
+		};
+		const effective = compileCompositionPolicy({
+			organizationId: organization.organizationId,
+			brandId: accountBrand.brandId,
+			surface: 'account',
+			zoneIdentity: accountIdentity!,
+			routeSource: 'pathname',
+			routePath: '/account',
+			registry: registry(organization, accountBrand),
+		});
+
+		expect(isCompiledTrustedZonePolicy(effective)).toBe(true);
+		expect(effective).toMatchObject({
+			capabilities: [],
+			decisionMode: 'fixed',
+			allowedComponentVariantIds: [],
+			allowedCssVariantIds: [],
+			allowedCopyVariantIds: [],
+			provenance: {
+				organizationId: organization.organizationId,
+				brandId: accountBrand.brandId,
+				referenceId: brand.reference.referenceId,
+				referenceVersion: brand.reference.referenceVersion,
+				surface: 'account',
+				zoneId: 'account.welcome',
+				zoneBinding: {
+					zoneOrigin: 'bealls-aisles',
+					familyId: 'account.welcome',
+					instanceId: 'account.welcome',
+					rendererContract: 'trusted-hidden',
+					routePath: '/account',
+					allowedDecisionModes: ['fixed'],
+				},
+			},
+		});
+		expect(Object.isFrozen(effective)).toBe(true);
+	});
+
+	it('rejects cloned, inherited, unknown, and route-mismatched union identities', () => {
+		const accountIdentity = findTrustedZoneIdentity('bealls-aisles', 'account.welcome', 'account.welcome')!;
+		const accountBrand: BrandCompositionPolicy = {
+			...brand,
+			surfaces: {
+				account: {
+					preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
+					allowedComponentVariantIds: [], allowedCssVariantIds: [], allowedCopyVariantIds: [],
+				},
+			},
+		};
+		const compile = (zoneIdentity: unknown, routePath = '/account') => compileCompositionPolicy({
+			organizationId: organization.organizationId,
+			brandId: accountBrand.brandId,
+			surface: 'account',
+			zoneIdentity: zoneIdentity as never,
+			routeSource: 'pathname',
+			routePath,
+			registry: registry(organization, accountBrand),
+		});
+
+		expect(() => compile({ ...accountIdentity })).toThrow(/exact registry-issued object/);
+		expect(() => compile(Object.create(accountIdentity))).toThrow(/exact registry-issued object/);
+		expect(() => compile({ ...accountIdentity, familyId: 'account.unknown' })).toThrow(/exact registry-issued object/);
+		expect(() => compile(accountIdentity, '/account/admin')).toThrow(/not trusted for surface/);
+	});
+
 	it('intersects and narrows organization, brand, surface, and zone authority', () => {
 		const effective = compileHome({ zoneId: 'home.hero' });
 
@@ -174,6 +257,30 @@ describe('hierarchy compilation', () => {
 		expect(effective.allowedCopyVariantIds).toEqual(['hero.evergreen']);
 		expect(effective.decisionMode).toBe('rules');
 		expect(effective.publicationMode).toBe('holdout');
+	});
+
+	it('applies the same authority intersection through an exact Aisles union identity', () => {
+		const zoneIdentity = findTrustedZoneIdentity('aisles', 'home.hero', 'home.hero');
+		expect(zoneIdentity).not.toBeNull();
+		const effective = compileCompositionPolicy({
+			organizationId: organization.organizationId,
+			brandId: brand.brandId,
+			surface: 'home',
+			zoneIdentity: zoneIdentity!,
+			routeSource: 'pathname',
+			routePath: '/',
+			registry: registry(),
+		});
+
+		expect(effective.capabilities).toEqual(['select_products', 'select_copy_variant']);
+		expect(effective.allowedComponentVariantIds).toEqual(['hero.compact']);
+		expect(effective.allowedCssVariantIds).toEqual(['hero.dense']);
+		expect(effective.allowedCopyVariantIds).toEqual(['hero.evergreen']);
+		expect(effective.decisionMode).toBe('rules');
+		expect(effective.provenance.zoneBinding).toMatchObject({
+			zoneOrigin: 'aisles', familyId: 'home.hero', instanceId: 'home.hero', rendererContract: 'aisles-renderer',
+			routePath: '/', allowedDecisionModes: ['fixed', 'rules', 'model'],
+		});
 	});
 
 	it('rejects a brand expansion', () => {
@@ -360,6 +467,7 @@ describe('policy lookup and provenance', () => {
 			referenceVersion: 'reference-12',
 			surface: 'home',
 			zoneId: 'home.hero',
+			zoneBinding: null,
 			preset: 'compose',
 		});
 	});

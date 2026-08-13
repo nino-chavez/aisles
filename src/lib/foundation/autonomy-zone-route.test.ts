@@ -1,16 +1,32 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
 	normalizeTrustedShopperRoute,
 	normalizeTrustedErrorRoute,
 	RouteSurfaceNormalizationError,
 	SHOPPER_ROUTE_MANIFEST_DIGEST,
+	SHOPPER_ROUTE_MANIFEST_DEFINITION,
 	SHOPPER_ROUTE_MANIFEST_VERSION,
 	tryNormalizeTrustedErrorRoute,
 	tryNormalizeTrustedShopperRoute,
 	TRUSTED_SHOPPER_ROUTE_MANIFEST,
 } from './autonomy-zone-route';
 
+const REVIEWED_ROUTE_MANIFEST_RELEASE = {
+	version: '2026-08-13.2',
+	digest: 'sha256:f2745eb59e7ccc870938ed44b8e32951a4e616ca87a1c03615bb30af7eb8d6b7',
+} as const;
+
 describe('trusted shopper route normalization', () => {
+	it('mechanically binds the canonical serializable manifest to its reviewed release', () => {
+		const digest = `sha256:${createHash('sha256')
+			.update(JSON.stringify(SHOPPER_ROUTE_MANIFEST_DEFINITION))
+			.digest('hex')}`;
+		expect(SHOPPER_ROUTE_MANIFEST_VERSION).toBe(REVIEWED_ROUTE_MANIFEST_RELEASE.version);
+		expect(SHOPPER_ROUTE_MANIFEST_DIGEST).toBe(REVIEWED_ROUTE_MANIFEST_RELEASE.digest);
+		expect(digest).toBe(REVIEWED_ROUTE_MANIFEST_RELEASE.digest);
+	});
+
 	it.each([
 		['/', 'home'],
 		['/category/dog-food', 'plp'],

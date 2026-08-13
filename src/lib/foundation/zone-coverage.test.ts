@@ -7,7 +7,7 @@ import * as ts from 'typescript';
 import { parse } from 'svelte/compiler';
 import { BRAND_IDS } from '$lib/brand/config';
 import { getFallback } from './fallbacks';
-import { ZONE_CATALOG, ZONE_CATALOG_IDS, SURFACE_ROUTE_MAPPINGS } from './zone-catalog';
+import { TRUSTED_ZONE_IDENTITIES, ZONE_CATALOG, ZONE_CATALOG_IDS, SURFACE_ROUTE_MAPPINGS } from './zone-catalog';
 import { AISLES_RENDERER_CONTRACT_SNAPSHOT, AISLES_ZONE_REGISTRY_SNAPSHOT, BEALLS_ZONE_SNAPSHOT } from './zone-coverage-snapshot';
 import { ZoneSchemas } from './zone-schemas';
 import { ZONE_IDS, ZONES } from './zones';
@@ -85,6 +85,17 @@ describe('portable zone catalog coverage', () => {
 			expect(file.path).not.toMatch(/^\//);
 			expect(file.sha256).toMatch(/^[a-f0-9]{64}$/);
 		}
+	});
+
+	it('keeps every external exact identity behind the trusted Hidden boundary', () => {
+		const external = TRUSTED_ZONE_IDENTITIES.filter(({ origin }) => origin === 'bealls-aisles');
+		expect(new Set(external.map(({ familyId }) => familyId)).size).toBe(28);
+		expect(external).toHaveLength(36);
+		expect(new Set(external.map(({ instanceId }) => instanceId)).size).toBe(36);
+		expect(external.every(({ rendererContract }) => rendererContract === 'trusted-hidden')).toBe(true);
+		expect(external.find(({ familyId }) => familyId === 'home.editorial-strip')).toMatchObject({
+			rendererContract: 'trusted-hidden',
+		});
 	});
 
 	it('pins the reviewed Aisles renderer and layout contracts behind materializable=yes', () => {
