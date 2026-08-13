@@ -54,6 +54,15 @@ body {
 	-moz-osx-font-smoothing: grayscale;
 }
 
+/* The Preserve storefront owns the whole page surface, including the body
+ * outside its component roots. Keep this route-scoped so other brands retain
+ * their generated theme tokens. */
+body.kibble-reference-body {
+	background-color: #f3f6fc;
+	color: #1e2150;
+	font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
 h1, h2, h3 {
 	font-family: var(--font-display);
 	/*

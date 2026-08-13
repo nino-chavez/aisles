@@ -46,13 +46,13 @@
 			<KibbleProofStrip items={proofItems} />
 		</div>
 
-			<article class="kc-reference-bundle">
+		<article class="kc-reference-bundle">
 				<div class="kc-reference-bundle__media">
 					<img src={featured.image} alt={featured.imageAlt ?? featured.name} />
 				</div>
 				<div class="kc-reference-bundle__content">
 					<p class="kc-reference-eyebrow">{featured.eyebrow}</p>
-					<h2>{featured.name}</h2>
+					<h3>{featured.name}</h3>
 					<ul class="kc-reference-bundle__list">
 						{#each featured.contents as content (content.role)}
 							<li><span>{content.role}</span><span class="kc-reference-bundle__brand">{content.brand}</span></li>
@@ -63,6 +63,6 @@
 					</div>
 					<a href={featured.href} class="kc-reference-button kc-reference-button--primary kc-reference-focus" style="width:100%;margin-top:1rem;">{featured.ctaLabel}</a>
 				</div>
-			</article>
+		</article>
 	</div>
 </section>

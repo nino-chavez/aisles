@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import {
 	KIBBLE_PARITY_METADATA,
+	KIBBLE_PARITY_VIEWPORTS,
 	STRUCTURAL_METRIC_KEYS,
 	assessPixelDifference,
 	compareParityMetadata,
@@ -29,11 +30,6 @@ type PixelComparison = {
 	dimensions: { reference: { width: number; height: number }; candidate: { width: number; height: number } };
 	diffPngBase64: string | null;
 };
-
-const viewports = [
-	{ name: 'mobile', width: 390, height: 844 },
-	{ name: 'desktop', width: 1280, height: 900 },
-] as const;
 
 function dataUrl(buffer: Buffer): string {
 	return `data:image/png;base64,${buffer.toString('base64')}`;
@@ -103,13 +99,24 @@ async function capture(page: Page, url: string, expected: ParityMetadata, pageLa
 			const computed = (element) => element ? getComputedStyle(element) : null;
 			const body = computed(document.body);
 			const heading = computed(document.querySelector('h1'));
-			const container = computed(document.querySelector('.kc-reference-container, .mx-auto.max-w-7xl'));
+			const containerElement = document.querySelector(
+				'main .kc-reference-hero__inner, main section:first-of-type > [class~="mx-auto"][class~="max-w-7xl"]'
+			);
+			const container = computed(containerElement);
 			const header = computed(document.querySelector('header'));
-			if (!body || !heading || !container || !header) throw new Error('Computed-style contract requires body, h1, a reference container, and header.');
+			if (!body || !heading || !containerElement || !container || !header) throw new Error('Computed-style contract requires body, h1, the main hero content container, and header.');
+			const rect = containerElement.getBoundingClientRect();
+			const number = (value) => Number.parseFloat(value) || 0;
+			const rounded = (value) => Math.round(value * 1000) / 1000;
+			const contentLeft = rect.left + number(container.borderLeftWidth) + number(container.paddingLeft);
+			const contentRight = rect.right - number(container.borderRightWidth) - number(container.paddingRight);
+			const viewportWidth = document.documentElement.clientWidth;
 			return {
 				rootBackgroundColor: body.backgroundColor, rootColor: body.color, rootFontFamily: body.fontFamily,
-				h1FontFamily: heading.fontFamily, h1FontWeight: heading.fontWeight, h1LineHeight: heading.lineHeight, h1LetterSpacing: heading.letterSpacing,
-				containerMaxWidth: container.maxWidth, containerPaddingLeft: container.paddingLeft, containerPaddingRight: container.paddingRight,
+				h1FontFamily: heading.fontFamily, h1FontSize: heading.fontSize, h1FontWeight: heading.fontWeight, h1LineHeight: heading.lineHeight, h1LetterSpacing: heading.letterSpacing,
+				containerRectLeft: rounded(rect.left), containerRectRight: rounded(rect.right),
+				containerLeftGutter: rounded(rect.left), containerRightGutter: rounded(viewportWidth - rect.right),
+				containerContentLeft: rounded(contentLeft), containerContentRight: rounded(contentRight), containerContentWidth: rounded(contentRight - contentLeft),
 				headerHeight: header.height, headerPosition: header.position,
 			};
 		})()`),
@@ -196,7 +203,7 @@ async function main(): Promise<void> {
 	let hasFailures = false;
 
 	try {
-		for (const viewport of viewports) {
+		for (const viewport of KIBBLE_PARITY_VIEWPORTS) {
 			const referencePage = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: 1 });
 			const candidatePage = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: 1 });
 			const comparisonPage = await browser.newPage();

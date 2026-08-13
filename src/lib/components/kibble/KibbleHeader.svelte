@@ -43,7 +43,7 @@
 <a href="#kibble-main" class="kibble-reference kc-reference-skip-link kc-reference-focus">{copy.skipLabel}</a>
 
 <div class="kibble-reference kc-reference-status" aria-label={autoRefillStatus}>
-		<div class="kc-reference-container kc-reference-status__inner">
+	<div class="kc-reference-chrome-container kc-reference-status__inner">
 			<span class:kc-reference-status__item--emphasis={Boolean(autoRefillState)} class="kc-reference-status__item">{autoRefillStatus}</span>
 			{#each statusItems as item (item.label)}
 				<span class="kc-reference-status__item">{item.label}</span>
@@ -52,7 +52,7 @@
 </div>
 
 <header class:kc-reference-header--searching={searchOpen} class="kibble-reference kc-reference-header">
-	<div class="kc-reference-container kc-reference-header__inner">
+	<div class="kc-reference-chrome-container kc-reference-header__inner">
 			<button
 				type="button"
 				onclick={() => (drawerOpen = true)}

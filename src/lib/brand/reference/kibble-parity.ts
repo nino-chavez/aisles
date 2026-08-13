@@ -8,6 +8,12 @@ export const KIBBLE_PARITY_METADATA = {
 
 export const KIBBLE_PARITY_FIXED_DATA_IDENTITY = KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256;
 
+export const KIBBLE_PARITY_VIEWPORTS = [
+	{ name: 'mobile', width: 390, height: 844 },
+	{ name: 'tablet', width: 768, height: 1024 },
+	{ name: 'desktop', width: 1280, height: 900 },
+] as const;
+
 export const STRUCTURAL_METRIC_KEYS = [
 	'header',
 	'nav',
@@ -28,13 +34,32 @@ export type StructuralMetrics = Record<StructuralMetricKey, number>;
 
 export const STYLE_METRIC_KEYS = [
 	'rootBackgroundColor', 'rootColor', 'rootFontFamily',
-	'h1FontFamily', 'h1FontWeight', 'h1LineHeight', 'h1LetterSpacing',
-	'containerMaxWidth', 'containerPaddingLeft', 'containerPaddingRight',
+	'h1FontFamily', 'h1FontSize', 'h1FontWeight', 'h1LineHeight', 'h1LetterSpacing',
+	'containerRectLeft', 'containerRectRight', 'containerLeftGutter', 'containerRightGutter',
+	'containerContentLeft', 'containerContentRight', 'containerContentWidth',
 	'headerHeight', 'headerPosition',
 ] as const;
 
 export type StyleMetricKey = (typeof STYLE_METRIC_KEYS)[number];
-export type StyleMetrics = Record<StyleMetricKey, string>;
+export type StyleMetrics = {
+	rootBackgroundColor: string;
+	rootColor: string;
+	rootFontFamily: string;
+	h1FontFamily: string;
+	h1FontSize: string;
+	h1FontWeight: string;
+	h1LineHeight: string;
+	h1LetterSpacing: string;
+	containerRectLeft: number;
+	containerRectRight: number;
+	containerLeftGutter: number;
+	containerRightGutter: number;
+	containerContentLeft: number;
+	containerContentRight: number;
+	containerContentWidth: number;
+	headerHeight: string;
+	headerPosition: string;
+};
 
 export type ParityMetadata = {
 	contractId: string;

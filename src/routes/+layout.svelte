@@ -122,6 +122,8 @@
 	{/if}
 </svelte:head>
 
+<svelte:body class:kibble-reference-body={data.chromeMode === 'reference'} />
+
 <div style={themeStyle}>
 	{#if isObserve}
 		{@render children()}

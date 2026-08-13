@@ -53,6 +53,12 @@ describe('Kibble reference components fail closed', () => {
 		expect(card).toContain('kc-reference-product-card--disabled');
 	});
 
+	it('keeps the featured bundle below the page heading in the heading outline', () => {
+		const hero = component('KibbleHero.svelte');
+		expect(hero).toContain('<h3>{featured.name}</h3>');
+		expect(hero).not.toContain('<h2>{featured.name}</h2>');
+	});
+
 	it('renders the contracted PLP anatomy without enabling PDP cards', () => {
 		const category = component('KibbleCategoryReference.svelte');
 		expect(category).toContain('aria-label="Breadcrumb"');

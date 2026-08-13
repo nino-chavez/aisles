@@ -1,11 +1,11 @@
 # Kibble visual parity gate
 
 This command checks a fixed Kibble Preserve page against an explicitly named
-reference page at mobile and desktop widths. It is a release gate, not a tool
+reference page at mobile, tablet, and desktop widths. It is a release gate, not a tool
 for creating or updating a baseline.
 
-The command writes two screenshots, a pixel-difference image when dimensions
-match, and a JSON report under `validation/kibble-parity/`. That directory is
+The command writes two screenshots, a pixel-difference image, and a JSON report
+under `validation/kibble-parity/`. That directory is
 ignored by Git. Nothing from a passing run is committed automatically.
 
 ## What must be true before a run
@@ -40,7 +40,7 @@ fixture or contract cannot pass this gate.
 This repository provides one local command for the Home comparison. It starts
 the canonical `bc-subscriptions` storefront and the Aisles candidate as two
 separate Vite processes, supplies both with the source-owned fixed catalog, and
-then invokes the existing 390px and 1280px gate.
+then invokes the 390px, 768px, and 1280px gate.
 
 ```bash
 npm run test:kibble-parity:local
@@ -133,15 +133,18 @@ mask is appropriate in the review evidence for that run.
 
 ## What the gate compares
 
-At 390px and 1280px wide, it checks:
+At 390px, 768px, and 1280px wide, it checks:
 
 - The three provenance markers on both pages.
 - Header, navigation, main, footer, heading, section, image, link, and button
   counts, plus full-page height.
-- Computed root colors and body font; h1 font family, weight, line height, and
-  letter spacing; the reference container's width and gutters; and header
-  height and position. These values are exact checks and are recorded in the
-  report. The runner does not normalize typography or CSS before capture.
+- Computed root colors and body font; h1 font family, size, weight, line height,
+  and letter spacing; and header height and position. It also records numeric
+  geometry for the main hero content container: its bounding edges, viewport
+  gutters, content edges, and content width. The runner targets that container
+  inside `main`, not the first chrome/status container on the page. These values
+  are exact checks and are recorded in the report. The runner does not normalize
+  typography or CSS before capture.
 - Full-page screenshot dimensions and changed-pixel ratio after the declared
   masks are applied.
 

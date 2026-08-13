@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	KIBBLE_PARITY_FIXED_DATA_IDENTITY,
+	KIBBLE_PARITY_VIEWPORTS,
 	assessPixelDifference,
 	compareParityMetadata,
 	compareStyleMetrics,
@@ -29,6 +30,10 @@ const environment = {
 };
 
 describe('Kibble visual parity configuration', () => {
+	it('covers the canonical mobile, tablet, and desktop widths', () => {
+		expect(KIBBLE_PARITY_VIEWPORTS.map(({ width }) => width)).toEqual([390, 768, 1280]);
+	});
+
 	it('requires explicit URLs, identity, masks, and tolerances', () => {
 		const config = readKibbleParityConfig(environment);
 		expect(config.expected.fixedDataIdentity).toBe(KIBBLE_PARITY_FIXED_DATA_IDENTITY);
@@ -55,10 +60,13 @@ describe('Kibble visual parity configuration', () => {
 	it('fails when a computed visual token changes', () => {
 		const styles = {
 			rootBackgroundColor: 'rgb(243, 246, 252)', rootColor: 'rgb(30, 33, 80)', rootFontFamily: 'Plus Jakarta Sans',
-			h1FontFamily: 'Plus Jakarta Sans', h1FontWeight: '800', h1LineHeight: '61.2px', h1LetterSpacing: '-2.1px',
-			containerMaxWidth: '1200px', containerPaddingLeft: '0px', containerPaddingRight: '0px', headerHeight: '64px', headerPosition: 'sticky',
+			h1FontFamily: 'Plus Jakarta Sans', h1FontSize: '60px', h1FontWeight: '800', h1LineHeight: '61.2px', h1LetterSpacing: '-2.4px',
+			containerRectLeft: 0, containerRectRight: 1280, containerLeftGutter: 0, containerRightGutter: 0,
+			containerContentLeft: 32, containerContentRight: 1248, containerContentWidth: 1216,
+			headerHeight: '65px', headerPosition: 'sticky',
 		};
 		expect(compareStyleMetrics(styles, styles)).toEqual([]);
 		expect(compareStyleMetrics(styles, { ...styles, h1FontWeight: '700' })[0]?.field).toBe('style.h1FontWeight');
+		expect(compareStyleMetrics(styles, { ...styles, containerContentWidth: 1200 })[0]?.field).toBe('style.containerContentWidth');
 	});
 });
