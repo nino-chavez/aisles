@@ -36,7 +36,7 @@ export const POST: RequestHandler = async ({ url, cookies }) => {
 	try {
 		// This is a lookup, not getSessionStore: a missing or foreign cookie must
 		// never create a session just to preview a decision.
-		const store = await findSessionStore(sessionId, { fresh: true });
+		const store = await findSessionStore(sessionId);
 		if (!store) return sessionUnavailable();
 
 		const inference = infer(store.toInferenceContext());

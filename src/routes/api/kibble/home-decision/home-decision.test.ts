@@ -86,7 +86,14 @@ describe('POST /api/kibble/home-decision', () => {
 		mocks.findSessionStore.mockResolvedValueOnce(null);
 		const response = await POST(request());
 		expect(response.status).toBe(409);
-		expect(mocks.findSessionStore).toHaveBeenCalledWith('session-one', { fresh: true });
+		expect(mocks.findSessionStore).toHaveBeenCalledWith('session-one');
+	});
+
+	it('accepts the scoped hot session in dev when Redis is unavailable', async () => {
+		const response = await POST(request());
+
+		expect(response.status).toBe(200);
+		expect(mocks.findSessionStore).toHaveBeenCalledWith('session-one');
 	});
 
 	it('derives and serializes a bounded, score-free server preview', async () => {
