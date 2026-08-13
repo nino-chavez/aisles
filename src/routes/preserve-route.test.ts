@@ -27,6 +27,10 @@ describe('Preserve route boundaries', () => {
 			expect(kibble.chromeMode).toBe('reference');
 			expect(kibble.kibbleChrome?.navItems[0]).toEqual({ label: 'Dog Food', href: '/category/dog-food' });
 			expect(kibble.kibbleChrome?.statusItems).toEqual([]);
+			expect(kibble.kibbleErrorPolicy).toMatchObject({
+				referenceId: 'kibble-shelf-native', referenceVersion: '1.4.0',
+				policies: [{ surface: 'error-404' }, { surface: 'error-empty' }],
+			});
 
 			process.env.BRAND_ID = 'haven';
 			const legacy = await loadLayout({ url: new URL('https://aisles.test/'), cookies } as never);
@@ -34,6 +38,7 @@ describe('Preserve route boundaries', () => {
 			expect(legacy.renderMode).toBe('legacy-generated');
 			expect(legacy.chromeMode).toBe('legacy');
 			expect(legacy.kibbleChrome).toBeNull();
+			expect(legacy.kibbleErrorPolicy).toBeNull();
 
 			process.env.BRAND_ID = 'kibble';
 			const unsupported = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);

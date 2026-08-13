@@ -5,6 +5,11 @@
 	let chromeMode = $derived($page.data.chromeMode);
 	let status = $derived($page.status);
 	let errorMessage = $derived($page.error?.message ?? 'This page is temporarily unavailable.');
+	let errorPolicyAttribute = $derived(
+		$page.data.kibbleErrorPolicy?.policies
+			.map((policy: { surface: string; policyVersion: string }) => `${policy.surface}:${policy.policyVersion}`)
+			.join(','),
+	);
 </script>
 
 <svelte:head>
@@ -12,7 +17,13 @@
 </svelte:head>
 
 {#if chromeMode === 'reference'}
-	<KibbleErrorReference {status} message={errorMessage} {...$page.data.kibbleError} />
+	<div
+		data-reference-id={$page.data.kibbleErrorPolicy?.referenceId}
+		data-reference-contract-version={$page.data.kibbleErrorPolicy?.referenceVersion}
+		data-reference-policy={errorPolicyAttribute}
+	>
+		<KibbleErrorReference {status} message={errorMessage} {...$page.data.kibbleError} />
+	</div>
 {:else}
 	<section class="mx-auto max-w-3xl px-6 py-24 text-center">
 		<p class="text-sm text-surface-muted-fg">Error {status}</p>
