@@ -6,7 +6,6 @@ import HomePage from './+page.svelte';
 import CategoryPage from './category/[slug]/+page.svelte';
 import { _parseKibblePlpRequest } from './category/[slug]/+page.server';
 import { load as loadLayout } from './+layout.server';
-import { load as loadProduct } from './product/[slug]/+page.server';
 import { load as loadSearch } from './search/+page.server';
 import { GET as getCart, POST as postCart } from './api/cart/+server';
 import type { Product } from '$lib/types';
@@ -52,7 +51,7 @@ describe('Preserve route boundaries', () => {
 			expect(kibble.kibbleChrome?.navItems[0]).toEqual({ label: 'Dog Food', href: '/category/dog-food' });
 			expect(kibble.kibbleChrome?.statusItems).toEqual([]);
 			expect(kibble.kibbleErrorPolicy).toMatchObject({
-				referenceId: 'kibble-shelf-native', referenceVersion: '1.4.0',
+				referenceId: 'kibble-shelf-native', referenceVersion: '1.5.0',
 				policies: [{ surface: 'error-404' }, { surface: 'error-empty' }],
 			});
 
@@ -65,10 +64,10 @@ describe('Preserve route boundaries', () => {
 			expect(legacy.kibbleErrorPolicy).toBeNull();
 
 			process.env.BRAND_ID = 'kibble';
-			const unsupported = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);
-			if (!unsupported) throw new Error('Expected the unsupported Kibble surface load to return data.');
-			expect(unsupported.renderMode).toBe('legacy-generated');
-			expect(unsupported.chromeMode).toBe('reference');
+			const pdp = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);
+			if (!pdp) throw new Error('Expected the contracted Kibble PDP layout to return data.');
+			expect(pdp.renderMode).toBe('reference-preserve');
+			expect(pdp.chromeMode).toBe('reference');
 		} finally {
 			if (previousBrand === undefined) delete process.env.BRAND_ID;
 			else process.env.BRAND_ID = previousBrand;
@@ -148,10 +147,8 @@ describe('Preserve route boundaries', () => {
 		}
 	});
 
-	it('fails closed before unsupported Kibble product and search adapters run', async () => {
+	it('keeps search unavailable while PDP has its own contracted server adapter', async () => {
 		const parent = async () => ({ devMode: false, chromeMode: 'reference' });
-		await expect(loadProduct({ params: { slug: 'anything' }, url: new URL('https://aisles.test/product/anything'), parent } as never))
-			.rejects.toMatchObject({ status: 503 });
 		await expect(loadSearch({ url: new URL('https://aisles.test/search?q=food'), parent } as never))
 			.rejects.toMatchObject({ status: 503 });
 	});

@@ -16,7 +16,10 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 		paths: [
 			'apps/storefront-svelte/src/routes/+page.svelte',
 			'apps/storefront-svelte/src/lib/brand/home-media.json',
-			'apps/storefront-svelte/src/lib/brand/bundle-contents.json',
+		'apps/storefront-svelte/src/lib/brand/bundle-contents.json',
+		'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte',
+		'apps/storefront-svelte/src/lib/components/ProductGallery.svelte',
+		'apps/storefront-svelte/src/lib/components/RelatedProducts.svelte',
 			KIBBLE_REFERENCE_CONTRACT.source.fixturePath,
 		] as const,
 	},
@@ -33,6 +36,7 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 			{ field: 'home.hero.headline', reason: 'Removes the unimplemented never-lapses refill promise while retaining the reference brand position.' },
 			{ field: 'home.hero.body', reason: 'Retains the pinned brand and category framing without shipping, savings, cadence, or control claims.' },
 			{ field: 'home.serviceProof', reason: 'Replaces unverified commerce promises with bounded merchant-facing copy derived from the pinned category framing and current catalog configuration.' },
+			{ field: 'pdp.purchaseUnavailable', reason: 'The pinned source provides purchase controls. Aisles cannot transact, so the contracted difference states that boundary instead of imitating a purchasable flow.' },
 		] as const,
 	},
 	display: {
@@ -117,6 +121,14 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 			productSingular: 'product',
 			productPlural: 'products',
 			emptyMessage: 'No products are currently available in this category.',
+		},
+		pdp: {
+			purchaseUnavailableLabel: 'Purchase unavailable in this preview',
+			purchaseUnavailableBody: 'This reference-preserved catalog can show verified product details, but ordering, cart, and subscription services are not available here.',
+			relatedHeading: 'You may also like',
+			copy: {
+				galleryLabel: 'images', galleryImagesLabel: 'Product images', viewImageLabel: 'View image', imageUnavailableLabel: 'Product image unavailable', priceLabel: 'Catalog price', skuLabel: 'SKU', inStockLabel: 'In stock', outOfStockLabel: 'Out of stock', availabilityUnavailableLabel: 'Availability not provided', optionsLegend: 'Catalog options', requiredSuffix: '(required)', detailsHeading: 'Details',
+			},
 		},
 		error: {
 			eyebrow: 'Shelf status',

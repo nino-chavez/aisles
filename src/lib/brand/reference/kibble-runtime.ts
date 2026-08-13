@@ -23,7 +23,7 @@ export type KibbleFeaturedSource = 'featured' | 'newest' | 'deterministic-catalo
 export function selectMerchantRenderMode(brandId: unknown, surface: Surface | null): MerchantRenderMode {
 	const decision = getContractSurfaceDecision(brandId, surface);
 	if (decision.mode !== 'reference-preserve') return decision.mode;
-	if (surface !== 'home' && surface !== 'plp' && surface !== 'error-404' && surface !== 'error-empty') {
+	if (surface !== 'home' && surface !== 'plp' && surface !== 'pdp' && surface !== 'error-404' && surface !== 'error-empty') {
 		return 'legacy-generated';
 	}
 	assertKibblePreserveRoutePolicy(decision.policy, surface);
@@ -95,9 +95,7 @@ export function buildKibbleHomeReference(
 			proofItems: [],
 		},
 		products: featuredProducts,
-		// PDP is not part of the approved Kibble reference contract yet.
-		// Keep the reference card shell non-interactive until that surface lands.
-		productHrefs: {},
+		productHrefs: materializeKibbleProductHrefs(featuredProducts),
 		categories,
 		serviceProof: manifest.home.serviceProof.map((item): KibbleServiceProofItem => ({ ...item })),
 		featuredCopy: {
@@ -148,9 +146,17 @@ export function materializeKibbleCategory(
 		loadMoreHref: state.pageInfo.hasNextPage && state.pageInfo.endCursor
 			? buildKibblePlpHref(state.sort, state.pageInfo.endCursor)
 			: null,
-		// PDP is outside the approved Kibble contract. Preserve cards remain inert.
-		productHrefs: {},
+		productHrefs: materializeKibbleProductHrefs(products),
 	};
+}
+
+/** Only current, locally contracted Kibble PDP slugs become destinations. */
+export function materializeKibbleProductHrefs(products: Product[]): Record<string, string> {
+	const hrefs: Record<string, string> = {};
+	for (const product of products) {
+		if (/^[a-z0-9][a-z0-9-]*$/.test(product.id)) hrefs[product.id] = `/product/${product.id}`;
+	}
+	return hrefs;
 }
 
 export function selectReferenceProducts(products: Product[], excludedEntityId: number, limit: number): Product[] {

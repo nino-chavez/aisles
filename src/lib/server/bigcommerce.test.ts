@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getProductsByCategory, type BCProduct } from './bigcommerce';
+import { getKibbleProductDetailByPath, getProductsByCategory, type BCProduct } from './bigcommerce';
 
 vi.mock('$env/dynamic/private', () => ({
 	env: {
@@ -78,5 +78,32 @@ describe('BigCommerce category PLP query', () => {
 		});
 		expect(requestBodies[0].query).toContain('products(first: $first, after: $after, sortBy: $sortBy)');
 		expect(requestBodies[0].query).toContain('pageInfo');
+	});
+});
+
+describe('BigCommerce Kibble Preserve PDP query', () => {
+	beforeEach(() => { vi.stubEnv('BRAND_ID', 'kibble'); });
+	afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+	it('requests only the fixed catalog-detail fields and no commerce mutation', async () => {
+		const detail = {
+			...product(7),
+			images: { edges: [{ node: { url: 'https://example.com/product.png', altText: 'Product 7' } }] },
+			inventory: { isInStock: true },
+			productOptions: { edges: [{ node: { entityId: 1, displayName: 'Size', isRequired: true, displayStyle: 'Dropdown', values: { edges: [{ node: { entityId: 2, label: 'Small', isDefault: true } }] } } }] },
+			relatedProducts: { edges: [{ node: product(8) }] },
+		};
+		const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+			data: { site: { route: { node: detail } } },
+		}), { status: 200, headers: { 'content-type': 'application/json' } }));
+
+		const result = await getKibbleProductDetailByPath('product-7');
+		expect(result?.entityId).toBe(7);
+		const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+		expect(request.variables).toEqual({ path: '/product-7/' });
+		expect(request.query).toContain('images(first: 10)');
+		expect(request.query).toContain('productOptions(first: 10)');
+		expect(request.query).toContain('relatedProducts(first: 4)');
+		expect(request.query).not.toMatch(/mutation|createCart|addCartLineItems|subscription/i);
 	});
 });

@@ -1025,6 +1025,39 @@
 	margin-top: 0.55rem;
 }
 
+.kc-reference-pdp { padding-block: 1.5rem 4rem; }
+.kc-reference-breadcrumbs { display: flex; flex-wrap: wrap; gap: .5rem; color: var(--kc-muted-text); font-size: .78rem; margin-block: .5rem 1.5rem; }
+.kc-reference-breadcrumbs a { color: inherit; text-decoration: none; }
+.kc-reference-pdp__layout { display: grid; gap: clamp(2rem, 5vw, 5rem); grid-template-columns: minmax(0, 1fr); }
+.kc-reference-pdp__gallery { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+.kc-reference-pdp__thumbnails { display: flex; gap: .5rem; overflow-x: auto; order: 2; }
+.kc-reference-pdp__thumbnail { width: 4.5rem; height: 4.5rem; flex: 0 0 auto; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-sm); background: var(--kc-surface); padding: 0; overflow: hidden; }
+.kc-reference-pdp__thumbnail--active { border: 2px solid var(--kc-action); }
+.kc-reference-pdp__thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.kc-reference-pdp__primary-image { aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-lg); background: var(--kc-surface); color: var(--kc-muted-text); }
+.kc-reference-pdp__primary-image img { width: 100%; height: 100%; object-fit: contain; }
+.kc-reference-pdp__details h1 { margin: .35rem 0 1rem; font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; }
+.kc-reference-pdp__price { display: flex; align-items: baseline; gap: .75rem; font-family: var(--kc-font-machinery); font-size: 1.35rem; font-weight: 700; }
+.kc-reference-pdp__price s, .kc-reference-pdp__sku { color: var(--kc-muted-text); font-family: var(--kc-font-machinery); font-size: .72rem; }
+.kc-reference-pdp__stock { margin: .65rem 0 0; color: var(--kc-muted-text); font-size: .82rem; font-weight: 700; }
+.kc-reference-pdp__stock--in { color: var(--kc-autorefill-text); }
+.kc-reference-pdp__options { display: grid; gap: .75rem; margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-md); }
+.kc-reference-pdp__options label { display: grid; gap: .35rem; color: var(--kc-muted-text); font-size: .76rem; font-weight: 700; }
+.kc-reference-pdp__options select { min-height: 42px; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-sm); background: var(--kc-muted-surface); color: var(--kc-muted-text); padding-inline: .75rem; }
+.kc-reference-pdp__purchase-unavailable { margin-block: 1.5rem; border: 1px solid var(--kc-border-strong); border-left: 4px solid var(--kc-savings); border-radius: var(--kc-radius-md); background: var(--kc-muted-surface); padding: 1rem; }
+.kc-reference-pdp__purchase-unavailable p:last-child { margin: .4rem 0 0; color: var(--kc-muted-text); font-size: .9rem; line-height: 1.5; }
+.kc-reference-pdp__description, .kc-reference-pdp__specs { margin-top: 1.75rem; border-top: 1px solid var(--kc-border); padding-top: 1.25rem; }
+.kc-reference-pdp__description h2, .kc-reference-pdp__related h2 { margin: 0; font-size: 1.35rem; }
+.kc-reference-pdp__description p { color: var(--kc-muted-text); line-height: 1.65; white-space: pre-line; }
+.kc-reference-pdp__specs { display: grid; gap: .65rem; }
+.kc-reference-pdp__specs div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; border-bottom: 1px solid var(--kc-border); padding-bottom: .65rem; font-size: .8rem; }
+.kc-reference-pdp__specs dt { color: var(--kc-muted-text); }.kc-reference-pdp__specs dd { margin: 0; font-weight: 700; }
+.kc-reference-pdp__related { margin-top: 4rem; border-top: 1px solid var(--kc-border); padding-block: 3rem; background: var(--kc-muted-surface); }
+.kc-reference-pdp__related .kc-reference-product-grid { margin-top: 1.5rem; }
+
+@media (min-width: 768px) { .kc-reference-pdp__gallery { grid-template-columns: 5rem minmax(0, 1fr); }.kc-reference-pdp__thumbnails { flex-direction: column; overflow: visible; order: 0; } }
+@media (min-width: 1024px) { .kc-reference-pdp__layout { grid-template-columns: minmax(0, 1.05fr) minmax(22rem, .95fr); }.kc-reference-pdp { padding-block: 2rem 5rem; } }
+
 .kc-reference-visual-grid--2,
 .kc-reference-visual-grid--3,
 .kc-reference-visual-grid--4 {

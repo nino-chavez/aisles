@@ -39,7 +39,7 @@ describe('Kibble Preserve runtime adapter', () => {
 	it('selects Preserve only through an own trusted brand id', () => {
 		expect(selectMerchantRenderMode('kibble', 'home')).toBe('reference-preserve');
 		expect(selectMerchantRenderMode('kibble', 'plp')).toBe('reference-preserve');
-		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('legacy-generated');
+		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('reference-preserve');
 		expect(selectMerchantRenderMode('haven', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('__proto__', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode({ id: 'kibble' }, 'home')).toBe('legacy-generated');
@@ -73,12 +73,12 @@ describe('Kibble Preserve runtime adapter', () => {
 		]);
 		expect(home.featuredCopy.title).toBe('Catalog shelf');
 		expect(home.products.map(({ entityId }) => entityId)).toEqual([4, 2, 3]);
-		expect(home.productHrefs).toEqual({});
+		expect(home.productHrefs).toEqual({ four: '/product/four', two: '/product/two', three: '/product/three' });
 		expect(home.categories).toHaveLength(8);
 		expect(home.hero.proofItems).toEqual([]);
 	});
 
-	it('materializes breadcrumb, sort, and cursor continuation without PDP links', () => {
+	it('materializes breadcrumb, sort, cursor continuation, and contracted PDP links', () => {
 		const brand = getBrandById('kibble')!;
 		const category = materializeKibbleCategory(brand, 'dog-food', [product(1, 'one')], {
 			sort: 'LOWEST_PRICE',
@@ -88,7 +88,7 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(category.sortOptions).toHaveLength(7);
 		expect(category.selectedSort).toBe('LOWEST_PRICE');
 		expect(category.loadMoreHref).toBe('?sort=LOWEST_PRICE&after=YXJyYXljb25uZWN0aW9uOjIz');
-		expect(category.productHrefs).toEqual({});
+		expect(category.productHrefs).toEqual({ one: '/product/one' });
 		expect(materializeKibbleCategory(brand, 'dog-food', [product(1, 'one')], {
 			sort: 'FEATURED', pageInfo: { hasNextPage: false, endCursor: null },
 		}).loadMoreHref).toBeNull();
@@ -96,7 +96,7 @@ describe('Kibble Preserve runtime adapter', () => {
 
 	it('records every bounded copy divergence and withholds operational claims', () => {
 		expect(KIBBLE_PRESERVE_MANIFEST.copyProvenance.approvedBoundedDivergences.map(({ field }) => field)).toEqual([
-			'home.hero.eyebrow', 'home.hero.headline', 'home.hero.body', 'home.serviceProof',
+			'home.hero.eyebrow', 'home.hero.headline', 'home.hero.body', 'home.serviceProof', 'pdp.purchaseUnavailable',
 		]);
 		expect(KIBBLE_PRESERVE_MANIFEST.withheldSourceClaims).toContain('engine health');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('$30M');

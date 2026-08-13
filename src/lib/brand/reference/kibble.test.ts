@@ -38,6 +38,7 @@ describe('Kibble reference contract', () => {
 		['home recipe anatomy', ['recipes', 'home', 'orderedAnatomy']],
 		['PLP page size', ['recipes', 'plp', 'pageSize']],
 		['PLP sort choices', ['recipes', 'plp', 'sortChoices']],
+		['PDP catalog-only recipe', ['recipes', 'pdp']],
 	] as const)('rejects a contract missing %s', (_label, path) => {
 		expect(KibbleReferenceContractSchema.safeParse(remove([...path])).success).toBe(false);
 	});
@@ -132,13 +133,15 @@ describe('Kibble reference contract', () => {
 	it('registers every Preserve route renderer and its complete variant', () => {
 		const renderers = new Map(KIBBLE_REFERENCE_CONTRACT.components.map((component) => [component.implementation, component]));
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.home.implementation).toBe('KibbleHomeReference.svelte');
-		for (const recipe of [KIBBLE_REFERENCE_CONTRACT.recipes.plp, KIBBLE_REFERENCE_CONTRACT.recipes.error]) {
+		for (const recipe of [KIBBLE_REFERENCE_CONTRACT.recipes.plp, KIBBLE_REFERENCE_CONTRACT.recipes.pdp, KIBBLE_REFERENCE_CONTRACT.recipes.error]) {
 			expect(renderers.has(recipe.implementation)).toBe(true);
 		}
 		const plp = renderers.get('KibbleCategoryReference.svelte')!;
 		expect(plp.variants.map(({ id }) => id)).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.plp.variantId);
 		const error = renderers.get('KibbleErrorReference.svelte')!;
 		expect(error.variants.map(({ id }) => id)).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.error.variantId);
+		const pdp = renderers.get('KibbleProductDetailReference.svelte')!;
+		expect(pdp.variants.map(({ id }) => id)).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.variantId);
 	});
 
 	it('pins the full PLP request and rendering contract', () => {
@@ -163,6 +166,18 @@ describe('Kibble reference contract', () => {
 			A_TO_Z: 'A_TO_Z', Z_TO_A: 'Z_TO_A',
 			LOWEST_PRICE: 'LOWEST_PRICE', HIGHEST_PRICE: 'HIGHEST_PRICE',
 		});
+	});
+
+	it('pins the PDP source anatomy and explicit unavailable-purchase difference', () => {
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp).toMatchObject({
+			acceptance: 'implemented-pending-visual-approval',
+			source: { commit: '77236d229cd8020cfc363f002080781f4376b4b5' },
+			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'catalog-price-and-availability', 'catalog-options', 'merchant-approved-purchase-unavailable', 'description-and-specifications', 'related-products'],
+			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'merchant-approved-purchase-unavailable' },
+			modelLayoutRequest: false,
+		});
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('add-to-cart');
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('subscription');
 	});
 
 	it('rejects reordered or invented PLP sort controls', () => {

@@ -61,4 +61,11 @@ describe('Kibble reference components fail closed', () => {
 		expect(category).toContain('{#if loadMoreHref}');
 		expect(category).toContain('productHref={productHrefs[product.id]}');
 	});
+
+	it('keeps the PDP catalog-only and routes every visible label through its adapter copy', () => {
+		const pdp = component('KibbleProductDetailReference.svelte');
+		expect(pdp).toContain('data-kibble-pdp-recipe="fixed-catalog-display-only"');
+		for (const forbidden of ['/api/cart', '/api/suggest', 'addToCart', 'Auto-Refill', 'subscription']) expect(pdp).not.toContain(forbidden);
+		for (const field of ['purchaseUnavailableLabel', 'purchaseUnavailableBody', 'galleryLabel', 'skuLabel', 'detailsHeading']) expect(pdp).toContain(field);
+	});
 });
