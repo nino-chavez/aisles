@@ -73,8 +73,14 @@
 					previewFeaturedZoneAdapters = preview.featuredZoneAdapters ?? null;
 					previewInspector = preview.inspector;
 				},
-				onStatus: (status) => { livePreviewStatus = status; },
+				onStatus: (status) => {
+					livePreviewStatus = status;
+					if (status.state !== 'waiting') {
+						window.dispatchEvent(new CustomEvent('aisles-kibble-home-model-status', { detail: status.state }));
+					}
+				},
 			});
+			window.dispatchEvent(new CustomEvent('aisles-kibble-home-model-ready'));
 		});
 		return () => {
 			disposed = true;
@@ -211,6 +217,7 @@
 			categoryTitle={data.kibbleHome.categoryTitle}
 			categoryEyebrow={data.kibbleHome.categoryEyebrow}
 			zoneAdapters={activeHomeZoneAdapters}
+			modelEligible={Boolean(data.kibbleHomeInspector?.availableModelDecision)}
 		/>
 	</div>
 {:else}

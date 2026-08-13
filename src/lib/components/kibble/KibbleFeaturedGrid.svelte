@@ -11,6 +11,7 @@
 		browseHref,
 		subscriptionOffers = {},
 		zoneAdapters,
+		modelEligible = false,
 	}: {
 		copy: KibbleFeaturedCopy;
 		products: KibbleProduct[];
@@ -18,6 +19,7 @@
 		browseHref: string;
 		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
 		zoneAdapters?: KibbleZoneAdapterBinding<ProductGridContent>[];
+		modelEligible?: boolean;
 	} = $props();
 	const productsByEntityId = $derived(new Map(products.map((product) => [String(product.entityId), product])));
 	const resolvedAdapters = $derived(zoneAdapters ?? []);
@@ -36,7 +38,7 @@
 
 			<div class="kc-reference-product-grid">
 				{#each resolvedAdapters as adapter (adapter.instanceId)}
-					<div class="kc-reference-zone-segment" data-kibble-zone-instance={adapter.instanceId} data-kibble-zone-status={adapter.sharedStatus} data-kibble-zone-content-kind={adapter.sharedContentKind} data-kibble-zone-adapter={adapter.adapterId} data-kibble-zone-variant={adapter.componentVariantId} data-kibble-zone-input-sha256={adapter.inputSha256} data-aisles-zone-instance={adapter.instanceId} data-aisles-zone-label={adapter.instanceId} data-aisles-authority={adapter.decisionMode ?? 'fixed'} data-aisles-model-calls={adapter.modelCallCount ?? 0}>
+					<div class="kc-reference-zone-segment" data-kibble-zone-instance={adapter.instanceId} data-kibble-zone-status={adapter.sharedStatus} data-kibble-zone-content-kind={adapter.sharedContentKind} data-kibble-zone-adapter={adapter.adapterId} data-kibble-zone-variant={adapter.componentVariantId} data-kibble-zone-input-sha256={adapter.inputSha256} data-aisles-zone-instance={adapter.instanceId} data-aisles-zone-label={adapter.instanceId} data-aisles-authority={adapter.decisionMode ?? 'fixed'} data-aisles-model-calls={adapter.modelCallCount ?? 0} data-aisles-model-eligible={modelEligible && adapter.instanceId === 'home.featured-row.1' ? 'true' : undefined}>
 						{#each adapter.content.props.products as productRef (productRef.productId)}
 							{@const product = productsByEntityId.get(productRef.productId)}
 							{#if product}

@@ -13,6 +13,7 @@
 		label: string;
 		authority: ZoneAuthority;
 		modelCalls: number;
+		modelEligible: boolean;
 		status: string;
 		variant: string;
 	};
@@ -43,6 +44,9 @@
 	let showZones = $state(false);
 	let zones = $state<ZoneEvidence[]>([]);
 	let persona = $state<string | null>(null);
+	let homeModelActionEligible = $state(false);
+	let homeModelActionReady = $state(false);
+	let homeModelActionStatus = $state<KibblePdpModelActionStatus>('idle');
 	let pdpModelActionEligible = $state(false);
 	let pdpModelActionReady = $state(false);
 	let pdpModelActionStatus = $state<KibblePdpModelActionStatus>('idle');
@@ -51,13 +55,29 @@
 	let plpModelActionStatus = $state<KibblePlpModelActionStatus>('idle');
 	const pdpModelAction = $derived(describeKibblePdpModelAction(pdpModelActionStatus));
 	const plpModelAction = $derived(describeKibblePlpModelAction(plpModelActionStatus));
+	const homeModelAction = $derived(describeHomeModelAction(homeModelActionStatus));
 	const visiblePersona = $derived(persona ?? initialPersona);
 	const observeHref = $derived(buildObserveSessionHref(sessionId));
 	const templateCount = $derived(zones.filter(({ authority }) => authority === 'fixed').length);
 	const rulesCount = $derived(zones.filter(({ authority }) => authority === 'rules').length);
-	const modelZoneCount = $derived(zones.filter(({ authority }) => authority === 'model').length);
+	const modelEligibleCount = $derived(zones.filter(({ modelEligible }) => modelEligible).length);
 	const modelCallCount = $derived(zones.reduce((sum, zone) => sum + zone.modelCalls, 0));
 	const surfaceLabel = $derived(labelFromId(surface));
+	const modelActionEligible = $derived(
+		surface === 'home' ? homeModelActionEligible : surface === 'pdp' ? pdpModelActionEligible : surface === 'plp' ? plpModelActionEligible : false,
+	);
+	const modelActionReady = $derived(
+		surface === 'home' ? homeModelActionReady : surface === 'pdp' ? pdpModelActionReady : surface === 'plp' ? plpModelActionReady : false,
+	);
+	const modelAction = $derived(
+		surface === 'home' ? homeModelAction : surface === 'pdp' ? pdpModelAction : surface === 'plp' ? plpModelAction : null,
+	);
+	const modelActionStatus = $derived(
+		surface === 'home' ? homeModelActionStatus : surface === 'pdp' ? pdpModelActionStatus : plpModelActionStatus,
+	);
+	const railSummary = $derived(
+		modelCallCount > 0 ? `${surfaceLabel} · AI applied` : modelEligibleCount > 0 ? `${surfaceLabel} · AI available` : `${surfaceLabel} · Template and rules`,
+	);
 
 	$effect(() => {
 		if (initialPersona) persona = initialPersona;
@@ -75,17 +95,27 @@
 			if (!instanceId) continue;
 			const authority = parseAuthority(element.dataset.aislesAuthority, instanceId);
 			const modelCalls = boundedCount(element.dataset.aislesModelCalls);
+			const modelEligible = element.dataset.aislesModelEligible === 'true';
+			element.dataset.aislesObserveState = modelCalls > 0 || authority === 'model'
+				? 'AI applied'
+				: modelEligible ? 'AI available' : authority === 'rules' ? 'Rules' : 'Template';
 			evidence.set(instanceId, {
 				instanceId,
 				label: element.dataset.aislesZoneLabel || labelFromId(instanceId),
 				authority,
 				modelCalls,
+				modelEligible,
 				status: element.dataset.kibbleZoneStatus || 'live',
 				variant: element.dataset.kibbleZoneVariant || element.dataset.aislesVariant || 'reference-owned',
 			});
 		}
+		homeModelActionEligible = surface === 'home' && [...evidence.values()].some(({ modelEligible }) => modelEligible);
 		pdpModelActionEligible = document.querySelector('[data-aisles-pdp-model-eligible="true"]') !== null;
 		plpModelActionEligible = document.querySelector('[data-aisles-plp-model-eligible="true"]') !== null;
+		if (!homeModelActionEligible) {
+			homeModelActionStatus = 'idle';
+			homeModelActionReady = false;
+		}
 		if (!pdpModelActionEligible) {
 			pdpModelActionStatus = 'idle';
 			pdpModelActionReady = false;
@@ -111,6 +141,7 @@
 			attributeFilter: [
 				'data-aisles-zone-instance', 'data-aisles-zone-label', 'data-aisles-authority',
 				'data-aisles-model-calls', 'data-kibble-zone-instance', 'data-kibble-zone-status',
+				'data-aisles-model-eligible',
 				'data-aisles-pdp-model-eligible',
 				'data-aisles-plp-model-eligible',
 			],
@@ -122,6 +153,11 @@
 				persona = inference.primary as KibbleInspectorPersona;
 			}
 		};
+		const onHomeModelStatus = (event: Event) => {
+			const status = event instanceof CustomEvent ? event.detail : null;
+			if (status === 'updating' || status === 'applied' || status === 'failed') homeModelActionStatus = status;
+		};
+		const onHomeModelReady = () => { homeModelActionReady = true; };
 		const onPdpModelStatus = (event: Event) => {
 			const status = event instanceof CustomEvent ? event.detail : null;
 			if (status === 'updating' || status === 'applied' || status === 'failed') pdpModelActionStatus = status;
@@ -134,6 +170,8 @@
 		const onPlpModelReady = () => { plpModelActionReady = true; };
 		window.addEventListener('hashchange', collapseForSignalLab);
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
+		window.addEventListener('aisles-kibble-home-model-status', onHomeModelStatus);
+		window.addEventListener('aisles-kibble-home-model-ready', onHomeModelReady);
 		window.addEventListener('aisles-kibble-pdp-model-status', onPdpModelStatus);
 		window.addEventListener('aisles-kibble-pdp-model-ready', onPdpModelReady);
 		window.addEventListener('aisles-kibble-plp-model-status', onPlpModelStatus);
@@ -142,6 +180,8 @@
 			observer.disconnect();
 			window.removeEventListener('hashchange', collapseForSignalLab);
 			window.removeEventListener('aisles-inference-update', onInferenceUpdate);
+			window.removeEventListener('aisles-kibble-home-model-status', onHomeModelStatus);
+			window.removeEventListener('aisles-kibble-home-model-ready', onHomeModelReady);
 			window.removeEventListener('aisles-kibble-pdp-model-status', onPdpModelStatus);
 			window.removeEventListener('aisles-kibble-pdp-model-ready', onPdpModelReady);
 			window.removeEventListener('aisles-kibble-plp-model-status', onPlpModelStatus);
@@ -174,10 +214,36 @@
 		window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-request'));
 	}
 
+	function requestHomeModelDecision() {
+		if (!homeModelActionEligible || !homeModelActionReady || homeModelAction.disabled) return;
+		homeModelActionStatus = 'updating';
+		window.dispatchEvent(new CustomEvent('aisles-kibble-model-request'));
+	}
+
 	function requestPlpModelDecision() {
 		if (!plpModelActionEligible || !plpModelActionReady || plpModelAction.disabled) return;
 		plpModelActionStatus = 'updating';
 		window.dispatchEvent(new CustomEvent('aisles-kibble-plp-model-request'));
+	}
+
+	function requestModelDecision() {
+		if (surface === 'home') requestHomeModelDecision();
+		else if (surface === 'pdp') requestPdpModelDecision();
+		else if (surface === 'plp') requestPlpModelDecision();
+	}
+
+	function describeHomeModelAction(status: KibblePdpModelActionStatus) {
+		if (status === 'updating') return { label: 'AI-ranking featured products…', detail: 'One bounded AI ranking is running. The fixed shelf remains visible until its exact order is validated.', disabled: true };
+		if (status === 'applied') return { label: 'Run AI ranking again', detail: 'A model returned and applied the current featured-product order. The fixed Home content did not change.', disabled: false };
+		if (status === 'failed') return { label: 'AI ranking failed — retry', detail: 'The model result was not applied. The last approved featured shelf remains visible.', disabled: false };
+		return { label: 'AI-rank featured products', detail: 'Ready to run one bounded AI ranking for the fixed featured-products shelf.', disabled: false };
+	}
+
+	function compactModelActionLabel(status: KibblePdpModelActionStatus | KibblePlpModelActionStatus) {
+		if (status === 'updating') return 'AI running…';
+		if (status === 'failed') return 'Retry AI';
+		if (status === 'applied') return 'Run AI again';
+		return 'Run AI';
 	}
 
 	function parseAuthority(value: string | undefined, instanceId: string): ZoneAuthority {
@@ -208,28 +274,40 @@
 				<span class="aisles-observe__seam" aria-hidden="true"><i></i><i></i><i></i></span>
 				<div>
 					<p>Aisles live evidence</p>
-					<h2 id="aisles-observe-title">
-						{surfaceLabel} · Preserve shell{modelCallCount > 0 ? ' · AI-ranked shelf' : ''}
-					</h2>
+					<h2 id="aisles-observe-title">{railSummary}</h2>
 				</div>
 			</div>
-			<button type="button" aria-expanded={expanded} aria-controls="aisles-observe-body" onclick={toggleExpanded}>
-				{expanded ? 'Collapse' : 'Expand'}
-			</button>
+			<div class="aisles-observe__header-actions">
+				{#if !expanded && modelActionEligible && modelAction}
+					<button
+						type="button"
+						class="aisles-observe__model-action"
+						aria-label={modelAction.label}
+						onclick={requestModelDecision}
+						disabled={!modelActionReady || modelAction.disabled}
+					>
+						{modelActionReady ? compactModelActionLabel(modelActionStatus) : 'AI loading…'}
+					</button>
+				{/if}
+				<button type="button" aria-expanded={expanded} aria-controls="aisles-observe-body" onclick={toggleExpanded}>
+					{expanded ? 'Collapse' : 'Expand'}
+				</button>
+			</div>
 		</header>
 
 		<div id="aisles-observe-body" class="aisles-observe__body" hidden={!expanded}>
 			<div class="aisles-observe__counts" aria-label="Visible decision authority">
 				<div><span class="aisles-observe__pip aisles-observe__pip--fixed"></span><b>Template</b><strong>{templateCount}</strong></div>
 				<div><span class="aisles-observe__pip aisles-observe__pip--rules"></span><b>Rules</b><strong>{rulesCount}</strong></div>
+				<div><span class="aisles-observe__pip aisles-observe__pip--model"></span><b>AI zones</b><strong>{modelEligibleCount}</strong></div>
 				<div><span class="aisles-observe__pip aisles-observe__pip--model"></span><b>AI calls</b><strong>{modelCallCount}</strong></div>
 			</div>
 
 			<p class="aisles-observe__truth" aria-live="polite" aria-atomic="true">
 				{#if modelCallCount > 0}
 					A model returned the product order for the ranked shelf. The shelf component and all shopper-facing product fields remained fixed.
-				{:else if modelZoneCount > 0}
-					AI authority exists, but no model call produced the current page.
+				{:else if modelEligibleCount > 0}
+					{modelEligibleCount} bounded AI {modelEligibleCount === 1 ? 'zone is' : 'zones are'} available. The current result remains template- or rules-owned until you run the AI control.
 				{:else if rulesCount > 0}
 					Signals can change approved product order. The page structure remains the merchant template. No model generated this page.
 				{:else}
@@ -248,19 +326,18 @@
 					{showZones ? 'Hide zone map' : 'Show zone map'}
 				</button>
 				{#if surface === 'home'}<a href="/?observe=true#kibble-signal-lab">Open signal lab</a>{/if}
-				{#if surface === 'pdp' && pdpModelActionEligible && pdpModelActionReady}<button type="button" onclick={requestPdpModelDecision} disabled={pdpModelAction.disabled}>{pdpModelAction.label}</button>{/if}
-				{#if surface === 'plp' && plpModelActionEligible && plpModelActionReady}<button type="button" onclick={requestPlpModelDecision} disabled={plpModelAction.disabled}>{plpModelAction.label}</button>{/if}
+				{#if modelActionEligible && modelAction}<button type="button" class="aisles-observe__model-action" onclick={requestModelDecision} disabled={!modelActionReady || modelAction.disabled}>{modelActionReady ? modelAction.label : 'AI control loading…'}</button>{/if}
 				{#if observeHref}<a href={observeHref} target="_blank" rel="noopener">Open session in Observe <span aria-hidden="true">↗</span></a>{/if}
 			</div>
-			<p class="aisles-observe__truth" role="status" aria-live="polite">{surface === 'pdp' ? pdpModelAction.detail : surface === 'plp' ? plpModelAction.detail : ''}</p>
+			{#if modelActionEligible && modelAction}<p class="aisles-observe__truth" role="status" aria-live="polite">{modelAction.detail}</p>{/if}
 
 			<details class="aisles-observe__zones">
 				<summary>Visible page zones ({zones.length})</summary>
 				<ul>
 					{#each zones as zone (zone.instanceId)}
 						<li>
-							<span class={`aisles-observe__tag aisles-observe__tag--${zone.authority}`}>
-								{zone.authority === 'fixed' ? 'Template' : zone.authority === 'rules' ? 'Rules' : zone.modelCalls ? 'AI live' : 'AI unused'}
+							<span class={`aisles-observe__tag aisles-observe__tag--${zone.modelEligible ? 'model' : zone.authority}`}>
+								{zone.modelCalls > 0 || zone.authority === 'model' ? 'AI applied' : zone.modelEligible ? 'AI available' : zone.authority === 'fixed' ? 'Template' : 'Rules'}
 							</span>
 							<div><b>{zone.label}</b><small>{zone.instanceId} · {zone.status}</small></div>
 						</li>
@@ -290,6 +367,7 @@
 	.aisles-observe__header { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:1rem; border-bottom:1px solid var(--observe-line); background:#e8eefb; padding:.7rem .75rem; }
 	.aisles-observe--collapsed .aisles-observe__header { border-bottom:0; }
 	.aisles-observe__identity { display:flex; align-items:center; gap:.65rem; }
+	.aisles-observe__header-actions { display:flex; align-items:center; gap:.4rem; }
 	.aisles-observe__identity p, .aisles-observe__identity h2 { margin:0; }
 	.aisles-observe__identity p { color:var(--observe-muted); font-size:.62rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 	.aisles-observe__identity h2 { margin-top:.08rem; font-size:.82rem; letter-spacing:-.015em; }
@@ -299,9 +377,12 @@
 	.aisles-observe__seam i:nth-child(3) { background:var(--observe-coral); }
 	.aisles-observe button, .aisles-observe a { min-height:44px; border:1px solid #a9b9db; background:#fff; color:#1c4cab; padding:.45rem .58rem; font:inherit; font-weight:800; text-decoration:none; }
 	.aisles-observe button { cursor:pointer; }
+	.aisles-observe button:disabled { cursor:wait; opacity:.62; }
 	.aisles-observe button:hover, .aisles-observe a:hover { background:#edf2fc; }
+	.aisles-observe .aisles-observe__model-action { border-color:#c9796d; background:#fff2ef; color:#8f3025; }
+	.aisles-observe .aisles-observe__model-action:hover { background:#ffe4df; }
 	.aisles-observe button:focus-visible, .aisles-observe a:focus-visible, .aisles-observe summary:focus-visible { outline:3px solid var(--observe-blue); outline-offset:3px; }
-	.aisles-observe__counts { display:grid; grid-template-columns:repeat(3, 1fr); border-bottom:1px solid var(--observe-line); background:#fff; }
+	.aisles-observe__counts { display:grid; grid-template-columns:repeat(4, 1fr); border-bottom:1px solid var(--observe-line); background:#fff; }
 	.aisles-observe__counts div { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:.35rem; min-width:0; padding:.65rem .7rem; border-right:1px solid var(--observe-line); }
 	.aisles-observe__counts div:last-child { border-right:0; }
 	.aisles-observe__counts b { font-size:.65rem; }
@@ -339,8 +420,10 @@
 	.aisles-observe__footer a { display:inline-flex; flex:none; align-items:center; }
 	:global(body.aisles-observe-zone-map [data-aisles-zone-instance]) { position:relative !important; outline:2px solid #315cc9 !important; outline-offset:-2px; }
 	:global(body.aisles-observe-zone-map [data-aisles-authority='model']) { outline-color:#b94a3b !important; }
+	:global(body.aisles-observe-zone-map [data-aisles-model-eligible='true']) { outline-color:#b94a3b !important; }
 	:global(body.aisles-observe-zone-map [data-aisles-authority='fixed']) { outline-color:#667796 !important; }
-	:global(body.aisles-observe-zone-map [data-aisles-zone-instance]::before) { content:attr(data-aisles-zone-label) ' · ' attr(data-aisles-authority); position:absolute; top:0; left:0; z-index:60; max-width:calc(100% - .5rem); overflow:hidden; background:#17213b; color:#fff; padding:.2rem .35rem; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.6rem; font-weight:800; line-height:1.2; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; }
-	@media (max-width: 640px) { .aisles-observe { right:.65rem; bottom:.65rem; width:calc(100vw - 1.3rem); max-height:62vh; } .aisles-observe--collapsed { left:.65rem; width:auto; } .aisles-observe__facts { grid-template-columns:1fr; } .aisles-observe__footer { align-items:flex-start; flex-direction:column; } }
+	:global(body.aisles-observe-zone-map [data-aisles-model-eligible='true'][data-aisles-authority='fixed']) { outline-color:#b94a3b !important; }
+	:global(body.aisles-observe-zone-map [data-aisles-zone-instance]::before) { content:attr(data-aisles-zone-label) ' · ' attr(data-aisles-observe-state); position:absolute; top:0; left:0; z-index:60; max-width:calc(100% - .5rem); overflow:hidden; background:#17213b; color:#fff; padding:.2rem .35rem; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.6rem; font-weight:800; line-height:1.2; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; }
+	@media (max-width: 640px) { .aisles-observe { right:.65rem; bottom:.65rem; width:calc(100vw - 1.3rem); max-height:62vh; } .aisles-observe--collapsed { left:.65rem; width:auto; } .aisles-observe__header { align-items:flex-start; } .aisles-observe__header-actions { flex-wrap:wrap; justify-content:flex-end; } .aisles-observe__counts { grid-template-columns:repeat(2, 1fr); } .aisles-observe__counts div:nth-child(2) { border-right:0; } .aisles-observe__counts div:nth-child(-n+2) { border-bottom:1px solid var(--observe-line); } .aisles-observe__facts { grid-template-columns:1fr; } .aisles-observe__footer { align-items:flex-start; flex-direction:column; } }
 	@media (prefers-reduced-motion: reduce) { .aisles-observe *, .aisles-observe *::before, .aisles-observe *::after { scroll-behavior:auto !important; transition:none !important; } }
 </style>
