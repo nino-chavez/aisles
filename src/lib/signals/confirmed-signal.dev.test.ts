@@ -62,7 +62,7 @@ describe('development signal receipts', () => {
 		await rejection;
 	});
 
-	it('recovers a confirmed control after the development transport aborts an older stalled batch', async () => {
+	it('drains a newer confirmed control after dropping an older stalled development batch', async () => {
 		vi.useFakeTimers();
 		installWindow();
 		const inference = actualInference();
@@ -72,14 +72,14 @@ describe('development signal receipts', () => {
 					init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
 				});
 			}
-			return Promise.resolve(new Response(JSON.stringify({ received: 2, inference }), { status: 200 }));
+			return Promise.resolve(new Response(JSON.stringify({ received: 1, inference }), { status: 200 }));
 		});
 		vi.stubGlobal('fetch', fetchMock);
 		emitter = new SignalEmitter();
 		emitter.emit('nav.search', { query: 'older stalled signal' });
 		const attempt = registerConfirmedSignal(emitter, 'nav.search', { query: 'budget sale discount' });
 
-		await vi.advanceTimersByTimeAsync(DEV_SIGNAL_REQUEST_TIMEOUT_MS + 250);
+		await vi.advanceTimersByTimeAsync(DEV_SIGNAL_REQUEST_TIMEOUT_MS);
 		await expect(attempt.confirmation).resolves.toEqual(inference);
 		expect(fetchMock).toHaveBeenCalledTimes(2);
 	});

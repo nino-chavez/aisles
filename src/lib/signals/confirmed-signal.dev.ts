@@ -6,6 +6,7 @@ export const SIGNAL_CONFIRMATION_TIMEOUT_MS = 10_000;
 export type SignalConfirmationFailure =
 	| 'timeout'
 	| 'cancelled'
+	| 'network'
 	| 'http'
 	| 'invalid-response'
 	| 'no-session';
@@ -26,6 +27,7 @@ export type ConfirmedSignal = {
 export type SignalBatchReport =
 	| { status: 'confirmed'; inference: PersonaInference }
 	| { status: 'http'; code: number }
+	| { status: 'network' }
 	| { status: 'invalid-response' }
 	| { status: 'no-session' };
 
@@ -36,6 +38,7 @@ type PendingConfirmation = {
 };
 
 const pendingByEmitter = new WeakMap<SignalEmitter, Map<number, PendingConfirmation>>();
+const listeningTargets = new WeakSet<EventTarget>();
 
 /**
  * Development-only exact-sequence receipt. The shared SignalEmitter remains
@@ -48,6 +51,7 @@ export function registerConfirmedSignal(
 	data: Record<string, unknown> = {},
 	timeoutMs = SIGNAL_CONFIRMATION_TIMEOUT_MS,
 ): ConfirmedSignal {
+	ensureBatchListener();
 	let resolve!: (inference: PersonaInference) => void;
 	let reject!: (error: SignalConfirmationError) => void;
 	const confirmation = new Promise<PersonaInference>((resolvePromise, rejectPromise) => {
@@ -72,6 +76,30 @@ export function registerConfirmedSignal(
 	};
 }
 
+function ensureBatchListener(): void {
+	if (listeningTargets.has(window)) return;
+	listeningTargets.add(window);
+	window.addEventListener('aisles-dev-signal-batch-result', (event) => {
+		if (!(event instanceof CustomEvent) || !isBatchEventDetail(event.detail)) return;
+		reportConfirmedSignalBatch(event.detail.emitter, event.detail.sequences, event.detail.report);
+	});
+}
+
+function isBatchEventDetail(value: unknown): value is {
+	emitter: SignalEmitter;
+	sequences: number[];
+	report: SignalBatchReport;
+} {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+	const detail = value as Record<string, unknown>;
+	return !!detail.emitter
+		&& typeof detail.emitter === 'object'
+		&& Array.isArray(detail.sequences)
+		&& detail.sequences.every((sequence) => Number.isSafeInteger(sequence) && sequence >= 0)
+		&& !!detail.report
+		&& typeof detail.report === 'object';
+}
+
 /** Called only from SignalEmitter's compile-time development branch. */
 export function reportConfirmedSignalBatch(
 	emitter: SignalEmitter,
@@ -89,6 +117,13 @@ export function reportConfirmedSignalBatch(
 		}
 		if (report.status === 'no-session') {
 			settleFailure(emitter, sequence, new SignalConfirmationError('no-session', 'Signal endpoint returned no active inference session.'));
+			continue;
+		}
+		if (report.status === 'network') {
+			settleFailure(emitter, sequence, new SignalConfirmationError(
+				'network',
+				'Signal delivery is uncertain because the development request did not complete; no preview confirmation was received.',
+			));
 			continue;
 		}
 		settleFailure(emitter, sequence, new SignalConfirmationError('invalid-response', 'Signal endpoint returned an invalid confirmation.'));

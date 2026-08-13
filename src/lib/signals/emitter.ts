@@ -13,8 +13,7 @@ import { dev } from '$app/environment';
 import type { SignalEventType, SignalSource } from './types';
 import { parseConfirmedSignalBatch } from './client-inference-contract';
 
-export const DEV_SIGNAL_REQUEST_TIMEOUT_MS = 8_000;
-const DEV_SIGNAL_RETRY_DELAY_MS = 250;
+export const DEV_SIGNAL_REQUEST_TIMEOUT_MS = 4_000;
 
 interface EmittedEvent {
 	type: SignalEventType;
@@ -98,9 +97,15 @@ export class SignalEmitter {
 				body: JSON.stringify({ events }),
 				signal: requestController?.signal,
 			});
+			if (requestController?.signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
 			if (!res.ok) {
-				this.reportDevelopmentBatch(events, { status: 'http', code: res.status });
+				if (dev) {
+					const sequences = events.map(({ sequence }) => sequence);
+					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+						detail: { emitter: this, sequences, report: { status: 'http', code: res.status } },
+					}));
+				}
 				return;
 			}
 
@@ -108,27 +113,56 @@ export class SignalEmitter {
 			try {
 				body = await res.json();
 			} catch {
-				this.reportDevelopmentBatch(events, { status: 'invalid-response' });
+				if (dev) {
+					const sequences = events.map(({ sequence }) => sequence);
+					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+						detail: { emitter: this, sequences, report: { status: 'invalid-response' } },
+					}));
+				}
 				return;
 			}
+			if (requestController?.signal.aborted) throw new DOMException('Aborted', 'AbortError');
 			const data = parseConfirmedSignalBatch(body, events.length);
 			if (!data) {
-				this.reportDevelopmentBatch(events, { status: 'invalid-response' });
+				if (dev) {
+					const sequences = events.map(({ sequence }) => sequence);
+					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+						detail: { emitter: this, sequences, report: { status: 'invalid-response' } },
+					}));
+				}
 				return;
 			}
 			if (!data.inference) {
-				this.reportDevelopmentBatch(events, { status: 'no-session' });
+				if (dev) {
+					const sequences = events.map(({ sequence }) => sequence);
+					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+						detail: { emitter: this, sequences, report: { status: 'no-session' } },
+					}));
+				}
 				return;
 			}
 			window.dispatchEvent(new CustomEvent('aisles-inference-update', {
 				detail: data.inference,
 			}));
-			this.reportDevelopmentBatch(events, { status: 'confirmed', inference: data.inference });
+			if (dev) {
+				const sequences = events.map(({ sequence }) => sequence);
+				window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+					detail: { emitter: this, sequences, report: { status: 'confirmed', inference: data.inference } },
+				}));
+			}
 		} catch {
-			// Re-buffer on failure — prepend so order is preserved
-			this.buffer = [...events, ...this.buffer];
-			retryLater = true;
-			if (dev && !this.destroyed) setTimeout(() => void this.flush(), DEV_SIGNAL_RETRY_DELAY_MS);
+			if (dev) {
+				// A cancelled or failed development request has uncertain delivery.
+				// Do not replay it and later contradict the inspector's failure state.
+				const sequences = events.map(({ sequence }) => sequence);
+				window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+					detail: { emitter: this, sequences, report: { status: 'network' } },
+				}));
+			} else {
+				// Production preserves the established best-effort retry behavior.
+				this.buffer = [...events, ...this.buffer];
+				retryLater = true;
+			}
 		} finally {
 			if (requestTimeout) clearTimeout(requestTimeout);
 			this.flushing = false;
@@ -137,20 +171,6 @@ export class SignalEmitter {
 			// the five-second interval. Network failures retain the original retry.
 			if (!this.destroyed && !retryLater && this.buffer.length > 0) void this.flush();
 		}
-	}
-
-	private reportDevelopmentBatch(
-		events: readonly EmittedEvent[],
-		report:
-			| { status: 'confirmed'; inference: import('./types').PersonaInference }
-			| { status: 'http'; code: number }
-			| { status: 'invalid-response' | 'no-session' },
-	): void {
-		if (!dev) return;
-		const sequences = events.map(({ sequence }) => sequence);
-		void import('./confirmed-signal.dev').then(({ reportConfirmedSignalBatch }) => {
-			reportConfirmedSignalBatch(this, sequences, report);
-		});
 	}
 
 	destroy() {

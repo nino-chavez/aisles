@@ -473,8 +473,12 @@ a pinned catalog and clearly labeled synthetic fit scores; its rehearsal buttons
 send real `nav.search` signals through `/api/signals`, are not shopper controls,
 and mark the resulting preview provenance synthetic. Development receipts bind
 each control to its exact client sequence, validate the complete inference
-response, and fail with uncertain-delivery copy after ten seconds rather than
-letting an older response confirm the wrong control.
+response, and include a ten-second uncertain-delivery fail-safe rather than
+letting an older response confirm the wrong control. The local transport
+normally responds first: it drops an uncertain stalled batch after four seconds
+and immediately drains any newer control. The preview has its own ten-second
+fail-closed watchdog. Receipt and preview client modules compile out of the
+production shopper bundle.
 
 ### Phase 6: Version cache and provenance
 

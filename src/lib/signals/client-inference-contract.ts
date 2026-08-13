@@ -67,7 +67,7 @@ export function parsePersonaInference(value: unknown): PersonaInference | null {
 	const shift = value.shift;
 	if (!isRecord(shift) || !hasExactKeys(shift, SHIFT_KEYS) || typeof shift.detected !== 'boolean') return null;
 	if (!(shift.from === null || isPersona(shift.from))) return null;
-	if (!(shift.trigger === null || isBoundedString(shift.trigger, 2_000))) return null;
+	if (!(shift.trigger === null || isNonEmptyString(shift.trigger))) return null;
 	if (!shift.detected && (shift.from !== null || shift.trigger !== null)) return null;
 	if (shift.detected && (shift.from === null || shift.from === value.primary || (value.confidence as number) < 0.1)) return null;
 
@@ -84,7 +84,7 @@ export function parsePersonaInference(value: unknown): PersonaInference | null {
 
 function isRuleMatch(value: unknown): boolean {
 	if (!isRecord(value) || !hasExactKeys(value, RULE_MATCH_KEYS)) return false;
-	if (!isBoundedString(value.ruleName, 200) || !isBoundedString(value.reason, 2_000)) return false;
+	if (!isNonEmptyString(value.ruleName) || !isNonEmptyString(value.reason)) return false;
 	if (!isFiniteNumber(value.weight) || value.weight < 0 || value.weight > 1) return false;
 	if (!isRecord(value.adjustment) || !hasAllowedKeys(value.adjustment, ADJUSTMENT_KEYS)) return false;
 	if (Object.keys(value.adjustment).length === 0) return false;
@@ -116,8 +116,8 @@ function isUnitInterval(value: unknown): value is number {
 	return isFiniteNumber(value) && value >= 0 && value <= 1;
 }
 
-function isBoundedString(value: unknown, maxLength: number): value is string {
-	return typeof value === 'string' && value.length > 0 && value.length <= maxLength;
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === 'string' && value.length > 0;
 }
 
 function approximately(left: number, right: number): boolean {

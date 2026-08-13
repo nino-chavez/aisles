@@ -101,13 +101,16 @@ const bearerToken = /\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi;
 /** Keep inference mechanics visible without echoing shopper-controlled values. */
 export function sanitizeInspectorInference<T extends KibbleInspectorInference>(inference: T): T {
 	return {
-		...structuredClone(inference),
+		...inference,
+		probabilities: { ...inference.probabilities },
+		modifiers: { ...inference.modifiers },
 		shift: {
 			...inference.shift,
 			trigger: inference.shift.trigger ? '[request detail withheld]' : null,
 		},
 		ruleMatches: inference.ruleMatches.map((rule) => ({
-			...structuredClone(rule),
+			...rule,
+			adjustment: { ...rule.adjustment },
 			reason: 'Matched; raw request detail withheld.',
 		})),
 	} as T;

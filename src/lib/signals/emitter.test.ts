@@ -76,4 +76,21 @@ describe('SignalEmitter response boundary', () => {
 		await emitter.flush();
 		expect(listener).not.toHaveBeenCalled();
 	});
+
+	it('never dispatches a response that arrives after the development request abort', async () => {
+		vi.useFakeTimers();
+		const target = installWindow();
+		const listener = vi.fn();
+		target.addEventListener('aisles-inference-update', listener);
+		let resolve!: (response: Response) => void;
+		vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((done) => { resolve = done; })));
+		emitter = new SignalEmitter();
+		emitter.emit('interact.scroll_depth', { depth: 0.5 });
+		const flush = emitter.flush();
+
+		await vi.advanceTimersByTimeAsync(10_000);
+		resolve(response('budget sale discount'));
+		await flush;
+		expect(listener).not.toHaveBeenCalled();
+	});
 });

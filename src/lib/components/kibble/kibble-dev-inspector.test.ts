@@ -6,6 +6,7 @@ import {
 	describeKibbleRehearsalStatus,
 	sanitizeInspectorInference,
 	type KibbleDevInspectorData,
+	type KibbleInspectorInference,
 } from './kibble-dev-inspector';
 
 const inspector: KibbleDevInspectorData = {
@@ -41,20 +42,25 @@ describe('KibbleDevInspector', () => {
 	});
 
 	it('withholds shopper-controlled inference details and secrets embedded in strings', () => {
-		const sanitized = sanitizeInspectorInference({
+		const unsafeInference: KibbleInspectorInference = {
 			...inspector.inference,
 			shift: { detected: true, from: 'hunter', trigger: 'search person@example.com' },
 			ruleMatches: [{
 				ruleName: 'search', reason: 'https://example.com/?access_token=sekret', weight: 1,
 				adjustment: { researcher: 1 },
 			}],
-		});
+		};
+		const sanitized = sanitizeInspectorInference(unsafeInference);
 		expect(sanitized.shift.trigger).toBe('[request detail withheld]');
 		expect(sanitized.ruleMatches[0].reason).toBe('Matched; raw request detail withheld.');
 		expect(JSON.stringify(redactInspectorDebugValue({
 			reason: 'https://example.com/?access_token=sekret',
 			trigger: 'search person@example.com',
 		}))).toBe('{"reason":"https://example.com/?access_token=[redacted]","trigger":"search [redacted-email]"}');
+		expect(sanitized).not.toBe(unsafeInference);
+		expect(sanitized.probabilities).not.toBe(unsafeInference.probabilities);
+		expect(sanitized.modifiers).not.toBe(unsafeInference.modifiers);
+		expect(sanitized.ruleMatches[0].adjustment).not.toBe(unsafeInference.ruleMatches[0].adjustment);
 	});
 
 	it('labels policy publication as distinct from deployment status', () => {
