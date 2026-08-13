@@ -9,6 +9,9 @@ describe('Kibble Preserve failure surface', () => {
 		const errorRoute = source('+error.svelte');
 		expect(errorRoute).toContain("chromeMode === 'reference'");
 		expect(errorRoute).toContain('<KibbleErrorReference');
+		expect(errorRoute).toContain('$page.status');
+		expect(errorRoute).toContain('$page.error?.message');
+		expect(errorRoute).not.toContain('$props()');
 		expect(errorRoute).toContain('{:else}');
 	});
 
