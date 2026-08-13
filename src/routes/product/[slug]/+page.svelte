@@ -10,9 +10,10 @@
 	let product = $derived(data.product);
 	let relatedProducts = $derived(data.relatedProducts);
 	let persona = $derived(data.persona);
+	let isKibblePdp = $derived(data.renderMode === 'reference-preserve' || data.renderMode === 'reference-review');
 
 	$effect(() => {
-		if (data.renderMode === 'reference-preserve') return;
+		if (isKibblePdp) return;
 		if (!product) return;
 		const startTime = Date.now();
 		const productId = product.id;
@@ -28,7 +29,7 @@
 	let pairingsLoading = $state(false);
 
 	$effect(() => {
-		if (data.renderMode === 'reference-preserve') return;
+		if (isKibblePdp) return;
 		const p = product;
 		if (!p) return;
 		pairingsLoading = true;
@@ -50,9 +51,9 @@
 	}
 </script>
 
-<svelte:head><title>{data.renderMode === 'reference-preserve' ? data.kibblePdp?.product.name : product?.name}</title><meta name="description" content={data.renderMode === 'reference-preserve' ? data.kibblePdp?.product.description.slice(0, 160) : product?.descriptionPlain.slice(0, 160)} /></svelte:head>
+<svelte:head><title>{isKibblePdp ? data.kibblePdp?.product.name : product?.name}</title><meta name="description" content={isKibblePdp ? data.kibblePdp?.product.descriptionPlain.slice(0, 160) : product?.descriptionPlain.slice(0, 160)} /></svelte:head>
 
-{#if data.renderMode === 'reference-preserve' && data.kibblePdp}
+{#if isKibblePdp && data.kibblePdp}
 	<div
 		data-reference-pdp="catalog-display-only"
 		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}

@@ -72,7 +72,7 @@ describe('Kibble Preserve home publication', () => {
 
 		if (!data) throw new Error('Expected Preserve home data.');
 		expect(data.provenance).toMatchObject({
-			reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.4.0' },
+			reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.5.0' },
 			autonomy: { preset: 'preserve', decisionMode: 'rules', publicationMode: 'live' },
 			renderer: { componentId: 'kibble.home', variantId: 'kibble-home-reference-v1' },
 		});

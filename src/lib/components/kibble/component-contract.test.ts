@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { render } from 'svelte/server';
+import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
+import KibbleProductDetailReference from './KibbleProductDetailReference.svelte';
 
 const component = (name: string) => readFileSync(resolve(import.meta.dirname, name), 'utf8');
 
@@ -66,7 +69,47 @@ describe('Kibble reference components fail closed', () => {
 		const pdp = component('KibbleProductDetailReference.svelte');
 		expect(pdp).toContain('data-kibble-pdp-recipe="fixed-catalog-display-only"');
 		for (const forbidden of ['/api/cart', '/api/suggest', 'addToCart', 'Auto-Refill', 'subscription']) expect(pdp).not.toContain(forbidden);
-		for (const field of ['purchaseUnavailableLabel', 'purchaseUnavailableBody', 'galleryLabel', 'skuLabel', 'detailsHeading']) expect(pdp).toContain(field);
+		for (const field of ['purchaseUnavailableLabel', 'purchaseUnavailableBody', 'breadcrumbLabel', 'galleryLabel', 'skuLabel', 'bundleEyebrow', 'bundleContentsHeading', 'detailsHeading']) expect(pdp).toContain(field);
+		expect(pdp).toContain('aria-pressed={activeImage === index}');
+		expect(pdp).toContain("aria-current={activeImage === index ? 'true' : undefined}");
+		expect(pdp).toContain('{@html product.description}');
+	});
+
+	it('SSR preserves conditional bundle contents and the non-commerce state', () => {
+		const sourceBundle = KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles['essential-bundle-kns4'];
+		const result = render(KibbleProductDetailReference, {
+			props: {
+				product: {
+					id: 'essential-bundle-kns4', entityId: 3065, name: 'Essential Bundle', sku: 'BUNDLE-ESSENTIAL',
+					price: 109, image: '', imageAlt: 'Essential Bundle', description: '<p>Bundle <strong>details</strong>.</p>',
+					descriptionPlain: 'Bundle details.', specs: {}, tags: [], category: 'Bundles', categoryPath: '/bundles/',
+					currencyCode: 'USD', isInStock: true, images: [],
+				},
+				bundle: { name: sourceBundle.name, contents: sourceBundle.contents.map((item) => ({ ...item })) },
+				breadcrumbs: [{ label: 'Home', href: '/' }, { label: 'Essential Bundle' }],
+				options: [], relatedProducts: [], relatedProductHrefs: {},
+				purchaseUnavailableLabel: KIBBLE_PRESERVE_MANIFEST.display.pdp.purchaseUnavailableLabel,
+				purchaseUnavailableBody: KIBBLE_PRESERVE_MANIFEST.display.pdp.purchaseUnavailableBody,
+				relatedHeading: KIBBLE_PRESERVE_MANIFEST.display.pdp.relatedHeading,
+				copy: { ...KIBBLE_PRESERVE_MANIFEST.display.pdp.copy },
+			},
+		});
+		expect(result.body).toContain('Curated kit · 3 products');
+		expect(result.body).toContain("What's in this kit");
+		expect(result.body).toContain('<strong>details</strong>');
+		expect(result.body).toContain('aria-pressed="true"');
+		expect(result.body).toContain('aria-current="true"');
+		expect(result.body).toContain('Purchase unavailable in this preview');
+		expect(result.body).not.toMatch(/Add to Cart|Auto-Refill|Subscribe/);
+	});
+
+	it('reserves mint and coral for their contracted meanings on the PDP', () => {
+		const css = component('kibble-reference.css');
+		const pdpCss = css.slice(css.indexOf('.kc-reference-pdp {'), css.indexOf('.kc-reference-visual-grid--2'));
+		expect(pdpCss).toContain('.kc-reference-pdp__stock--in { color: var(--kc-identity); }');
+		expect(pdpCss).toContain('border-left: 4px solid var(--kc-action)');
+		expect(pdpCss).not.toContain('var(--kc-autorefill');
+		expect(pdpCss).not.toContain('var(--kc-savings)');
 	});
 
 	it('exposes the full fixed-data parity marker set at the PDP route root', () => {

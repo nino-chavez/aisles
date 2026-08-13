@@ -1,4 +1,5 @@
 import type { LayoutServerLoad } from './$types';
+import { dev } from '$app/environment';
 import { getBrand } from '$lib/brand/config';
 import { buildKibbleChrome, selectMerchantRenderMode } from '$lib/brand/reference/kibble-runtime';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
@@ -12,7 +13,9 @@ import {
 
 export const load: LayoutServerLoad = async ({ url, cookies }) => {
 	const brand = getBrand();
-	const renderMode = selectMerchantRenderMode(brand.id, surfaceForPath(url.pathname));
+	const renderMode = selectMerchantRenderMode(brand.id, surfaceForPath(url.pathname), {
+		allowPendingReview: dev,
+	});
 	const chromeMode = hasKibbleReferenceChrome(brand.id) ? 'reference' : 'legacy';
 	let kibbleError = null;
 	let kibbleErrorPolicy = null;

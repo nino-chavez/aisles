@@ -411,6 +411,13 @@ Aisles does not implement.
 Render ordered reference zones on the Kibble home surface first. Product listing
 enters Preserve only after its canonical breadcrumbs, sort controls, cursor
 pagination, and load-more behavior pass the same contract gate.
+Product detail now has a deterministic catalog-only implementation pinned to
+Kibble contract `1.5.0` and canonical source
+`ef122b8e17b9eb0b327c9d42491c44a61577ead4`. Its publication policy remains
+`approval_required` while visual approval is open. Development builds may render
+the fixed review surface, but live builds fail into the Preserve error shell.
+Home and product-listing cards remain non-links until that acceptance and policy
+gate moves to approved and live.
 Keep the current whole-page renderer as an explicit legacy path for brands that
 have not adopted contracts. Select the path from trusted server-side brand and
 contract data. Kibble Preserve mode server-renders its fixed shell and does not
@@ -470,8 +477,8 @@ not merge, publication, deployment, migration, or human acceptance.
 | B | `aisles`: README and existing documentation amendments | Implemented and integrated |
 | C | `bealls-aisles`: scope corrections and organization-bound config/docs | Implemented on an isolated branch |
 | D | `aisles`: Kibble reference components and CSS | Implemented and integrated; source pinned to a local canonical commit |
-| E | `aisles`: Kibble route and renderer integration | Home, product listing, and errors integrated; remaining routes fail closed |
-| F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for the current contracted surfaces |
+| E | `aisles`: Kibble route and renderer integration | Home, product listing, and errors integrated; product detail implemented for development comparison but pending visual approval and unavailable in live publication; remaining routes fail closed |
+| F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for live contracted surfaces and the approval-gated product-detail review path |
 | G | Both repos: deterministic and visual parity suites | Kibble harness implemented; real comparison and Bealls-family suites remain open |
 
 ## Compatibility and rollout

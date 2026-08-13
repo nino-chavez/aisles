@@ -21,11 +21,16 @@ longer only a proposal. Local follow-up work now includes:
 - a version-pinned Kibble design contract with native chrome, components,
   page recipes, and fallbacks;
 - Kibble Preserve rendering on home, product-listing, and error surfaces, with
-  fixed product-listing structure, trusted sorting, and cursor pagination; and
+  fixed product-listing structure, trusted sorting, and cursor pagination;
+- a deterministic catalog-only product-detail implementation pinned to Kibble
+  contract `1.5.0`, held at `approval_required` and development-only while its
+  visual review remains open; and
 - reference/policy provenance in cache values, generation logs, and Observe.
 
 The corrective work has not been pushed or deployed. Its database migration has
-not been applied. Kibble product detail, search, cart, and checkout are not contracted.
+not been applied. Kibble product detail is implemented but not approved or live;
+Home and product-listing cards therefore remain non-links. Search, cart, and
+checkout are not contracted.
 The reference and candidate now expose matching source-owned fixture markers,
 and a fail-closed desktop/mobile comparison command exists. A real fixed-data
 parity run and named human approval are still open.

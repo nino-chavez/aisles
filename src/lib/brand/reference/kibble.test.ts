@@ -20,11 +20,21 @@ function remove(path: Array<string | number>): unknown {
 	return candidate;
 }
 
+function contrast(foreground: string, background: string): number {
+	const luminance = (hex: string) => {
+		const channels = hex.slice(1).match(/.{2}/g)!.map((value) => Number.parseInt(value, 16) / 255);
+		const [r, g, b] = channels.map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+		return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+	};
+	const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+	return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
 describe('Kibble reference contract', () => {
 	it('pins the approved source revision and locked Shelf-Native artifacts', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.source).toEqual({
 			repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
-			commit: '77236d229cd8020cfc363f002080781f4376b4b5', applicationPath: 'apps/storefront-svelte',
+			commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', applicationPath: 'apps/storefront-svelte',
 			brandKitPath: 'scripts/kibble-demo/data/brand/brand-kit.md', tokensPath: 'scripts/kibble-demo/data/brand/tokens.css',
 			fixturePath: 'scripts/kibble-demo/data/seed-output.json', fixtureSha256: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
 			canonicalBoundary: expect.stringContaining('pinned storefront source'),
@@ -63,6 +73,12 @@ describe('Kibble reference contract', () => {
 	it('locks the semantic palette instead of accepting generic brand aliases', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.tokens.colors).toMatchObject({ identity: '#1e2150', action: '#3b5bd0', autoRefill: '#37bfa2' });
 		expect(KIBBLE_REFERENCE_CONTRACT.ownership.forbiddenAtRuntime).toContain('inventing CSS');
+	});
+
+	it('keeps both PDP stock states at WCAG AA contrast on the surface', () => {
+		const { identity, mutedText, surface } = KIBBLE_REFERENCE_CONTRACT.tokens.colors;
+		expect(contrast(identity, surface)).toBeGreaterThanOrEqual(4.5);
+		expect(contrast(mutedText, surface)).toBeGreaterThanOrEqual(4.5);
 	});
 
 	it('separates root chrome from the home component anatomy', () => {
@@ -146,11 +162,11 @@ describe('Kibble reference contract', () => {
 
 	it('pins the full PLP request and rendering contract', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp).toMatchObject({
-			source: { commit: '77236d229cd8020cfc363f002080781f4376b4b5' },
+			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4' },
 			orderedAnatomy: ['breadcrumbs', 'category-header', 'sort-control', 'product-grid', 'cursor-continuation'],
 			defaultSort: 'FEATURED', pageSize: 24,
 			pagination: { strategy: 'forward-cursor', cursorParam: 'after', actionLabel: 'Load more' },
-			productCards: 'noninteractive-until-pdp-contracted', modelLayoutRequest: false,
+			productCards: 'noninteractive-until-pdp-approved', modelLayoutRequest: false,
 		});
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp.sortChoices).toEqual([
 			{ value: 'FEATURED', label: 'Featured' },
@@ -171,11 +187,18 @@ describe('Kibble reference contract', () => {
 	it('pins the PDP source anatomy and explicit unavailable-purchase difference', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp).toMatchObject({
 			acceptance: 'implemented-pending-visual-approval',
-			source: { commit: '77236d229cd8020cfc363f002080781f4376b4b5' },
-			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'catalog-price-and-availability', 'catalog-options', 'merchant-approved-purchase-unavailable', 'description-and-specifications', 'related-products'],
+			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4' },
+			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-bundle-contents', 'catalog-options', 'merchant-approved-purchase-unavailable', 'description-and-specifications', 'related-products'],
 			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'merchant-approved-purchase-unavailable' },
+			publication: { mode: 'approval-required', reviewAvailability: 'development-build-only', productLinks: 'disabled-until-approved' },
 			modelLayoutRequest: false,
 		});
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.paths).toContain('apps/storefront-svelte/src/lib/brand/bundle-contents.json');
+		expect(new Set([
+			KIBBLE_REFERENCE_CONTRACT.source.commit,
+			KIBBLE_REFERENCE_CONTRACT.recipes.plp.source.commit,
+			KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.commit,
+		])).toEqual(new Set(['ef122b8e17b9eb0b327c9d42491c44a61577ead4']));
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('add-to-cart');
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('subscription');
 	});

@@ -1037,18 +1037,30 @@
 .kc-reference-pdp__primary-image { aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-lg); background: var(--kc-surface); color: var(--kc-muted-text); }
 .kc-reference-pdp__primary-image img { width: 100%; height: 100%; object-fit: contain; }
 .kc-reference-pdp__details h1 { margin: .35rem 0 1rem; font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; }
+.kc-reference-pdp__bundle-summary { display: inline-flex; margin: 0 0 1rem; border-radius: var(--kc-radius-xs); background: var(--kc-panel); color: var(--kc-action-hover); padding: .35rem .6rem; font-family: var(--kc-font-machinery); font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .kc-reference-pdp__price { display: flex; align-items: baseline; gap: .75rem; font-family: var(--kc-font-machinery); font-size: 1.35rem; font-weight: 700; }
 .kc-reference-pdp__price s, .kc-reference-pdp__sku { color: var(--kc-muted-text); font-family: var(--kc-font-machinery); font-size: .72rem; }
 .kc-reference-pdp__stock { margin: .65rem 0 0; color: var(--kc-muted-text); font-size: .82rem; font-weight: 700; }
-.kc-reference-pdp__stock--in { color: var(--kc-autorefill-text); }
+.kc-reference-pdp__stock--in { color: var(--kc-identity); }
+.kc-reference-pdp__bundle-contents { margin-top: 1.5rem; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-lg); background: var(--kc-surface); padding: 1.25rem; }
+.kc-reference-pdp__bundle-contents h2 { margin: 0; }
+.kc-reference-pdp__bundle-contents ul { display: grid; gap: .8rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+.kc-reference-pdp__bundle-contents li { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.kc-reference-pdp__bundle-contents img { width: 3.5rem; height: 3.5rem; flex: 0 0 auto; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-md); background: var(--kc-page); object-fit: contain; }
+.kc-reference-pdp__bundle-contents div { display: grid; min-width: 0; gap: .2rem; }
+.kc-reference-pdp__bundle-contents strong { overflow: hidden; font-size: .88rem; text-overflow: ellipsis; white-space: nowrap; }
+.kc-reference-pdp__bundle-contents span { color: var(--kc-muted-text); font-family: var(--kc-font-machinery); font-size: .65rem; text-transform: uppercase; letter-spacing: .035em; }
 .kc-reference-pdp__options { display: grid; gap: .75rem; margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-md); }
 .kc-reference-pdp__options label { display: grid; gap: .35rem; color: var(--kc-muted-text); font-size: .76rem; font-weight: 700; }
 .kc-reference-pdp__options select { min-height: 42px; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-sm); background: var(--kc-muted-surface); color: var(--kc-muted-text); padding-inline: .75rem; }
-.kc-reference-pdp__purchase-unavailable { margin-block: 1.5rem; border: 1px solid var(--kc-border-strong); border-left: 4px solid var(--kc-savings); border-radius: var(--kc-radius-md); background: var(--kc-muted-surface); padding: 1rem; }
+.kc-reference-pdp__purchase-unavailable { margin-block: 1.5rem; border: 1px solid var(--kc-border-strong); border-left: 4px solid var(--kc-action); border-radius: var(--kc-radius-md); background: var(--kc-muted-surface); padding: 1rem; }
 .kc-reference-pdp__purchase-unavailable p:last-child { margin: .4rem 0 0; color: var(--kc-muted-text); font-size: .9rem; line-height: 1.5; }
 .kc-reference-pdp__description, .kc-reference-pdp__specs { margin-top: 1.75rem; border-top: 1px solid var(--kc-border); padding-top: 1.25rem; }
 .kc-reference-pdp__description h2, .kc-reference-pdp__related h2 { margin: 0; font-size: 1.35rem; }
-.kc-reference-pdp__description p { color: var(--kc-muted-text); line-height: 1.65; white-space: pre-line; }
+.kc-reference-pdp__description > div { color: var(--kc-muted-text); line-height: 1.65; }
+.kc-reference-pdp__description p { margin-block: .75rem 0; }
+.kc-reference-pdp__description p:first-child { margin-top: 0; }
+.kc-reference-pdp__description a { color: var(--kc-action-hover); }
 .kc-reference-pdp__specs { display: grid; gap: .65rem; }
 .kc-reference-pdp__specs div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; border-bottom: 1px solid var(--kc-border); padding-bottom: .65rem; font-size: .8rem; }
 .kc-reference-pdp__specs dt { color: var(--kc-muted-text); }.kc-reference-pdp__specs dd { margin: 0; font-weight: 700; }

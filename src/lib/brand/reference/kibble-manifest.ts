@@ -30,7 +30,7 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 		'service-proof',
 	] as const,
 	copyProvenance: {
-		exactSourceCopy: ['home.ctas', 'home.featured', 'home.categories'] as const,
+		exactSourceCopy: ['home.ctas', 'home.featured', 'home.categories', 'pdp.bundleContents'] as const,
 		approvedBoundedDivergences: [
 			{ field: 'home.hero.eyebrow', reason: 'Removes the unverified kept-in-stock operational claim.' },
 			{ field: 'home.hero.headline', reason: 'Removes the unimplemented never-lapses refill promise while retaining the reference brand position.' },
@@ -123,12 +123,84 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 			emptyMessage: 'No products are currently available in this category.',
 		},
 		pdp: {
+			breadcrumbHomeLabel: 'Home',
 			purchaseUnavailableLabel: 'Purchase unavailable in this preview',
 			purchaseUnavailableBody: 'This reference-preserved catalog can show verified product details, but ordering, cart, and subscription services are not available here.',
 			relatedHeading: 'You may also like',
 			copy: {
-				galleryLabel: 'images', galleryImagesLabel: 'Product images', viewImageLabel: 'View image', imageUnavailableLabel: 'Product image unavailable', priceLabel: 'Catalog price', skuLabel: 'SKU', inStockLabel: 'In stock', outOfStockLabel: 'Out of stock', availabilityUnavailableLabel: 'Availability not provided', optionsLegend: 'Catalog options', requiredSuffix: '(required)', detailsHeading: 'Details',
+				breadcrumbLabel: 'Breadcrumb', galleryLabel: 'images', galleryImagesLabel: 'Product images', viewImageLabel: 'View image', imageUnavailableLabel: 'Product image unavailable', priceLabel: 'Catalog price', skuLabel: 'SKU', inStockLabel: 'In stock', outOfStockLabel: 'Out of stock', availabilityUnavailableLabel: 'Availability not provided', bundleEyebrow: 'Curated kit', bundleProductSingular: 'product', bundleProductPlural: 'products', bundleContentsHeading: "What's in this kit", optionsLegend: 'Catalog options', requiredSuffix: '(required)', detailsHeading: 'Details',
 			},
+			// Safe projection of the pinned canonical bundle manifest. Unsupported
+			// subscription, subscribe-price, and savings fields are intentionally absent.
+			bundles: {
+				'essential-bundle-kns4': {
+					name: 'Essential Bundle',
+					contents: [
+						{ brand: 'Open Farm', title: 'GoodGut Grass-Fed Beef Dog Kibble', role: 'Premium dry food', image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/PLP-Images_GoodGut_Beef_1.png' },
+						{ brand: 'Open Farm', title: 'Rustic Stew Variety Pack for Dogs', role: 'Wet food variety pack', image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/OFP-Dog-PLP-RustucStew-VarietyPack_548x768copy.png' },
+						{ brand: 'Finn', title: 'Plaque Patrol Dental Chews', role: 'Dental chews', image: 'https://cdn.shopify.com/s/files/1/0268/9649/8770/files/Finn_Plaque_Patrol_Chew_M_L_Final.png' },
+					],
+				},
+				'advanced-bundle-8kfv': {
+					name: 'Advanced Bundle',
+					contents: [
+						{ brand: 'Open Farm', title: 'GoodGut Wild-Caught Salmon Dog Kibble', role: 'Complete nutrition base', image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/PLP-Images_GoodGut_Salmon.png' },
+						{ brand: 'Native Pet', title: 'POWER POOP', role: 'Digestive supplement', image: 'https://cdn.shopify.com/s/files/1/2715/7980/files/NP-DTC-MainImages_Format-GutWell-PowerPoop_ef2ee5fc-babf-4b40-8996-19cfa08d26ec.png' },
+						{ brand: 'Finn', title: 'Multivitamin', role: 'Daily multivitamin', image: 'https://cdn.shopify.com/s/files/1/0268/9649/8770/files/Finn_Multivitamin_Supplement.png' },
+						{ brand: 'Native Pet', title: 'SOCKEYE SALMON OIL', role: 'Omega-3 skin & coat oil', image: 'https://cdn.shopify.com/s/files/1/2715/7980/files/NP-DTC-MainImages_Format-SSO_066d9a18-3fea-4f4a-9e99-4f9240cd4d54.png' },
+					],
+				},
+				'puppy-starter-kit': {
+					name: 'Puppy Starter Kit',
+					contents: [
+						{ brand: 'Open Farm', title: 'Chicken & Salmon Freeze Dried Raw Morsels for Puppies', role: 'Breed-appropriate puppy formula', image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/PDPImages-Puppy-FDRMeal_Mixer-ChickenSalmon-2024_6d017541-42e7-43fb-bfe8-0ea9054804c2.png' },
+						{ brand: 'Wild One', title: 'Tennis Tumble', role: 'Interactive puzzle feeder', image: 'https://cdn.shopify.com/s/files/1/0011/7532/2687/products/WO_VM_Studio_PDP_Toys_TennisTumble_4-Pack_Blush_01_4x5_Web.jpg' },
+					],
+				},
+				'starter-bundle-wqw9': {
+					name: 'Starter Bundle',
+					contents: [
+						{ brand: 'Open Farm', title: 'GoodGut Harvest Chicken Dog Kibble', role: 'Everyday dry food', image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/PLP-Images_GoodGut_Chicken_1.png' },
+						{ brand: 'Finn', title: 'Bone Broth Plus', role: 'Meal topper', image: 'https://cdn.shopify.com/s/files/1/0268/9649/8770/files/Finn_Bone_Broth_Plus_Powder.png' },
+						{ brand: 'Wild One', title: 'Organic Baked Treats', role: 'Training treats', image: 'https://cdn.shopify.com/s/files/1/0011/7532/2687/products/WO_VM_Studio_PDP_Treats_FruitSalad_Web_FlavorCopy.png' },
+					],
+				},
+				'senior-pet-growth-bundle': {
+					name: 'Senior Pet Growth Bundle',
+					contents: [
+						{ brand: 'Open Farm', title: 'Harvest Chicken Hearty Stew Wet Dog Food', role: 'Easy-to-eat wet food', image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/OFP-Dog-PLP-Hearty_Stews-Harvest_Chicken-RENDER_548x768_5dec7b7f-640e-4e28-b395-c7225a36f8b2.png' },
+						{ brand: 'Native Pet', title: 'Senior Daily', role: 'Senior daily multi-support', image: 'https://cdn.shopify.com/s/files/1/2715/7980/files/SD_main_image.jpg' },
+						{ brand: 'Finn', title: 'Hip & Joint', role: 'Hip & joint support', image: 'https://cdn.shopify.com/s/files/1/0268/9649/8770/files/Finn_Hip_Joint_Supplement.png' },
+					],
+				},
+				'treat-snack-power-set': {
+					name: 'Treat & Snack Power Set',
+					contents: [
+						{ brand: 'Finn', title: 'Plaque Patrol Dental Chews', role: 'Dental chews', image: 'https://cdn.shopify.com/s/files/1/0268/9649/8770/files/Finn_Plaque_Patrol_Chew_M_L_Final.png' },
+						{ brand: 'Native Pet', title: 'YAK CHEWS', role: 'Long-lasting yak chews', image: 'https://cdn.shopify.com/s/files/1/2715/7980/files/NP-DTC-MainImages_Format-YakChews_a7b73a7c-d9b5-461e-818e-3cd32fcef793.png' },
+						{ brand: 'Wild One', title: 'Organic Baked Treats', role: 'Organic baked treats', image: 'https://cdn.shopify.com/s/files/1/0011/7532/2687/products/WO_VM_Studio_PDP_Treats_FruitSalad_Web_FlavorCopy.png' },
+						{ brand: 'Finn', title: 'Bone Broth Plus', role: 'Bone broth topper', image: 'https://cdn.shopify.com/s/files/1/0268/9649/8770/files/Finn_Bone_Broth_Plus_Powder.png' },
+					],
+				},
+				'gift-bundle': {
+					name: 'Gift Bundle',
+					contents: [
+						{ brand: 'Open Farm', title: 'GoodGut Grass-Fed Beef Dog Kibble', role: 'Premium dry food', image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/PLP-Images_GoodGut_Beef_1.png' },
+						{ brand: 'Native Pet', title: 'YAK CHEWS', role: 'Yak chews', image: 'https://cdn.shopify.com/s/files/1/2715/7980/files/NP-DTC-MainImages_Format-YakChews_a7b73a7c-d9b5-461e-818e-3cd32fcef793.png' },
+						{ brand: 'Finn', title: 'Bone Broth Plus', role: 'Bone broth topper', image: 'https://cdn.shopify.com/s/files/1/0268/9649/8770/files/Finn_Bone_Broth_Plus_Powder.png' },
+						{ brand: 'maxbone', title: 'Enrichment Tether Toy', role: 'Play toy', image: 'https://cdn.shopify.com/s/files/1/0389/5389/files/enrichment-tether-toy-359922.jpg' },
+					],
+				},
+				'surf-turf-limited-reserve': {
+					name: 'Surf & Turf Limited Reserve',
+					contents: [
+						{ brand: 'Open Farm', title: 'Surf & Turf Air Dried Recipe for Dogs', role: 'Air-dried surf & turf food', image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/PDPImages-Dog-Airdried-Food-SurfTurf-Hero-2024.png' },
+						{ brand: 'Open Farm', title: 'Salmon & Cod Topper for Dogs', role: 'Salmon & cod topper', image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/PDPImages-FishToppers-SalmonCod-Dog_2024.png' },
+						{ brand: 'Native Pet', title: 'SOCKEYE SALMON OIL', role: 'Sockeye salmon oil', image: 'https://cdn.shopify.com/s/files/1/2715/7980/files/NP-DTC-MainImages_Format-SSO_066d9a18-3fea-4f4a-9e99-4f9240cd4d54.png' },
+						{ brand: 'Finn', title: 'Bone Broth Plus', role: 'Bone broth topper', image: 'https://cdn.shopify.com/s/files/1/0268/9649/8770/files/Finn_Bone_Broth_Plus_Powder.png' },
+					],
+				},
+			} as const,
 		},
 		error: {
 			eyebrow: 'Shelf status',

@@ -115,9 +115,16 @@ export type KibblePdpProduct = KibbleProduct & {
 	currencyCode: string;
 	isInStock: boolean | null;
 	images: Array<{ url: string; alt: string }>;
+	descriptionPlain: string;
+};
+
+export type KibblePdpBundle = {
+	name: string;
+	contents: Array<{ brand: string; title: string; role: string; image: string }>;
 };
 
 export type KibblePdpCopy = {
+	breadcrumbLabel: string;
 	galleryLabel: string;
 	galleryImagesLabel: string;
 	viewImageLabel: string;
@@ -127,6 +134,10 @@ export type KibblePdpCopy = {
 	inStockLabel: string;
 	outOfStockLabel: string;
 	availabilityUnavailableLabel: string;
+	bundleEyebrow: string;
+	bundleProductSingular: string;
+	bundleProductPlural: string;
+	bundleContentsHeading: string;
 	optionsLegend: string;
 	requiredSuffix: string;
 	detailsHeading: string;

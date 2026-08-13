@@ -12,6 +12,30 @@ const UniqueStrings = z.array(RequiredString).superRefine((values, ctx) => {
 });
 const HexColor = z.string().regex(/^#[0-9a-f]{6}$/i);
 
+export const KIBBLE_PDP_BOUNDS = {
+	arrays: {
+		breadcrumbs: 3,
+		images: 10,
+		options: 10,
+		optionValues: 25,
+		relatedProducts: 4,
+		customFields: 10,
+		categories: 5,
+		bundleContents: 4,
+	},
+	strings: {
+		routeId: 128,
+		assetUrl: 2048,
+		imageAlt: 160,
+		categoryPath: 256,
+	},
+} as const;
+
+export const KIBBLE_PDP_RICH_DESCRIPTION_TAGS = [
+	'p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'a',
+] as const;
+export const KIBBLE_PDP_SUPPORTED_CURRENCIES = ['USD'] as const;
+
 const CopyFieldSchema = z.object({
 	field: RequiredString,
 	maxLength: z.number().int().positive(),
@@ -145,7 +169,7 @@ export const KibbleReferenceContractSchema = z.object({
 			implementation: z.literal('KibbleCategoryReference.svelte'),
 			variantId: z.literal('kibble.category-listing.fixed-grid'),
 			source: z.object({
-				commit: z.literal('77236d229cd8020cfc363f002080781f4376b4b5'),
+				commit: z.literal('ef122b8e17b9eb0b327c9d42491c44a61577ead4'),
 				paths: z.tuple([
 					z.literal('apps/storefront-svelte/src/routes/category/[slug]/+page.server.ts'),
 					z.literal('apps/storefront-svelte/src/routes/category/[slug]/+page.svelte'),
@@ -163,7 +187,7 @@ export const KibbleReferenceContractSchema = z.object({
 			defaultSort: z.literal('FEATURED'),
 			pageSize: z.literal(KIBBLE_PLP_PAGE_SIZE),
 			pagination: z.object({ strategy: z.literal('forward-cursor'), cursorParam: z.literal('after'), actionLabel: z.literal('Load more') }).strict(),
-			productCards: z.literal('noninteractive-until-pdp-contracted'),
+			productCards: z.literal('noninteractive-until-pdp-approved'),
 			modelLayoutRequest: z.literal(false),
 			invariants: UniqueRequiredStrings,
 		}).strict(),
@@ -173,17 +197,19 @@ export const KibbleReferenceContractSchema = z.object({
 			implementation: z.literal('KibbleProductDetailReference.svelte'),
 			variantId: z.literal('kibble.product-detail.catalog-display-only'),
 			source: z.object({
-				commit: z.literal('77236d229cd8020cfc363f002080781f4376b4b5'),
+				commit: z.literal('ef122b8e17b9eb0b327c9d42491c44a61577ead4'),
 				paths: z.tuple([
 					z.literal('apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts'),
 					z.literal('apps/storefront-svelte/src/routes/products/[slug]/+page.svelte'),
 					z.literal('apps/storefront-svelte/src/lib/components/ProductGallery.svelte'),
 					z.literal('apps/storefront-svelte/src/lib/components/RelatedProducts.svelte'),
+					z.literal('apps/storefront-svelte/src/lib/brand/bundle-contents.json'),
 				]),
 			}).strict(),
 			orderedAnatomy: z.tuple([
 				z.literal('breadcrumbs'), z.literal('media-gallery'), z.literal('product-identity'),
-				z.literal('catalog-price-and-availability'), z.literal('catalog-options'),
+				z.literal('conditional-bundle-summary'), z.literal('catalog-price-and-availability'),
+				z.literal('conditional-bundle-contents'), z.literal('catalog-options'),
 				z.literal('merchant-approved-purchase-unavailable'), z.literal('description-and-specifications'),
 				z.literal('related-products'),
 			]),
@@ -198,6 +224,35 @@ export const KibbleReferenceContractSchema = z.object({
 				visibleState: z.literal('merchant-approved-purchase-unavailable'),
 				forbidden: z.tuple([z.literal('add-to-cart'), z.literal('cart'), z.literal('checkout'), z.literal('subscription'), z.literal('auto-refill-pricing'), z.literal('savings-claim'), z.literal('model-layout'), z.literal('generic-picks')]),
 			}).strict(),
+			publication: z.object({
+				mode: z.literal('approval-required'),
+				reviewAvailability: z.literal('development-build-only'),
+				productLinks: z.literal('disabled-until-approved'),
+			}).strict(),
+			bounds: z.object({
+				arrays: z.object({
+					breadcrumbs: z.literal(KIBBLE_PDP_BOUNDS.arrays.breadcrumbs),
+					images: z.literal(KIBBLE_PDP_BOUNDS.arrays.images),
+					options: z.literal(KIBBLE_PDP_BOUNDS.arrays.options),
+					optionValues: z.literal(KIBBLE_PDP_BOUNDS.arrays.optionValues),
+					relatedProducts: z.literal(KIBBLE_PDP_BOUNDS.arrays.relatedProducts),
+					customFields: z.literal(KIBBLE_PDP_BOUNDS.arrays.customFields),
+					categories: z.literal(KIBBLE_PDP_BOUNDS.arrays.categories),
+					bundleContents: z.literal(KIBBLE_PDP_BOUNDS.arrays.bundleContents),
+				}).strict(),
+				strings: z.object({
+					routeId: z.literal(KIBBLE_PDP_BOUNDS.strings.routeId),
+					assetUrl: z.literal(KIBBLE_PDP_BOUNDS.strings.assetUrl),
+					imageAlt: z.literal(KIBBLE_PDP_BOUNDS.strings.imageAlt),
+					categoryPath: z.literal(KIBBLE_PDP_BOUNDS.strings.categoryPath),
+				}).strict(),
+			}).strict(),
+			richDescription: z.object({
+				mode: z.literal('server-validated-html'),
+				allowedTags: z.tuple(KIBBLE_PDP_RICH_DESCRIPTION_TAGS.map((tag) => z.literal(tag)) as [z.ZodLiteral<'p'>, z.ZodLiteral<'br'>, z.ZodLiteral<'strong'>, z.ZodLiteral<'b'>, z.ZodLiteral<'em'>, z.ZodLiteral<'i'>, z.ZodLiteral<'ul'>, z.ZodLiteral<'ol'>, z.ZodLiteral<'li'>, z.ZodLiteral<'a'>]),
+				links: z.literal('https-only-with-noopener'),
+			}).strict(),
+			supportedCurrencies: z.tuple([z.literal('USD')]),
 			responsive: z.object({ mobile: z.literal('gallery-thumbnails-follow-primary-image'), desktop: z.literal('two-column-gallery-and-details'), relatedProducts: z.literal('one-two-four-column-grid') }).strict(),
 			modelLayoutRequest: z.literal(false),
 			invariants: UniqueRequiredStrings,
@@ -282,7 +337,7 @@ const contractInput = {
 	id: 'kibble-shelf-native', version: '1.5.0', status: 'approved-reference',
 	source: {
 		repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
-		commit: '77236d229cd8020cfc363f002080781f4376b4b5', applicationPath: 'apps/storefront-svelte',
+		commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', applicationPath: 'apps/storefront-svelte',
 		brandKitPath: 'scripts/kibble-demo/data/brand/brand-kit.md', tokensPath: 'scripts/kibble-demo/data/brand/tokens.css',
 		fixturePath: 'scripts/kibble-demo/data/seed-output.json', fixtureSha256: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
 		canonicalBoundary: 'The pinned storefront source and locked Shelf-Native kit govern this package. Screenshots are comparison evidence, not a replacement source of truth.',
@@ -355,7 +410,7 @@ const contractInput = {
 		},
 		{
 			id: 'kibble.product-detail', implementation: 'KibbleProductDetailReference.svelte',
-			variants: [variant('kibble.product-detail.catalog-display-only', ['kc.product-detail.catalog-display-only'], ['product', 'breadcrumbs', 'options', 'relatedProducts', 'relatedProductHrefs', 'purchaseUnavailableLabel', 'purchaseUnavailableBody', 'relatedHeading', 'copy'], ['product.image', 'product.gallery'], ['home', 'catalog-category', 'product-detail'], [], [copy('product.name', 96, ['merchant-catalog']), copy('product.sku', 64, ['merchant-catalog']), copy('product.description', 4000, ['merchant-catalog']), copy('breadcrumbs[].label', 96, ['reference-copy', 'merchant-catalog']), copy('options[].displayName', 96, ['merchant-catalog']), copy('options[].values[].label', 96, ['merchant-catalog']), copy('purchaseUnavailableLabel', 72, ['merchant-policy']), copy('purchaseUnavailableBody', 240, ['merchant-policy']), copy('relatedHeading', 72, ['reference-copy']), copy('copy.*', 64, ['reference-copy'])])],
+			variants: [variant('kibble.product-detail.catalog-display-only', ['kc.product-detail.catalog-display-only'], ['product', 'bundle', 'breadcrumbs', 'options', 'relatedProducts', 'relatedProductHrefs', 'purchaseUnavailableLabel', 'purchaseUnavailableBody', 'relatedHeading', 'copy'], ['product.image', 'product.gallery'], ['home', 'catalog-category', 'product-detail'], [], [copy('product.name', 96, ['merchant-catalog']), copy('product.sku', 64, ['merchant-catalog']), copy('product.category', 96, ['merchant-catalog']), copy('product.description', 4000, ['merchant-catalog']), copy('product.images[].alt', 160, ['merchant-catalog']), copy('product.specs[].label', 64, ['merchant-catalog']), copy('product.specs[].value', 240, ['merchant-catalog']), copy('breadcrumbs[].label', 96, ['reference-copy', 'merchant-catalog']), copy('options[].displayName', 96, ['merchant-catalog']), copy('options[].values[].label', 96, ['merchant-catalog']), copy('bundle.name', 96, ['reference-copy']), copy('bundle.contents[].brand', 48, ['reference-copy']), copy('bundle.contents[].title', 96, ['reference-copy']), copy('bundle.contents[].role', 96, ['reference-copy']), copy('purchaseUnavailableLabel', 72, ['merchant-policy']), copy('purchaseUnavailableBody', 240, ['merchant-policy']), copy('relatedHeading', 72, ['reference-copy']), copy('copy.*', 64, ['reference-copy'])])],
 			referenceOwned: ['breadcrumb anatomy', 'gallery placement', 'identity and facts order', 'details and specifications order', 'related-product shelf'],
 			aislesOwned: ['server-verified catalog facts', 'merchant-approved unavailable-purchase copy', 'only contracted product destinations'],
 		},
@@ -382,7 +437,7 @@ const contractInput = {
 		plp: {
 			id: 'kibble-plp-reference-v1', acceptance: 'approved', implementation: 'KibbleCategoryReference.svelte', variantId: 'kibble.category-listing.fixed-grid',
 			source: {
-				commit: '77236d229cd8020cfc363f002080781f4376b4b5',
+				commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4',
 				paths: [
 					'apps/storefront-svelte/src/routes/category/[slug]/+page.server.ts',
 					'apps/storefront-svelte/src/routes/category/[slug]/+page.svelte',
@@ -394,19 +449,23 @@ const contractInput = {
 			defaultSort: 'FEATURED',
 			pageSize: KIBBLE_PLP_PAGE_SIZE,
 			pagination: { strategy: 'forward-cursor', cursorParam: 'after', actionLabel: 'Load more' },
-			productCards: 'noninteractive-until-pdp-contracted',
+			productCards: 'noninteractive-until-pdp-approved',
 			modelLayoutRequest: false,
-			invariants: ['Breadcrumbs render Home then the current category.', 'The category header and four-column product grid stay fixed.', 'Exactly seven trusted sort choices map to BigCommerce CategoryProductSort values.', 'Every page requests 24 products and exposes continuation only from a returned end cursor.', 'Invalid sort or cursor input fails closed before a catalog request.', 'Contracted PDP links use only current validated Kibble product paths.', 'Preserve never requests a model-authored layout.', 'Empty-state copy comes from the pinned manifest.'],
+			invariants: ['Breadcrumbs render Home then the current category.', 'The category header and four-column product grid stay fixed.', 'Exactly seven trusted sort choices map to BigCommerce CategoryProductSort values.', 'Every page requests 24 products and exposes continuation only from a returned end cursor.', 'Invalid sort or cursor input fails closed before a catalog request.', 'Product cards remain non-links until the PDP recipe receives visual approval and a live publication policy.', 'Preserve never requests a model-authored layout.', 'Empty-state copy comes from the pinned manifest.'],
 		},
 		pdp: {
 			id: 'kibble-pdp-reference-v1', acceptance: 'implemented-pending-visual-approval', implementation: 'KibbleProductDetailReference.svelte', variantId: 'kibble.product-detail.catalog-display-only',
-			source: { commit: '77236d229cd8020cfc363f002080781f4376b4b5', paths: ['apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts', 'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte', 'apps/storefront-svelte/src/lib/components/ProductGallery.svelte', 'apps/storefront-svelte/src/lib/components/RelatedProducts.svelte'] },
-			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'catalog-price-and-availability', 'catalog-options', 'merchant-approved-purchase-unavailable', 'description-and-specifications', 'related-products'],
+			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', paths: ['apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts', 'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte', 'apps/storefront-svelte/src/lib/components/ProductGallery.svelte', 'apps/storefront-svelte/src/lib/components/RelatedProducts.svelte', 'apps/storefront-svelte/src/lib/brand/bundle-contents.json'] },
+			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-bundle-contents', 'catalog-options', 'merchant-approved-purchase-unavailable', 'description-and-specifications', 'related-products'],
 			allowedCatalogFields: ['name', 'sku', 'description', 'images', 'options', 'price', 'salePrice', 'currencyCode', 'inventory', 'category', 'breadcrumbs', 'relatedProducts', 'customFields'],
 			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'merchant-approved-purchase-unavailable', forbidden: ['add-to-cart', 'cart', 'checkout', 'subscription', 'auto-refill-pricing', 'savings-claim', 'model-layout', 'generic-picks'] },
+			publication: { mode: 'approval-required', reviewAvailability: 'development-build-only', productLinks: 'disabled-until-approved' },
+			bounds: KIBBLE_PDP_BOUNDS,
+			richDescription: { mode: 'server-validated-html', allowedTags: KIBBLE_PDP_RICH_DESCRIPTION_TAGS, links: 'https-only-with-noopener' },
+			supportedCurrencies: KIBBLE_PDP_SUPPORTED_CURRENCIES,
 			responsive: { mobile: 'gallery-thumbnails-follow-primary-image', desktop: 'two-column-gallery-and-details', relatedProducts: 'one-two-four-column-grid' },
 			modelLayoutRequest: false,
-			invariants: ['The fixed recipe renders catalog facts only after the trusted server validates the product.', 'Breadcrumbs, gallery, identity, catalog price, options, unavailable-purchase state, details, and related shelf remain in this order.', 'The unavailable-purchase state is visible instead of an add-to-cart, cart, checkout, subscription, Auto-Refill, or savings claim.', 'Only validated current Kibble PDP paths may be rendered as product links.', 'Bad route or catalog data fails into the Kibble Preserve error shell.', 'No model selects PDP structure, components, or destinations.'],
+			invariants: ['The fixed recipe renders catalog facts only after the trusted server validates the product.', 'Breadcrumbs, gallery, identity, conditional bundle summary, catalog price, conditional bundle contents, options, unavailable-purchase state, details, and related shelf remain in this order.', 'Bundle identity and contents come only from the pinned bundle manifest; subscription, savings, and subscribe-price fields are excluded.', 'The unavailable-purchase state is visible instead of an add-to-cart, cart, checkout, subscription, Auto-Refill, or savings claim.', 'The review renderer is development-build-only while acceptance is pending, and published Home and PLP cards remain non-links.', 'Only validated current Kibble PDP paths may be rendered as product links inside the review renderer.', 'Bad route, catalog, copy, or bounds data fails into the Kibble Preserve error shell.', 'No model selects PDP structure, components, or destinations.'],
 		},
 		error: {
 			id: 'kibble-error-reference-v1', acceptance: 'approved', implementation: 'KibbleErrorReference.svelte', variantId: 'kibble.error.reference-shell',

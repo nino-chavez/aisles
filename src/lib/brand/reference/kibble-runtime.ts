@@ -9,6 +9,7 @@ import type {
 	KibbleVisualTile,
 } from '$lib/components/kibble/types';
 import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
+import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
 import {
 	buildKibblePlpHref,
 	KIBBLE_PLP_SORT_OPTIONS,
@@ -17,16 +18,27 @@ import {
 import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
 import type { Surface } from '$lib/foundation/zones';
 
-export type MerchantRenderMode = 'reference-preserve' | 'legacy-generated';
+export type MerchantRenderMode =
+	| 'reference-preserve'
+	| 'reference-review'
+	| 'reference-unavailable'
+	| 'legacy-generated';
 export type KibbleFeaturedSource = 'featured' | 'newest' | 'deterministic-catalog';
 
-export function selectMerchantRenderMode(brandId: unknown, surface: Surface | null): MerchantRenderMode {
+export function selectMerchantRenderMode(
+	brandId: unknown,
+	surface: Surface | null,
+	options: { allowPendingReview?: boolean } = {},
+): MerchantRenderMode {
 	const decision = getContractSurfaceDecision(brandId, surface);
 	if (decision.mode !== 'reference-preserve') return decision.mode;
 	if (surface !== 'home' && surface !== 'plp' && surface !== 'pdp' && surface !== 'error-404' && surface !== 'error-empty') {
 		return 'legacy-generated';
 	}
 	assertKibblePreserveRoutePolicy(decision.policy, surface);
+	if (surface === 'pdp' && !isPdpPublicationApproved(decision.policy.publicationMode)) {
+		return options.allowPendingReview === true ? 'reference-review' : 'reference-unavailable';
+	}
 	return decision.mode;
 }
 
@@ -95,7 +107,9 @@ export function buildKibbleHomeReference(
 			proofItems: [],
 		},
 		products: featuredProducts,
-		productHrefs: materializeKibbleProductHrefs(featuredProducts),
+		// PDP publication is still approval-gated. Home cards remain inert until
+		// the recipe and its policy both move to an approved live state.
+		productHrefs: isKibblePdpPublished() ? materializeKibblePdpHrefs(featuredProducts) : {},
 		categories,
 		serviceProof: manifest.home.serviceProof.map((item): KibbleServiceProofItem => ({ ...item })),
 		featuredCopy: {
@@ -146,17 +160,27 @@ export function materializeKibbleCategory(
 		loadMoreHref: state.pageInfo.hasNextPage && state.pageInfo.endCursor
 			? buildKibblePlpHref(state.sort, state.pageInfo.endCursor)
 			: null,
-		productHrefs: materializeKibbleProductHrefs(products),
+		productHrefs: isKibblePdpPublished() ? materializeKibblePdpHrefs(products) : {},
 	};
 }
 
-/** Only current, locally contracted Kibble PDP slugs become destinations. */
-export function materializeKibbleProductHrefs(products: Product[]): Record<string, string> {
+/** Validated PDP destinations. Publication callers must also pass the approval gate. */
+export function materializeKibblePdpHrefs(products: Product[]): Record<string, string> {
 	const hrefs: Record<string, string> = {};
 	for (const product of products) {
 		if (/^[a-z0-9][a-z0-9-]*$/.test(product.id)) hrefs[product.id] = `/product/${product.id}`;
 	}
 	return hrefs;
+}
+
+export function isKibblePdpPublished(): boolean {
+	const decision = getContractSurfaceDecision('kibble', 'pdp');
+	return decision.mode === 'reference-preserve' && isPdpPublicationApproved(decision.policy.publicationMode);
+}
+
+function isPdpPublicationApproved(publicationMode: string): boolean {
+	const acceptance: string = KIBBLE_REFERENCE_CONTRACT.recipes.pdp.acceptance;
+	return acceptance === 'approved' && publicationMode === 'live';
 }
 
 export function selectReferenceProducts(products: Product[], excludedEntityId: number, limit: number): Product[] {

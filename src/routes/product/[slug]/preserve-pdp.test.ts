@@ -26,13 +26,13 @@ const detail = {
 	relatedProducts: { edges: [{ node: { entityId: 8, name: 'Related Food', sku: 'DOG-8', path: '/related-food/', description: '', prices: { price: { value: 20, currencyCode: 'USD' }, salePrice: null }, defaultImage: null, customFields: { edges: [] }, categories: { edges: [] } } }] },
 };
 
-function preserveEvent(slug: string) {
+function preserveEvent(slug: string, renderMode: 'reference-review' | 'reference-preserve' | 'reference-unavailable' = 'reference-review') {
 	const values = new Map<string, string>([['aisles_session', 'session-one']]);
 	const url = new URL(`https://aisles.test/product/${slug}`);
 	return {
 		params: { slug }, url, request: new Request(url),
 		cookies: { get: (name: string) => values.get(name), set: (name: string, value: string) => values.set(name, value) },
-		parent: async () => ({ devMode: false, renderMode: 'reference-preserve' }),
+		parent: async () => ({ devMode: false, renderMode }),
 	};
 }
 
@@ -56,19 +56,68 @@ describe('Kibble Preserve PDP route', () => {
 	it('materializes fixed, catalog-verified facts and only contracted PDP destinations', async () => {
 		const data = await load(preserveEvent('verified-food') as never);
 		if (!data || !('kibblePdp' in data)) throw new Error('Expected Kibble PDP data.');
-		expect(data.kibblePdp.product).toMatchObject({ name: 'Verified Food', sku: 'DOG-7', description: 'Catalog description', isInStock: true });
+		expect(data.renderMode).toBe('reference-review');
+		expect(data.kibblePdp.product).toMatchObject({ name: 'Verified Food', sku: 'DOG-7', description: '<p>Catalog description</p>', descriptionPlain: 'Catalog description', isInStock: true });
+		expect(data.kibblePdp.bundle).toBeNull();
 		expect(data.kibblePdp.relatedProductHrefs).toEqual({ 'related-food': '/product/related-food' });
 		expect(data.kibblePdp.purchaseUnavailableBody).toContain('ordering, cart, and subscription');
 		expect(data.provenance).toMatchObject({ surface: 'pdp', autonomy: { decisionMode: 'fixed' }, decisionSource: 'fixed' });
 		expect(mocks.buildContractedLayoutProvenance).toHaveBeenCalledWith(expect.objectContaining({
 			surface: 'pdp', route: '/product/verified-food', decisionSource: 'fixed',
-			contractInput: expect.objectContaining({ id: 'kibble-pdp-reference-v1' }),
+			rendererVariantId: 'kibble.product-detail.catalog-display-only',
+			contractInput: {
+				recipe: expect.objectContaining({ id: 'kibble-pdp-reference-v1' }),
+				renderedManifest: expect.objectContaining({
+					purchaseUnavailableLabel: 'Purchase unavailable in this preview',
+					copy: expect.objectContaining({ detailsHeading: 'Details' }),
+					bundle: null,
+				}),
+			},
 			catalogInput: expect.objectContaining({ product: expect.objectContaining({ entityId: 7 }) }),
 			shopperContext: { persona: 'gatherer', probabilities: { gatherer: 1, hunter: 0, researcher: 0, gifter: 0 } },
 		}));
 		expect(mocks.logGeneration).toHaveBeenCalledWith(expect.objectContaining({
 			type: 'preserve_render', persona: 'gatherer', categorySlug: 'verified-food', sessionId: 'session-one', provenance: data.provenance,
 		}));
+	});
+
+	it('keeps the pending recipe unavailable to live publication', async () => {
+		await expect(load(preserveEvent('verified-food', 'reference-unavailable') as never)).rejects.toMatchObject({ status: 503 });
+		expect(mocks.getKibbleProductDetailByPath).not.toHaveBeenCalled();
+	});
+
+	it('preserves the pinned conditional bundle anatomy without subscription fields', async () => {
+		const bundleDetail = structuredClone(detail);
+		Object.assign(bundleDetail, {
+			entityId: 3065,
+			name: 'Essential Bundle',
+			sku: 'BUNDLE-ESSENTIAL',
+			path: '/essential-bundle-kns4/',
+		});
+		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce(bundleDetail);
+		const data = await load(preserveEvent('essential-bundle-kns4') as never);
+		if (!data || !('kibblePdp' in data)) throw new Error('Expected Kibble bundle PDP data.');
+		expect(data.kibblePdp.bundle?.name).toBe('Essential Bundle');
+		expect(data.kibblePdp.bundle?.contents).toHaveLength(3);
+		expect(data.kibblePdp.bundle?.contents[0]).toMatchObject({ brand: 'Open Farm', title: 'GoodGut Grass-Fed Beef Dog Kibble', role: 'Premium dry food' });
+		expect(JSON.stringify(data.kibblePdp.bundle)).not.toMatch(/subscribable|subscribe_price|save/);
+		expect(mocks.buildContractedLayoutProvenance).toHaveBeenCalledWith(expect.objectContaining({
+			contractInput: expect.objectContaining({ renderedManifest: expect.objectContaining({ bundle: expect.objectContaining({ name: 'Essential Bundle' }) }) }),
+		}));
+	});
+
+	it('keeps validated rich description semantics and rejects executable markup', async () => {
+		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce({
+			...detail,
+			description: '<p>Made with <strong>care</strong>. <a href="https://example.com/details">Read more</a></p>',
+		});
+		const data = await load(preserveEvent('verified-food') as never);
+		if (!data || !('kibblePdp' in data)) throw new Error('Expected Kibble PDP data.');
+		expect(data.kibblePdp.product.description).toContain('<strong>care</strong>');
+		expect(data.kibblePdp.product.description).toContain('rel="noopener noreferrer"');
+
+		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce({ ...detail, description: '<script>alert(1)</script>' });
+		await expect(load(preserveEvent('verified-food') as never)).rejects.toMatchObject({ status: 503 });
 	});
 
 	it('fails missing catalog records and invalid paths into the Preserve error shell', async () => {
@@ -80,9 +129,42 @@ describe('Kibble Preserve PDP route', () => {
 	it.each([
 		['negative list price', { price: { value: -1, currencyCode: 'USD' }, salePrice: null }],
 		['invalid sale price', { price: { value: 24, currencyCode: 'USD' }, salePrice: { value: 24, currencyCode: 'USD' } }],
+		['mismatched sale-price currency', { price: { value: 24, currencyCode: 'USD' }, salePrice: { value: 20, currencyCode: 'EUR' } }],
 		['unsupported currency', { price: { value: 24, currencyCode: 'EUR' }, salePrice: null }],
 	])('fails %s closed before client money formatting', async (_label, prices) => {
 		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce({ ...detail, prices });
+		await expect(load(preserveEvent('verified-food') as never)).rejects.toMatchObject({ status: 503 });
+	});
+
+	it.each([
+		['product name', (candidate: typeof detail) => { candidate.name = 'n'.repeat(97); }],
+		['product SKU', (candidate: typeof detail) => { candidate.sku = 's'.repeat(65); }],
+		['description', (candidate: typeof detail) => { candidate.description = 'd'.repeat(4001); }],
+		['image alt text', (candidate: typeof detail) => { candidate.images.edges[0].node.altText = 'a'.repeat(161); }],
+		['category name', (candidate: typeof detail) => { candidate.categories.edges[0].node.name = 'c'.repeat(97); }],
+		['option name', (candidate: typeof detail) => { candidate.productOptions.edges[0].node.displayName = 'o'.repeat(97); }],
+		['option value label', (candidate: typeof detail) => { candidate.productOptions.edges[0].node.values.edges[0].node.label = 'v'.repeat(97); }],
+		['custom field name', (candidate: typeof detail) => { candidate.customFields.edges[0].node.name = 'k'.repeat(65); }],
+		['custom field value', (candidate: typeof detail) => { candidate.customFields.edges[0].node.value = 'v'.repeat(241); }],
+		['related product name', (candidate: typeof detail) => { candidate.relatedProducts.edges[0].node.name = 'r'.repeat(97); }],
+	])('fails an over-bound %s closed before rendering', async (_label, mutate) => {
+		const candidate = structuredClone(detail);
+		mutate(candidate);
+		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce(candidate);
+		await expect(load(preserveEvent('verified-food') as never)).rejects.toMatchObject({ status: 503 });
+	});
+
+	it.each([
+		['images', (candidate: typeof detail) => { candidate.images.edges = Array.from({ length: 11 }, () => structuredClone(detail.images.edges[0])); }],
+		['options', (candidate: typeof detail) => { candidate.productOptions.edges = Array.from({ length: 11 }, (_, index) => ({ node: { ...structuredClone(detail.productOptions.edges[0].node), entityId: index + 1 } })); }],
+		['option values', (candidate: typeof detail) => { candidate.productOptions.edges[0].node.values.edges = Array.from({ length: 26 }, (_, index) => ({ node: { entityId: index + 1, label: `Value ${index}`, isDefault: false } })); }],
+		['related products', (candidate: typeof detail) => { candidate.relatedProducts.edges = Array.from({ length: 5 }, (_, index) => ({ node: { ...structuredClone(detail.relatedProducts.edges[0].node), entityId: index + 20, path: `/related-${index}/` } })); }],
+		['custom fields', (candidate: typeof detail) => { candidate.customFields.edges = Array.from({ length: 11 }, (_, index) => ({ node: { name: `Field ${index}`, value: 'Value' } })); }],
+		['categories', (candidate: typeof detail) => { candidate.categories.edges = Array.from({ length: 6 }, (_, index) => ({ node: { entityId: index + 1, name: `Category ${index}`, path: `/category-${index}/` } })); }],
+	])('fails an over-bound %s array closed before rendering', async (_label, mutate) => {
+		const candidate = structuredClone(detail);
+		mutate(candidate);
+		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce(candidate);
 		await expect(load(preserveEvent('verified-food') as never)).rejects.toMatchObject({ status: 503 });
 	});
 });

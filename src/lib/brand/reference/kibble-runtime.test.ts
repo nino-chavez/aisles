@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { getBrandById } from '$lib/brand/config';
 import type { Product } from '$lib/types';
 import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
+import { KIBBLE_PDP_BOUNDS, KIBBLE_REFERENCE_CONTRACT } from './kibble';
 import {
 	buildKibbleHomeReference,
+	isKibblePdpPublished,
 	materializeKibbleCategory,
 	selectMerchantRenderMode,
 	verifyAndMaterializeBundle,
@@ -39,7 +41,9 @@ describe('Kibble Preserve runtime adapter', () => {
 	it('selects Preserve only through an own trusted brand id', () => {
 		expect(selectMerchantRenderMode('kibble', 'home')).toBe('reference-preserve');
 		expect(selectMerchantRenderMode('kibble', 'plp')).toBe('reference-preserve');
-		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('reference-preserve');
+		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('reference-unavailable');
+		expect(selectMerchantRenderMode('kibble', 'pdp', { allowPendingReview: true })).toBe('reference-review');
+		expect(isKibblePdpPublished()).toBe(false);
 		expect(selectMerchantRenderMode('haven', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('__proto__', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode({ id: 'kibble' }, 'home')).toBe('legacy-generated');
@@ -73,12 +77,12 @@ describe('Kibble Preserve runtime adapter', () => {
 		]);
 		expect(home.featuredCopy.title).toBe('Catalog shelf');
 		expect(home.products.map(({ entityId }) => entityId)).toEqual([4, 2, 3]);
-		expect(home.productHrefs).toEqual({ four: '/product/four', two: '/product/two', three: '/product/three' });
+		expect(home.productHrefs).toEqual({});
 		expect(home.categories).toHaveLength(8);
 		expect(home.hero.proofItems).toEqual([]);
 	});
 
-	it('materializes breadcrumb, sort, cursor continuation, and contracted PDP links', () => {
+	it('materializes breadcrumb, sort, and cursor continuation without publishing pending PDP links', () => {
 		const brand = getBrandById('kibble')!;
 		const category = materializeKibbleCategory(brand, 'dog-food', [product(1, 'one')], {
 			sort: 'LOWEST_PRICE',
@@ -88,7 +92,7 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(category.sortOptions).toHaveLength(7);
 		expect(category.selectedSort).toBe('LOWEST_PRICE');
 		expect(category.loadMoreHref).toBe('?sort=LOWEST_PRICE&after=YXJyYXljb25uZWN0aW9uOjIz');
-		expect(category.productHrefs).toEqual({ one: '/product/one' });
+		expect(category.productHrefs).toEqual({});
 		expect(materializeKibbleCategory(brand, 'dog-food', [product(1, 'one')], {
 			sort: 'FEATURED', pageInfo: { hasNextPage: false, endCursor: null },
 		}).loadMoreHref).toBeNull();
@@ -104,5 +108,14 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('Preserve adapter');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('fixed shelf structure');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('never lapses');
+		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles)).not.toMatch(/subscribable|subscribe_price|save/);
+		const pdpVariant = KIBBLE_REFERENCE_CONTRACT.components.find(({ id }) => id === 'kibble.product-detail')!.variants[0];
+		const copyLimit = pdpVariant.copyFields.find(({ field }) => field === 'copy.*')!.maxLength;
+		expect(Object.values(KIBBLE_PRESERVE_MANIFEST.display.pdp.copy).every((value) => value.length <= copyLimit)).toBe(true);
+		for (const item of Object.values(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles)) {
+			expect(Object.keys(item).sort()).toEqual(['contents', 'name']);
+			expect(item.contents.length).toBeLessThanOrEqual(KIBBLE_PDP_BOUNDS.arrays.bundleContents);
+			for (const content of item.contents) expect(Object.keys(content).sort()).toEqual(['brand', 'image', 'role', 'title']);
+		}
 	});
 });

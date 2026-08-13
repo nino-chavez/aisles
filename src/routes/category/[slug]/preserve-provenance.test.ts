@@ -75,7 +75,7 @@ describe('Kibble Preserve PLP publication', () => {
 
 		if (!data) throw new Error('Expected Preserve PLP data.');
 		expect(data.provenance).toMatchObject({
-			reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.4.0' },
+			reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.5.0' },
 			surface: 'plp', route: '/category/dog-food',
 			autonomy: { preset: 'preserve', decisionMode: 'fixed', publicationMode: 'live' },
 			renderer: { componentId: 'kibble.category-listing', variantId: 'kibble-plp-reference-v1' },

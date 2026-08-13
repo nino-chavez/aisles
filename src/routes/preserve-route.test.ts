@@ -4,11 +4,13 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import HomePage from './+page.svelte';
 import CategoryPage from './category/[slug]/+page.svelte';
+import ProductPage from './product/[slug]/+page.svelte';
 import { _parseKibblePlpRequest } from './category/[slug]/+page.server';
 import { load as loadLayout } from './+layout.server';
 import { load as loadSearch } from './search/+page.server';
 import { GET as getCart, POST as postCart } from './api/cart/+server';
 import type { Product } from '$lib/types';
+import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 
 const route = (path: string) => readFileSync(resolve(import.meta.dirname, path), 'utf8');
 const product: Product = {
@@ -66,7 +68,7 @@ describe('Preserve route boundaries', () => {
 			process.env.BRAND_ID = 'kibble';
 			const pdp = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);
 			if (!pdp) throw new Error('Expected the contracted Kibble PDP layout to return data.');
-			expect(pdp.renderMode).toBe('reference-preserve');
+			expect(pdp.renderMode).toBe('reference-review');
 			expect(pdp.chromeMode).toBe('reference');
 		} finally {
 			if (previousBrand === undefined) delete process.env.BRAND_ID;
@@ -138,6 +140,33 @@ describe('Preserve route boundaries', () => {
 		expect(result.body).toContain('Load more');
 		expect(result.body).toContain('1 product');
 		expect(result.body).not.toContain('Personalizing');
+	});
+
+	it('SSR renders the approval-gated PDP review without generic commerce controls', () => {
+		const result = render(ProductPage, {
+			props: {
+				data: {
+					renderMode: 'reference-review',
+					kibblePdp: {
+						product: {
+							...product, sku: 'ACTUAL-10', categoryPath: '/dog-food/', currencyCode: 'USD',
+							isInStock: true, images: [], description: '<p>Catalog details.</p>', descriptionPlain: 'Catalog details.',
+						},
+						bundle: null,
+						breadcrumbs: [{ label: 'Home', href: '/' }, { label: product.name }],
+						options: [], relatedProducts: [], relatedProductHrefs: {},
+						purchaseUnavailableLabel: KIBBLE_PRESERVE_MANIFEST.display.pdp.purchaseUnavailableLabel,
+						purchaseUnavailableBody: KIBBLE_PRESERVE_MANIFEST.display.pdp.purchaseUnavailableBody,
+						relatedHeading: KIBBLE_PRESERVE_MANIFEST.display.pdp.relatedHeading,
+						copy: { ...KIBBLE_PRESERVE_MANIFEST.display.pdp.copy },
+					},
+				} as never,
+			},
+		});
+		expect(result.body).toContain('data-reference-pdp="catalog-display-only"');
+		expect(result.body).toContain('data-reference-contract-version="1.5.0"');
+		expect(result.body).toContain('Purchase unavailable in this preview');
+		expect(result.body).not.toMatch(/Add to Cart|Add to Picks|Pairs well with/);
 	});
 
 	it('keeps stream calls inside an explicit legacy guard on both routes', () => {

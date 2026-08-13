@@ -352,7 +352,7 @@ export async function getProductByPath(path: string): Promise<BCProduct | null> 
  * query: the Preserve route never creates carts, subscriptions, or purchases.
  *
  * Verified 2026-08-12 against the pinned Kibble source at
- * `77236d229cd8020cfc363f002080781f4376b4b5`,
+ * `ef122b8e17b9eb0b327c9d42491c44a61577ead4`,
  * `apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts`, and
  * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/products-and-catalog/products.md
  */
