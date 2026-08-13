@@ -1,15 +1,15 @@
 type Query = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>;
-
-function createNoopSql(): Query & {
+type NoopSql = Query & {
 	end: () => Promise<void>;
-	begin: <T>(callback: (sql: Query) => Promise<T>) => Promise<T>;
-} {
-	const query = (async () => []) as Query & {
-		end: () => Promise<void>;
-		begin: <T>(callback: (sql: Query) => Promise<T>) => Promise<T>;
-	};
+	begin: <T>(callback: (sql: NoopSql) => Promise<T>) => Promise<T>;
+	json: (value: unknown) => unknown;
+};
+
+function createNoopSql(): NoopSql {
+	const query = (async () => []) as NoopSql;
 	query.end = async () => {};
-	query.begin = async <T>(callback: (sql: Query) => Promise<T>) => callback(query);
+	query.begin = async <T>(callback: (sql: NoopSql) => Promise<T>) => callback(query);
+	query.json = (value: unknown) => value;
 	return query;
 }
 
