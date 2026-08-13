@@ -13,26 +13,25 @@ ignored by Git. Nothing from a passing run is committed automatically.
 Both URLs must render the same three provenance markers on the Kibble page:
 
 ```text
-data-kibble-reference-contract-id
-data-kibble-reference-contract-version
-data-kibble-fixed-data-identity
+data-reference-id
+data-reference-contract-version
+data-reference-fixture-sha256
 ```
 
-The Aisles Kibble Preserve route renders these markers. The currently pinned
-`bc-subscriptions` reference route does not yet expose them. A direct run
-against that uninstrumented route fails closed. Do not remove this check just
-to compare screenshots. Add the same markers to the pinned reference build or
-use an approved, instrumented reference fixture first.
+The Aisles Kibble Preserve route and the pinned `bc-subscriptions` reference
+revision both render these markers. A direct run against any older,
+uninstrumented revision fails closed. Do not remove this check just to compare
+screenshots.
 
 The fixed data identity is deliberately specific:
 
 ```text
-kibble-preserve-home-v1:1.0.0:a5c9555b89d72e7898d6bc1c38c7157a1c415b06:3065
+833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49
 ```
 
-It binds the Kibble Preserve manifest version, the approved source revision,
-and the Essential Bundle product identity. A page with a different bundle,
-contract, or manifest cannot pass this gate.
+This is the SHA-256 of the source-owned Kibble seed fixture. The separately
+required contract ID and version bind its interpretation. A page with another
+fixture or contract cannot pass this gate.
 
 ## Run it
 
@@ -44,8 +43,8 @@ defaults.
 KIBBLE_PARITY_REFERENCE_URL='http://127.0.0.1:4173/' \
 KIBBLE_PARITY_CANDIDATE_URL='http://127.0.0.1:5173/' \
 KIBBLE_PARITY_CONTRACT_ID='kibble-shelf-native' \
-KIBBLE_PARITY_CONTRACT_VERSION='1.1.0' \
-KIBBLE_PARITY_FIXED_DATA_IDENTITY='kibble-preserve-home-v1:1.0.0:a5c9555b89d72e7898d6bc1c38c7157a1c415b06:3065' \
+KIBBLE_PARITY_CONTRACT_VERSION='1.4.0' \
+KIBBLE_PARITY_FIXED_DATA_IDENTITY='833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49' \
 KIBBLE_PARITY_MASKS='[]' \
 KIBBLE_PARITY_MAX_PIXEL_DIFFERENCE_RATIO='0.025' \
 KIBBLE_PARITY_STRUCTURE_TOLERANCES='{"header":0,"nav":0,"main":0,"footer":0,"h1":0,"h2":1,"h3":2,"section":1,"image":2,"link":3,"button":1,"pageHeight":120}' \

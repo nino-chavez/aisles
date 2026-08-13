@@ -21,7 +21,7 @@ isolated branches and has not been pushed or deployed.
 | 4 — Kibble routes | Home and error surfaces render the Preserve path; product listing is an unaccepted candidate | Complete product listing, product detail, search, cart, and checkout contracts |
 | 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented | Enable it only when a contracted model-backed zone is approved |
 | 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, and actual home Preserve records implemented | Apply the migration and verify the deployed runtime |
-| 7 — executable parity | In progress | Desktop/mobile captures, structural comparison, and named human approval |
+| 7 — executable parity | Fail-closed mobile/desktop structural and pixel harness implemented; source and candidate share pinned provenance markers | Run an approved fixed-data comparison, resolve every unmasked difference, and obtain named human approval |
 | 8 — Bealls adoption | Separate brand policy classifications implemented as `uncontracted` | Three real design contracts and route migration |
 | 9 — merchant control | Not started; deliberately outside the first execution wave | Authenticated, versioned policy editor and audit trail |
 

@@ -26,7 +26,9 @@ longer only a proposal. Local follow-up work now includes:
 
 The work has not been pushed or deployed. The database migration has not been
 applied. Kibble product detail, search, cart, and checkout are not contracted.
-Desktop/mobile visual acceptance and named human approval are still open.
+The reference and candidate now expose matching source-owned fixture markers,
+and a fail-closed desktop/mobile comparison command exists. A real fixed-data
+parity run and named human approval are still open.
 `bealls-aisles` records each family member separately, but truthfully labels
 all three as `uncontracted`; their design contracts remain future work.
 

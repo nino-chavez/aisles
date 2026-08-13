@@ -1,18 +1,12 @@
 import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
-import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
 
 export const KIBBLE_PARITY_METADATA = {
-	contractId: 'data-kibble-reference-contract-id',
-	contractVersion: 'data-kibble-reference-contract-version',
-	fixedDataIdentity: 'data-kibble-fixed-data-identity',
+	contractId: 'data-reference-id',
+	contractVersion: 'data-reference-contract-version',
+	fixedDataIdentity: 'data-reference-fixture-sha256',
 } as const;
 
-export const KIBBLE_PARITY_FIXED_DATA_IDENTITY = [
-	KIBBLE_PRESERVE_MANIFEST.id,
-	KIBBLE_PRESERVE_MANIFEST.version,
-	KIBBLE_REFERENCE_CONTRACT.source.commit,
-	KIBBLE_PRESERVE_MANIFEST.display.featuredBundle.entityId,
-].join(':');
+export const KIBBLE_PARITY_FIXED_DATA_IDENTITY = KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256;
 
 export const STRUCTURAL_METRIC_KEYS = [
 	'header',

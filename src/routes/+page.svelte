@@ -118,9 +118,10 @@
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleHome}
 	<div
-		data-kibble-reference-contract-id={KIBBLE_REFERENCE_CONTRACT.id}
-		data-kibble-reference-contract-version={KIBBLE_REFERENCE_CONTRACT.version}
-		data-kibble-fixed-data-identity={KIBBLE_PARITY_FIXED_DATA_IDENTITY}
+		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}
+		data-reference-contract-version={KIBBLE_REFERENCE_CONTRACT.version}
+		data-reference-fixture={KIBBLE_REFERENCE_CONTRACT.source.fixturePath}
+		data-reference-fixture-sha256={KIBBLE_PARITY_FIXED_DATA_IDENTITY}
 	>
 		<KibbleHomeReference
 			hero={data.kibbleHome.hero}
