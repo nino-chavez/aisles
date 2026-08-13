@@ -55,6 +55,7 @@ export function buildShowcaseChildEnvironment(
 		OPENAI_API_KEY: '',
 		OPENROUTER_API_KEY: '',
 		CF_AI_GATEWAY_URL: '',
+		KIBBLE_DEMO_AI_ENABLED: '',
 		DATABASE_URL: '',
 		RUNTIME_DATABASE_URL: '',
 		KV_REST_API_URL: '',

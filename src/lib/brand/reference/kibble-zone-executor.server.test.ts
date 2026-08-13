@@ -3,6 +3,7 @@ import {
 	executeKibbleErrorZoneAdapter,
 	executeKibbleHiddenZoneTerminalsForRoute,
 	executeKibbleHomeZoneAdapters,
+	executeKibbleHomeModelShelf,
 	executeKibblePdpRelatedZoneAdapter,
 	executeKibblePlpZoneAdapter,
 	executeKibbleSearchEmptyZoneAdapter,
@@ -108,5 +109,23 @@ describe('Kibble exact union-zone execution', () => {
 		expect(hidden).toHaveLength(25);
 		expect(hidden.find(({ instanceId }) => instanceId === 'cart.above-checkout-cta')).toBeTruthy();
 		await expect(executeKibbleZoneTerminal(visible[0])).rejects.toThrow('requires semantic adapter content');
+	});
+
+	it('lets the live model boundary return only an exact approved product permutation', async () => {
+		const products = [{ entityId: 3023 }, { entityId: 3024 }, { entityId: 3025 }];
+		const runModel = async ({ outputSchema }: { outputSchema: { safeParse(value: unknown): { success: boolean } } }) => {
+			const output = { rankedProductIds: ['3025', '3023', '3024'] };
+			expect(outputSchema.safeParse(output).success).toBe(true);
+			expect(outputSchema.safeParse({ ...output, headline: 'forbidden' }).success).toBe(false);
+			return output;
+		};
+		const result = await executeKibbleHomeModelShelf({ products, runModel });
+		expect(result.rankedProductIds).toEqual(['3025', '3023', '3024']);
+		expect(result.adapter).toMatchObject({
+			instanceId: 'home.featured-row.1', decisionMode: 'model', modelCallCount: 0,
+			content: { component: 'product-grid', props: { products: [
+				{ productId: '3025' }, { productId: '3023' }, { productId: '3024' },
+			] } },
+		});
 	});
 });

@@ -29,6 +29,7 @@ describe('KibbleObserveRail', () => {
 			expect(result.body).toContain(label);
 		}
 		expect(result.body).toContain('researcher');
+		expect(result.body).toContain('Plp · Preserve shell');
 		expect(result.body).toContain(`kibble-shelf-native@${KIBBLE_REFERENCE_CONTRACT.version}`);
 		expect(result.body).toContain('/observe?session=session-one');
 		expect(result.body).toContain('https://storefront.bcsubs.app/');
@@ -39,5 +40,7 @@ describe('KibbleObserveRail', () => {
 		const source = readFileSync(resolve(import.meta.dirname, 'KibbleObserveRail.svelte'), 'utf8');
 		expect(source).toContain("window.addEventListener('hashchange', collapseForSignalLab)");
 		expect(source).toContain("window.removeEventListener('hashchange', collapseForSignalLab)");
+		expect(source).toContain('aria-live="polite"');
+		expect(source).toContain('min-height:44px');
 	});
 });

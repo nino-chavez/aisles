@@ -347,19 +347,29 @@ If no valid session cookie exists, `inference` will be `null` and `received` wil
 ### POST /api/kibble/home-decision?observe=true
 
 Re-derives the current Kibble Home decision from the existing scoped session.
-The public demo inspector calls this after a simulated behavior is confirmed by
-`POST /api/signals`. The browser supplies no persona, product order, score, or
-policy input.
+The public demo inspector calls the rules path after a simulated behavior is
+confirmed by `POST /api/signals`. An empty body or exact
+`{"mode":"rules"}` selects that deterministic path. The explicit bounded-AI
+control sends exact `{"mode":"model"}`. The browser supplies no persona,
+product order, score, product facts, or policy identity.
 
 The no-store response contains sanitized inference, the approved shelf order,
-the Template/Rules/AI-model zone trace, and contracted provenance. This endpoint
-does not call a model or generate a layout.
+the Template/Rules/AI-model zone trace, exact rendered shelf adapters, and
+contracted provenance. The rules path makes zero model calls. The model path
+reserves the worst-case provider budget before sending sanitized inference and
+bounded approved product facts to the configured model. Its response schema can
+only return an exact permutation of the approved product IDs. Neither path may
+generate or replace the Kibble layout, components, copy, prices, links, CSS, or
+commerce actions.
 
 | Status | Condition |
 |---|---|
 | 200 | Explicit `observe=true`, active Kibble Preserve Home, and an existing scoped session |
+| 400 | Invalid or oversized decision body |
 | 404 | Missing demo flag, wrong brand, or unavailable Preserve policy |
 | 409 | Missing or unknown scoped session |
+| 429 | Session cooldown or daily provider-call budget exhausted |
+| 503 | Bounded AI is disabled or its production Redis budget is unavailable |
 | 500 | Server decision or catalog operation failed |
 
 ---

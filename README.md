@@ -155,7 +155,10 @@ active during ordinary catalog navigation; `?observe=false` exits it. The rail
 labels visible zones as Template, Rules, or AI and reports actual model-call
 count. Home also exposes the expanded signal lab, where synthetic customer
 behaviors update inference and the approved rules-ranked shelf in the same
-session.
+session. An explicit **Run bounded AI ranking** control is available in the
+deployed prospect demo. It can only reorder the already approved Home products;
+the Kibble structure, components, copy, prices, links, CSS, and commerce actions
+remain outside model authority.
 
 ---
 

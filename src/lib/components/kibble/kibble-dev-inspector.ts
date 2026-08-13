@@ -63,6 +63,12 @@ export interface KibbleDevInspectorData {
 	dataSourceLabel: string;
 	zones: readonly KibbleInspectorZone[];
 	provenance?: Record<string, unknown>;
+	availableModelDecision?: {
+		policyVersion: string;
+		zoneId: 'home.featured-row';
+		capabilities: readonly ['rank_products'];
+		publicationMode: 'live';
+	};
 }
 
 export type KibbleLivePreviewStatus =

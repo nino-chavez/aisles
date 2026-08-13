@@ -304,7 +304,7 @@ function validateBindings(
 		identity.allowedDecisionModes.some((mode) => !['fixed', 'rules', 'model'].includes(mode)) ||
 		!identity.allowedDecisionModes.includes(policy.decisionMode)
 	) return 'decision_mode_not_approved';
-	if (policy.decisionMode === 'model' && policy.publicationMode === 'live' && !liveModelApprovedFor(identity.familyId)) {
+	if (policy.decisionMode === 'model' && policy.publicationMode === 'live' && !liveModelApprovedFor(identity)) {
 		return 'live_model_not_approved';
 	}
 	if (isAislesRendererIdentity(identityDefinition) && policy.decisionMode !== 'fixed' && !ZONES[identityDefinition.familyId].engineComposable) return 'fixed_only_zone';
@@ -353,7 +353,7 @@ function provenanceFrom(identity: TrustedZoneExecutionIdentity, policy: Effectiv
 		instanceId: identity.instanceId,
 		decisionMode: policy.decisionMode,
 		publicationMode: policy.publicationMode,
-		liveModelApproved: liveModelApprovedFor(identity.familyId),
+		liveModelApproved: liveModelApprovedFor(identity),
 	};
 }
 
@@ -402,6 +402,14 @@ function sameDecisionModes(left: readonly DecisionMode[], right: readonly Decisi
 	return left.length === right.length && left.every((mode, index) => mode === right[index]);
 }
 
-function liveModelApprovedFor(zoneId: string): boolean {
-	return Object.prototype.hasOwnProperty.call(ZONE_CATALOG, zoneId) && ZONE_CATALOG[zoneId].liveModelApproved;
+function liveModelApprovedFor(identity: TrustedZoneExecutionIdentity): boolean {
+	if (!Object.prototype.hasOwnProperty.call(ZONE_CATALOG, identity.familyId)) return false;
+	return ZONE_CATALOG[identity.familyId].liveModelApprovals.some((approval) =>
+		approval.organizationId === identity.organizationId
+		&& approval.brandId === identity.brandId
+		&& approval.referenceId === identity.referenceId
+		&& approval.referenceVersion === identity.referenceVersion
+		&& approval.routePath === identity.routePath
+		&& approval.instanceId === identity.instanceId,
+	);
 }

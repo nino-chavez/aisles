@@ -4,6 +4,8 @@ import {
 	AISLES_COMPOSITION_POLICY,
 	assertKibblePreserveRoutePolicy,
 	getContractSurfaceDecision,
+	getKibbleObserveHomeModelPolicyDescriptor,
+	getTrustedKibbleObserveHomeZonePolicy,
 	getTrustedKibbleRoutePolicy,
 	hasKibbleReferenceChrome,
 	surfaceForPath,
@@ -25,6 +27,23 @@ describe('Kibble composition policy registry', () => {
 		expect(decision.policy.decisionMode).toBe('rules');
 		expect(decision.policy.publicationMode).toBe('live');
 		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'home')).not.toThrow();
+	});
+
+	it('exposes one separate assist policy for explicit Home shelf model ranking', () => {
+		const policy = getTrustedKibbleObserveHomeZonePolicy({
+			origin: 'aisles', familyId: 'home.featured-row', instanceId: 'home.featured-row.1', routePath: '/',
+		});
+		expect(policy).toMatchObject({
+			decisionMode: 'model', publicationMode: 'live', capabilities: ['rank_products'],
+			provenance: { preset: 'assist', zoneBinding: { familyId: 'home.featured-row', instanceId: 'home.featured-row.1' } },
+		});
+		expect(getKibbleObserveHomeModelPolicyDescriptor()).toEqual({
+			policyVersion: policy.policyVersion,
+			zoneId: 'home.featured-row', capabilities: ['rank_products'], publicationMode: 'live',
+		});
+		const preserve = getContractSurfaceDecision('kibble', 'home');
+		expect(preserve.mode).toBe('reference-preserve');
+		if (preserve.mode === 'reference-preserve') expect(preserve.policy.decisionMode).toBe('rules');
 	});
 
 	it('fails the route gate when compiled policy narrows or changes publication', () => {

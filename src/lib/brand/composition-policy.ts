@@ -197,9 +197,43 @@ const kibble: BrandCompositionPolicy = {
 	},
 };
 
+/**
+ * Prospect-controlled autonomy temperature for the public observability demo.
+ * It is a separate, versioned policy: normal Kibble page loads continue to use
+ * Preserve, while an explicit server-trusted demo action may ask a model to
+ * rank the fixed Home shelf and nothing else.
+ */
+const kibbleObserveAssist: BrandCompositionPolicy = {
+	...kibble,
+	policyVersion: `kibble-observe-assist-policy-${KIBBLE_REFERENCE_CONTRACT.version}-v1`,
+	surfaces: {
+		...kibble.surfaces,
+		home: {
+			...kibble.surfaces.home!,
+			preset: 'assist',
+			capabilities: ['rank_products'],
+			decisionMode: 'model',
+			zoneOverrides: {
+				...kibble.surfaces.home!.zoneOverrides,
+				'home.featured-row': {
+					capabilities: ['rank_products'],
+					decisionMode: 'model',
+					publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.featured-grid.ranked-segment'],
+				},
+			},
+		},
+	},
+};
+
 export const AISLES_COMPOSITION_POLICY: CompositionPolicyRegistry = {
 	organizations: { [organization.organizationId]: organization },
 	brands: { kibble },
+};
+
+const KIBBLE_OBSERVE_ASSIST_POLICY: CompositionPolicyRegistry = {
+	organizations: { [organization.organizationId]: organization },
+	brands: { kibble: kibbleObserveAssist },
 };
 
 export type ContractSurfaceDecision =
@@ -349,6 +383,58 @@ export function getTrustedKibbleZonePolicy(input: {
 		routePath: input.routePath,
 		registry: AISLES_COMPOSITION_POLICY,
 	});
+}
+
+/** Compile the one live model boundary exposed by the explicit demo control. */
+export function getTrustedKibbleObserveHomeZonePolicy(input: {
+	origin: TrustedZoneIdentityDefinition['origin'];
+	familyId: 'home.featured-row';
+	instanceId: string;
+	routePath: '/';
+}): EffectiveCompositionPolicy {
+	const identity = findTrustedZoneIdentity(input.origin, input.familyId, input.instanceId);
+	if (!identity || identity.surface !== 'home') {
+		throw new Error(`Kibble observe zone identity is not registered: ${input.origin}:${input.instanceId}.`);
+	}
+	const policy = compileCompositionPolicy({
+		organizationId: KIBBLE_ORGANIZATION_ID,
+		brandId: 'kibble',
+		surface: 'home',
+		zoneIdentity: identity,
+		routeSource: 'pathname',
+		routePath: input.routePath,
+		registry: KIBBLE_OBSERVE_ASSIST_POLICY,
+	});
+	if (
+		policy.decisionMode !== 'model' ||
+		policy.publicationMode !== 'live' ||
+		policy.provenance.preset !== 'assist' ||
+		policy.capabilities.length !== 1 ||
+		policy.capabilities[0] !== 'rank_products'
+	) {
+		throw new Error('Kibble observe Home policy exceeds or misses its approved model boundary.');
+	}
+	return policy;
+}
+
+/**
+ * Client-safe declaration of the only model decision this demo may request.
+ * The server re-compiles the policy before every call; this descriptor lets
+ * the browser reject a response that claims a different authority boundary.
+ */
+export function getKibbleObserveHomeModelPolicyDescriptor() {
+	const policy = getTrustedKibbleObserveHomeZonePolicy({
+		origin: 'aisles',
+		familyId: 'home.featured-row',
+		instanceId: 'home.featured-row.1',
+		routePath: '/',
+	});
+	return {
+		policyVersion: policy.policyVersion,
+		zoneId: 'home.featured-row' as const,
+		capabilities: ['rank_products'] as const,
+		publicationMode: 'live' as const,
+	};
 }
 
 function assertExactSet(actual: readonly string[], expected: readonly string[], label: string): void {

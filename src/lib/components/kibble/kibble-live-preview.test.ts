@@ -7,16 +7,28 @@ const expectation = {
 	policyVersion: 'org:kibble|brand:kibble-policy-1.5.0',
 	dataSourceLabel: 'fixture',
 	synthetic: { value: true, scenarioId: 'local-showcase' },
+	modelDecision: {
+		policyVersion: 'org:kibble|brand:kibble-observe-assist-policy-1.5.0-v1',
+		zoneId: 'home.featured-row' as const,
+		capabilities: ['rank_products'] as const,
+		publicationMode: 'live' as const,
+	},
 };
 const product = { id: 'food-a', entityId: 1, name: 'Food A', price: 24, image: '/a.jpg', imageAlt: 'Food A', description: 'A food', specs: { protein: '28%' }, tags: ['dog'], category: 'dog-food' };
+const products = [
+	product,
+	{ ...product, id: 'food-b', entityId: 2, name: 'Food B' },
+	{ ...product, id: 'food-c', entityId: 3, name: 'Food C' },
+];
 const inspector: KibbleDevInspectorData = {
 	reference: expectation.reference, surface: 'home', preset: 'preserve', policyVersion: expectation.policyVersion,
 	publicationMode: 'live', dataSourceLabel: 'fixture',
+	availableModelDecision: expectation.modelDecision,
 	inference: { primary: 'hunter', probabilities: { gatherer: 0.1, hunter: 0.7, researcher: 0.1, gifter: 0.1 }, confidence: 0.6, dominantSource: 'interaction', signalCount: 2, modifiers: { priceSensitivity: 0.2, urgency: 0.3, familiarityWithStore: 0.4 }, shift: { detected: true, from: 'gatherer', trigger: null }, ruleMatches: [] },
 	zones: [
 		{ id: 'merchant-chrome', label: 'Root header', authority: 'fixed', componentVariant: 'kibble.header.responsive-chrome', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
 		{ id: 'opening-merchandising', label: 'Opening hero', authority: 'fixed', componentVariant: 'kibble.hero.flagship-bundle', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
-		{ id: 'ranked-products', label: 'Ranked products', authority: 'rules', componentVariant: 'kibble.featured-grid.four-column', capabilities: ['rank_products', 'select_products'], decisionSummary: 'Updated.', changed: true, inputProducts: [{ id: 'food-b', name: 'Food B' }, { id: 'food-a', name: 'Food A' }], outputProducts: [{ id: 'food-a', name: 'Food A' }], modelCallStatus: { calls: 0, authorized: false } },
+		{ id: 'ranked-products', label: 'Ranked products', authority: 'rules', componentVariant: 'kibble.featured-grid.four-column', capabilities: ['rank_products', 'select_products'], decisionSummary: 'Updated.', changed: true, inputProducts: [{ id: 'food-b', name: 'Food B' }, { id: 'food-a', name: 'Food A' }, { id: 'food-c', name: 'Food C' }], outputProducts: products.map(({ id, name }) => ({ id, name })), modelCallStatus: { calls: 0, authorized: false } },
 		{ id: 'catalog-entry', label: 'Catalog entry', authority: 'fixed', componentVariant: 'kibble.visual-module.category', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
 		{ id: 'service-proof', label: 'Service proof', authority: 'fixed', componentVariant: 'kibble.service-proof.three-column', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
 		{ id: 'merchant-footer', label: 'Root footer', authority: 'fixed', componentVariant: 'kibble.footer.four-column', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
@@ -33,7 +45,50 @@ const inspector: KibbleDevInspectorData = {
 		synthetic: { value: true, scenarioId: 'local-showcase' },
 	},
 };
-const response = () => ({ version: 'kibble-live-home-preview-v1', previewOnly: true, reference: expectation.reference, policyVersion: expectation.policyVersion, persona: 'hunter', products: [product], inspector });
+const rulesAdapters = products.map((entry, index) => ({
+	instanceId: `home.featured-row.${index + 1}`,
+	sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'rules', modelCallCount: 0,
+	adapterId: index === 0 ? 'kibble.zone.home.featured-row.primary' : `kibble.zone.home.featured-row.continuation-${index}`,
+	componentVariantId: 'kibble.featured-grid.ranked-segment', inputSha256: 'a'.repeat(64),
+	content: { component: 'product-grid', props: { columns: 4, products: [{ productId: String(entry.entityId), role: 'standard' }], imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false } },
+}));
+const response = () => ({
+	version: 'kibble-live-home-preview-v2', previewOnly: true, reference: expectation.reference,
+	policyVersion: expectation.policyVersion, persona: 'hunter', products, featuredZoneAdapters: rulesAdapters, inspector,
+});
+const modelResponse = () => {
+	const rankedProducts = [...products].reverse();
+	const modelCalls = 1;
+	const modelInspector: KibbleDevInspectorData = {
+		...inspector,
+		preset: 'assist',
+		policyVersion: expectation.modelDecision.policyVersion,
+		dataSourceLabel: 'bounded-model-ranking',
+		zones: inspector.zones.map((zone) => zone.id === 'ranked-products' ? {
+			...zone,
+			authority: 'model', componentVariant: 'kibble.featured-grid.ranked-segment', capabilities: ['rank_products'],
+			outputProducts: rankedProducts.map(({ id, name }) => ({ id, name })),
+			modelCallStatus: { calls: modelCalls, authorized: true },
+			decision: { model: 'claude-haiku-4-5', outputField: 'rankedProductIds', productCount: rankedProducts.length },
+		} : zone),
+		provenance: {
+			...(inspector.provenance as Record<string, unknown>),
+			policyVersion: expectation.modelDecision.policyVersion,
+			decisionSource: 'model', promptVersion: 'kibble-home-bounded-rank-v1', schemaVersion: 'kibble-home-zone-decision-v1',
+			autonomy: { preset: 'assist', effectiveCapabilities: ['rank_products'], decisionMode: 'model', publicationMode: 'live' },
+		},
+	};
+	return {
+		version: 'kibble-live-home-preview-v2', previewOnly: true, reference: expectation.reference,
+		policyVersion: expectation.modelDecision.policyVersion, persona: 'hunter', products: rankedProducts,
+		featuredZoneAdapters: [{
+			instanceId: 'home.featured-row.1', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: modelCalls,
+			adapterId: 'kibble.zone.home.featured-row.primary', componentVariantId: 'kibble.featured-grid.ranked-segment', inputSha256: 'b'.repeat(64),
+			content: { component: 'product-grid', props: { columns: 4, products: rankedProducts.map(({ entityId }) => ({ productId: String(entityId), role: 'standard' })), imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false } },
+		}],
+		inspector: modelInspector,
+	};
+};
 
 describe('validateKibbleLivePreview', () => {
 	afterEach(() => {
@@ -46,6 +101,16 @@ describe('validateKibbleLivePreview', () => {
 		const result = validateKibbleLivePreview(response(), expectation);
 		expect(result.ok).toBe(true);
 		if (result.ok) expect(result.preview.products[0].id).toBe('food-a');
+	});
+
+	it('accepts the exact bounded model policy and rendered shelf adapter', () => {
+		const result = validateKibbleLivePreview(modelResponse(), expectation);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.preview.products.map(({ id }) => id)).toEqual(['food-c', 'food-b', 'food-a']);
+			expect(result.preview.featuredZoneAdapters?.[0]).toMatchObject({ decisionMode: 'model', modelCallCount: 1 });
+		}
+		expect(validateKibbleLivePreview({ ...modelResponse(), featuredZoneAdapters: rulesAdapters }, expectation).ok).toBe(false);
 	});
 
 	it.each([
@@ -147,6 +212,31 @@ describe('validateKibbleLivePreview', () => {
 		cleanup();
 		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('requests a model decision only after the explicit inspector action', async () => {
+		const eventTarget = new EventTarget();
+		const fetchMock = vi.fn(async () => new Response(JSON.stringify(modelResponse()), {
+			status: 200,
+			headers: { 'content-type': 'application/json' },
+		}));
+		vi.stubGlobal('window', eventTarget);
+		vi.stubGlobal('fetch', fetchMock);
+		const applied = vi.fn();
+		const cleanup = listenForKibbleLivePreview({
+			expectation,
+			getCurrentProductIds: () => products.map(({ id }) => id),
+			onApplied: applied,
+			onStatus: vi.fn(),
+		});
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		eventTarget.dispatchEvent(new Event('aisles-kibble-model-request'));
+		await vi.waitFor(() => expect(applied).toHaveBeenCalledTimes(1));
+		expect(fetchMock).toHaveBeenCalledWith('/api/kibble/home-decision?observe=true', expect.objectContaining({
+			method: 'POST', body: JSON.stringify({ mode: 'model' }), headers: { 'Content-Type': 'application/json' },
+		}));
+		cleanup();
 	});
 
 	it('fails closed and re-enables the inspector path when a preview request stalls', async () => {

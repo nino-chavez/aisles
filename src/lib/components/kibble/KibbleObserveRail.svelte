@@ -155,7 +155,9 @@
 				<span class="aisles-observe__seam" aria-hidden="true"><i></i><i></i><i></i></span>
 				<div>
 					<p>Aisles live evidence</p>
-					<h2 id="aisles-observe-title">{surfaceLabel} · Preserve</h2>
+					<h2 id="aisles-observe-title">
+						{surfaceLabel} · Preserve shell{modelCallCount > 0 ? ' · AI-ranked shelf' : ''}
+					</h2>
 				</div>
 			</div>
 			<button type="button" aria-expanded={expanded} aria-controls="aisles-observe-body" onclick={toggleExpanded}>
@@ -167,12 +169,12 @@
 			<div class="aisles-observe__counts" aria-label="Visible decision authority">
 				<div><span class="aisles-observe__pip aisles-observe__pip--fixed"></span><b>Template</b><strong>{templateCount}</strong></div>
 				<div><span class="aisles-observe__pip aisles-observe__pip--rules"></span><b>Rules</b><strong>{rulesCount}</strong></div>
-				<div><span class="aisles-observe__pip aisles-observe__pip--model"></span><b>AI</b><strong>{modelCallCount}</strong></div>
+				<div><span class="aisles-observe__pip aisles-observe__pip--model"></span><b>AI calls</b><strong>{modelCallCount}</strong></div>
 			</div>
 
-			<p class="aisles-observe__truth">
+			<p class="aisles-observe__truth" aria-live="polite" aria-atomic="true">
 				{#if modelCallCount > 0}
-					A model returned content for this page. The exact zones are listed below.
+					A model returned the product order for the ranked shelf. The shelf component and all shopper-facing product fields remained fixed.
 				{:else if modelZoneCount > 0}
 					AI authority exists, but no model call produced the current page.
 				{:else if rulesCount > 0}
@@ -239,7 +241,7 @@
 	.aisles-observe__seam i { display:block; width:5px; height:9px; background:#667796; }
 	.aisles-observe__seam i:nth-child(2) { background:var(--observe-blue); }
 	.aisles-observe__seam i:nth-child(3) { background:var(--observe-coral); }
-	.aisles-observe button, .aisles-observe a { min-height:40px; border:1px solid #a9b9db; background:#fff; color:#1c4cab; padding:.45rem .58rem; font:inherit; font-weight:800; text-decoration:none; }
+	.aisles-observe button, .aisles-observe a { min-height:44px; border:1px solid #a9b9db; background:#fff; color:#1c4cab; padding:.45rem .58rem; font:inherit; font-weight:800; text-decoration:none; }
 	.aisles-observe button { cursor:pointer; }
 	.aisles-observe button:hover, .aisles-observe a:hover { background:#edf2fc; }
 	.aisles-observe button:focus-visible, .aisles-observe a:focus-visible, .aisles-observe summary:focus-visible { outline:3px solid var(--observe-blue); outline-offset:3px; }
