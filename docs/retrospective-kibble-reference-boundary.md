@@ -101,8 +101,12 @@ route-by-route human approval is still open.
 
 `bealls-aisles` records each family member separately and now binds its current
 renderer inputs to versioned internal contracts. Those records are inventory,
-not external-reference contracts. All three still report that preservation
-state as `uncontracted`.
+not external-reference contracts. Its final clean internal run at `6b7faee`
+mechanically covered all 90 brand, route, and viewport cells with exact zone
+coverage, zero model requests, and no provider/database traffic. Sixty-two
+cells still differ visually, totaling 27,989,468 changed pixels with no masks.
+That evidence needs human review and does not change the fact that all three
+brands still report external-reference preservation as `uncontracted`.
 
 These are post-baseline corrections. They do not change what the original
 repositories could claim at the commits reviewed below.
