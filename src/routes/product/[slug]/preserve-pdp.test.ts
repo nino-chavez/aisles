@@ -123,8 +123,18 @@ describe('Kibble Preserve PDP route', () => {
 
 	it('fails missing catalog records and invalid paths into the Preserve error shell', async () => {
 		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce(null);
-		await expect(load(preserveEvent('missing') as never)).rejects.toMatchObject({ status: 404 });
-		await expect(load(preserveEvent('../cart') as never)).rejects.toMatchObject({ status: 404 });
+		await expect(load(preserveEvent('missing') as never)).rejects.toMatchObject({
+			status: 404,
+			body: {
+				message: 'Product not found.',
+				kibbleErrorAdapter: { instanceId: 'error-404.rescue', sharedContentKind: 'content' },
+				kibbleErrorPolicy: { policies: [{ surface: 'error-404' }] },
+			},
+		});
+		await expect(load(preserveEvent('../cart') as never)).rejects.toMatchObject({
+			status: 404,
+			body: { kibbleErrorAdapter: { instanceId: 'error-404.rescue' } },
+		});
 	});
 
 	it('rejects an over-bound request slug before session or catalog work', async () => {

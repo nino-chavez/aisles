@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const brandState = vi.hoisted(() => ({ id: 'kibble' }));
-vi.mock('$lib/brand/config', () => ({
+vi.mock('$lib/brand/config', async (importOriginal) => ({
+	...await importOriginal<typeof import('$lib/brand/config')>(),
 	getBrand: vi.fn(() => ({ organizationId: 'kibble-demo-merchant', id: brandState.id, name: 'Kibble & Co.' })),
 }));
 
@@ -58,7 +59,13 @@ describe('Kibble trusted route authority', () => {
 
 	it('keeps the typed locator policy behind a Kibble-native not-applicable boundary', async () => {
 		await expect(loadStoreLocator({ url: new URL('https://aisles.test/store-locator') } as never))
-			.rejects.toMatchObject({ status: 404, body: { message: 'Store locator is not part of the pinned Kibble storefront.' } });
+			.rejects.toMatchObject({
+				status: 404,
+				body: {
+					message: 'Store locator is not part of the pinned Kibble storefront.',
+					kibbleErrorAdapter: { instanceId: 'error-404.rescue', sharedContentKind: 'content' },
+				},
+			});
 	});
 
 	it('does not grant reference route data from the generic parent chrome state', async () => {

@@ -2,7 +2,6 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { getBrand } from '$lib/brand/config';
 import { getTrustedKibbleRoutePolicy } from '$lib/brand/composition-policy';
-import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 import {
 	buildKibbleSearchHref,
 	parseKibbleSearchCursor,
@@ -10,7 +9,8 @@ import {
 	searchKibbleCatalog,
 	KibbleSearchInputError,
 } from '$lib/brand/reference/kibble-search.server';
-import { executeKibbleErrorZoneAdapter, executeKibbleSearchEmptyZoneTerminal, kibbleNativeAdapterBinding } from '$lib/brand/reference/kibble-zone-executor.server';
+import { executeKibbleSearchEmptyZoneTerminal, kibbleNativeAdapterBinding } from '$lib/brand/reference/kibble-zone-executor.server';
+import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
 import { getProducts, customFieldsToRecord, type BCProduct } from '$lib/server/bigcommerce';
 import { searchProducts } from '$lib/server/search';
 import { infer } from '$lib/signals/inference';
@@ -50,22 +50,13 @@ export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, r
 	} catch (cause) {
 		if (cause instanceof KibbleSearchInputError) throw error(400, cause.message);
 		console.error('[kibble-preserve] read-only search failed closed:', cause);
-		const message = 'Catalog search is temporarily unavailable.';
-		const kibbleErrorAdapter = await executeKibbleErrorZoneAdapter({
+		await throwKibblePreserveError({
+			brandId: getBrand().id,
 			surface: 'error-empty',
 			routePath: url.pathname,
 			status: 503,
-			message,
+			message: 'Catalog search is temporarily unavailable.',
 		});
-		throw error(503, {
-			message,
-			kibbleErrorAdapter,
-			kibbleErrorPolicy: {
-				referenceId: KIBBLE_REFERENCE_CONTRACT.id,
-				referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
-				policies: [{ surface: 'error-empty', policyVersion: routePolicy.policy.policyVersion }],
-			},
-		} as never);
 	}
 };
 

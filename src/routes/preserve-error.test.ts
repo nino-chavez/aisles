@@ -16,11 +16,12 @@ describe('Kibble Preserve failure surface', () => {
 		expect(errorRoute).toContain('{:else}');
 	});
 
-	it('keeps internal adapter detail behind the dev boundary', () => {
+	it('logs internal detail but sends failures through the centralized Kibble error terminal', () => {
 		for (const serverRoute of ['+page.server.ts', 'category/[slug]/+page.server.ts']) {
 			const routeSource = source(serverRoute);
 			expect(routeSource).toContain('console.error');
-			expect(routeSource).toMatch(/throw error\(503, dev \?/);
+			expect(routeSource).toContain('throwKibblePreserveError');
+			expect(routeSource).toContain("surface: 'error-empty'");
 			expect(routeSource).toContain('temporarily unavailable');
 		}
 	});

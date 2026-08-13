@@ -21,11 +21,13 @@
 	let isUpgrading = $state(true);
 	let overridePersona = $state<string | null>(null);
 	let sessionCost = $state<{ totalCost: number; generations: number; tokens: number; cacheHitRate: number } | null>(null);
-	let currentPersona = $derived(overridePersona ?? data.persona);
+	let legacyPersona = $derived(data.renderMode === 'reference-preserve' ? 'gatherer' : (data.persona ?? 'gatherer'));
+	let legacyProducts = $derived(data.renderMode === 'reference-preserve' ? [] : (data.products ?? []));
+	let currentPersona = $derived(overridePersona ?? legacyPersona);
 
 	// Fetch AI-generated layout on mount / persona change
 	// Track category to reset layout on navigation
-	let lastCategory = $state(data.category.slug);
+	let lastCategory = $state('');
 
 	$effect(() => {
 		if (data.renderMode === 'reference-preserve') {
@@ -207,7 +209,7 @@
 
 <svelte:head>
 	<title>{data.renderMode === 'reference-preserve' ? data.category.name : `${data.category.name} — ${data.persona} view`}</title>
-	<meta name="description" content={data.renderMode === 'reference-preserve' ? `Browse ${data.category.name}. ${data.products.length} products available.` : `Browse ${data.category.name} — personalized for ${data.persona} shoppers. ${data.products.length} products available.`} />
+	<meta name="description" content={data.renderMode === 'reference-preserve' ? `Browse ${data.category.name}. ${data.kibbleCategory?.productCount ?? 0} products available.` : `Browse ${data.category.name} — personalized for ${legacyPersona} shoppers. ${legacyProducts.length} products available.`} />
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleCategory}
@@ -375,7 +377,7 @@
 
 	<!-- Content area: show static fallback instantly, upgrade to AI layout when ready -->
 	{#if aiLayout}
-		<LayoutRenderer layout={aiLayout} products={data.products} />
+		<LayoutRenderer layout={aiLayout} products={legacyProducts} />
 	{:else if isUpgrading}
 		<!-- Skeleton: editorial header + product grid placeholder -->
 		<div class="animate-pulse">
@@ -393,15 +395,15 @@
 			</div>
 		</div>
 	{:else if currentPersona === 'gatherer'}
-		<GathererLayout category={data.category} products={data.products} />
+		<GathererLayout category={data.category} products={legacyProducts} />
 	{:else if currentPersona === 'hunter'}
-		<HunterLayout category={data.category} products={data.products} />
+		<HunterLayout category={data.category} products={legacyProducts} />
 	{:else if currentPersona === 'researcher'}
-		<ResearcherLayout category={data.category} products={data.products} />
+		<ResearcherLayout category={data.category} products={legacyProducts} />
 	{:else if currentPersona === 'gifter'}
-		<GifterLayout category={data.category} products={data.products} />
+		<GifterLayout category={data.category} products={legacyProducts} />
 	{:else}
-		<GathererLayout category={data.category} products={data.products} />
+		<GathererLayout category={data.category} products={legacyProducts} />
 	{/if}
 
 	<!-- Personalizing indicator — subtle pill at bottom-left -->

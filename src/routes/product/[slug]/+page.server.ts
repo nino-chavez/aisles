@@ -24,6 +24,7 @@ import { createStoreFromRequest } from '$lib/signals/request';
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
 import { executeKibblePdpRelatedZoneAdapter } from '$lib/brand/reference/kibble-zone-executor.server';
+import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 
@@ -32,7 +33,13 @@ export const load: PageServerLoad = async ({ params, url, request, cookies, pare
 	const { devMode, renderMode } = await parent();
 
 	if (renderMode === 'reference-unavailable') {
-		throw error(503, 'This Kibble product is pending merchant approval.');
+		await throwKibblePreserveError({
+			brandId: getBrand().id,
+			surface: 'error-empty',
+			routePath: url.pathname,
+			status: 503,
+			message: 'This Kibble product is pending merchant approval.',
+		});
 	}
 	if (renderMode === 'reference-preserve' || renderMode === 'reference-review') {
 		return loadKibblePreservePdp({ slug, url, request, cookies, renderMode });
@@ -67,15 +74,27 @@ async function loadKibblePreservePdp({
 	renderMode: Extract<MerchantRenderMode, 'reference-preserve' | 'reference-review'>;
 }) {
 	const preserveStartedAt = Date.now();
-	const failClosed = (cause: unknown, phase: string): never => {
+	const failClosed = async (cause: unknown, phase: string): Promise<never> => {
 		const detail = cause instanceof Error ? cause.message : `Unknown Kibble PDP ${phase} error.`;
 		console.error(`[kibble-preserve] product ${phase} failed closed:`, detail);
-		throw error(503, dev ? `Kibble Preserve cannot render: ${detail}` : 'This Kibble product is temporarily unavailable.');
+		return throwKibblePreserveError({
+			brandId: getBrand().id,
+			surface: 'error-empty',
+			routePath: url.pathname,
+			status: 503,
+			message: 'This Kibble product is temporarily unavailable.',
+		});
 	};
 
 	try {
 		if (slug.length > KIBBLE_PDP_BOUNDS.strings.routeId || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-			throw error(404, 'Product not found');
+			await throwKibblePreserveError({
+				brandId: getBrand().id,
+				surface: 'error-404',
+				routePath: url.pathname,
+				status: 404,
+				message: 'Product not found.',
+			});
 		}
 		const decision = getContractSurfaceDecision(getBrand().id, 'pdp');
 		if (decision.mode !== 'reference-preserve') throw new Error('Kibble PDP policy is unavailable.');
@@ -92,7 +111,15 @@ async function loadKibblePreservePdp({
 		cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
 		cookies.set('aisles_visits', String(visitCount), { path: '/', maxAge: 60 * 60 * 24 * 30 });
 		const detail = await getKibbleProductDetailByPath(`/${slug}/`);
-		if (!detail) throw error(404, 'Product not found');
+		if (!detail) {
+			return await throwKibblePreserveError({
+				brandId: getBrand().id,
+				surface: 'error-404',
+				routePath: url.pathname,
+				status: 404,
+				message: 'Product not found.',
+			});
+		}
 
 		const product = materializeKibbleProduct(detail, slug);
 		const manifest = materializeKibblePdpManifest(slug, product.name);
@@ -153,7 +180,7 @@ async function loadKibblePreservePdp({
 		};
 	} catch (cause) {
 		if (typeof cause === 'object' && cause !== null && 'status' in cause) throw cause;
-		return failClosed(cause, 'catalog or policy');
+		return await failClosed(cause, 'catalog or policy');
 	}
 }
 

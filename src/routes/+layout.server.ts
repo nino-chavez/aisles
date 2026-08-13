@@ -2,16 +2,14 @@ import type { LayoutServerLoad } from './$types';
 import { dev } from '$app/environment';
 import { getBrand } from '$lib/brand/config';
 import { buildKibbleChrome, selectMerchantRenderMode } from '$lib/brand/reference/kibble-runtime';
-import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 import {
-	assertKibblePreserveRoutePolicy,
 	getTrustedKibbleRoutePolicy,
-	getContractSurfaceDecision,
 	hasKibbleReferenceChrome,
 } from '$lib/brand/composition-policy';
 import { tryNormalizeTrustedShopperRoute } from '$lib/foundation/autonomy-zone-route';
-import { executeKibbleErrorZoneAdapter } from '$lib/brand/reference/kibble-zone-executor.server';
+import { executeKibbleHiddenZoneTerminalsForRoute } from '$lib/brand/reference/kibble-zone-executor.server';
+import { buildKibblePreserveErrorState, throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
 
 function routeAudience(pathname: string): 'shopper' | 'operator' | 'development' {
 	if (pathname === '/observe' || pathname.startsWith('/observe/')) return 'operator';
@@ -41,6 +39,21 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 				surface: routePolicy.surface,
 				policyVersion: routePolicy.policy.policyVersion,
 			};
+			try {
+				// Execute every applicable trusted-Hidden decision at the trusted
+				// server boundary. Results are deliberately discarded: Hidden has
+				// no shopper DOM and its policy trace is operator-only evidence.
+				await executeKibbleHiddenZoneTerminalsForRoute(trustedRoute.routePath);
+			} catch (cause) {
+				console.error('[kibble-preserve] trusted Hidden zone execution failed:', cause);
+				await throwKibblePreserveError({
+					brandId: brand.id,
+					surface: 'error-empty',
+					routePath: trustedRoute.routePath,
+					status: 503,
+					message: 'This Kibble page is temporarily unavailable.',
+				});
+			}
 		}
 	}
 	// A shopper pathname outside the exact manifest has no successful Kibble
@@ -50,7 +63,7 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		? await buildKibble404State(brand.id, url.pathname)
 		: null;
 	if (kibble404State) {
-		kibbleError = KIBBLE_PRESERVE_MANIFEST.display.error;
+		kibbleError = kibble404State.display;
 		kibbleErrorPolicy = kibble404State.policy;
 	}
 
@@ -99,20 +112,11 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 };
 
 async function buildKibble404State(brandId: string, routePath: string) {
-	const decision = getContractSurfaceDecision(brandId, 'error-404');
-	if (decision.mode !== 'reference-preserve') throw new Error('Kibble error-404 reference policy is unavailable.');
-	assertKibblePreserveRoutePolicy(decision.policy, 'error-404');
-	return {
-		policy: {
-			referenceId: KIBBLE_REFERENCE_CONTRACT.id,
-			referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
-			policies: [{ surface: 'error-404' as const, policyVersion: decision.policy.policyVersion }],
-		},
-		adapter: await executeKibbleErrorZoneAdapter({
-			surface: 'error-404',
-			routePath,
-			status: 404,
-			message: 'This page is not available.',
-		}),
-	};
+	return buildKibblePreserveErrorState({
+		brandId,
+		surface: 'error-404',
+		routePath,
+		status: 404,
+		message: 'This page is not available.',
+	});
 }

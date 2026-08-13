@@ -155,7 +155,11 @@ describe('Kibble Preserve home publication', () => {
 			parent: async () => ({ devMode: false, renderMode: 'reference-preserve' }),
 		} as never)).rejects.toMatchObject({
 			status: 503,
-			body: { message: expect.stringContaining('Kibble Preserve cannot render') },
+			body: {
+				message: 'This Kibble shelf is temporarily unavailable.',
+				kibbleErrorAdapter: { instanceId: 'error-empty.rescue', sharedContentKind: 'content' },
+				kibbleErrorPolicy: { policies: [{ surface: 'error-empty' }] },
+			},
 		});
 	});
 });

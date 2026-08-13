@@ -75,6 +75,12 @@ describe('Kibble Preserve PLP publication', () => {
 		} as never);
 
 		if (!data) throw new Error('Expected Preserve PLP data.');
+		expect(Object.keys(data).sort()).toEqual(['category', 'kibbleCategory', 'provenance', 'renderMode']);
+		expect(data).not.toHaveProperty('inference');
+		expect(data).not.toHaveProperty('sessionContext');
+		expect(data).not.toHaveProperty('sessionId');
+		expect(data).not.toHaveProperty('products');
+		expect(data).not.toHaveProperty('persona');
 		expect(data.provenance).toMatchObject({
 			reference: { status: 'contracted', id: 'kibble-shelf-native', version: KIBBLE_REFERENCE_CONTRACT.version },
 			surface: 'plp', route: '/category/dog-food',
@@ -100,7 +106,29 @@ describe('Kibble Preserve PLP publication', () => {
 			parent: async () => ({ devMode: false, renderMode: 'reference-preserve' }),
 		} as never)).rejects.toMatchObject({
 			status: 503,
-			body: { message: expect.stringContaining('Kibble Preserve cannot render') },
+			body: {
+				message: 'This Kibble shelf is temporarily unavailable.',
+				kibbleErrorAdapter: { instanceId: 'error-empty.rescue', sharedContentKind: 'content' },
+				kibbleErrorPolicy: { policies: [{ surface: 'error-empty' }] },
+			},
 		});
+	});
+
+	it('binds a real error-404 terminal for a valid route whose category is missing', async () => {
+		await expect(load({
+			params: { slug: 'missing-category' },
+			url: new URL('https://aisles.test/category/missing-category'),
+			request: new Request('https://aisles.test/category/missing-category'),
+			cookies: { get: () => undefined, set: () => undefined },
+			parent: async () => ({ devMode: false, renderMode: 'reference-preserve' }),
+		} as never)).rejects.toMatchObject({
+			status: 404,
+			body: {
+				message: 'Category "missing-category" was not found.',
+				kibbleErrorAdapter: { instanceId: 'error-404.rescue', sharedContentKind: 'content' },
+				kibbleErrorPolicy: { policies: [{ surface: 'error-404' }] },
+			},
+		});
+		expect(mocks.createStoreFromRequest).not.toHaveBeenCalled();
 	});
 });

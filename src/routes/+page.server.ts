@@ -1,5 +1,4 @@
 import type { PageServerLoad } from './$types';
-import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { env as privateEnv } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
@@ -16,6 +15,7 @@ import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
 import { sanitizeInspectorInference } from '$lib/components/kibble/kibble-dev-inspector';
 import { executeKibbleHomeZoneAdapters } from '$lib/brand/reference/kibble-zone-executor.server';
+import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
 
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
 	const { devMode, renderMode } = await parent();
@@ -126,7 +126,13 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 		} catch (cause) {
 			const detail = cause instanceof Error ? cause.message : 'Unknown Kibble reference adapter error.';
 			console.error('[kibble-preserve] home failed closed:', detail);
-			throw error(503, dev ? `Kibble Preserve cannot render: ${detail}` : 'This Kibble shelf is temporarily unavailable.');
+			await throwKibblePreserveError({
+				brandId: brand.id,
+				surface: 'error-empty',
+				routePath: url.pathname,
+				status: 503,
+				message: 'This Kibble shelf is temporarily unavailable.',
+			});
 		}
 	}
 

@@ -1,6 +1,5 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { dev } from '$app/environment';
 import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import {
@@ -21,6 +20,7 @@ import {
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
 import { executeKibblePlpZoneAdapter } from '$lib/brand/reference/kibble-zone-executor.server';
+import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
 
 export function _parseKibblePlpRequest(url: URL) {
 	try {
@@ -38,23 +38,29 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 	const slug = params.slug;
 	const { devMode, renderMode } = await parent();
 	const preserveStartedAt = Date.now();
-	const failPreserve = (cause: unknown, phase: string): never => {
+	const failPreserve = async (cause: unknown, phase: string): Promise<never> => {
 		if (renderMode !== 'reference-preserve') throw cause;
 		const detail = cause instanceof Error ? cause.message : `Unknown Kibble category ${phase} error.`;
 		console.error(`[kibble-preserve] category ${phase} failed closed:`, detail);
-		throw error(503, dev ? `Kibble Preserve cannot render: ${detail}` : 'This Kibble shelf is temporarily unavailable.');
+		return throwKibblePreserveError({
+			brandId: getBrand().id,
+			surface: 'error-empty',
+			routePath: url.pathname,
+			status: 503,
+			message: 'This Kibble shelf is temporarily unavailable.',
+		});
 	};
 	const surfaceDecision = renderMode === 'reference-preserve'
 		? getContractSurfaceDecision(getBrand().id, 'plp')
 		: null;
 	if (surfaceDecision && surfaceDecision.mode !== 'reference-preserve') {
-		throw error(503, 'This Kibble shelf is temporarily unavailable.');
+		await failPreserve(new Error('Kibble PLP reference policy is unavailable.'), 'policy');
 	}
 	if (surfaceDecision?.mode === 'reference-preserve') {
 		try {
 			assertKibblePreserveRoutePolicy(surfaceDecision.policy, 'plp');
 		} catch (cause) {
-			failPreserve(cause, 'policy');
+			await failPreserve(cause, 'policy');
 		}
 	}
 
@@ -62,6 +68,15 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 		? Object.hasOwn(CATEGORY_MAP, slug)
 		: Boolean(CATEGORY_MAP[slug]);
 	if (!configuredCategory) {
+		if (renderMode === 'reference-preserve') {
+			await throwKibblePreserveError({
+				brandId: getBrand().id,
+				surface: 'error-404',
+				routePath: url.pathname,
+				status: 404,
+				message: `Category "${slug}" was not found.`,
+			});
+		}
 		throw error(404, `Category "${slug}" not found`);
 	}
 	const kibblePlp = renderMode === 'reference-preserve' ? _parseKibblePlpRequest(url) : null;
@@ -81,6 +96,15 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 		: loadCategoryProducts(slug, inference.primary)
 	).catch((cause) => failPreserve(cause, 'catalog'));
 	if (!result) {
+		if (renderMode === 'reference-preserve') {
+			await throwKibblePreserveError({
+				brandId: getBrand().id,
+				surface: 'error-404',
+				routePath: url.pathname,
+				status: 404,
+				message: `Category "${slug}" was not found.`,
+			});
+		}
 		throw error(404, `Category "${slug}" not found in BigCommerce`);
 	}
 
@@ -133,17 +157,28 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 				provenance,
 			});
 		} catch (cause) {
-			failPreserve(cause, 'adapter');
+			await failPreserve(cause, 'adapter');
 		}
 	}
-	const sessionIncentives = renderMode === 'reference-preserve'
-		? null
-		: await loadSessionIncentives(store, cookies);
 
 	// Store current session state in cookies
 	cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
 	cookies.set('aisles_last_category', slug, { path: '/', maxAge: 60 * 60 * 24 * 30 });
 	cookies.set('aisles_visits', String(visitCount), { path: '/', maxAge: 60 * 60 * 24 * 30 });
+
+	if (renderMode === 'reference-preserve') {
+		if (!kibbleCategory || !provenance) {
+			await failPreserve(new Error('Kibble PLP did not materialize its contracted response.'), 'adapter');
+		}
+		return {
+			renderMode: 'reference-preserve' as const,
+			provenance,
+			kibbleCategory,
+			category: { slug, name: result.categoryName },
+		};
+	}
+
+	const sessionIncentives = await loadSessionIncentives(store, cookies);
 
 	return {
 		renderMode,
