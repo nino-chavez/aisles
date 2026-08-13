@@ -73,7 +73,7 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(brand).toBeDefined();
 		const home = buildKibbleHomeReference(
 			brand!,
-			[bundle, product(4, 'four'), product(2, 'two'), product(3, 'three')],
+			[product(4, 'four'), product(2, 'two'), product(3, 'three')],
 			'deterministic-catalog',
 			bundle,
 		);
@@ -85,6 +85,8 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(home.productHrefs).toEqual({});
 		expect(home.categories).toHaveLength(8);
 		expect(home.hero.proofItems).toEqual([]);
+		expect(() => buildKibbleHomeReference(brand!, [bundle], 'featured', bundle))
+			.toThrow('must not duplicate the featured bundle');
 	});
 
 	it('materializes breadcrumb, sort, and cursor continuation without publishing pending PDP links', () => {

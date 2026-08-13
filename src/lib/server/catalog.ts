@@ -26,7 +26,7 @@ import {
 } from '$lib/brand/reference/kibble-plp';
 import { MAX_LAYOUT_PRODUCTS } from './layout-prompt';
 import type { Product } from '$lib/types';
-import type { PetProfile } from './enrichment/types';
+import type { PersonaFitScores, PetProfile } from './enrichment/types';
 
 /** Category map — driven by the active brand config */
 export const CATEGORY_MAP: Record<string, { bcName: string; displayName: string }> = getBrand().categories;
@@ -40,7 +40,7 @@ export interface EnrichedProduct extends Product {
 }
 
 export type ReferenceHomeProducts = {
-	products: Product[];
+	products: Array<Product & { personaFit: PersonaFitScores | null }>;
 	source: 'featured' | 'newest' | 'deterministic-catalog';
 };
 
@@ -60,14 +60,14 @@ export type ReferenceCategoryProducts = {
 export async function loadReferenceHomeProducts(limit = 8): Promise<ReferenceHomeProducts> {
 	try {
 		const featured = uniqueProductsByEntityId((await getFeaturedProducts(limit)).map(transformProduct));
-		if (featured.length > 0) return { products: featured, source: 'featured' };
+		if (featured.length > 0) return { products: await attachReferenceEnrichment(featured), source: 'featured' };
 	} catch (error) {
 		console.warn('[kibble-preserve] featured product query unavailable; trying newest products', error);
 	}
 
 	try {
 		const newest = uniqueProductsByEntityId((await getNewestProducts(limit)).map(transformProduct));
-		if (newest.length > 0) return { products: newest, source: 'newest' };
+		if (newest.length > 0) return { products: await attachReferenceEnrichment(newest), source: 'newest' };
 	} catch (error) {
 		console.warn('[kibble-preserve] newest product query unavailable; using deterministic catalog order', error);
 	}
@@ -75,7 +75,17 @@ export async function loadReferenceHomeProducts(limit = 8): Promise<ReferenceHom
 	const products = uniqueProductsByEntityId((await getProducts(Math.max(limit, 30))).map(transformProduct))
 		.sort((a, b) => b.entityId - a.entityId)
 		.slice(0, limit);
-	return { products, source: 'deterministic-catalog' };
+	return { products: await attachReferenceEnrichment(products), source: 'deterministic-catalog' };
+}
+
+async function attachReferenceEnrichment(
+	products: Product[],
+): Promise<Array<Product & { personaFit: PersonaFitScores | null }>> {
+	const enrichment = await getEnrichmentByEntityIds(products.map(({ entityId }) => entityId));
+	return products.map((product) => ({
+		...product,
+		personaFit: enrichment.get(product.entityId)?.personaFit ?? null,
+	}));
 }
 
 export async function loadCatalogProductByEntityId(entityId: number): Promise<Product | null> {

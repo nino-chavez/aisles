@@ -4,6 +4,7 @@ import { dev } from '$app/environment';
 import { getBrand } from '$lib/brand/config';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 import { buildKibbleHomeReference } from '$lib/brand/reference/kibble-runtime';
+import { decideKibbleHome } from '$lib/brand/reference/kibble-home-decision';
 import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { loadSessionIncentives } from '$lib/server/incentives/session';
@@ -37,9 +38,11 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				loadReferenceHomeProducts(9),
 				loadCatalogProductByEntityId(KIBBLE_PRESERVE_MANIFEST.display.featuredBundle.entityId),
 			]);
+			const homeDecision = decideKibbleHome(surfaceDecision.policy, inference, referenceProducts.products);
+			const rankedProductIds = homeDecision.products.map(({ entityId }) => entityId);
 			const kibbleHome = buildKibbleHomeReference(
 				brand,
-				referenceProducts.products,
+				homeDecision.products,
 				referenceProducts.source,
 				bundleProduct,
 			);
@@ -53,20 +56,31 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				decisionSource: 'rules',
 				promptVersion: 'no-model-preserve-v1',
 				schemaVersion: `kibble-reference-${KIBBLE_REFERENCE_CONTRACT.version}`,
-				contractInput: KIBBLE_REFERENCE_CONTRACT.recipes.home,
-				catalogInput: { source: referenceProducts.source, products: referenceProducts.products, bundle: bundleProduct },
+				contractInput: {
+					recipe: KIBBLE_REFERENCE_CONTRACT.recipes.home,
+					rankedProductIds,
+					persona: inference.primary,
+					decisionTrace: homeDecision.inspector,
+				},
+				catalogInput: {
+					source: referenceProducts.source,
+					candidates: referenceProducts.products,
+					rankedProductIds,
+					bundle: bundleProduct,
+				},
 				shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
 				scenarioId: store.getCrossSessionContext().scenarioId,
 			});
 			await logGeneration({
 				type: 'preserve_render', persona: inference.primary, categorySlug: 'home', cacheHit: false,
-				generationTimeMs: Date.now() - preserveStartedAt, productCount: referenceProducts.products.length, sessionId: cookies.get('aisles_session') || undefined,
+				generationTimeMs: Date.now() - preserveStartedAt, productCount: homeDecision.products.length, sessionId: cookies.get('aisles_session') || undefined,
 				provenance,
 			});
 			return {
 				renderMode,
 				provenance,
 				kibbleHome,
+				kibbleHomeInspector: dev && devMode ? homeDecision.inspector : null,
 				featured: [],
 				categories: Object.entries(brand.categories).map(([slug, config]) => ({
 					name: config.displayName,
@@ -79,7 +93,7 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				brandTagline: brand.tagline,
 				brandDomain: brand.domain,
 				homepage: brand.homepage,
-				products: referenceProducts.products,
+				products: homeDecision.products,
 				inference,
 				persona: inference.primary,
 				devMode,
@@ -124,6 +138,7 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 		renderMode,
 		provenance: null,
 		kibbleHome: null,
+		kibbleHomeInspector: null,
 		featured,
 		categories: categoryList,
 		storedPersona,

@@ -89,7 +89,8 @@ export function buildKibbleHomeReference(
 	const manifest = KIBBLE_PRESERVE_MANIFEST.display;
 	const featuredBundle = verifyAndMaterializeBundle(bundleProduct);
 	const categories = materializeCategoryTiles(brand);
-	const featuredProducts = selectReferenceProducts(products, featuredBundle.entityId, 8);
+	assertExactHomeShelf(products, featuredBundle.entityId);
+	const featuredProducts = products;
 	if (featuredProducts.length === 0) {
 		throw new Error('Kibble Preserve requires at least one live catalog product for the featured shelf.');
 	}
@@ -125,6 +126,16 @@ export function buildKibbleHomeReference(
 		categoryTitle: manifest.home.categories.title,
 		categoryEyebrow: manifest.home.categories.eyebrow,
 	};
+}
+
+function assertExactHomeShelf(products: Product[], featuredBundleEntityId: number): void {
+	if (products.length > 8) throw new Error('Kibble Preserve Home shelf exceeds its eight-product capacity.');
+	if (products.some(({ entityId }) => entityId === featuredBundleEntityId)) {
+		throw new Error('Kibble Preserve Home shelf must not duplicate the featured bundle.');
+	}
+	if (new Set(products.map(({ entityId }) => entityId)).size !== products.length) {
+		throw new Error('Kibble Preserve Home shelf must contain unique merchant product ids.');
+	}
 }
 
 export function materializeKibbleCategory(

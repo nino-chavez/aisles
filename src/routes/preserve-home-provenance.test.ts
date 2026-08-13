@@ -81,6 +81,26 @@ describe('Kibble Preserve home publication', () => {
 			type: 'preserve_render', categorySlug: 'home', sessionId: 'session-one',
 			provenance: data.provenance,
 		}));
+		expect(data.kibbleHomeInspector).toBeNull();
+	});
+
+	it('exposes the bounded decision inspector only when server dev and dev mode are both active', async () => {
+		const data = await load({
+			url: new URL('https://aisles.test/'), request: new Request('https://aisles.test/'),
+			cookies: { get: () => undefined, set: () => undefined },
+			parent: async () => ({ devMode: true, renderMode: 'reference-preserve' }),
+		} as never);
+
+		if (!data) throw new Error('Expected Preserve home data.');
+		expect(data.kibbleHomeInspector).toMatchObject({
+			reference: { id: 'kibble-shelf-native', version: '1.5.0' },
+			surface: 'home',
+			dataSourceLabel: 'merchant-order-fallback',
+			inference: { primary: 'gatherer', ruleMatches: [] },
+		});
+		const productZone = data.kibbleHomeInspector?.zones.find(({ id }) => id === 'ranked-products');
+		expect(productZone?.outputProducts?.map(({ id }) => id))
+			.toEqual(data.kibbleHome?.products.map(({ id }) => id));
 	});
 
 	it('turns request-state failures into the branded Preserve 503 boundary', async () => {
