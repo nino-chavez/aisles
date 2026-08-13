@@ -6,6 +6,7 @@
 	let {
 		query,
 		products,
+		productHrefs = {},
 		pageInfo,
 		loadMoreHref,
 		policyVersion,
@@ -15,6 +16,7 @@
 	}: {
 		query: string;
 		products?: KibbleProduct[];
+		productHrefs?: Partial<Record<string, string>>;
 		pageInfo?: { hasNextPage: boolean; endCursor: string | null };
 		loadMoreHref?: string | null;
 		policyVersion?: string;
@@ -61,7 +63,7 @@
 
 		{#if renderedProducts.length > 0}
 			<div class="kc-reference-search-page__results">
-				{#each renderedProducts as product (product.entityId)}<KibbleProductCard {product} />{/each}
+				{#each renderedProducts as product (product.entityId)}<KibbleProductCard {product} productHref={productHrefs[product.id]} />{/each}
 			</div>
 			{#if loadMoreHref}<div class="kc-reference-category__pagination"><a class="kc-reference-focus" href={loadMoreHref}>Load more</a></div>{/if}
 		{:else if zoneAdapter}

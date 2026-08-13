@@ -142,7 +142,7 @@ const kibble: BrandCompositionPolicy = {
 			preset: 'preserve',
 			capabilities: [],
 			decisionMode: 'fixed',
-			publicationMode: 'approval_required',
+			publicationMode: 'live',
 			allowedComponentVariantIds: pdpComponentVariantIds,
 			allowedCssVariantIds: cssFor(pdpComponentVariantIds),
 			allowedCopyVariantIds: [],
@@ -223,7 +223,7 @@ const REQUIRED_PRESERVE_POLICY = {
 	},
 	pdp: {
 		decisionMode: 'fixed',
-		publicationMode: 'approval_required',
+		publicationMode: 'live',
 		capabilities: [],
 		componentVariantIds: pdpComponentVariantIds,
 		cssVariantIds: cssFor(pdpComponentVariantIds),

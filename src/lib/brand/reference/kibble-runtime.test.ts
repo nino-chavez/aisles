@@ -45,11 +45,11 @@ describe('Kibble Preserve runtime adapter', () => {
 	it('selects Preserve only through an own trusted brand id', () => {
 		expect(selectMerchantRenderMode('kibble', 'home')).toBe('reference-preserve');
 		expect(selectMerchantRenderMode('kibble', 'plp')).toBe('reference-preserve');
-		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('reference-unavailable');
-		expect(selectMerchantRenderMode('kibble', 'pdp', { allowPendingReview: true })).toBe('reference-review');
+		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('reference-preserve');
+		expect(selectMerchantRenderMode('kibble', 'pdp', { allowPendingReview: true })).toBe('reference-preserve');
 		expect(selectMerchantRenderMode('kibble', 'account')).toBe('reference-preserve');
 		expect(selectMerchantRenderMode('kibble', 'locator')).toBe('reference-preserve');
-		expect(isKibblePdpPublished()).toBe(false);
+		expect(isKibblePdpPublished()).toBe(true);
 		expect(selectMerchantRenderMode('haven', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('__proto__', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode({ id: 'kibble' }, 'home')).toBe('legacy-generated');
@@ -84,14 +84,14 @@ describe('Kibble Preserve runtime adapter', () => {
 		]);
 		expect(home.featuredCopy.title).toBe('Catalog shelf');
 		expect(home.products.map(({ entityId }) => entityId)).toEqual([4, 2, 3]);
-		expect(home.productHrefs).toEqual({});
+		expect(home.productHrefs).toEqual({ four: '/product/four', two: '/product/two', three: '/product/three' });
 		expect(home.categories).toHaveLength(8);
 		expect(home.hero.proofItems).toEqual([]);
 		expect(() => buildKibbleHomeReference(brand!, [bundle], 'featured', bundle))
 			.toThrow('must not duplicate the featured bundle');
 	});
 
-	it('materializes breadcrumb, sort, and cursor continuation without publishing pending PDP links', () => {
+	it('materializes breadcrumb, sort, cursor continuation, and approved read-only PDP links', () => {
 		const brand = getBrandById('kibble')!;
 		const category = materializeKibbleCategory(brand, 'dog-food', [product(1, 'one')], {
 			sort: 'LOWEST_PRICE',
@@ -101,7 +101,7 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(category.sortOptions).toHaveLength(7);
 		expect(category.selectedSort).toBe('LOWEST_PRICE');
 		expect(category.loadMoreHref).toBe('?sort=LOWEST_PRICE&after=YXJyYXljb25uZWN0aW9uOjIz');
-		expect(category.productHrefs).toEqual({});
+		expect(category.productHrefs).toEqual({ one: '/product/one' });
 		expect(materializeKibbleCategory(brand, 'dog-food', [product(1, 'one')], {
 			sort: 'FEATURED', pageInfo: { hasNextPage: false, endCursor: null },
 		}).loadMoreHref).toBeNull();

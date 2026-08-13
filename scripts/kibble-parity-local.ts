@@ -58,7 +58,7 @@ export const KIBBLE_PARITY_DEFAULT_ROUTES: LocalParityRoute[] = [
 
 export const KIBBLE_PARITY_DELIBERATE_APPROVAL_ITEMS = [
 	{ routeId: 'home', reason: 'Unverified Auto-Refill, savings, trust, service, and support claims remain withheld. Named human approval is required; this difference is not masked or accepted.' },
-	{ routeId: 'plp', reason: 'Product destinations and unsupported merchandising metadata remain withheld while PDP publication is pending. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'plp', reason: 'Product destinations now lead only to the approved catalog-display-only PDP. Unsupported purchase and subscription metadata remain withheld; those differences are not masked or accepted.' },
 	{ routeId: 'pdp-review', reason: 'Purchase, cart, subscription, savings, and Auto-Refill actions remain unavailable in the review-only catalog display. Named human approval is required; this difference is not masked or accepted.' },
 	{ routeId: 'search', reason: 'Search results remain catalog-only and non-transactional while product publication is pending. Named human approval is required; this difference is not masked or accepted.' },
 	{ routeId: 'error-empty', reason: 'The candidate does not claim empty catalog results when the bounded search backend is unavailable. Named human approval is required; this difference is not masked or accepted.' },

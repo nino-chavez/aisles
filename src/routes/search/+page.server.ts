@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { getBrand } from '$lib/brand/config';
 import { getTrustedKibbleRoutePolicy } from '$lib/brand/composition-policy';
+import { materializeKibblePdpHrefs } from '$lib/brand/reference/kibble-runtime';
 import {
 	buildKibbleSearchHref,
 	parseKibbleSearchCursor,
@@ -36,6 +37,7 @@ export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, r
 			kibbleSearch: {
 				query,
 				products: result.products,
+				productHrefs: materializeKibblePdpHrefs(result.products),
 				pageInfo: result.pageInfo,
 				loadMoreHref: result.pageInfo.hasNextPage && result.pageInfo.endCursor ? buildKibbleSearchHref(query, result.pageInfo.endCursor) : null,
 				policyVersion: routePolicy.policy.policyVersion,

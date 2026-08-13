@@ -83,7 +83,7 @@ describe('Kibble composition policy registry', () => {
 		if (decision.mode !== 'reference-preserve') throw new Error('expected Preserve');
 		expect(decision.policy.capabilities).toEqual([]);
 		expect(decision.policy.decisionMode).toBe('fixed');
-		expect(decision.policy.publicationMode).toBe('approval_required');
+		expect(decision.policy.publicationMode).toBe('live');
 		expect(decision.policy.allowedComponentVariantIds).toEqual([
 			'kibble.header.responsive-chrome',
 			'kibble.product-card.catalog-card',

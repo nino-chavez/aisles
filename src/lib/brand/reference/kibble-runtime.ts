@@ -111,8 +111,8 @@ export function buildKibbleHomeReference(
 			proofItems: [],
 		},
 		products: featuredProducts,
-		// PDP publication is still approval-gated. Home cards remain inert until
-		// the recipe and its policy both move to an approved live state.
+		// Product destinations are emitted only while the approved read-only PDP
+		// recipe and its trusted publication policy are both live.
 		productHrefs: isKibblePdpPublished() ? materializeKibblePdpHrefs(featuredProducts) : {},
 		categories,
 		serviceProof: manifest.home.serviceProof.map((item): KibbleServiceProofItem => ({ ...item })),

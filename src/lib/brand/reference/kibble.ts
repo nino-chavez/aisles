@@ -110,7 +110,7 @@ export const KIBBLE_SEARCH_SOURCE_CLOSURE = {
 		excluded('$lib/subscriptions/eligible-products.json', 'Auto-Refill eligibility and subscribe-price claims are outside read-only catalog search.', 'Search result cards render no Auto-Refill, subscription, or savings claim.'),
 	],
 	external: [external('./$types', 'generated-types'), external('$app/navigation', 'framework-runtime'), external('$env/dynamic/private', 'framework-runtime')],
-	exclusionInvariant: 'The adapted read-only Storefront GraphQL search may return validated catalog facts; result cards remain inert until PDP publication approval and expose no Auto-Refill, subscription, sale, or savings claim.',
+	exclusionInvariant: 'The adapted read-only Storefront GraphQL search may return validated catalog facts and link to the approved catalog-display-only PDP; results expose no Auto-Refill, subscription, sale, or savings claim.',
 } as const;
 
 export const KIBBLE_CART_SOURCE_CLOSURE = {
@@ -297,7 +297,7 @@ const REGISTRY = {
 
 export const KibbleReferenceContractSchema = z.object({
 	id: z.literal('kibble-shelf-native'),
-	version: z.literal('1.6.0'),
+	version: z.literal('1.7.0'),
 	status: z.literal('approved-reference'),
 		source: z.object({
 		repository: z.literal('bc-subscriptions'),
@@ -389,13 +389,13 @@ export const KibbleReferenceContractSchema = z.object({
 			defaultSort: z.literal('FEATURED'),
 			pageSize: z.literal(KIBBLE_PLP_PAGE_SIZE),
 			pagination: z.object({ strategy: z.literal('forward-cursor'), cursorParam: z.literal('after'), actionLabel: z.literal('Load more') }).strict(),
-			productCards: z.literal('noninteractive-until-pdp-approved'),
+			productCards: z.literal('links-to-catalog-display-only-pdp'),
 			modelLayoutRequest: z.literal(false),
 			invariants: UniqueRequiredStrings,
 		}).strict(),
 		pdp: z.object({
 			id: z.literal('kibble-pdp-reference-v1'),
-			acceptance: z.literal('implemented-pending-visual-approval'),
+			acceptance: z.literal('approved'),
 			implementation: z.literal('KibbleProductDetailReference.svelte'),
 			variantId: z.literal('kibble.product-detail.catalog-display-only'),
 			source: z.object({
@@ -435,9 +435,9 @@ export const KibbleReferenceContractSchema = z.object({
 				forbidden: z.tuple([z.literal('add-to-cart'), z.literal('cart'), z.literal('checkout'), z.literal('subscription'), z.literal('auto-refill-pricing'), z.literal('savings-claim'), z.literal('model-layout'), z.literal('generic-picks')]),
 			}).strict(),
 			publication: z.object({
-				mode: z.literal('approval-required'),
-				reviewAvailability: z.literal('development-build-only'),
-				productLinks: z.literal('disabled-until-approved'),
+				mode: z.literal('live-read-only'),
+				reviewAvailability: z.literal('production-and-development'),
+				productLinks: z.literal('enabled-to-catalog-display-only-pdp'),
 			}).strict(),
 			bounds: z.object({
 				arrays: z.object({
@@ -653,7 +653,7 @@ const variant = (
 ) => ({ id, cssVariantIds, dynamicPropFields, assetSlots, linkTargets, actionTargets, copyFields });
 
 const contractInput = {
-	id: 'kibble-shelf-native', version: '1.6.0', status: 'approved-reference',
+	id: 'kibble-shelf-native', version: '1.7.0', status: 'approved-reference',
 	source: {
 		repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
 		commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', referenceContractVersion: '1.5.0', applicationPath: 'apps/storefront-svelte',
@@ -802,12 +802,12 @@ const contractInput = {
 			defaultSort: 'FEATURED',
 			pageSize: KIBBLE_PLP_PAGE_SIZE,
 			pagination: { strategy: 'forward-cursor', cursorParam: 'after', actionLabel: 'Load more' },
-			productCards: 'noninteractive-until-pdp-approved',
+			productCards: 'links-to-catalog-display-only-pdp',
 			modelLayoutRequest: false,
-			invariants: ['Breadcrumbs render Home then the current category.', 'The category header and four-column product grid stay fixed.', 'Exactly seven trusted sort choices map to BigCommerce CategoryProductSort values.', 'Every page requests 24 products and exposes continuation only from a returned end cursor.', 'Invalid sort or cursor input fails closed before a catalog request.', 'Product cards remain non-links until the PDP recipe receives visual approval and a live publication policy.', 'Preserve never requests a model-authored layout.', 'Empty-state copy comes from the pinned manifest.'],
+			invariants: ['Breadcrumbs render Home then the current category.', 'The category header and four-column product grid stay fixed.', 'Exactly seven trusted sort choices map to BigCommerce CategoryProductSort values.', 'Every page requests 24 products and exposes continuation only from a returned end cursor.', 'Invalid sort or cursor input fails closed before a catalog request.', 'Product cards link only to the approved catalog-display-only PDP.', 'Preserve never requests a model-authored layout.', 'Empty-state copy comes from the pinned manifest.'],
 		},
 		pdp: {
-			id: 'kibble-pdp-reference-v1', acceptance: 'implemented-pending-visual-approval', implementation: 'KibbleProductDetailReference.svelte', variantId: 'kibble.product-detail.catalog-display-only',
+			id: 'kibble-pdp-reference-v1', acceptance: 'approved', implementation: 'KibbleProductDetailReference.svelte', variantId: 'kibble.product-detail.catalog-display-only',
 			source: {
 				commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4',
 				dependencyClosure: {
@@ -824,13 +824,13 @@ const contractInput = {
 			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-bundle-contents', 'catalog-options', 'truthful-purchase-unavailable', 'description-and-specifications', 'related-products'],
 			allowedCatalogFields: ['name', 'sku', 'description', 'images', 'options', 'price', 'salePrice', 'currencyCode', 'inventory', 'category', 'breadcrumbs', 'relatedProducts', 'customFields'],
 			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'truthful-purchase-unavailable', forbidden: ['add-to-cart', 'cart', 'checkout', 'subscription', 'auto-refill-pricing', 'savings-claim', 'model-layout', 'generic-picks'] },
-			publication: { mode: 'approval-required', reviewAvailability: 'development-build-only', productLinks: 'disabled-until-approved' },
+			publication: { mode: 'live-read-only', reviewAvailability: 'production-and-development', productLinks: 'enabled-to-catalog-display-only-pdp' },
 			bounds: KIBBLE_PDP_BOUNDS,
 			richDescription: { mode: 'server-validated-html', allowedTags: KIBBLE_PDP_RICH_DESCRIPTION_TAGS, links: 'https-only-with-noopener' },
 			supportedCurrencies: KIBBLE_PDP_SUPPORTED_CURRENCIES,
 			responsive: { mobile: 'gallery-thumbnails-follow-primary-image', desktop: 'two-column-gallery-and-details', relatedProducts: 'one-two-four-column-grid' },
 			modelLayoutRequest: false,
-			invariants: ['The fixed recipe renders catalog facts only after the trusted server validates the product.', 'Breadcrumbs, gallery, identity, conditional bundle summary, catalog price, conditional bundle contents, options, unavailable-purchase state, details, and related shelf remain in this order.', 'Bundle identity and contents come only from the pinned bundle manifest; subscription, savings, and subscribe-price fields are excluded.', 'The unavailable-purchase state is visible instead of an add-to-cart, cart, checkout, subscription, Auto-Refill, or savings claim.', 'The review renderer is development-build-only while acceptance is pending, and published Home and PLP cards remain non-links.', 'Only validated current Kibble PDP paths may be rendered as product links inside the review renderer.', 'Bad route, catalog, copy, or bounds data fails into the Kibble Preserve error shell.', 'No model selects PDP structure, components, or destinations.'],
+			invariants: ['The fixed recipe renders catalog facts only after the trusted server validates the product.', 'Breadcrumbs, gallery, identity, conditional bundle summary, catalog price, conditional bundle contents, options, unavailable-purchase state, details, and related shelf remain in this order.', 'Bundle identity and contents come only from the pinned bundle manifest; subscription, savings, and subscribe-price fields are excluded.', 'The unavailable-purchase state is visible instead of an add-to-cart, cart, checkout, subscription, Auto-Refill, or savings claim.', 'The approved renderer is available in production as a read-only catalog surface.', 'Only validated current Kibble PDP paths may be rendered as product links.', 'Bad route, catalog, copy, or bounds data fails into the Kibble Preserve error shell.', 'No model selects PDP structure, components, or destinations.'],
 		},
 		error: {
 			id: 'kibble-error-reference-v1', acceptance: 'approved', implementation: 'KibbleErrorReference.svelte', variantId: 'kibble.error.reference-shell',
@@ -896,8 +896,8 @@ const contractInput = {
 	routeInventory: [
 		{ path: '/', audience: 'shopper', classification: 'reference-preserve', reason: 'Contracted Home recipe.' },
 		{ path: '/category/[slug]', audience: 'shopper', classification: 'reference-preserve', reason: 'Contracted PLP recipe.' },
-		{ path: '/product/[slug]', audience: 'shopper', classification: 'reference-unavailable', reason: 'Development review only until PDP approval passes.' },
-		{ path: '/search', audience: 'shopper', classification: 'reference-preserve', reason: 'Canonical search anatomy uses bounded validated read-only Storefront GraphQL; product cards remain inert while PDP publication is pending.' },
+		{ path: '/product/[slug]', audience: 'shopper', classification: 'reference-preserve', reason: 'Approved catalog-display-only PDP with purchase, cart, checkout, and subscription actions disabled.' },
+		{ path: '/search', audience: 'shopper', classification: 'reference-preserve', reason: 'Canonical search anatomy uses bounded validated read-only Storefront GraphQL and links only to the approved catalog-display-only PDP.' },
 		{ path: '/cart', audience: 'shopper', classification: 'reference-unavailable', reason: 'Canonical empty-cart anatomy is visible; cart services are not authorized.' },
 		{ path: '/checkout', audience: 'shopper', classification: 'canonical-404', reason: 'The pinned Kibble source has no checkout index route, so the candidate keeps the canonical 404 boundary instead of inventing a checkout form.' },
 		{ path: '/checkout/gift', audience: 'shopper', classification: 'reference-unavailable', reason: 'Canonical gift form anatomy is visible with every money-path action disabled.' },

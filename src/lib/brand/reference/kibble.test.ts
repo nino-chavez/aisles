@@ -181,7 +181,7 @@ describe('Kibble reference contract', () => {
 			orderedAnatomy: ['breadcrumbs', 'category-header', 'sort-control', 'product-grid', 'cursor-continuation'],
 			defaultSort: 'FEATURED', pageSize: 24,
 			pagination: { strategy: 'forward-cursor', cursorParam: 'after', actionLabel: 'Load more' },
-			productCards: 'noninteractive-until-pdp-approved', modelLayoutRequest: false,
+			productCards: 'links-to-catalog-display-only-pdp', modelLayoutRequest: false,
 		});
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp.sortChoices).toEqual([
 			{ value: 'FEATURED', label: 'Featured' },
@@ -201,11 +201,11 @@ describe('Kibble reference contract', () => {
 
 	it('pins the PDP source anatomy and explicit unavailable-purchase difference', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp).toMatchObject({
-			acceptance: 'implemented-pending-visual-approval',
+			acceptance: 'approved',
 			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4' },
 			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-bundle-contents', 'catalog-options', 'truthful-purchase-unavailable', 'description-and-specifications', 'related-products'],
 			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'truthful-purchase-unavailable' },
-			publication: { mode: 'approval-required', reviewAvailability: 'development-build-only', productLinks: 'disabled-until-approved' },
+			publication: { mode: 'live-read-only', reviewAvailability: 'production-and-development', productLinks: 'enabled-to-catalog-display-only-pdp' },
 			modelLayoutRequest: false,
 		});
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure).toEqual({

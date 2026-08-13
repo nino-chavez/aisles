@@ -13,8 +13,8 @@ signals, and deployment boundaries. It did not establish desktop or mobile visua
 parity with Kibble's reference storefront. Follow-up source work now provides a
 pinned Kibble design contract and Preserve rendering for Home, product listing,
 search, and error surfaces. Product detail is implemented as a deterministic,
-catalog-only development review in Kibble package `1.6.0`, pinned to source
-reference contract `1.5.0`, and remains unavailable for publication. Cart,
+catalog-display-only live route in Kibble package `1.7.0`, pinned to source
+reference contract `1.5.0`; product cards link to it while purchase controls remain disabled. Cart,
 account, subscriptions, and the three canonical checkout phase routes are
 source-native unavailable shells, not commerce implementations. The bare
 `/checkout` path remains the canonical source's 404. The contract classifies all

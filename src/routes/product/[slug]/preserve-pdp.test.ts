@@ -27,7 +27,7 @@ const detail = {
 	relatedProducts: { edges: [{ node: { entityId: 8, name: 'Related Food', sku: 'DOG-8', path: '/related-food/', description: '', prices: { price: { value: 20, currencyCode: 'USD' }, salePrice: null }, defaultImage: null, customFields: { edges: [] }, categories: { edges: [] } } }] },
 };
 
-function preserveEvent(slug: string, renderMode: 'reference-review' | 'reference-preserve' | 'reference-unavailable' = 'reference-review') {
+function preserveEvent(slug: string, renderMode: 'reference-review' | 'reference-preserve' | 'reference-unavailable' = 'reference-preserve') {
 	const values = new Map<string, string>([['aisles_session', 'session-one']]);
 	const url = new URL(`https://aisles.test/product/${slug}`);
 	return {
@@ -57,7 +57,7 @@ describe('Kibble Preserve PDP route', () => {
 	it('materializes fixed, catalog-verified facts and only contracted PDP destinations', async () => {
 		const data = await load(preserveEvent('verified-food') as never);
 		if (!data || !('kibblePdp' in data)) throw new Error('Expected Kibble PDP data.');
-		expect(data.renderMode).toBe('reference-review');
+		expect(data.renderMode).toBe('reference-preserve');
 		expect(data.kibblePdp.product).toMatchObject({ name: 'Verified Food', sku: 'DOG-7', description: '<p>Catalog description</p>', descriptionPlain: 'Catalog description', isInStock: true });
 		expect(data.kibblePdp.bundle).toBeNull();
 		expect(data.kibblePdp.relatedProductHrefs).toEqual({ 'related-food': '/product/related-food' });
@@ -82,7 +82,7 @@ describe('Kibble Preserve PDP route', () => {
 		}));
 	});
 
-	it('keeps the pending recipe unavailable to live publication', async () => {
+	it('fails closed before catalog access when the trusted route is explicitly unavailable', async () => {
 		await expect(load(preserveEvent('verified-food', 'reference-unavailable') as never)).rejects.toMatchObject({ status: 503 });
 		expect(mocks.getKibbleProductDetailByPath).not.toHaveBeenCalled();
 	});

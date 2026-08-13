@@ -103,7 +103,7 @@ describe('Preserve route boundaries', () => {
 			process.env.BRAND_ID = 'kibble';
 			const pdp = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);
 			if (!pdp) throw new Error('Expected the contracted Kibble PDP layout to return data.');
-			expect(pdp.renderMode).toBe('reference-review');
+			expect(pdp.renderMode).toBe('reference-preserve');
 			expect(pdp.chromeMode).toBe('reference');
 
 			const account = await loadLayout({ url: new URL('https://aisles.test/account/subscriptions'), cookies } as never);
@@ -142,7 +142,7 @@ describe('Preserve route boundaries', () => {
 								eyebrow: 'Featured bundle', ctaLabel: 'Browse bundles',
 							},
 						},
-						products: [product], productHrefs: {}, categories: [], serviceProof: [],
+						products: [product], productHrefs: { 'actual-product': '/product/actual-product' }, categories: [], serviceProof: [],
 						featuredCopy: { title: 'Featured', eyebrow: 'Catalog', browseAllLabel: 'Browse Dog Food' },
 						browseHref: '/category/dog-food', categoryTitle: 'Shop by category', categoryEyebrow: 'Browse',
 					},
@@ -150,7 +150,7 @@ describe('Preserve route boundaries', () => {
 			},
 		});
 		expect(result.body).toContain('REFERENCE HOME SENTINEL');
-		expect(result.body).not.toContain('/product/actual-product');
+		expect(result.body).toContain('href="/product/actual-product"');
 		expect(result.body).not.toContain('LEGACY HOME SENTINEL');
 		expect(result.head).toContain('<title>Kibble &amp; Co.</title>');
 		expect(result.head).not.toContain('never running out');
@@ -173,14 +173,14 @@ describe('Preserve route boundaries', () => {
 							{ value: 'HIGHEST_PRICE', label: 'Price: high to low' },
 						],
 						selectedSort: 'FEATURED', productCount: 1, productSingular: 'product', productPlural: 'products',
-						emptyMessage: 'No products.', products: [product], productHrefs: {},
+						emptyMessage: 'No products.', products: [product], productHrefs: { 'actual-product': '/product/actual-product' },
 						loadMoreHref: '?sort=FEATURED&after=next-cursor', loadMoreLabel: 'Load more',
 					},
 				} as never,
 			},
 		});
 		expect(result.body).toContain('Actual Product');
-		expect(result.body).not.toContain('/product/actual-product');
+		expect(result.body).toContain('href="/product/actual-product"');
 		expect(result.body).toContain('aria-label="Breadcrumb"');
 		expect(result.body).toContain('aria-current="page"');
 		expect(result.body.match(/<option/g)).toHaveLength(7);
@@ -190,11 +190,11 @@ describe('Preserve route boundaries', () => {
 		expect(result.body).not.toContain('Personalizing');
 	});
 
-	it('SSR renders the approval-gated PDP review without generic commerce controls', () => {
+	it('SSR renders the live read-only PDP without generic commerce controls', () => {
 		const result = render(ProductPage, {
 			props: {
 				data: {
-					renderMode: 'reference-review',
+					renderMode: 'reference-preserve',
 					kibblePdp: {
 						product: {
 							...product, sku: 'ACTUAL-10', categoryPath: '/dog-food/', currencyCode: 'USD',
@@ -224,7 +224,7 @@ describe('Preserve route boundaries', () => {
 		}
 	});
 
-	it('uses the bounded read-only Kibble catalog search without publishing product links or unrelated error evidence', async () => {
+	it('uses bounded read-only Kibble catalog search with approved PDP links and no unrelated error evidence', async () => {
 		const previousBrand = process.env.BRAND_ID;
 		try {
 			process.env.BRAND_ID = 'kibble';
@@ -246,7 +246,7 @@ describe('Preserve route boundaries', () => {
 			expect(successfulSearch).toMatchObject({
 				renderMode: 'reference-preserve',
 				kibbleSearch: {
-					query: 'food', products: [{ id: 'actual-product' }], zoneAdapter: null,
+					query: 'food', products: [{ id: 'actual-product' }], productHrefs: { 'actual-product': '/product/actual-product' }, zoneAdapter: null,
 					responseProvenance: {
 						source: 'live-storefront', routePath: '/search', policyVersion: expect.any(String),
 						catalogSha256: 'b'.repeat(64), resultSha256: 'c'.repeat(64),

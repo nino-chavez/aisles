@@ -24,9 +24,8 @@ longer only a proposal. Local follow-up work now includes:
   surfaces, with fixed product-listing structure, trusted sorting, and cursor
   pagination;
 - a deterministic catalog-only product-detail implementation in Kibble package
-  `1.6.0`, pinned to source reference contract `1.5.0`, held at
-  `approval_required` and development-only while its
-  visual review remains open;
+  `1.7.0`, pinned to source reference contract `1.5.0`, published read-only with
+  purchase, cart, checkout, subscription, and savings actions disabled;
 - a 15-route Kibble comparison harness at 390, 768, and 1280 pixels, plus a
   90-cell Bealls-family internal regression harness;
 - an exact Kibble terminal classification for all 28 zone families and 36
@@ -45,15 +44,15 @@ longer only a proposal. Local follow-up work now includes:
 - an isolated local showcase using a pinned catalog and visibly labeled
   synthetic persona-fit data, with production data connections blanked.
 
-The corrective work has not been approved for deployment or publication. Kibble
-product detail is implemented but not approved or live. Cart, account,
+Kibble product detail is approved for live catalog-display-only navigation, but
+the corrective work still does not establish full visual parity or functional commerce. Cart, account,
 subscriptions, and the three canonical checkout phase routes are contracted
 source-native unavailable shells; the bare `/checkout` path remains the
 canonical source's 404. They preserve route anatomy without claiming functional
 commerce. The final Kibble cold-review defects are closed locally. The strict
 15-route, three-viewport matrix still leaves all 15 routes and all 45 cells open:
 12,313,565 of 66,597,260 comparable pixels differ (18.4896%), with no masks and
-one named approval item per route. Route-by-route human visual approval, PDP publication,
+one named approval item per route. Route-by-route human visual approval,
 merchant runtime policy writes and audit storage, migration/deploy/live
 database-provider verification, and Bealls external-reference contracts remain
 open.
