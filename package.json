@@ -10,7 +10,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test:kibble-parity": "tsx scripts/kibble-visual-parity.ts",
-    "test:kibble-parity:local": "tsx scripts/kibble-parity-local.ts"
+    "test:kibble-parity:local": "tsx scripts/kibble-parity-local.ts",
+    "dev:kibble-showcase": "tsx scripts/kibble-showcase.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-cloudflare": "^7.2.9",
