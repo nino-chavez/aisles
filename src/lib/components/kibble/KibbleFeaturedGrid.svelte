@@ -19,7 +19,7 @@
 </script>
 
 {#if products.length > 0}
-	<section id="kibble-featured-shelf" class="kibble-reference kc-reference-section" aria-labelledby="kibble-featured-heading">
+	<section id="kibble-featured-shelf" tabindex="-1" class="kibble-reference kc-reference-section" aria-labelledby="kibble-featured-heading">
 		<div class="kc-reference-container">
 			<div class="kc-reference-section__header">
 				<div>

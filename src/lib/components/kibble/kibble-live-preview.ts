@@ -38,6 +38,8 @@ const CATALOG_HASH = /^catalog:[0-9a-f]{16}$/;
 export type KibbleLivePreviewExpectation = {
 	reference: { id: string; version: string };
 	policyVersion: string;
+	dataSourceLabel: string;
+	synthetic: { value: boolean; scenarioId: string | null };
 };
 
 export type KibbleLivePreview = {
@@ -52,6 +54,7 @@ export type KibbleLivePreviewValidation =
 
 export type KibbleLivePreviewListenerOptions = {
 	expectation: KibbleLivePreviewExpectation;
+	getCurrentProductIds: () => readonly string[];
 	onApplied: (preview: KibbleLivePreview) => void;
 	onStatus: (status: KibbleLivePreviewStatus) => void;
 };
@@ -63,6 +66,7 @@ export type KibbleLivePreviewListenerOptions = {
  */
 export function listenForKibbleLivePreview({
 	expectation,
+	getCurrentProductIds,
 	onApplied,
 	onStatus,
 }: KibbleLivePreviewListenerOptions): () => void {
@@ -86,8 +90,11 @@ export function listenForKibbleLivePreview({
 			const validation = validateKibbleLivePreview(await response.json(), expectation);
 			if (!validation.ok) throw new Error(validation.reason);
 			if (!active || requestController.signal.aborted || requestGeneration !== generation) return;
+			const currentProductIds = getCurrentProductIds();
+			const nextProductIds = validation.preview.products.map(({ id }) => id);
+			const changed = !sameStringArray(currentProductIds, nextProductIds);
 			onApplied(validation.preview);
-			onStatus({ state: 'applied', persona: validation.preview.persona });
+			onStatus({ state: 'applied', persona: validation.preview.persona, changed });
 		} catch (error) {
 			if (!active || requestController.signal.aborted || requestGeneration !== generation) return;
 			console.warn('Kibble live preview was rejected; retaining the approved shelf.', error);
@@ -105,6 +112,21 @@ export function listenForKibbleLivePreview({
 		controller?.abort();
 		controller = null;
 		window.removeEventListener('aisles-inference-update', onInferenceUpdate);
+	};
+}
+
+export function expectationFromTrustedInspector(inspector: KibbleDevInspectorData): KibbleLivePreviewExpectation | null {
+	const synthetic = inspector.provenance?.synthetic;
+	if (!isRecord(synthetic) || !hasOnlyKeys(synthetic, SYNTHETIC_KEYS)
+		|| typeof synthetic.value !== 'boolean'
+		|| (synthetic.value
+			? typeof synthetic.scenarioId !== 'string' || synthetic.scenarioId.length === 0
+			: synthetic.scenarioId !== null)) return null;
+	return {
+		reference: { ...inspector.reference },
+		policyVersion: inspector.policyVersion,
+		dataSourceLabel: inspector.dataSourceLabel,
+		synthetic: { value: synthetic.value, scenarioId: synthetic.scenarioId as string | null },
 	};
 }
 
@@ -179,7 +201,7 @@ function isInspector(
 		|| value.surface !== 'home'
 		|| value.preset !== 'preserve'
 		|| value.publicationMode !== 'live'
-		|| typeof value.dataSourceLabel !== 'string'
+		|| value.dataSourceLabel !== expected.dataSourceLabel
 		|| !Array.isArray(value.zones) || value.zones.length !== HOME_ZONES.length
 		|| !value.zones.every((zone, index) => isZone(zone, HOME_ZONES[index], products))) return false;
 	if (inference.primary !== persona) return false;
@@ -237,10 +259,8 @@ function isContractedHomeProvenance(
 		|| value.autonomy.preset !== 'preserve' || !sameStringArray(value.autonomy.effectiveCapabilities, HOME_CAPABILITIES)
 		|| value.autonomy.decisionMode !== 'rules' || value.autonomy.publicationMode !== 'live') return false;
 	return isRecord(value.synthetic) && hasOnlyKeys(value.synthetic, SYNTHETIC_KEYS)
-		&& typeof value.synthetic.value === 'boolean'
-		&& (value.synthetic.value
-			? typeof value.synthetic.scenarioId === 'string' && value.synthetic.scenarioId.length > 0
-			: value.synthetic.scenarioId === null);
+		&& value.synthetic.value === expected.synthetic.value
+		&& value.synthetic.scenarioId === expected.synthetic.scenarioId;
 }
 
 function isInference(value: unknown): value is { primary: KibbleInspectorPersona } {

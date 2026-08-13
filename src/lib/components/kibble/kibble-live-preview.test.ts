@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applyKibbleLivePreview, listenForKibbleLivePreview, validateKibbleLivePreview } from './kibble-live-preview';
-import type { KibbleDevInspectorData } from './kibble-dev-inspector';
+import { applyKibbleLivePreview, expectationFromTrustedInspector, listenForKibbleLivePreview, validateKibbleLivePreview } from './kibble-live-preview';
+import type { KibbleDevInspectorData, KibbleLivePreviewStatus } from './kibble-dev-inspector';
 
-const expectation = { reference: { id: 'kibble-shelf-native', version: '1.5.0' }, policyVersion: 'org:kibble|brand:kibble-policy-1.5.0' };
+const expectation = {
+	reference: { id: 'kibble-shelf-native', version: '1.5.0' },
+	policyVersion: 'org:kibble|brand:kibble-policy-1.5.0',
+	dataSourceLabel: 'fixture',
+	synthetic: { value: true, scenarioId: 'local-showcase' },
+};
 const product = { id: 'food-a', entityId: 1, name: 'Food A', price: 24, image: '/a.jpg', imageAlt: 'Food A', description: 'A food', specs: { protein: '28%' }, tags: ['dog'], category: 'dog-food' };
 const inspector: KibbleDevInspectorData = {
 	reference: expectation.reference, surface: 'home', preset: 'preserve', policyVersion: expectation.policyVersion,
@@ -95,6 +100,18 @@ describe('validateKibbleLivePreview', () => {
 		}, expectation).ok).toBe(false);
 	});
 
+	it('binds source label and synthetic identity to trusted initial PageData', () => {
+		expect(expectationFromTrustedInspector(inspector)).toEqual(expectation);
+		expect(validateKibbleLivePreview({
+			...response(), inspector: { ...inspector, dataSourceLabel: 'merchant data' },
+		}, expectation).ok).toBe(false);
+		const provenance = inspector.provenance as Record<string, unknown>;
+		expect(validateKibbleLivePreview({
+			...response(), inspector: { ...inspector, provenance: { ...provenance, synthetic: { value: false, scenarioId: null } } },
+		}, expectation).ok).toBe(false);
+		expect(expectationFromTrustedInspector({ ...inspector, provenance: { ...provenance, synthetic: { value: false, scenarioId: 'fake' } } })).toBeNull();
+	});
+
 	it('retains the prior approved shelf and trace on failure', () => {
 		const current = { products: [{ ...product, id: 'approved' }], inspector: { ...inspector, policyVersion: 'approved-policy' } };
 		expect(applyKibbleLivePreview(current, { ...response(), version: 'wrong' }, expectation)).toBe(current);
@@ -109,18 +126,19 @@ describe('validateKibbleLivePreview', () => {
 		vi.stubGlobal('window', eventTarget);
 		vi.stubGlobal('fetch', fetchMock);
 		const applied = vi.fn();
-		const statuses: string[] = [];
+		const statuses: KibbleLivePreviewStatus[] = [];
 		const cleanup = listenForKibbleLivePreview({
 			expectation,
+			getCurrentProductIds: () => ['food-b'],
 			onApplied: applied,
-			onStatus: (status) => statuses.push(status.state),
+			onStatus: (status) => statuses.push(status),
 		});
 
 		expect(fetchMock).not.toHaveBeenCalled();
 		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
 		await vi.waitFor(() => expect(applied).toHaveBeenCalledTimes(1));
 		expect(fetchMock).toHaveBeenCalledWith('/api/kibble/home-decision?dev=true', expect.objectContaining({ method: 'POST' }));
-		expect(statuses).toEqual(['updating', 'applied']);
+		expect(statuses).toEqual([{ state: 'updating' }, { state: 'applied', persona: 'hunter', changed: true }]);
 
 		cleanup();
 		eventTarget.dispatchEvent(new Event('aisles-inference-update'));

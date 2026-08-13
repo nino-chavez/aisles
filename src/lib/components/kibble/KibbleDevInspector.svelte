@@ -3,6 +3,7 @@
 	import { getEmitter } from '$lib/signals/emitter';
 	import {
 		KIBBLE_INSPECTOR_PERSONAS,
+		describeKibbleRehearsalStatus,
 		isKibbleInspectorInference,
 		redactInspectorDebugValue,
 		sanitizeInspectorInference,
@@ -66,16 +67,7 @@
 		if (status.state === 'failed') return 'preview failed; last approved shelf retained';
 		return 'waiting for a signal';
 	};
-	const rehearsalStatus = $derived.by(() => {
-		if (rehearsalError) return rehearsalError;
-		if (!rehearsalPersona) return 'Choose a persona to send one synthetic search signal.';
-		if (livePreview.state === 'updating') return `Signal ${rehearsalPersona} accepted. Server decision updating.`;
-		if (livePreview.state === 'failed') return `Signal ${rehearsalPersona} accepted. Preview failed; last approved shelf retained.`;
-		if (livePreview.state === 'applied' && livePreview.persona === rehearsalPersona) {
-			return `Signal ${rehearsalPersona} applied. The approved shelf order changed.`;
-		}
-		return `Signal ${rehearsalPersona} queued. Waiting for the signal endpoint.`;
-	});
+	const rehearsalStatus = $derived(describeKibbleRehearsalStatus(rehearsalPersona, livePreview, rehearsalError));
 	const sendRehearsalSignal = (signal: (typeof rehearsalSignals)[number]) => {
 		const emitter = getEmitter();
 		if (!emitter) {
@@ -86,6 +78,14 @@
 		rehearsalError = null;
 		rehearsalPersona = signal.persona;
 		emitter.emit('nav.search', { query: signal.query });
+	};
+	const viewChangedShelf = (event: MouseEvent) => {
+		event.preventDefault();
+		const shelf = document.getElementById('kibble-featured-shelf');
+		if (!shelf) return;
+		window.history.replaceState(null, '', '#kibble-featured-shelf');
+		shelf.scrollIntoView({ block: 'start' });
+		shelf.focus({ preventScroll: true });
 	};
 </script>
 
@@ -160,9 +160,9 @@
 					<button type="button" onclick={() => sendRehearsalSignal(signal)}>Signal {signal.persona}</button>
 				{/each}
 			</div>
-			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite">{rehearsalStatus}</p>
-			{#if livePreview.state === 'applied' && livePreview.persona === rehearsalPersona}
-				<a class="kc-dev-inspector__view-shelf" href="#kibble-featured-shelf">View changed shelf</a>
+			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite" aria-atomic="true">{rehearsalStatus}</p>
+			{#if livePreview.state === 'applied' && livePreview.changed}
+				<a class="kc-dev-inspector__view-shelf" href="#kibble-featured-shelf" onclick={viewChangedShelf}>View changed shelf</a>
 			{/if}
 		</section>
 	{/if}

@@ -40,16 +40,19 @@
 
 	$effect(() => {
 		if (!dev || data.renderMode !== 'reference-preserve' || !data.kibbleHomeInspector) return;
-		const expectation = {
-			reference: { ...data.kibbleHomeInspector.reference },
-			policyVersion: data.kibbleHomeInspector.policyVersion,
-		};
+		const trustedInspector = data.kibbleHomeInspector;
 		let disposed = false;
 		let cleanup: (() => void) | undefined;
-		void import('$lib/components/kibble/kibble-live-preview').then(({ listenForKibbleLivePreview }) => {
+		void import('$lib/components/kibble/kibble-live-preview').then(({ expectationFromTrustedInspector, listenForKibbleLivePreview }) => {
 			if (disposed) return;
+			const expectation = expectationFromTrustedInspector(trustedInspector);
+			if (!expectation) {
+				livePreviewStatus = { state: 'failed' };
+				return;
+			}
 			cleanup = listenForKibbleLivePreview({
 				expectation,
+				getCurrentProductIds: () => (previewProducts ?? data.kibbleHome?.products ?? []).map(({ id }) => id),
 				onApplied: (preview) => {
 					previewProducts = preview.products;
 					previewInspector = preview.inspector;

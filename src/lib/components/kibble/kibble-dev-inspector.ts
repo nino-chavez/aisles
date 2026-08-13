@@ -67,7 +67,22 @@ export interface KibbleDevInspectorData {
 
 export type KibbleLivePreviewStatus =
 	| { state: 'waiting' | 'updating' | 'failed' }
-	| { state: 'applied'; persona: KibbleInspectorPersona };
+	| { state: 'applied'; persona: KibbleInspectorPersona; changed: boolean };
+
+export function describeKibbleRehearsalStatus(
+	requestedPersona: KibbleInspectorPersona | null,
+	status: KibbleLivePreviewStatus,
+	error: string | null = null,
+): string {
+	if (error) return error;
+	if (!requestedPersona) return 'Choose a persona to send one synthetic search signal.';
+	if (status.state === 'updating') return `Signal ${requestedPersona} accepted. Server decision updating.`;
+	if (status.state === 'failed') return `Signal ${requestedPersona} accepted. Preview failed; last approved shelf retained.`;
+	if (status.state === 'applied') {
+		return `Signal ${requestedPersona} accepted. Server applied ${status.persona}; shelf order ${status.changed ? 'changed' : 'unchanged'}.`;
+	}
+	return `Signal ${requestedPersona} queued. Waiting for the signal endpoint.`;
+}
 
 export const KIBBLE_INSPECTOR_PERSONAS: readonly KibbleInspectorPersona[] = [
 	'gatherer',

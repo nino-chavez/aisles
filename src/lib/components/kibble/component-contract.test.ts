@@ -45,6 +45,7 @@ describe('Kibble reference components fail closed', () => {
 	it('requires visible section copy and fails closed without a product href', () => {
 		const featured = component('KibbleFeaturedGrid.svelte');
 		expect(featured).toContain('id="kibble-featured-shelf"');
+		expect(featured).toContain('tabindex="-1"');
 		expect(featured).toMatch(/copy: KibbleFeaturedCopy/);
 		expect(featured).not.toContain("'New arrivals'");
 		expect(featured).not.toContain("'Catalog'");
