@@ -27,7 +27,6 @@ const schemaCreateMigration = readFileSync(
 const wrangler = readFileSync(resolve(import.meta.dirname, '../../../wrangler.toml'), 'utf8');
 const syntheticMigration = readFileSync(resolve(import.meta.dirname, '../../../supabase/migrations/20260812210415_add_synthetic_scenario_provenance.sql'), 'utf8');
 const layoutProvenanceMigration = readFileSync(resolve(import.meta.dirname, '../../../supabase/migrations/20260812233217_add_layout_provenance.sql'), 'utf8');
-const databaseClient = readFileSync(resolve(import.meta.dirname, './db.ts'), 'utf8');
 
 describe('database foundation', () => {
 	it('fails required paths when DATABASE_URL is absent', () => {
@@ -58,8 +57,6 @@ describe('database foundation', () => {
 		expect(wrangler).toContain('compatibility_flags = ["nodejs_compat"]');
 		expect(wrangler).toContain('binding = "HYPERDRIVE"');
 		expect(wrangler).toContain('id = "7ad29b1caf5845d48f93b59fa15fc83b"');
-		expect(databaseClient).toContain('fetch_types: false');
-		expect(databaseClient).toContain('prepare: true');
 	});
 
 	it('scopes product and session identities by brand', () => {

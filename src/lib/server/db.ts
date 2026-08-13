@@ -13,15 +13,7 @@ import { requireDatabaseUrl } from './db-policy';
 let localSql: Sql | null = null;
 
 export function createDb(connectionString: string): Sql {
-	return postgres(connectionString, {
-		max: 5,
-		idle_timeout: 60,
-		// Hyperdrive already speaks PostgreSQL's wire protocol. Avoid the extra
-		// startup type-discovery query, which can lose the Workers TCP socket
-		// before the first application query is sent.
-		fetch_types: false,
-		prepare: true,
-	});
+	return postgres(connectionString, { max: 5, idle_timeout: 60 });
 }
 
 /** Keep one client inside a request, never across Cloudflare invocations. */
