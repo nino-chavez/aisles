@@ -35,6 +35,78 @@ fixture or contract cannot pass this gate.
 
 ## Run it
 
+### Local fixed-data rehearsal
+
+This repository provides one local command for the Home comparison. It starts
+the canonical `bc-subscriptions` storefront and the Aisles candidate as two
+separate Vite processes, supplies both with the source-owned fixed catalog, and
+then invokes the existing 390px and 1280px gate.
+
+```bash
+npm run test:kibble-parity:local
+```
+
+The catalog seam is process-scoped to this command. It intercepts BigCommerce
+GraphQL requests, while a runner-only Vite config replaces the Postgres driver
+with a no-op client. That lets the real Aisles Preserve route execute its normal
+render path without opening Hyperdrive or any database.
+Cloudflare's local binding receives an inert connection string only so it can
+initialize; the runner-only driver cannot open a socket. The ordinary
+Aisles `dev`, `build`, `preview`, and Wrangler paths have no fixture flag or
+fallback. No remote database, Hyperdrive, secrets, or paid API is used.
+
+External image requests are replaced with the same neutral local image while
+the gate captures both pages. This prevents third-party CDNs from changing the
+result. It does not conceal a local asset difference: fixture product images are
+local deterministic data URLs, and the pixel gate still compares their rendered
+positions and dimensions.
+
+Before either endpoint starts, the runner hashes the canonical seed fixture and
+checks its ID, version, and SHA against the canonical source. The gate then
+checks the rendered markers before it captures screenshots. Evidence is written
+to `validation/kibble-parity-local/`.
+
+Home is the current default. A later integration can add routes without changing
+the server mechanism:
+
+```bash
+KIBBLE_PARITY_LOCAL_ROUTES='[{"id":"home","path":"/"},{"id":"plp","path":"/category/dog-food"}]' \
+npm run test:kibble-parity:local
+```
+
+The route matrix only runs surfaces already contracted and rendered by both
+repositories. It does not make product-detail, cart, checkout, or any other
+uncontracted surface into evidence.
+
+The local command defaults to a zero pixel difference and zero structural
+tolerance. Supplying either tolerance through environment variables makes the
+run a non-release rehearsal; record the reason and obtain the separate approval
+required by the main gate before treating it as parity evidence.
+
+### First fixed-data result
+
+The runner initializes the local Cloudflare binding with an inert
+`CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` value, while its
+runner-only Postgres replacement prevents any database connection. The first
+complete Home capture failed the gate at both widths. This is useful evidence,
+not a parity approval.
+
+The measured differences included the page background and text colors, body
+font, hero heading line height and tracking, container geometry, navigation and
+link structure, and full-page height. When screenshot dimensions differ, the
+pixel comparison uses the larger canvas and counts the missing area as changed
+instead of suppressing the comparison. The run writes its local screenshots,
+diffs, and `report.json` under
+`validation/kibble-parity-local/`.
+
+The earlier route mismatch for bundle product `3065` was a candidate-contract
+bug. The canonical fixed fixture binds the stable entity ID, name, category, and
+price while its product slug differs from an older bundle-content lookup key.
+Because the Home CTA targets the Bundles category rather than that PDP, the
+candidate no longer treats the mutable product slug as Home recipe identity.
+
+### Existing endpoint runner
+
 Start the approved reference and candidate URLs yourself. Then provide every
 comparison input. The command has no URL, threshold, mask, or structure
 defaults.
@@ -43,7 +115,7 @@ defaults.
 KIBBLE_PARITY_REFERENCE_URL='http://127.0.0.1:4173/' \
 KIBBLE_PARITY_CANDIDATE_URL='http://127.0.0.1:5173/' \
 KIBBLE_PARITY_CONTRACT_ID='kibble-shelf-native' \
-KIBBLE_PARITY_CONTRACT_VERSION='1.4.0' \
+KIBBLE_PARITY_CONTRACT_VERSION='1.5.0' \
 KIBBLE_PARITY_FIXED_DATA_IDENTITY='833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49' \
 KIBBLE_PARITY_MASKS='[]' \
 KIBBLE_PARITY_MAX_PIXEL_DIFFERENCE_RATIO='0.025' \
@@ -66,8 +138,15 @@ At 390px and 1280px wide, it checks:
 - The three provenance markers on both pages.
 - Header, navigation, main, footer, heading, section, image, link, and button
   counts, plus full-page height.
+- Computed root colors and body font; h1 font family, weight, line height, and
+  letter spacing; the reference container's width and gutters; and header
+  height and position. These values are exact checks and are recorded in the
+  report. The runner does not normalize typography or CSS before capture.
 - Full-page screenshot dimensions and changed-pixel ratio after the declared
   masks are applied.
+
+Both required Kibble web fonts must load before capture. A failed font load
+fails the run instead of comparing two system-font fallbacks.
 
 The runner disables motion and writes `reference.png`, `candidate.png`,
 `diff.png` when comparable, and `report.json` per run. Any missing marker,

@@ -26,6 +26,16 @@ export const STRUCTURAL_METRIC_KEYS = [
 export type StructuralMetricKey = (typeof STRUCTURAL_METRIC_KEYS)[number];
 export type StructuralMetrics = Record<StructuralMetricKey, number>;
 
+export const STYLE_METRIC_KEYS = [
+	'rootBackgroundColor', 'rootColor', 'rootFontFamily',
+	'h1FontFamily', 'h1FontWeight', 'h1LineHeight', 'h1LetterSpacing',
+	'containerMaxWidth', 'containerPaddingLeft', 'containerPaddingRight',
+	'headerHeight', 'headerPosition',
+] as const;
+
+export type StyleMetricKey = (typeof STYLE_METRIC_KEYS)[number];
+export type StyleMetrics = Record<StyleMetricKey, string>;
+
 export type ParityMetadata = {
 	contractId: string;
 	contractVersion: string;
@@ -180,6 +190,13 @@ export function compareStructuralMetrics(
 			? [{ field: metric, message: `${metric} delta ${delta} exceeds allowed ${tolerances[metric]} (reference ${reference[metric]}, candidate ${candidate[metric]})` }]
 			: [];
 	});
+}
+
+/** Computed styles are exact identity checks; do not normalize the page first. */
+export function compareStyleMetrics(reference: StyleMetrics, candidate: StyleMetrics): ParityProblem[] {
+	return STYLE_METRIC_KEYS.flatMap((metric) => reference[metric] === candidate[metric]
+		? []
+		: [{ field: `style.${metric}`, message: `${metric} mismatch: reference ${reference[metric]}, candidate ${candidate[metric]}` }]);
 }
 
 export function assessPixelDifference(

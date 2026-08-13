@@ -3,6 +3,7 @@ import {
 	KIBBLE_PARITY_FIXED_DATA_IDENTITY,
 	assessPixelDifference,
 	compareParityMetadata,
+	compareStyleMetrics,
 	compareStructuralMetrics,
 	readKibbleParityConfig,
 	type StructuralMetrics,
@@ -49,5 +50,15 @@ describe('Kibble visual parity configuration', () => {
 		expect(assessPixelDifference(0.025, config.maxPixelDifferenceRatio)).toEqual([]);
 		expect(assessPixelDifference(0.026, config.maxPixelDifferenceRatio)[0]?.message).toContain('exceeds');
 		expect(assessPixelDifference(null, config.maxPixelDifferenceRatio)[0]?.message).toContain('dimensions differ');
+	});
+
+	it('fails when a computed visual token changes', () => {
+		const styles = {
+			rootBackgroundColor: 'rgb(243, 246, 252)', rootColor: 'rgb(30, 33, 80)', rootFontFamily: 'Plus Jakarta Sans',
+			h1FontFamily: 'Plus Jakarta Sans', h1FontWeight: '800', h1LineHeight: '61.2px', h1LetterSpacing: '-2.1px',
+			containerMaxWidth: '1200px', containerPaddingLeft: '0px', containerPaddingRight: '0px', headerHeight: '64px', headerPosition: 'sticky',
+		};
+		expect(compareStyleMetrics(styles, styles)).toEqual([]);
+		expect(compareStyleMetrics(styles, { ...styles, h1FontWeight: '700' })[0]?.field).toBe('style.h1FontWeight');
 	});
 });
