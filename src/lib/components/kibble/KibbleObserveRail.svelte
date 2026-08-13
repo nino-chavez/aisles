@@ -5,6 +5,7 @@
 	import KibbleDevInspectorLauncher from './KibbleDevInspectorLauncher.svelte';
 	import type { KibbleInspectorPersona } from './kibble-dev-inspector';
 	import { describeKibblePdpModelAction, type KibblePdpModelActionStatus } from './kibble-pdp-model-action';
+	import { describeKibblePlpModelAction, type KibblePlpModelActionStatus } from './kibble-plp-model-action';
 
 	type ZoneAuthority = 'fixed' | 'rules' | 'model';
 	type ZoneEvidence = {
@@ -45,7 +46,11 @@
 	let pdpModelActionEligible = $state(false);
 	let pdpModelActionReady = $state(false);
 	let pdpModelActionStatus = $state<KibblePdpModelActionStatus>('idle');
+	let plpModelActionEligible = $state(false);
+	let plpModelActionReady = $state(false);
+	let plpModelActionStatus = $state<KibblePlpModelActionStatus>('idle');
 	const pdpModelAction = $derived(describeKibblePdpModelAction(pdpModelActionStatus));
+	const plpModelAction = $derived(describeKibblePlpModelAction(plpModelActionStatus));
 	const visiblePersona = $derived(persona ?? initialPersona);
 	const observeHref = $derived(buildObserveSessionHref(sessionId));
 	const templateCount = $derived(zones.filter(({ authority }) => authority === 'fixed').length);
@@ -80,10 +85,12 @@
 			});
 		}
 		pdpModelActionEligible = document.querySelector('[data-aisles-pdp-model-eligible="true"]') !== null;
+		plpModelActionEligible = document.querySelector('[data-aisles-plp-model-eligible="true"]') !== null;
 		if (!pdpModelActionEligible) {
 			pdpModelActionStatus = 'idle';
 			pdpModelActionReady = false;
 		}
+		if (!plpModelActionEligible) { plpModelActionStatus = 'idle'; plpModelActionReady = false; }
 		zones = [...evidence.values()];
 	};
 
@@ -105,6 +112,7 @@
 				'data-aisles-zone-instance', 'data-aisles-zone-label', 'data-aisles-authority',
 				'data-aisles-model-calls', 'data-kibble-zone-instance', 'data-kibble-zone-status',
 				'data-aisles-pdp-model-eligible',
+				'data-aisles-plp-model-eligible',
 			],
 		});
 		const onInferenceUpdate = (event: Event) => {
@@ -119,21 +127,34 @@
 			if (status === 'updating' || status === 'applied' || status === 'failed') pdpModelActionStatus = status;
 		};
 		const onPdpModelReady = () => { pdpModelActionReady = true; };
+		const onPlpModelStatus = (event: Event) => {
+			const status = event instanceof CustomEvent ? event.detail : null;
+			if (status === 'updating' || status === 'applied' || status === 'failed') plpModelActionStatus = status;
+		};
+		const onPlpModelReady = () => { plpModelActionReady = true; };
 		window.addEventListener('hashchange', collapseForSignalLab);
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
 		window.addEventListener('aisles-kibble-pdp-model-status', onPdpModelStatus);
 		window.addEventListener('aisles-kibble-pdp-model-ready', onPdpModelReady);
+		window.addEventListener('aisles-kibble-plp-model-status', onPlpModelStatus);
+		window.addEventListener('aisles-kibble-plp-model-ready', onPlpModelReady);
 		return () => {
 			observer.disconnect();
 			window.removeEventListener('hashchange', collapseForSignalLab);
 			window.removeEventListener('aisles-inference-update', onInferenceUpdate);
 			window.removeEventListener('aisles-kibble-pdp-model-status', onPdpModelStatus);
 			window.removeEventListener('aisles-kibble-pdp-model-ready', onPdpModelReady);
+			window.removeEventListener('aisles-kibble-plp-model-status', onPlpModelStatus);
+			window.removeEventListener('aisles-kibble-plp-model-ready', onPlpModelReady);
 		};
 	});
 
 	afterNavigate(({ to }) => {
 		if (to?.url.hash === '#kibble-signal-lab') expanded = false;
+		// A same-route sort/cursor navigation replaces the PLP listener. Do not
+		// let its prior readiness or terminal status govern the new page data.
+		plpModelActionReady = false;
+		plpModelActionStatus = 'idle';
 		void tick().then(scanZones);
 	});
 
@@ -151,6 +172,12 @@
 		if (!pdpModelActionEligible || !pdpModelActionReady || pdpModelAction.disabled) return;
 		pdpModelActionStatus = 'updating';
 		window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-request'));
+	}
+
+	function requestPlpModelDecision() {
+		if (!plpModelActionEligible || !plpModelActionReady || plpModelAction.disabled) return;
+		plpModelActionStatus = 'updating';
+		window.dispatchEvent(new CustomEvent('aisles-kibble-plp-model-request'));
 	}
 
 	function parseAuthority(value: string | undefined, instanceId: string): ZoneAuthority {
@@ -222,9 +249,10 @@
 				</button>
 				{#if surface === 'home'}<a href="/?observe=true#kibble-signal-lab">Open signal lab</a>{/if}
 				{#if surface === 'pdp' && pdpModelActionEligible && pdpModelActionReady}<button type="button" onclick={requestPdpModelDecision} disabled={pdpModelAction.disabled}>{pdpModelAction.label}</button>{/if}
+				{#if surface === 'plp' && plpModelActionEligible && plpModelActionReady}<button type="button" onclick={requestPlpModelDecision} disabled={plpModelAction.disabled}>{plpModelAction.label}</button>{/if}
 				{#if observeHref}<a href={observeHref} target="_blank" rel="noopener">Open session in Observe <span aria-hidden="true">↗</span></a>{/if}
 			</div>
-			<p class="aisles-observe__truth" role="status" aria-live="polite">{surface === 'pdp' ? pdpModelAction.detail : ''}</p>
+			<p class="aisles-observe__truth" role="status" aria-live="polite">{surface === 'pdp' ? pdpModelAction.detail : surface === 'plp' ? plpModelAction.detail : ''}</p>
 
 			<details class="aisles-observe__zones">
 				<summary>Visible page zones ({zones.length})</summary>

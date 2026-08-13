@@ -20,6 +20,8 @@
 		loadMoreHref,
 		loadMoreLabel,
 		zoneAdapter,
+		productRanking,
+		productRankingZoneAdapter,
 	}: {
 		eyebrow: string;
 		title: string;
@@ -36,6 +38,8 @@
 		loadMoreHref: string | null;
 		loadMoreLabel: string;
 		zoneAdapter?: KibbleZoneAdapterBinding<any>;
+		productRanking?: { eligible: boolean; routePath: string; policyVersion: string; prefixIds: string[]; tailIds: string[] } | null;
+		productRankingZoneAdapter?: KibbleZoneAdapterBinding<any> | null;
 	} = $props();
 
 	function submitSort(event: Event) {
@@ -78,7 +82,7 @@
 		</header>
 
 		{#if products.length > 0}
-			<div class="kc-reference-product-grid">
+			<div class="kc-reference-product-grid" data-aisles-zone-instance="plp.product-ranking" data-aisles-zone-label="Catalog grid product ranking" data-aisles-authority={productRankingZoneAdapter?.decisionMode ?? 'fixed'} data-aisles-model-calls={productRankingZoneAdapter?.modelCallCount ?? 0} data-kibble-zone-status={productRankingZoneAdapter?.sharedStatus ?? 'live'} data-kibble-zone-adapter={productRankingZoneAdapter?.adapterId} data-kibble-zone-variant={productRankingZoneAdapter?.componentVariantId} data-aisles-plp-model-eligible={productRanking?.eligible ? 'true' : undefined} data-aisles-plp-route={productRanking?.routePath} data-aisles-plp-policy={productRanking?.policyVersion} data-aisles-plp-prefix={productRanking?.prefixIds.join(',')} data-aisles-plp-tail={productRanking?.tailIds.join(',')}>
 				{#each products as product (product.entityId)}
 					<KibbleProductCard product={product} productHref={productHrefs[product.id]} />
 				{/each}

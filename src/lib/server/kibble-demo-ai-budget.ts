@@ -1,10 +1,9 @@
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
+import { KIBBLE_DEMO_ACTION_COOLDOWN_SECONDS, KIBBLE_DEMO_MAX_PROVIDER_CALLS_PER_ACTION } from '$lib/kibble-demo-ai-boundary';
 
-const COOLDOWN_SECONDS = 8;
 const SESSION_DAILY_LIMIT = 12;
 const GLOBAL_DAILY_LIMIT = 120;
-const MAX_PROVIDER_CALLS_PER_ACTION = 2;
 const DAY_SECONDS = 24 * 60 * 60;
 
 export type KibbleDemoAiBudgetDecision =
@@ -78,11 +77,11 @@ export async function reserveKibbleDemoAiCall(
 				`${scope}:global:${day}`,
 			],
 			[
-				String(COOLDOWN_SECONDS),
+				String(KIBBLE_DEMO_ACTION_COOLDOWN_SECONDS),
 				String(SESSION_DAILY_LIMIT),
 				String(GLOBAL_DAILY_LIMIT),
 				String(DAY_SECONDS),
-				String(MAX_PROVIDER_CALLS_PER_ACTION),
+				String(KIBBLE_DEMO_MAX_PROVIDER_CALLS_PER_ACTION),
 			],
 		);
 		return parseReservation(result);
@@ -100,14 +99,14 @@ function reserveLocal(sessionId: string, day: string, nowMs: number): KibbleDemo
 	if (sessionUsed >= SESSION_DAILY_LIMIT) return { ok: false, reason: 'session_limit' };
 	if (localGlobalUsage.day !== day) localGlobalUsage = { day, count: 0 };
 	if (localGlobalUsage.count >= GLOBAL_DAILY_LIMIT) return { ok: false, reason: 'global_limit' };
-	const nextSession = sessionUsed + MAX_PROVIDER_CALLS_PER_ACTION;
+	const nextSession = sessionUsed + KIBBLE_DEMO_MAX_PROVIDER_CALLS_PER_ACTION;
 	if (nextSession > SESSION_DAILY_LIMIT) return { ok: false, reason: 'session_limit' };
-	if (localGlobalUsage.count + MAX_PROVIDER_CALLS_PER_ACTION > GLOBAL_DAILY_LIMIT) {
+	if (localGlobalUsage.count + KIBBLE_DEMO_MAX_PROVIDER_CALLS_PER_ACTION > GLOBAL_DAILY_LIMIT) {
 		return { ok: false, reason: 'global_limit' };
 	}
-	localCooldown.set(sessionId, nowMs + COOLDOWN_SECONDS * 1000);
+	localCooldown.set(sessionId, nowMs + KIBBLE_DEMO_ACTION_COOLDOWN_SECONDS * 1000);
 	localSessionUsage.set(sessionId, { day, count: nextSession });
-	localGlobalUsage.count += MAX_PROVIDER_CALLS_PER_ACTION;
+	localGlobalUsage.count += KIBBLE_DEMO_MAX_PROVIDER_CALLS_PER_ACTION;
 	return { ok: true, sessionUsed: nextSession, globalUsed: localGlobalUsage.count };
 }
 

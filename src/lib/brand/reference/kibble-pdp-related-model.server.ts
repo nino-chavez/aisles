@@ -2,6 +2,7 @@ import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
 import { model, withModelFallback } from '$lib/server/model';
+import { createKibbleDemoProviderDeadline } from '$lib/server/kibble-demo-ai-deadline.server';
 import { executeKibblePdpRelatedModelShelf } from './kibble-zone-executor.server';
 
 export const KIBBLE_PDP_RELATED_MODEL_PROMPT_VERSION = 'kibble-pdp-related-bounded-rank-v1';
@@ -29,41 +30,47 @@ export async function rankKibblePdpRelatedWithModel(input: {
 	let servedModelId = '';
 	let inputTokens: number | undefined;
 	let outputTokens: number | undefined;
-	const result = await executeKibblePdpRelatedModelShelf({
-		relatedProducts: input.products,
-		heading: input.heading,
-		routePath: input.routePath,
-		runModel: async ({ outputSchema }) => {
-			const generated = await withModelFallback(async (modelId) => {
-				modelCallCount += 1;
-				return generateText({
-					model: model(modelId),
-					// Anthropic's schema subset cannot carry the generic array bounds.
-					// The generic contract parses this response here and revalidates it
-					// again before the adapter can publish it.
-					output: Output.object({ schema: providerOutputSchema }),
-					prompt,
-				});
-			});
-			servedModelId = generated.modelId;
-			inputTokens = generated.result.usage?.inputTokens;
-			outputTokens = generated.result.usage?.outputTokens;
-			return outputSchema.parse(generated.result.output);
-		},
-	});
-	if (!servedModelId || modelCallCount < 1) throw new Error('Kibble PDP model runner returned no provider evidence.');
-	if (result.rankedProductIds.length !== input.products.length || new Set(result.rankedProductIds).size !== input.products.length) {
-		throw new Error('Kibble PDP model output was not an exact approved product permutation.');
+	const deadline = createKibbleDemoProviderDeadline();
+	try {
+		const result = await executeKibblePdpRelatedModelShelf({
+			relatedProducts: input.products,
+			heading: input.heading,
+			routePath: input.routePath,
+			runModel: async ({ outputSchema }) => {
+				const generated = await withModelFallback(async (modelId) => {
+					modelCallCount += 1;
+					return generateText({
+						model: model(modelId),
+						abortSignal: deadline.signal,
+						// Anthropic's schema subset cannot carry the generic array bounds.
+						// The generic contract parses this response here and revalidates it
+						// again before the adapter can publish it.
+						output: Output.object({ schema: providerOutputSchema }),
+						prompt,
+					});
+				}, deadline.signal);
+				servedModelId = generated.modelId;
+				inputTokens = generated.result.usage?.inputTokens;
+				outputTokens = generated.result.usage?.outputTokens;
+				return outputSchema.parse(generated.result.output);
+			},
+		});
+		if (!servedModelId || modelCallCount < 1) throw new Error('Kibble PDP model runner returned no provider evidence.');
+		if (result.rankedProductIds.length !== input.products.length || new Set(result.rankedProductIds).size !== input.products.length) {
+			throw new Error('Kibble PDP model output was not an exact approved product permutation.');
+		}
+		return {
+			...result,
+			adapter: withKibblePdpRelatedModelCallCount(result.adapter, modelCallCount),
+			modelId: servedModelId,
+			modelCallCount,
+			...(inputTokens === undefined ? {} : { inputTokens }),
+			...(outputTokens === undefined ? {} : { outputTokens }),
+			prompt,
+		};
+	} finally {
+		deadline.dispose();
 	}
-	return {
-		...result,
-		adapter: withKibblePdpRelatedModelCallCount(result.adapter, modelCallCount),
-		modelId: servedModelId,
-		modelCallCount,
-		...(inputTokens === undefined ? {} : { inputTokens }),
-		...(outputTokens === undefined ? {} : { outputTokens }),
-		prompt,
-	};
 }
 
 /** The executor owns the adapter; the model runner alone knows provider attempts. */

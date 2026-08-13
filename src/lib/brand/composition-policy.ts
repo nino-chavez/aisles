@@ -44,6 +44,7 @@ const plpComponentVariantIds = [
 	KIBBLE_REFERENCE_CONTRACT.recipes.plp.variantId,
 	'kibble.product-card.catalog-card',
 	'kibble.category-listing.editorial-header',
+	'kibble.category-listing.ranked-prefix',
 	'kibble.footer.four-column',
 ] as const;
 const pdpComponentVariantIds = [
@@ -136,7 +137,10 @@ const kibble: BrandCompositionPolicy = {
 			allowedComponentVariantIds: plpComponentVariantIds,
 			allowedCssVariantIds: cssFor(plpComponentVariantIds),
 			allowedCopyVariantIds: [],
-			zoneOverrides: { 'plp.editorial-header': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.category-listing.editorial-header'] } },
+			zoneOverrides: {
+				'plp.editorial-header': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.category-listing.editorial-header'] },
+				'plp.product-ranking': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.category-listing.ranked-prefix'] },
+			},
 		},
 		pdp: {
 			preset: 'preserve',
@@ -201,8 +205,8 @@ const kibble: BrandCompositionPolicy = {
  * Prospect-controlled autonomy temperature for the public observability demo.
  * It is a separate, versioned policy: normal Kibble page loads continue to use
  * Preserve, while an explicit server-trusted demo action may ask a model to
- * rank the fixed Home shelf or one explicitly approved PDP related rail, and
- * nothing else.
+ * rank the fixed Home shelf, one explicitly approved PDP related rail, or the
+ * exact FEATURED, cursor-null first-eight prefix on `/category/dog-food`.
  */
 const kibbleObserveAssist: BrandCompositionPolicy = {
 	...kibble,
@@ -236,6 +240,21 @@ const kibbleObserveAssist: BrandCompositionPolicy = {
 					decisionMode: 'model',
 					publicationMode: 'live',
 					allowedComponentVariantIds: ['kibble.product-detail.related-products'],
+				},
+			},
+		},
+		plp: {
+			...kibble.surfaces.plp!,
+			preset: 'assist',
+			capabilities: ['rank_products'],
+			decisionMode: 'model',
+			zoneOverrides: {
+				...kibble.surfaces.plp!.zoneOverrides,
+				'plp.product-ranking': {
+					capabilities: ['rank_products'],
+					decisionMode: 'model',
+					publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.category-listing.ranked-prefix'],
 				},
 			},
 		},
@@ -503,6 +522,55 @@ export function getKibbleObservePdpRelatedModelPolicyDescriptor(routePath: strin
 		capabilities: ['rank_products'] as const,
 		publicationMode: 'live' as const,
 		routePath: KIBBLE_OBSERVE_PDP_RELATED_ROUTE,
+	};
+}
+
+/** The PLP approval is one literal category route and one literal sort/page. */
+export const KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE = '/category/dog-food' as const;
+export const KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT = 'FEATURED' as const;
+
+export function getTrustedKibbleObservePlpProductRankingZonePolicy(input: {
+	origin: TrustedZoneIdentityDefinition['origin'];
+	familyId: 'plp.product-ranking';
+	instanceId: 'plp.product-ranking';
+	routePath: typeof KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE;
+}): EffectiveCompositionPolicy {
+	if (input.routePath !== KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE) {
+		throw new Error('Kibble observe PLP route is not explicitly approved.');
+	}
+	const identity = findTrustedZoneIdentity(input.origin, input.familyId, input.instanceId);
+	if (!identity || identity.surface !== 'plp') {
+		throw new Error(`Kibble observe zone identity is not registered: ${input.origin}:${input.instanceId}.`);
+	}
+	const policy = compileCompositionPolicy({
+		organizationId: KIBBLE_ORGANIZATION_ID,
+		brandId: 'kibble',
+		surface: 'plp',
+		zoneIdentity: identity,
+		routeSource: 'pathname',
+		routePath: input.routePath,
+		registry: KIBBLE_OBSERVE_ASSIST_POLICY,
+	});
+	if (policy.decisionMode !== 'model' || policy.publicationMode !== 'live' || policy.provenance.preset !== 'assist'
+		|| policy.capabilities.length !== 1 || policy.capabilities[0] !== 'rank_products') {
+		throw new Error('Kibble observe PLP policy exceeds or misses its approved model boundary.');
+	}
+	return policy;
+}
+
+export function getKibbleObservePlpProductRankingModelPolicyDescriptor(routePath: string) {
+	const policy = getTrustedKibbleObservePlpProductRankingZonePolicy({
+		origin: 'aisles', familyId: 'plp.product-ranking', instanceId: 'plp.product-ranking',
+		routePath: routePath as typeof KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE,
+	});
+	return {
+		policyVersion: policy.policyVersion,
+		zoneId: 'plp.product-ranking' as const,
+		capabilities: ['rank_products'] as const,
+		publicationMode: 'live' as const,
+		routePath: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE,
+		sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT,
+		cursor: null,
 	};
 }
 

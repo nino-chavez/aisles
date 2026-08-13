@@ -24,7 +24,7 @@ longer only a proposal. Local follow-up work now includes:
   surfaces, with fixed product-listing structure, trusted sorting, and cursor
   pagination;
 - a deterministic catalog-only product-detail implementation in Kibble package
-  `1.7.0`, pinned to source reference contract `1.5.0`, published read-only with
+  `1.8.0`, pinned to source reference contract `1.5.0`, published read-only with
   purchase, cart, checkout, subscription, and savings actions disabled;
 - a 15-route Kibble comparison harness at 390, 768, and 1280 pixels, plus a
   90-cell Bealls-family internal regression harness;
@@ -62,6 +62,10 @@ provider budget, and permutation validation. The only PDP Assist action is the
 `pdp.related` rail on `/product/puppy-starter-kit`; it can reorder only the
 three-to-four server-reloaded related candidates. Both keep the
 reference-owned shell unchanged.
+The PLP first-eight ranking action is local and pending release, not live
+evidence. It is restricted to `/category/dog-food?sort=FEATURED` with a null
+cursor: the server reloads the category, a model may return one exact
+three-to-eight-item prefix permutation, and the remaining tail stays immutable.
 Normal production applies that decision at the Home route boundary. The public
 demo begins only with an explicit `?observe=true` request, then keeps a
 lightweight observability rail active across shopper navigation for four hours.

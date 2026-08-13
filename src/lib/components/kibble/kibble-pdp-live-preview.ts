@@ -1,4 +1,5 @@
 import type { KibbleProduct, KibbleZoneAdapterBinding } from './types';
+import { KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS } from '$lib/kibble-demo-ai-boundary';
 
 const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'routePath', 'policyVersion', 'persona', 'rankedProductIds', 'zoneAdapter', 'modelCallCount', 'provenance']);
 const ADAPTER_KEYS = new Set(['instanceId', 'sharedStatus', 'sharedContentKind', 'decisionMode', 'modelCallCount', 'adapterId', 'componentVariantId', 'inputSha256', 'content']);
@@ -33,10 +34,12 @@ export function listenForKibblePdpLivePreview(input: {
 	let active = true;
 	let controller: AbortController | null = null;
 	const onRequest = async () => {
-		controller?.abort();
+		if (controller) return;
 		const next = new AbortController();
 		controller = next;
 		input.onStatus('updating');
+		let timedOut = false;
+		const timeout = window.setTimeout(() => { timedOut = true; next.abort(); }, KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS);
 		try {
 			const response = await fetch('/api/kibble/pdp-related-decision?observe=true', {
 				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'model' }), signal: next.signal,
@@ -47,10 +50,11 @@ export function listenForKibblePdpLivePreview(input: {
 			input.onApplied(preview);
 			input.onStatus('applied');
 		} catch (error) {
-			if (!active || next.signal.aborted) return;
+			if (!active || (next.signal.aborted && !timedOut)) return;
 			console.warn('Kibble PDP live preview was rejected; retaining the approved related rail.', error);
 			input.onStatus('failed');
 		} finally {
+			window.clearTimeout(timeout);
 			if (controller === next) controller = null;
 		}
 	};

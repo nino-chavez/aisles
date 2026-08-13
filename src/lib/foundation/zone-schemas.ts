@@ -117,6 +117,7 @@ export const ZoneSchemas = {
 	'home.editorial-strip': z.union([imageGallery, editorialHeader]),
 	'home.below-fold': serviceCalloutsGrid,
 	'plp.editorial-header': z.union([editorialHero, editorialHeader]),
+	'plp.product-ranking': productGrid,
 	'plp.cluster-row': clusterChipRow,
 	'plp.below-grid': categoryTileGrid,
 	'pdp.below-description': editorialHeader,

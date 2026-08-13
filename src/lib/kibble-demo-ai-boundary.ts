@@ -1,0 +1,11 @@
+/** Shared limits for every paid Kibble Observe model action. */
+export const KIBBLE_DEMO_PROVIDER_DEADLINE_MS = 12_000;
+export const KIBBLE_DEMO_PLP_CLIENT_TIMEOUT_MS = 15_000;
+export const KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS = 30_000;
+export const KIBBLE_DEMO_ACTION_COOLDOWN_SECONDS = 45;
+export const KIBBLE_DEMO_ACTION_COOLDOWN_MS = KIBBLE_DEMO_ACTION_COOLDOWN_SECONDS * 1_000;
+export const KIBBLE_DEMO_MAX_PROVIDER_CALLS_PER_ACTION = 2;
+
+if (KIBBLE_DEMO_ACTION_COOLDOWN_MS <= KIBBLE_DEMO_PROVIDER_DEADLINE_MS || KIBBLE_DEMO_ACTION_COOLDOWN_MS <= KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS) {
+	throw new Error('Kibble demo action cooldown must outlast every provider and public-client deadline.');
+}

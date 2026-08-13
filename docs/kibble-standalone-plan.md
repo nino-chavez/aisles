@@ -1,10 +1,9 @@
 # Kibble on Aisles — standalone plan
 
-**Status:** implementation and contract integration are present locally. This
-record does not claim a current deployment, applied migration, or live
-database/provider verification. The standalone Supabase plan, enrichment work,
-Kibble signal rules, labeled scenarios, and protected Observe design still need
-their release evidence re-established before they are described as live. Weight
+**Status:** Home and the approved PDP model action have live evidence. The PLP
+first-eight ranking boundary is local and pending release; it has no deployment,
+provider, or live-runtime claim. No database migration has been applied.
+Reference-preservation visual parity and named human approval remain open. Weight
 fitting waits for real labeled shopper sessions by design.
 **Audience:** whoever picks this up next, including a future session with no memory of today.
 
@@ -13,7 +12,7 @@ signals, and deployment boundaries. It did not establish desktop or mobile visua
 parity with Kibble's reference storefront. Follow-up source work now provides a
 pinned Kibble design contract and Preserve rendering for Home, product listing,
 search, and error surfaces. Product detail is implemented as a deterministic,
-catalog-display-only live route in Kibble package `1.7.0`, pinned to source
+catalog-display-only live route in Kibble package `1.8.0`, pinned to source
 reference contract `1.5.0`; product cards link to it while purchase controls remain disabled. Cart,
 account, subscriptions, and the three canonical checkout phase routes are
 source-native unavailable shells, not commerce implementations. The bare
@@ -21,11 +20,28 @@ source-native unavailable shells, not commerce implementations. The bare
 28 zone families as 36 exact expanded identities: 11 Kibble-native adapters
 with semantic content and 25 Trusted Hidden terminals. A 15-route ×
 three-viewport local harness provides mechanical evidence only. None of this is
-deployed or accepted as complete visual parity. The
+accepted as complete visual parity, and the PLP action is not deployed. The
 remaining reference-preservation and merchant-control work is tracked in the
 [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md);
 the reason for the boundary is recorded in the
 [Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
+
+## Bounded PLP ranking boundary
+
+Observe may request one live model action only on
+`/category/dog-food?sort=FEATURED` with no cursor. The server reloads the page,
+then permits a strict permutation of the first three through eight product IDs.
+Items after that prefix remain an exact fixed tail. The new local
+`plp.product-ranking` identity maps to the dedicated
+`kibble.category-listing.ranked-prefix` adapter: it owns grid ordering, not
+product-card anatomy. Failure, exhausted budget, or invalid model output retains
+the complete server order. This is local integration scope; the pinned Bealls
+snapshot remains 28 families and 36 expanded identities.
+
+Search deliberately remains fixed. The pinned source provides only fixed
+empty-state copy and Browse all categories; it has no merchant-authored
+alternate search recipes, products, or queries to rank. That is an intentional
+stop condition, not pending model-parity work.
 
 ## Recommendation
 

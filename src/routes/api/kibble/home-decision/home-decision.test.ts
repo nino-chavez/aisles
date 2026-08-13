@@ -32,7 +32,7 @@ vi.mock('$lib/signals/inference', () => ({ infer: mocks.infer }));
 vi.mock('$lib/server/catalog', () => ({ loadReferenceHomeProducts: mocks.loadReferenceHomeProducts }));
 vi.mock('$lib/brand/reference/kibble-home-decision', () => ({ decideKibbleHome: mocks.decideKibbleHome }));
 vi.mock('$lib/server/layout-provenance', () => ({ buildContractedLayoutProvenance: mocks.buildContractedLayoutProvenance }));
-vi.mock('$lib/brand/reference/kibble', () => ({ KIBBLE_REFERENCE_CONTRACT: { version: '1.5.0', recipes: { home: { id: 'kibble-home-reference-v1' } } } }));
+vi.mock('$lib/brand/reference/kibble', () => ({ KIBBLE_REFERENCE_CONTRACT: { version: '1.8.0', recipes: { home: { id: 'kibble-home-reference-v1' } } } }));
 vi.mock('$lib/brand/reference/kibble-zone-executor.server', () => ({ executeKibbleHomeFeaturedZoneAdapters: mocks.executeFeaturedAdapters }));
 vi.mock('$lib/brand/reference/kibble-home-model.server', () => ({
 	KIBBLE_HOME_MODEL_PROMPT_VERSION: 'kibble-home-bounded-rank-v1',
@@ -76,7 +76,7 @@ describe('POST /api/kibble/home-decision', () => {
 		mocks.decideKibbleHome.mockReset().mockReturnValue({
 			products: [candidate],
 			inspector: {
-				reference: { id: 'kibble-shelf-native', version: '1.5.0' }, surface: 'home', preset: 'preserve', policyVersion: 'policy-v1', publicationMode: 'live', inference,
+				reference: { id: 'kibble-shelf-native', version: '1.8.0' }, surface: 'home', preset: 'preserve', policyVersion: 'policy-v1', publicationMode: 'live', inference,
 				dataSourceLabel: 'merchant-enrichment',
 				zones: [{ id: 'ranked-products', label: 'Ranked products', authority: 'rules', componentVariant: 'kibble.home.ranked-products', capabilities: ['rank_products'], decisionSummary: 'Ranked.', changed: true, inputProducts: [{ id: 'food-one', name: 'Food One', variant: 'gatherer fit 0.900' }], outputProducts: [{ id: 'food-one', name: 'Food One', variant: 'gatherer fit 0.900' }], modelCallStatus: { calls: 0, authorized: false } }],
 			},
@@ -122,7 +122,7 @@ describe('POST /api/kibble/home-decision', () => {
 		const body = await response.json();
 		expect(body).toMatchObject({
 			version: 'kibble-live-home-preview-v2', previewOnly: true,
-			reference: { id: 'kibble-shelf-native', version: '1.5.0' }, policyVersion: 'policy-v1', persona: 'gatherer',
+			reference: { id: 'kibble-shelf-native', version: '1.8.0' }, policyVersion: 'policy-v1', persona: 'gatherer',
 			inspector: { dataSourceLabel: 'runner-fixture', inference: { shift: { trigger: '[request detail withheld]' }, ruleMatches: [{ reason: 'Matched; raw request detail withheld.' }] }, provenance: { decisionSource: 'rules', synthetic: { scenarioId: 'runner-scenario' } } },
 		});
 		expect(body.products[0]).not.toHaveProperty('personaFit');

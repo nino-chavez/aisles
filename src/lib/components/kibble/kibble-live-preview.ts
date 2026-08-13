@@ -1,4 +1,5 @@
 import type { KibbleProduct, KibbleZoneAdapterBinding } from './types';
+import { KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS } from '$lib/kibble-demo-ai-boundary';
 import {
 	type KibbleDevInspectorData,
 	type KibbleInspectorPersona,
@@ -42,7 +43,7 @@ const HEX_16 = /^[0-9a-f]{16}$/;
 const HEX_64 = /^[0-9a-f]{64}$/;
 const CATALOG_HASH = /^catalog:[0-9a-f]{16}$/;
 export const KIBBLE_LIVE_PREVIEW_TIMEOUT_MS = 10_000;
-export const KIBBLE_MODEL_PREVIEW_TIMEOUT_MS = 30_000;
+export const KIBBLE_MODEL_PREVIEW_TIMEOUT_MS = KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS;
 
 type ProductGridContent = {
 	component: 'product-grid';
