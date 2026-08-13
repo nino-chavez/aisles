@@ -80,7 +80,10 @@
 	onMount(() => {
 		const storedExpanded = localStorage.getItem('aisles-observe-expanded');
 		if (storedExpanded === 'false') expanded = false;
-		if (window.location.hash === '#kibble-signal-lab') expanded = false;
+		const collapseForSignalLab = () => {
+			if (window.location.hash === '#kibble-signal-lab') expanded = false;
+		};
+		collapseForSignalLab();
 		showZones = localStorage.getItem('aisles-observe-zones') === 'true';
 		void tick().then(scanZones);
 		const observer = new MutationObserver(scanZones);
@@ -100,9 +103,11 @@
 				persona = inference.primary as KibbleInspectorPersona;
 			}
 		};
+		window.addEventListener('hashchange', collapseForSignalLab);
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
 		return () => {
 			observer.disconnect();
+			window.removeEventListener('hashchange', collapseForSignalLab);
 			window.removeEventListener('aisles-inference-update', onInferenceUpdate);
 		};
 	});
