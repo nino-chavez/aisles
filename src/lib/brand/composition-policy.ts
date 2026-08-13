@@ -12,6 +12,7 @@ import {
 	tryNormalizeTrustedShopperRoute,
 	type TrustedRouteSurface,
 } from '$lib/foundation/autonomy-zone-route';
+import { findTrustedZoneIdentity, type TrustedZoneIdentityDefinition } from '$lib/foundation/trusted-zone-identity';
 import type { Surface } from '$lib/foundation/zones';
 
 const KIBBLE_ORGANIZATION_ID = 'kibble-demo-merchant';
@@ -33,27 +34,35 @@ const registeredComponentVariantIds = KIBBLE_REFERENCE_CONTRACT.components.flatM
 const homeComponentVariantIds = [
 	...KIBBLE_REFERENCE_CONTRACT.recipes.home.orderedAnatomy.map((slot) => slot.variantId),
 	'kibble.product-card.featured-tile',
+	'kibble.hero.zone-editorial-header',
+	'kibble.featured-grid.ranked-segment',
+	'kibble.visual-module.editorial-strip',
+	'kibble.service-proof.below-fold',
 ] as const;
 const plpComponentVariantIds = [
 	'kibble.header.responsive-chrome',
 	KIBBLE_REFERENCE_CONTRACT.recipes.plp.variantId,
 	'kibble.product-card.catalog-card',
+	'kibble.category-listing.editorial-header',
 	'kibble.footer.four-column',
 ] as const;
 const pdpComponentVariantIds = [
 	'kibble.header.responsive-chrome',
 	KIBBLE_REFERENCE_CONTRACT.recipes.pdp.variantId,
 	'kibble.product-card.catalog-card',
+	'kibble.product-detail.related-products',
 	'kibble.footer.four-column',
 ] as const;
 const errorComponentVariantIds = [
 	'kibble.header.responsive-chrome',
 	KIBBLE_REFERENCE_CONTRACT.recipes.error.variantId,
+	'kibble.error.rescue',
 	'kibble.footer.four-column',
 ] as const;
 const searchComponentVariantIds = [
 	'kibble.header.responsive-chrome',
 	KIBBLE_REFERENCE_CONTRACT.recipes.search.variantId,
+	'kibble.search.empty-state',
 	'kibble.footer.four-column',
 ] as const;
 const cartComponentVariantIds = [
@@ -80,11 +89,11 @@ const locatorComponentVariantIds = [
 
 function cssFor(componentVariantIds: readonly string[]): string[] {
 	const wanted = new Set(componentVariantIds);
-	return KIBBLE_REFERENCE_CONTRACT.components.flatMap((component) =>
+	return [...new Set(KIBBLE_REFERENCE_CONTRACT.components.flatMap((component) =>
 		component.variants
 			.filter((variant) => wanted.has(variant.id))
 			.flatMap((variant) => variant.cssVariantIds),
-	);
+	))];
 }
 
 const kibble: BrandCompositionPolicy = {
@@ -112,6 +121,12 @@ const kibble: BrandCompositionPolicy = {
 			allowedComponentVariantIds: homeComponentVariantIds,
 			allowedCssVariantIds: cssFor(homeComponentVariantIds),
 			allowedCopyVariantIds: [],
+			zoneOverrides: {
+				'home.hero': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.hero.zone-editorial-header'] },
+				'home.featured-row': { capabilities: ['rank_products', 'select_products'], decisionMode: 'rules', allowedComponentVariantIds: ['kibble.featured-grid.ranked-segment'] },
+				'home.editorial-strip': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.visual-module.editorial-strip'] },
+				'home.below-fold': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.service-proof.below-fold'] },
+			},
 		},
 		plp: {
 			preset: 'preserve',
@@ -121,6 +136,7 @@ const kibble: BrandCompositionPolicy = {
 			allowedComponentVariantIds: plpComponentVariantIds,
 			allowedCssVariantIds: cssFor(plpComponentVariantIds),
 			allowedCopyVariantIds: [],
+			zoneOverrides: { 'plp.editorial-header': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.category-listing.editorial-header'] } },
 		},
 		pdp: {
 			preset: 'preserve',
@@ -130,11 +146,13 @@ const kibble: BrandCompositionPolicy = {
 			allowedComponentVariantIds: pdpComponentVariantIds,
 			allowedCssVariantIds: cssFor(pdpComponentVariantIds),
 			allowedCopyVariantIds: [],
+			zoneOverrides: { 'pdp.related': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.product-detail.related-products'] } },
 		},
 		search: {
 			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
 			allowedComponentVariantIds: searchComponentVariantIds,
 			allowedCssVariantIds: cssFor(searchComponentVariantIds), allowedCopyVariantIds: [],
+			zoneOverrides: { 'search.empty-state': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.search.empty-state'] } },
 		},
 		cart: {
 			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
@@ -164,6 +182,7 @@ const kibble: BrandCompositionPolicy = {
 			allowedComponentVariantIds: errorComponentVariantIds,
 			allowedCssVariantIds: cssFor(errorComponentVariantIds),
 			allowedCopyVariantIds: [],
+			zoneOverrides: { 'error-404.rescue': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.error.rescue'] } },
 		},
 		'error-empty': {
 			preset: 'preserve',
@@ -173,6 +192,7 @@ const kibble: BrandCompositionPolicy = {
 			allowedComponentVariantIds: errorComponentVariantIds,
 			allowedCssVariantIds: cssFor(errorComponentVariantIds),
 			allowedCopyVariantIds: [],
+			zoneOverrides: { 'error-empty.rescue': { capabilities: [], decisionMode: 'fixed', allowedComponentVariantIds: ['kibble.error.rescue'] } },
 		},
 	},
 };
@@ -302,6 +322,33 @@ export function getTrustedKibbleRoutePolicy(
 	}
 	assertKibblePreserveRoutePolicy(decision.policy, normalized.surface);
 	return { ...normalized, policy: decision.policy };
+}
+
+/**
+ * Compile one registry-issued union-zone identity for a trusted Kibble route.
+ * This deliberately reuses the shared compiler; Kibble does not maintain a
+ * parallel authority path or accept hand-authored provenance.
+ */
+export function getTrustedKibbleZonePolicy(input: {
+	brandId: unknown;
+	origin: TrustedZoneIdentityDefinition['origin'];
+	familyId: string;
+	instanceId: string;
+	routeSource: 'pathname' | 'error-state';
+	routePath: string;
+}): EffectiveCompositionPolicy | null {
+	if (input.brandId !== 'kibble') return null;
+	const identity = findTrustedZoneIdentity(input.origin, input.familyId, input.instanceId);
+	if (!identity) throw new Error(`Kibble zone identity is not registered: ${input.origin}:${input.instanceId}.`);
+	return compileCompositionPolicy({
+		organizationId: KIBBLE_ORGANIZATION_ID,
+		brandId: 'kibble',
+		surface: identity.surface,
+		zoneIdentity: identity,
+		routeSource: input.routeSource,
+		routePath: input.routePath,
+		registry: AISLES_COMPOSITION_POLICY,
+	});
 }
 
 function assertExactSet(actual: readonly string[], expected: readonly string[], label: string): void {

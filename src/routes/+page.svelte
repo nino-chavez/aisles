@@ -212,6 +212,7 @@
 			browseHref={data.kibbleHome.browseHref}
 			categoryTitle={data.kibbleHome.categoryTitle}
 			categoryEyebrow={data.kibbleHome.categoryEyebrow}
+			zoneAdapters={data.kibbleHome.zoneAdapters}
 		/>
 	</div>
 {:else}

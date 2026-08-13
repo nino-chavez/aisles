@@ -72,6 +72,7 @@ describe('Kibble composition policy registry', () => {
 			'kibble.product-card.catalog-card',
 			'kibble.footer.four-column',
 			'kibble.category-listing.fixed-grid',
+			'kibble.category-listing.editorial-header',
 		]);
 		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'plp')).not.toThrow();
 	});
@@ -88,6 +89,7 @@ describe('Kibble composition policy registry', () => {
 			'kibble.product-card.catalog-card',
 			'kibble.footer.four-column',
 			'kibble.product-detail.catalog-display-only',
+			'kibble.product-detail.related-products',
 		]);
 		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'pdp')).not.toThrow();
 	});

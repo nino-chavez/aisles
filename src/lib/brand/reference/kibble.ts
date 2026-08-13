@@ -49,11 +49,17 @@ export const KIBBLE_PDP_BUNDLE_PROJECTION_SHA256 = '3dcf34363dbf9c9eacc1667773b1
 /**
  * Canonical surface closures verified with `git show <pinned-commit>:<path> |
  * shasum -a 256`. They document the source anatomy without importing its
- * cart, account, subscription, or search services into the Preserve runtime.
+ * cart, account, or subscription mutation services into the Preserve runtime.
+ * Search is the one adapted read-only catalog capability.
  */
 export const KIBBLE_SEARCH_ADAPTED_SOURCE_FILES = [
+	{ path: 'apps/storefront-svelte/src/routes/search/+page.server.ts', sha256: '61a9fcb709b4cb9b4482e70df54ca805d98057f664b6864c80bcdce7a0c5fa99' },
 	{ path: 'apps/storefront-svelte/src/routes/search/+page.svelte', sha256: '75cbfe8a6fa9dbbda7cea804200c9b0dc021fa732927194b0b812454c3ab2158' },
+	{ path: 'apps/storefront-svelte/src/lib/server/search.ts', sha256: '53c52822a91c2074ec4ba4f6c1573c6a71a029937d420ae815a2d6fd89522e69' },
+	{ path: 'apps/storefront-svelte/src/lib/server/bigcommerce.ts', sha256: '8d4810e67c328ee5b9ed46f0ed0a2c19bb6586f7516679b4f8813661c87e6015' },
+	{ path: 'apps/storefront-svelte/src/lib/types/catalog.ts', sha256: '0bd280034b8f2cdfc0c647d0744f115987a4fc6a1209da36217be6b65173ad03' },
 	{ path: 'apps/storefront-svelte/src/lib/components/SearchInput.svelte', sha256: 'f2e2fc9b766e0301e22df2ea6d171fda74cb91457d8b23dc7a9aef3696fe1a8e' },
+	{ path: 'apps/storefront-svelte/src/lib/components/ProductCard.svelte', sha256: '738d4ee911fa6b852672d2067ec45dcc4e0365756c5572108e91bd4a5828d38d' },
 	{ path: 'apps/storefront-svelte/src/lib/components/Breadcrumbs.svelte', sha256: '89bee94fca474e2c587a1fc12ab912fade83804e9bb27eeca7c4a557d06d43ac' },
 ] as const;
 export const KIBBLE_CART_ADAPTED_SOURCE_FILES = [
@@ -96,11 +102,10 @@ export const KIBBLE_SEARCH_SOURCE_CLOSURE = {
 	traversalRule: 'Traverse adapted imports recursively; excluded roots terminate traversal; framework and generated imports are external.',
 	adapted: KIBBLE_SEARCH_ADAPTED_SOURCE_FILES,
 	excluded: [
-		excluded('apps/storefront-svelte/src/routes/search/+page.server.ts', 'Search data loading is not adapted because Aisles has no approved Kibble search authority.', 'The Preserve search route must issue no catalog or search request.'),
-		excluded('$lib/components/ProductCard.svelte', 'Result-card commerce links are excluded while PDP publication remains approval-gated.', 'Search must not expose a product destination before PDP approval.'),
+		excluded('$lib/subscriptions/eligible-products.json', 'Auto-Refill eligibility and subscribe-price claims are outside read-only catalog search.', 'Search result cards render no Auto-Refill, subscription, or savings claim.'),
 	],
-	external: [external('./$types', 'generated-types'), external('$app/navigation', 'framework-runtime')],
-	exclusionInvariant: 'The adapted search shell may submit a query navigation, but it must not load results or expose product commerce without approved authority.',
+	external: [external('./$types', 'generated-types'), external('$app/navigation', 'framework-runtime'), external('$env/dynamic/private', 'framework-runtime')],
+	exclusionInvariant: 'The adapted read-only Storefront GraphQL search may return validated catalog facts; result cards remain inert until PDP publication approval and expose no Auto-Refill, subscription, sale, or savings claim.',
 } as const;
 
 export const KIBBLE_CART_SOURCE_CLOSURE = {
@@ -466,10 +471,10 @@ export const KibbleReferenceContractSchema = z.object({
 		search: z.object({
 			id: z.literal('kibble-search-reference-v1'), acceptance: z.literal('pending-parity'), implementation: z.literal('KibbleSearchReference.svelte'), variantId: z.literal('kibble.search.reference-shell'),
 			source: CanonicalAdaptationSourceSchema,
-			orderedAnatomy: z.tuple([z.literal('breadcrumbs'), z.literal('query-heading'), z.literal('search-control'), z.literal('result-count'), z.literal('empty-result-message'), z.literal('catalog-recovery')]),
+			orderedAnatomy: z.tuple([z.literal('breadcrumbs'), z.literal('query-heading'), z.literal('search-control'), z.literal('result-count'), z.literal('results-grid-or-empty-message'), z.literal('catalog-recovery-or-pagination')]),
 			responsive: z.object({ mobile: z.literal('fluid-search-and-single-column-results'), desktop: z.literal('wide-query-header-and-results-grid') }).strict(),
-			backend: z.literal('not-authorized-no-catalog-or-search-call'),
-			fallback: z.literal('canonical-empty-search-anatomy-with-no-result-claim'),
+			backend: z.literal('authorized-read-only-storefront-graphql-search'),
+			fallback: z.literal('fail-closed-no-results-claim-on-request-or-validation-failure'),
 		}).strict(),
 		cart: z.object({
 			id: z.literal('kibble-cart-reference-v1'), acceptance: z.literal('pending-parity'), implementation: z.literal('KibbleCartReference.svelte'), variantId: z.literal('kibble.cart.reference-shell'),
@@ -664,7 +669,10 @@ const contractInput = {
 		},
 		{
 			id: 'kibble.hero', implementation: 'KibbleHero.svelte',
-			variants: [variant('kibble.hero.flagship-bundle', ['kc.hero.flagship-bundle'], ['eyebrow', 'headline', 'body', 'ctas', 'featured', 'proofItems'], ['featured.image'], ['catalog-category', 'featured-bundle'], [], [copy('eyebrow', 72, ['reference-copy']), copy('headline', 88, ['reference-copy']), copy('body', 360, ['reference-copy']), copy('ctas[].label', 32, ['reference-copy']), copy('proofItems[].label', 28, ['merchant-policy']), copy('proofItems[].value', 24, ['computed-fact']), copy('featured.name', 72, ['merchant-catalog']), copy('featured.eyebrow', 32, ['reference-copy']), copy('featured.ctaLabel', 32, ['reference-copy'])])],
+			variants: [
+				variant('kibble.hero.flagship-bundle', ['kc.hero.flagship-bundle'], ['eyebrow', 'headline', 'body', 'ctas', 'featured', 'proofItems'], ['featured.image'], ['catalog-category', 'featured-bundle'], [], [copy('eyebrow', 72, ['reference-copy']), copy('headline', 88, ['reference-copy']), copy('body', 360, ['reference-copy']), copy('ctas[].label', 32, ['reference-copy']), copy('proofItems[].label', 28, ['merchant-policy']), copy('proofItems[].value', 24, ['computed-fact']), copy('featured.name', 72, ['merchant-catalog']), copy('featured.eyebrow', 32, ['reference-copy']), copy('featured.ctaLabel', 32, ['reference-copy'])]),
+				variant('kibble.hero.zone-editorial-header', ['kc.hero.flagship-bundle'], ['zoneAdapter'], [], [], [], []),
+			],
 			referenceOwned: ['two-column composition', 'headline measure', 'flagship bundle anatomy', 'proof-strip anatomy when substantiated facts are supplied', 'CTA treatments'],
 			aislesOwned: ['approved bounded copy', 'named CTA targets', 'featured catalog data', 'substantiated proof values'],
 		},
@@ -681,7 +689,7 @@ const contractInput = {
 		},
 		{
 			id: 'kibble.featured-grid', implementation: 'KibbleFeaturedGrid.svelte',
-			variants: [variant('kibble.featured-grid.four-column', ['kc.featured-grid.four-column'], ['copy', 'products', 'productHrefs', 'subscriptionOffers'], [], ['browse-all', 'product-detail'], [], [copy('copy.title', 64, ['reference-copy']), copy('copy.eyebrow', 24, ['reference-copy']), copy('copy.browseAllLabel', 24, ['reference-copy'])])],
+			variants: [variant('kibble.featured-grid.four-column', ['kc.featured-grid.four-column'], ['copy', 'products', 'productHrefs', 'subscriptionOffers'], [], ['browse-all', 'product-detail'], [], [copy('copy.title', 64, ['reference-copy']), copy('copy.eyebrow', 24, ['reference-copy']), copy('copy.browseAllLabel', 24, ['reference-copy'])]), variant('kibble.featured-grid.ranked-segment', ['kc.featured-grid.four-column'], ['zoneAdapters', 'products'], [], [], [], [])],
 			referenceOwned: ['section spacing', 'four-column desktop grid', 'heading hierarchy', 'card density'],
 			aislesOwned: ['ranked product set', 'section copy', 'named browse target', 'subscription offers'],
 		},
@@ -690,13 +698,14 @@ const contractInput = {
 			variants: [
 				variant('kibble.visual-module.routine', ['kc.visual-module.routine'], ['title', 'eyebrow', 'tiles', 'columns'], ['tile.image'], ['visual-tile'], [], [copy('title', 64, ['reference-copy']), copy('eyebrow', 24, ['reference-copy']), copy('tiles[].label', 48, ['merchant-policy']), copy('tiles[].description', 100, ['merchant-policy'])]),
 				variant('kibble.visual-module.category', ['kc.visual-module.category'], ['title', 'eyebrow', 'tiles', 'columns'], ['tile.image'], ['visual-tile'], [], [copy('title', 64, ['reference-copy']), copy('eyebrow', 24, ['reference-copy']), copy('tiles[].label', 48, ['merchant-policy']), copy('tiles[].description', 100, ['merchant-policy'])]),
+				variant('kibble.visual-module.editorial-strip', ['kc.visual-module.category'], ['zoneAdapter', 'tiles'], ['tile.image'], ['visual-tile'], [], []),
 			],
 			referenceOwned: ['image-first tiles', 'solid copy band', 'card border and lift', 'responsive columns'],
 			aislesOwned: ['approved tile set', 'bounded tile copy', 'asset and named destination'],
 		},
 		{
 			id: 'kibble.service-proof', implementation: 'KibbleServiceProof.svelte',
-			variants: [variant('kibble.service-proof.three-column', ['kc.service-proof.three-column'], ['items'], [], [], [], [copy('items[].title', 56, ['merchant-policy']), copy('items[].body', 260, ['merchant-policy'])])],
+			variants: [variant('kibble.service-proof.three-column', ['kc.service-proof.three-column'], ['items'], [], [], [], [copy('items[].title', 56, ['merchant-policy']), copy('items[].body', 260, ['merchant-policy'])]), variant('kibble.service-proof.below-fold', ['kc.service-proof.three-column'], ['zoneAdapter'], [], [], [], [])],
 			referenceOwned: ['three-column anatomy', 'quiet hierarchy', 'section rule and spacing'],
 			aislesOwned: ['approved bounded proof copy', 'substantiated service claims'],
 		},
@@ -708,27 +717,27 @@ const contractInput = {
 		},
 		{
 			id: 'kibble.category-listing', implementation: 'KibbleCategoryReference.svelte',
-			variants: [variant('kibble.category-listing.fixed-grid', ['kc.category-listing.fixed-grid'], ['eyebrow', 'title', 'breadcrumbs', 'sortLabel', 'sortOptions', 'selectedSort', 'productCount', 'productSingular', 'productPlural', 'emptyMessage', 'products', 'productHrefs', 'loadMoreHref', 'loadMoreLabel'], ['product.image'], ['home', 'catalog-category'], [], [copy('eyebrow', 24, ['reference-copy']), copy('title', 64, ['merchant-policy']), copy('breadcrumbs[].label', 64, ['reference-copy', 'merchant-policy']), copy('sortLabel', 24, ['reference-copy']), copy('sortOptions[].label', 32, ['reference-copy']), copy('loadMoreLabel', 24, ['reference-copy']), copy('productSingular', 16, ['reference-copy']), copy('productPlural', 16, ['reference-copy']), copy('emptyMessage', 120, ['reference-copy']), copy('products[].name', 96, ['merchant-catalog'])])],
+			variants: [variant('kibble.category-listing.fixed-grid', ['kc.category-listing.fixed-grid'], ['eyebrow', 'title', 'breadcrumbs', 'sortLabel', 'sortOptions', 'selectedSort', 'productCount', 'productSingular', 'productPlural', 'emptyMessage', 'products', 'productHrefs', 'loadMoreHref', 'loadMoreLabel'], ['product.image'], ['home', 'catalog-category'], [], [copy('eyebrow', 24, ['reference-copy']), copy('title', 64, ['merchant-policy']), copy('breadcrumbs[].label', 64, ['reference-copy', 'merchant-policy']), copy('sortLabel', 24, ['reference-copy']), copy('sortOptions[].label', 32, ['reference-copy']), copy('loadMoreLabel', 24, ['reference-copy']), copy('productSingular', 16, ['reference-copy']), copy('productPlural', 16, ['reference-copy']), copy('emptyMessage', 120, ['reference-copy']), copy('products[].name', 96, ['merchant-catalog'])]), variant('kibble.category-listing.editorial-header', ['kc.category-listing.fixed-grid'], ['zoneAdapter'], [], [], [], [])],
 			referenceOwned: ['breadcrumb anatomy', 'fixed title and count header', 'seven-choice sort control', 'four-column product grid', 'cursor continuation control', 'catalog-card anatomy', 'bounded empty state'],
 			aislesOwned: ['category title', 'trusted BigCommerce sort mapping', 'live product order', 'live product fields', 'validated cursor destination'],
 		},
 		{
 			id: 'kibble.product-detail', implementation: 'KibbleProductDetailReference.svelte',
-			variants: [variant('kibble.product-detail.catalog-display-only', ['kc.product-detail.catalog-display-only'], ['product', 'bundle', 'breadcrumbs', 'options', 'relatedProducts', 'relatedProductHrefs', 'purchaseUnavailableLabel', 'purchaseUnavailableBody', 'relatedHeading', 'copy'], ['product.image', 'product.gallery'], ['home', 'catalog-category', 'product-detail'], [], [copy('product.name', 96, ['merchant-catalog']), copy('product.sku', 64, ['merchant-catalog']), copy('product.category', 96, ['merchant-catalog']), copy('product.description', 4000, ['merchant-catalog']), copy('product.images[].alt', 160, ['merchant-catalog']), copy('product.specs[].label', 64, ['merchant-catalog']), copy('product.specs[].value', 240, ['merchant-catalog']), copy('breadcrumbs[].label', 96, ['reference-copy', 'merchant-catalog']), copy('options[].displayName', 96, ['merchant-catalog']), copy('options[].values[].label', 96, ['merchant-catalog']), copy('bundle.name', 96, ['reference-copy']), copy('bundle.contents[].brand', 48, ['reference-copy']), copy('bundle.contents[].title', 96, ['reference-copy']), copy('bundle.contents[].role', 96, ['reference-copy']), copy('purchaseUnavailableLabel', 72, ['merchant-policy']), copy('purchaseUnavailableBody', 240, ['merchant-policy']), copy('relatedHeading', 72, ['reference-copy']), copy('copy.*', 64, ['reference-copy'])])],
+			variants: [variant('kibble.product-detail.catalog-display-only', ['kc.product-detail.catalog-display-only'], ['product', 'bundle', 'breadcrumbs', 'options', 'relatedProducts', 'relatedProductHrefs', 'purchaseUnavailableLabel', 'purchaseUnavailableBody', 'relatedHeading', 'copy'], ['product.image', 'product.gallery'], ['home', 'catalog-category', 'product-detail'], [], [copy('product.name', 96, ['merchant-catalog']), copy('product.sku', 64, ['merchant-catalog']), copy('product.category', 96, ['merchant-catalog']), copy('product.description', 4000, ['merchant-catalog']), copy('product.images[].alt', 160, ['merchant-catalog']), copy('product.specs[].label', 64, ['merchant-catalog']), copy('product.specs[].value', 240, ['merchant-catalog']), copy('breadcrumbs[].label', 96, ['reference-copy', 'merchant-catalog']), copy('options[].displayName', 96, ['merchant-catalog']), copy('options[].values[].label', 96, ['merchant-catalog']), copy('bundle.name', 96, ['reference-copy']), copy('bundle.contents[].brand', 48, ['reference-copy']), copy('bundle.contents[].title', 96, ['reference-copy']), copy('bundle.contents[].role', 96, ['reference-copy']), copy('purchaseUnavailableLabel', 72, ['merchant-policy']), copy('purchaseUnavailableBody', 240, ['merchant-policy']), copy('relatedHeading', 72, ['reference-copy']), copy('copy.*', 64, ['reference-copy'])]), variant('kibble.product-detail.related-products', ['kc.product-detail.catalog-display-only'], ['zoneAdapter', 'relatedProducts'], ['product.image'], [], [], [])],
 			referenceOwned: ['breadcrumb anatomy', 'gallery placement', 'identity and facts order', 'details and specifications order', 'related-product shelf'],
 			aislesOwned: ['server-verified catalog facts', 'truthful unavailable-purchase copy', 'only contracted product destinations'],
 		},
 		{
 			id: 'kibble.error', implementation: 'KibbleErrorReference.svelte',
-			variants: [variant('kibble.error.reference-shell', ['kc.error.reference-shell'], ['status', 'message', 'eyebrow', 'headline', 'returnLabel'], [], ['home'], [], [copy('message', 240, ['merchant-policy']), copy('eyebrow', 32, ['reference-copy']), copy('headline', 72, ['reference-copy']), copy('returnLabel', 40, ['reference-copy'])])],
+			variants: [variant('kibble.error.reference-shell', ['kc.error.reference-shell'], ['status', 'message', 'eyebrow', 'headline', 'returnLabel'], [], ['home'], [], [copy('message', 240, ['merchant-policy']), copy('eyebrow', 32, ['reference-copy']), copy('headline', 72, ['reference-copy']), copy('returnLabel', 40, ['reference-copy'])]), variant('kibble.error.rescue', ['kc.error.reference-shell'], ['zoneAdapter'], [], ['home'], [], [])],
 			referenceOwned: ['centered status composition', 'reference type hierarchy', 'single bounded recovery action'],
 			aislesOwned: ['HTTP status', 'safe public message', 'home destination'],
 		},
 		{
 			id: 'kibble.search', implementation: 'KibbleSearchReference.svelte',
-			variants: [variant('kibble.search.reference-shell', ['kc.search.reference-shell'], ['query', 'availabilityMessage', 'policyVersion'], [], ['home', 'search-results'], [], [copy('query', 160, ['computed-fact']), copy('availabilityMessage', 240, ['merchant-policy'])])],
-			referenceOwned: ['breadcrumb placement', 'query heading', 'large search control', 'result count position', 'empty-result spacing'],
-			aislesOwned: ['bounded query echo', 'truthful backend availability', 'safe search navigation'],
+			variants: [variant('kibble.search.reference-shell', ['kc.search.reference-shell'], ['query', 'products', 'pageInfo', 'loadMoreHref', 'policyVersion', 'zoneAdapter'], ['product.image'], ['home', 'search-results'], [], [copy('query', 160, ['computed-fact']), copy('products[].name', 96, ['merchant-catalog'])]), variant('kibble.search.empty-state', ['kc.search.reference-shell'], ['zoneAdapter'], [], ['home', 'search-results'], [], [])],
+			referenceOwned: ['breadcrumb placement', 'query heading', 'large search control', 'result count position', 'result grid', 'empty-result spacing'],
+			aislesOwned: ['bounded query and cursor', 'validated read-only Storefront GraphQL results', 'inert cards while PDP approval is pending', 'safe pagination'],
 		},
 		{
 			id: 'kibble.cart', implementation: 'KibbleCartReference.svelte',
@@ -818,7 +827,7 @@ const contractInput = {
 		},
 		search: {
 			id: 'kibble-search-reference-v1', acceptance: 'pending-parity', implementation: 'KibbleSearchReference.svelte', variantId: 'kibble.search.reference-shell',
-			source: { owner: 'canonical-reference-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', dependencyClosure: KIBBLE_SEARCH_SOURCE_CLOSURE }, orderedAnatomy: ['breadcrumbs', 'query-heading', 'search-control', 'result-count', 'empty-result-message', 'catalog-recovery'], responsive: { mobile: 'fluid-search-and-single-column-results', desktop: 'wide-query-header-and-results-grid' }, backend: 'not-authorized-no-catalog-or-search-call', fallback: 'canonical-empty-search-anatomy-with-no-result-claim',
+			source: { owner: 'canonical-reference-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', dependencyClosure: KIBBLE_SEARCH_SOURCE_CLOSURE }, orderedAnatomy: ['breadcrumbs', 'query-heading', 'search-control', 'result-count', 'results-grid-or-empty-message', 'catalog-recovery-or-pagination'], responsive: { mobile: 'fluid-search-and-single-column-results', desktop: 'wide-query-header-and-results-grid' }, backend: 'authorized-read-only-storefront-graphql-search', fallback: 'fail-closed-no-results-claim-on-request-or-validation-failure',
 		},
 		cart: {
 			id: 'kibble-cart-reference-v1', acceptance: 'pending-parity', implementation: 'KibbleCartReference.svelte', variantId: 'kibble.cart.reference-shell',
@@ -850,24 +859,24 @@ const contractInput = {
 		{ id: 'home.brand-spotlight', classification: 'not-applicable', reason: 'No pinned Kibble source recipe names this Bealls-only zone.' },
 		{ id: 'home.below-fold', classification: 'fixed', reason: 'Home recipe owns the service proof.' },
 		{ id: 'plp.banner', classification: 'not-applicable', reason: 'No pinned Kibble source banner is in the PLP anatomy.' },
-		{ id: 'plp.editorial-header', classification: 'hidden', reason: 'The fixed Kibble PLP owns its category header directly.' },
+		{ id: 'plp.editorial-header', classification: 'fixed', reason: 'The Kibble PLP category header is the explicit native adapter for this local identity.' },
 		{ id: 'plp.cluster-row', classification: 'hidden', reason: 'No composable merchandising row is authorized in Preserve.' },
 		{ id: 'plp.between-thirds', classification: 'not-applicable', reason: 'No pinned Kibble source insertion divides the grid.' },
 		{ id: 'plp.below-grid', classification: 'hidden', reason: 'No below-grid module exists in the pinned PLP recipe.' },
-		{ id: 'plp.empty-state', classification: 'fixed', reason: 'The fixed PLP recipe owns its empty message.' },
+		{ id: 'plp.empty-state', classification: 'not-applicable', reason: 'The external Bealls identity remains trusted Hidden; Kibble route-scaffold empty copy is not re-labeled as this zone.' },
 		{ id: 'pdp.below-description', classification: 'hidden', reason: 'The fixed PDP has no composable post-description slot.' },
 		{ id: 'pdp.related', classification: 'fixed', reason: 'The fixed PDP owns its related-product shelf.' },
 		{ id: 'pdp.cross-sell', classification: 'hidden', reason: 'Cross-sell selection is not authorized.' },
 		{ id: 'pdp.recently-viewed', classification: 'hidden', reason: 'History-backed recommendations are not implemented.' },
 		{ id: 'pdp.below-recs', classification: 'not-applicable', reason: 'No pinned Kibble source recipe names this Bealls-only slot.' },
-		{ id: 'cart.above-checkout-cta', classification: 'fixed', reason: 'Cart renders a fixed unavailable state and no CTA.' },
+		{ id: 'cart.above-checkout-cta', classification: 'hidden', reason: 'An empty cart has no checkout CTA insertion point; the route scaffold is not a cart upsell zone.' },
 		{ id: 'cart.below-fold', classification: 'not-applicable', reason: 'No cart composition is authorized without cart data.' },
-		{ id: 'cart.empty-state', classification: 'fixed', reason: 'The canonical empty-cart anatomy is fixed and visible.' },
+		{ id: 'cart.empty-state', classification: 'not-applicable', reason: 'The external Bealls identity remains trusted Hidden; Kibble canonical route anatomy is separately source-owned.' },
 		{ id: 'checkout.assurance-strip', classification: 'hidden', reason: 'Checkout is unavailable and exposes no assurance claims.' },
 		{ id: 'checkout.last-chance-upsell', classification: 'hidden', reason: 'Checkout merchandising is not authorized.' },
-		{ id: 'search.empty-state', classification: 'fixed', reason: 'Search renders its fixed unavailable state without catalog access.' },
-		{ id: 'search.zero-results-rescue', classification: 'fixed', reason: 'Search cannot claim zero results without a search backend.' },
-		{ id: 'account.welcome', classification: 'fixed', reason: 'Account renders canonical identity-entry anatomy with unavailable controls.' },
+		{ id: 'search.empty-state', classification: 'fixed', reason: 'Validated zero results execute the local editorial empty-state adapter.' },
+		{ id: 'search.zero-results-rescue', classification: 'not-applicable', reason: 'The external Bealls rescue schema remains trusted Hidden; no cross-origin adapter exists.' },
+		{ id: 'account.welcome', classification: 'not-applicable', reason: 'The external Bealls identity remains trusted Hidden; Kibble account route anatomy is not re-labeled as a welcome zone.' },
 		{ id: 'account.dashboard-pick', classification: 'hidden', reason: 'Account data and picks storage are not authorized.' },
 		{ id: 'locator.editorial-intro', classification: 'not-applicable', reason: 'The pinned Kibble source has no store-locator route.' },
 		{ id: 'error-404.rescue', classification: 'fixed', reason: 'The Kibble error recipe owns recovery.' },
@@ -877,7 +886,7 @@ const contractInput = {
 		{ path: '/', audience: 'shopper', classification: 'reference-preserve', reason: 'Contracted Home recipe.' },
 		{ path: '/category/[slug]', audience: 'shopper', classification: 'reference-preserve', reason: 'Contracted PLP recipe.' },
 		{ path: '/product/[slug]', audience: 'shopper', classification: 'reference-unavailable', reason: 'Development review only until PDP approval passes.' },
-		{ path: '/search', audience: 'shopper', classification: 'reference-unavailable', reason: 'Canonical search anatomy is visible; result loading is not authorized.' },
+		{ path: '/search', audience: 'shopper', classification: 'reference-preserve', reason: 'Canonical search anatomy uses bounded validated read-only Storefront GraphQL; product cards remain inert while PDP publication is pending.' },
 		{ path: '/cart', audience: 'shopper', classification: 'reference-unavailable', reason: 'Canonical empty-cart anatomy is visible; cart services are not authorized.' },
 		{ path: '/checkout', audience: 'shopper', classification: 'reference-unavailable', reason: 'Kibble checkout boundary is visible; checkout SDK and redirects are not authorized.' },
 		{ path: '/checkout/gift', audience: 'shopper', classification: 'reference-unavailable', reason: 'Canonical gift form anatomy is visible with every money-path action disabled.' },

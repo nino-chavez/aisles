@@ -16,15 +16,34 @@ import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 const route = (path: string) => readFileSync(resolve(import.meta.dirname, path), 'utf8');
 
 describe('Kibble route-specific unavailable shells', () => {
-	it('keeps search navigation supported without claiming or loading results', () => {
-		const body = render(KibbleSearchReference, { props: { query: 'goodgut', availabilityMessage: 'Search unavailable.' } }).body;
+	it('renders source-backed search results as inert Kibble product cards', () => {
+		const body = render(KibbleSearchReference, { props: {
+			query: 'goodgut',
+			products: [{ id: 'goodgut', entityId: 3023, name: 'GoodGut', price: 34.99, image: '', imageAlt: 'GoodGut', description: '', specs: {}, tags: [], category: 'Dog Food' }],
+			pageInfo: { hasNextPage: false, endCursor: null }, loadMoreHref: null,
+		} }).body;
 		expect(body).toContain('data-kibble-route-shell="search"');
 		expect(body).toContain('Results for "goodgut"');
 		expect(body).toContain('method="get"');
 		expect(body).toContain('action="/search"');
-		expect(body).toContain('Results unavailable');
-		expect(body).not.toContain('0 products');
+		expect(body).toContain('1 product');
+		expect(body).toContain('GoodGut');
+		expect(body).not.toContain('/product/goodgut');
 		expect(body).not.toContain('KibbleUnavailableReference');
+	});
+
+	it('renders the content-backed Kibble empty-search adapter', () => {
+		const body = render(KibbleSearchReference, { props: {
+			query: 'missing', products: [], pageInfo: { hasNextPage: false, endCursor: null }, loadMoreHref: null,
+			zoneAdapter: {
+				instanceId: 'search.empty-state', adapterId: 'kibble.zone.search.empty-state',
+				sharedStatus: 'live', sharedContentKind: 'content',
+				componentVariantId: 'kibble.search.empty-state', inputSha256: 'a'.repeat(64),
+				content: { component: 'editorial-header', props: { eyebrow: 'No matches', headline: 'No products match “missing”', body: 'Try a different keyword.' } },
+			},
+		} }).body;
+		expect(body).toContain('data-kibble-zone-instance="search.empty-state"');
+		expect(body).toContain('No products match “missing”');
 	});
 
 	it('renders canonical cart anatomy without a cart or commerce claim', () => {
@@ -88,7 +107,10 @@ describe('Kibble route-specific unavailable shells', () => {
 	it('SSR selects only route-native Kibble DOM when trusted Preserve data is present', () => {
 		const search = render(SearchPage, { props: { data: {
 			renderMode: 'reference-preserve', query: 'LEGACY QUERY', results: [{ name: 'LEGACY PRODUCT' }],
-			kibbleSearch: { query: 'goodgut', availabilityMessage: 'Search unavailable.', policyVersion: 'trusted-policy' },
+			kibbleSearch: { query: 'goodgut', products: [], pageInfo: { hasNextPage: false, endCursor: null }, loadMoreHref: null, zoneAdapter: {
+				instanceId: 'search.empty-state', adapterId: 'kibble.zone.search.empty-state', sharedStatus: 'live', sharedContentKind: 'content', componentVariantId: 'kibble.search.empty-state', inputSha256: 'a'.repeat(64),
+				content: { component: 'editorial-header', props: { eyebrow: 'No matches', headline: 'No products match “goodgut”', body: 'Try another keyword.' } },
+			}, policyVersion: 'trusted-policy' },
 		} as never } }).body;
 		expect(search).toContain('data-kibble-route-shell="search"');
 		expect(search).toContain('data-kibble-route-policy="trusted-policy"');

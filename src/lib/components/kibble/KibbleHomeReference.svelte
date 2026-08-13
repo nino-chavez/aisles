@@ -25,6 +25,7 @@
 		subscriptionOffers = {},
 		categoryTitle,
 		categoryEyebrow,
+		zoneAdapters,
 	}: {
 			hero: {
 				eyebrow: string;
@@ -43,6 +44,12 @@
 		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
 		categoryTitle: string;
 		categoryEyebrow: string;
+		zoneAdapters?: {
+			hero: any;
+			featuredRows: any[];
+			editorial: any;
+			belowFold: any;
+		};
 	} = $props();
 </script>
 
@@ -54,6 +61,7 @@
 	ctas={hero.ctas}
 	featured={hero.featured}
 	proofItems={hero.proofItems}
+	zoneAdapter={zoneAdapters?.hero}
 />
 <KibbleFeaturedGrid
 	copy={featuredCopy}
@@ -61,6 +69,7 @@
 	{productHrefs}
 	{browseHref}
 	{subscriptionOffers}
+	zoneAdapters={zoneAdapters?.featuredRows}
 />
 <KibbleVisualModule
 	variant="category"
@@ -68,5 +77,6 @@
 	eyebrow={categoryEyebrow}
 	tiles={categories}
 	columns={4}
+	zoneAdapter={zoneAdapters?.editorial}
 />
-<KibbleServiceProof items={serviceProof} />
+<KibbleServiceProof items={serviceProof} zoneAdapter={zoneAdapters?.belowFold} />

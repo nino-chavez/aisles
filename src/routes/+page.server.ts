@@ -15,6 +15,7 @@ import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
 import { sanitizeInspectorInference } from '$lib/components/kibble/kibble-dev-inspector';
+import { executeKibbleHomeZoneAdapters } from '$lib/brand/reference/kibble-zone-executor.server';
 
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
 	const { devMode, renderMode } = await parent();
@@ -48,12 +49,16 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 			// Enrichment scores authorize the server-side ranking. They are not
 			// shopper-facing product data and must not cross the render boundary.
 			const renderedHomeProducts = homeDecision.products.map(({ personaFit: _personaFit, ...product }) => product);
-			const kibbleHome = buildKibbleHomeReference(
+			const kibbleHomeBase = buildKibbleHomeReference(
 				brand,
 				renderedHomeProducts,
 				referenceProducts.source,
 				bundleProduct,
 			);
+			const kibbleHome = {
+				...kibbleHomeBase,
+				zoneAdapters: await executeKibbleHomeZoneAdapters(kibbleHomeBase),
+			};
 			const provenance = buildContractedLayoutProvenance({
 				policy: surfaceDecision.policy,
 				surface: 'home',

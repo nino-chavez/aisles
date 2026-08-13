@@ -22,6 +22,7 @@ import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
+import { executeKibblePdpRelatedZoneAdapter } from '$lib/brand/reference/kibble-zone-executor.server';
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 
@@ -141,6 +142,7 @@ async function loadKibblePreservePdp({
 				purchaseUnavailableBody: manifest.purchaseUnavailableBody,
 				relatedHeading: manifest.relatedHeading,
 				copy: manifest.copy,
+				zoneAdapter: await executeKibblePdpRelatedZoneAdapter(relatedProducts, manifest.relatedHeading, url.pathname),
 			},
 			provenance,
 		};

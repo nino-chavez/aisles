@@ -350,7 +350,7 @@ describe('Kibble reference contract', () => {
 			subscriptions: KIBBLE_SUBSCRIPTIONS_SOURCE_CLOSURE,
 		} as const;
 		const hardCodedFirstHashes = {
-			search: '75cbfe8a6fa9dbbda7cea804200c9b0dc021fa732927194b0b812454c3ab2158',
+			search: '61a9fcb709b4cb9b4482e70df54ca805d98057f664b6864c80bcdce7a0c5fa99',
 			cart: '2940a76fb4a3fb5d49cfb5325497833060312af6ab184e840c97c8986675a768',
 			account: '1addd8ff2da26b481e24a7cffde1ec5b9b2b9c6737c3b1a318a10cc53a512d38',
 			checkout: '3cb7b0b58389fcf1e30e8843046e4ab8f72436027292bcdad3bbb7dd007ca39b',

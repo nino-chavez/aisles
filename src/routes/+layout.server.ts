@@ -11,6 +11,7 @@ import {
 	hasKibbleReferenceChrome,
 } from '$lib/brand/composition-policy';
 import { tryNormalizeTrustedShopperRoute } from '$lib/foundation/autonomy-zone-route';
+import { executeKibbleErrorZoneAdapter, executeKibbleHiddenZoneTerminalsForRoute } from '$lib/brand/reference/kibble-zone-executor.server';
 
 function routeAudience(pathname: string): 'shopper' | 'operator' | 'development' {
 	if (pathname === '/observe' || pathname.startsWith('/observe/')) return 'operator';
@@ -31,6 +32,8 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 	let kibbleError = null;
 	let kibbleErrorPolicy = null;
 	let kibbleRoutePolicy = null;
+	let kibbleZoneTerminals = null;
+	let kibbleErrorAdapters = null;
 	if (chromeMode === 'reference') {
 		if (trustedRoute) {
 			const routePolicy = getTrustedKibbleRoutePolicy(brand.id, url.pathname);
@@ -40,6 +43,18 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 				surface: routePolicy.surface,
 				policyVersion: routePolicy.policy.policyVersion,
 			};
+			const executions = await executeKibbleHiddenZoneTerminalsForRoute(routePolicy.routePath);
+			kibbleZoneTerminals = executions.map(({ terminal, execution }) => ({
+				instanceId: terminal.instanceId,
+				familyId: terminal.familyId,
+				origin: terminal.origin,
+				terminal: terminal.terminal,
+				adapterId: terminal.adapterId ?? null,
+				componentVariantId: terminal.componentVariantId ?? null,
+				status: execution.status,
+				render: execution.render.kind,
+				provenance: execution.provenance,
+			}));
 		}
 		const errorPolicies = (['error-404', 'error-empty'] as const).map((surface) => {
 			const decision = getContractSurfaceDecision(brand.id, surface);
@@ -53,6 +68,11 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 			referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
 			policies: errorPolicies,
 		};
+		const [error404, errorEmpty] = await Promise.all([
+			executeKibbleErrorZoneAdapter({ surface: 'error-404', routePath: url.pathname, status: 404, message: 'This page is not available.' }),
+			executeKibbleErrorZoneAdapter({ surface: 'error-empty', routePath: url.pathname, status: 503, message: 'This shelf is temporarily unavailable.' }),
+		]);
+		kibbleErrorAdapters = { error404, errorEmpty };
 	}
 
 	// Dev mode: ?dev=true turns it on, ?dev=false turns it off, cookie persists
@@ -71,7 +91,11 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		kibbleChrome: chromeMode === 'reference' ? buildKibbleChrome(brand) : null,
 		kibbleError,
 		kibbleErrorPolicy,
+		kibbleErrorAdapters,
 		kibbleRoutePolicy,
+		// Operator/debug data only. The shopper layout deliberately emits no
+		// zone DOM for trusted Hidden terminals.
+		kibbleZoneTerminals,
 		kibbleProvenance: chromeMode === 'reference' ? {
 			referenceId: KIBBLE_REFERENCE_CONTRACT.id,
 			referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,

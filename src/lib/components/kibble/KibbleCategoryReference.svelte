@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibbleProduct } from './types';
+	import type { KibbleProduct, KibbleZoneAdapterBinding } from './types';
 	import type { KibblePlpSort } from '$lib/brand/reference/kibble-plp';
 
 	let {
@@ -19,6 +19,7 @@
 		productHrefs,
 		loadMoreHref,
 		loadMoreLabel,
+		zoneAdapter,
 	}: {
 		eyebrow: string;
 		title: string;
@@ -34,6 +35,7 @@
 		productHrefs: Partial<Record<string, string>>;
 		loadMoreHref: string | null;
 		loadMoreLabel: string;
+		zoneAdapter?: KibbleZoneAdapterBinding<any>;
 	} = $props();
 
 	function submitSort(event: Event) {
@@ -57,13 +59,13 @@
 			</ol>
 		</nav>
 
-		<header class="kc-reference-category__header">
+		<header class="kc-reference-category__header" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256}>
 			<div>
-				<p class="kc-reference-eyebrow">{eyebrow}</p>
-				<h1 id="kibble-category-heading">{title}</h1>
+				<p class="kc-reference-eyebrow">{zoneAdapter?.content.props.eyebrow ?? eyebrow}</p>
+				<h1 id="kibble-category-heading">{zoneAdapter?.content.props.headline ?? title}</h1>
 			</div>
 			<div class="kc-reference-category__controls">
-				<p class="kc-reference-category__count">{productCount} {productCount === 1 ? productSingular : productPlural}</p>
+				<p class="kc-reference-category__count">{zoneAdapter?.content.props.body ?? `${productCount} ${productCount === 1 ? productSingular : productPlural}`}</p>
 				<form method="get" class="kc-reference-category__sort">
 					<label for="kibble-category-sort">{sortLabel}</label>
 					<select id="kibble-category-sort" name="sort" value={selectedSort} onchange={submitSort}>

@@ -20,6 +20,7 @@ import {
 } from '$lib/brand/reference/kibble-plp';
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
+import { executeKibblePlpZoneAdapter } from '$lib/brand/reference/kibble-zone-executor.server';
 
 export function _parseKibblePlpRequest(url: URL) {
 	try {
@@ -87,10 +88,19 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 	let provenance = null;
 	if (renderMode === 'reference-preserve' && kibblePlp && 'pageInfo' in result && surfaceDecision?.mode === 'reference-preserve') {
 		try {
-			kibbleCategory = materializeKibbleCategory(getBrand(), slug, result.products, {
+			const categoryBase = materializeKibbleCategory(getBrand(), slug, result.products, {
 				sort: kibblePlp.sort,
 				pageInfo: result.pageInfo,
 			});
+			kibbleCategory = {
+				...categoryBase,
+				zoneAdapter: await executeKibblePlpZoneAdapter({
+					routePath: url.pathname,
+					eyebrow: categoryBase.eyebrow,
+					title: categoryBase.title,
+					productCount: categoryBase.productCount,
+				}),
+			};
 			provenance = buildContractedLayoutProvenance({
 				policy: surfaceDecision.policy,
 				surface: 'plp',

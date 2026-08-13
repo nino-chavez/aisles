@@ -1,7 +1,8 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibblePdpBundle, KibblePdpCopy, KibblePdpProduct, KibbleProductOption, KibbleProduct } from './types';
+	import type { KibblePdpBundle, KibblePdpCopy, KibblePdpProduct, KibbleProductOption, KibbleProduct, KibbleZoneAdapterBinding } from './types';
+	type RelatedContent = { component: 'product-carousel'; props: { title: string; products: Array<{ productId: string; role: 'standard' }>; showQuickAdd: false } };
 
 	let {
 		product,
@@ -14,6 +15,7 @@
 		purchaseUnavailableBody,
 		relatedHeading,
 		copy,
+		zoneAdapter,
 	}: {
 		product: KibblePdpProduct;
 		bundle: KibblePdpBundle | null;
@@ -25,6 +27,7 @@
 		purchaseUnavailableBody: string;
 		relatedHeading: string;
 		copy: KibblePdpCopy;
+		zoneAdapter?: KibbleZoneAdapterBinding<any> | null;
 	} = $props();
 
 	let activeImage = $state(0);
@@ -37,6 +40,7 @@
 				: []);
 	const currentImage = $derived(gallery[activeImage] ?? null);
 	const salePrice = $derived(typeof product.salePrice === 'number' && product.salePrice < product.price ? product.salePrice : null);
+	const relatedByEntityId = $derived(new Map(relatedProducts.map((related) => [String(related.entityId), related])));
 
 	function money(value: number): string {
 		return new Intl.NumberFormat('en-US', { style: 'currency', currency: product.currencyCode || 'USD' }).format(value);
@@ -118,7 +122,7 @@
 		</div>
 	</div>
 
-	{#if relatedProducts.length > 0}
-		<section class="kc-reference-pdp__related"><div class="kc-reference-container"><h2 class="kc-reference-display">{relatedHeading}</h2><div class="kc-reference-product-grid">{#each relatedProducts as related (related.entityId)}<KibbleProductCard product={related} productHref={relatedProductHrefs[related.id]} />{/each}</div></div></section>
+	{#if zoneAdapter}
+		<section class="kc-reference-pdp__related" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256}><div class="kc-reference-container"><h2 class="kc-reference-display">{zoneAdapter.content.props.title}</h2><div class="kc-reference-product-grid">{#each zoneAdapter.content.props.products as productRef (productRef.productId)}{@const related = relatedByEntityId.get(productRef.productId)}{#if related}<KibbleProductCard product={related} productHref={relatedProductHrefs[related.id]} />{/if}{/each}</div></div></section>
 	{/if}
 </article>

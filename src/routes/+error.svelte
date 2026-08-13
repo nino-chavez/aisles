@@ -22,7 +22,7 @@
 		data-reference-contract-version={$page.data.kibbleErrorPolicy?.referenceVersion}
 		data-reference-policy={errorPolicyAttribute}
 	>
-		<KibbleErrorReference {status} message={errorMessage} {...$page.data.kibbleError} />
+		<KibbleErrorReference {status} message={errorMessage} zoneAdapter={status === 404 ? $page.data.kibbleErrorAdapters?.error404 : $page.data.kibbleErrorAdapters?.errorEmpty} {...$page.data.kibbleError} />
 	</div>
 {:else}
 	<section class="mx-auto max-w-3xl px-6 py-24 text-center">

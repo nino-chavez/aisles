@@ -19,6 +19,11 @@ const shelfProduct: Product & { personaFit: { gatherer: number; hunter: number; 
 	specs: {}, tags: [], category: 'Dog Food',
 	personaFit: { gatherer: 0.9, hunter: 0.2, researcher: 0.5, gifter: 0.3 },
 };
+const shelfProducts = [
+	shelfProduct,
+	{ ...shelfProduct, id: 'dog-food-two', entityId: 4002, name: 'Dog Food Two' },
+	{ ...shelfProduct, id: 'dog-food-three', entityId: 4003, name: 'Dog Food Three' },
+];
 
 vi.mock('$lib/signals/request', () => ({
 	createStoreFromRequest: mocks.createStoreFromRequest,
@@ -33,7 +38,7 @@ vi.mock('$lib/signals/inference', () => ({
 	})),
 }));
 vi.mock('$lib/server/catalog', () => ({
-	loadReferenceHomeProducts: vi.fn(async () => ({ products: [shelfProduct], source: 'featured' })),
+	loadReferenceHomeProducts: vi.fn(async () => ({ products: shelfProducts, source: 'featured' })),
 	loadCatalogProductByEntityId: vi.fn(async () => bundle),
 	loadHomeProducts: vi.fn(),
 }));

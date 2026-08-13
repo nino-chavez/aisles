@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render } from 'svelte/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const searchMocks = vi.hoisted(() => ({ searchKibbleCatalog: vi.fn() }));
+vi.mock('$lib/brand/reference/kibble-search.server', async (importOriginal) => ({
+	...await importOriginal<typeof import('$lib/brand/reference/kibble-search.server')>(),
+	searchKibbleCatalog: searchMocks.searchKibbleCatalog,
+}));
 import HomePage from './+page.svelte';
 import CategoryPage from './category/[slug]/+page.svelte';
 import ProductPage from './product/[slug]/+page.svelte';
@@ -199,13 +205,23 @@ describe('Preserve route boundaries', () => {
 		}
 	});
 
-	it('renders search as a fixed Kibble unavailable state without requesting the catalog', async () => {
+	it('uses the bounded read-only Kibble catalog search without publishing product links', async () => {
 		const previousBrand = process.env.BRAND_ID;
 		try {
 			process.env.BRAND_ID = 'kibble';
+			searchMocks.searchKibbleCatalog.mockResolvedValueOnce({
+				products: [product],
+				pageInfo: { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null },
+			});
 			const parent = async () => ({ devMode: false, chromeMode: 'reference', renderMode: 'reference-preserve' });
-			await expect(loadSearch({ url: new URL('https://aisles.test/search?q=food'), parent } as never))
-				.resolves.toMatchObject({ renderMode: 'reference-preserve', kibbleSearch: { query: 'food', availabilityMessage: expect.stringContaining('No result request') } });
+			await expect(loadSearch({
+				url: new URL('https://aisles.test/search?q=food'), parent,
+				setHeaders: vi.fn(),
+			} as never)).resolves.toMatchObject({
+				renderMode: 'reference-preserve',
+				kibbleSearch: { query: 'food', products: [{ id: 'actual-product' }], zoneAdapter: null },
+			});
+			expect(searchMocks.searchKibbleCatalog).toHaveBeenCalledWith({ query: 'food', after: null });
 		} finally {
 			if (previousBrand === undefined) delete process.env.BRAND_ID;
 			else process.env.BRAND_ID = previousBrand;

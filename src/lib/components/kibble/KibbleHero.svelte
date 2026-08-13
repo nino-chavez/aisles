@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProofStrip from './KibbleProofStrip.svelte';
-	import type { KibbleCta, KibbleFeaturedBundle, KibbleProofItem } from './types';
+	import type { KibbleCta, KibbleFeaturedBundle, KibbleProofItem, KibbleZoneAdapterBinding } from './types';
 
 	let {
 		eyebrow,
@@ -10,6 +10,7 @@
 		ctas,
 		featured,
 		proofItems,
+		zoneAdapter,
 	}: {
 		eyebrow: string;
 		headline: string;
@@ -17,6 +18,7 @@
 		ctas: KibbleCta[];
 		featured: KibbleFeaturedBundle;
 		proofItems: KibbleProofItem[];
+		zoneAdapter?: KibbleZoneAdapterBinding<any>;
 	} = $props();
 
 	function money(value: number): string {
@@ -28,12 +30,12 @@
 	}
 </script>
 
-<section class="kibble-reference kc-reference-hero" aria-labelledby="kibble-reference-hero-heading">
+<section class="kibble-reference kc-reference-hero" aria-labelledby="kibble-reference-hero-heading" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256}>
 	<div class="kc-reference-container kc-reference-hero__inner">
 		<div class="kc-reference-hero__copy">
-			<span class="kc-reference-hero__tag">{eyebrow}</span>
-			<h1 id="kibble-reference-hero-heading">{headline}</h1>
-			<p class="kc-reference-hero__body">{body}</p>
+			<span class="kc-reference-hero__tag">{zoneAdapter?.content.props.eyebrow ?? eyebrow}</span>
+			<h1 id="kibble-reference-hero-heading">{zoneAdapter?.content.props.headline ?? headline}</h1>
+			<p class="kc-reference-hero__body">{zoneAdapter?.content.props.body ?? body}</p>
 
 			{#if ctas.length > 0}
 				<div class="kc-reference-hero__ctas">

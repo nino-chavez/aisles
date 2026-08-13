@@ -142,3 +142,13 @@ export type KibblePdpCopy = {
 	requiredSuffix: string;
 	detailsHeading: string;
 };
+
+export type KibbleZoneAdapterBinding<TContent = unknown> = {
+	instanceId: string;
+	sharedStatus: 'live' | 'approval_candidate';
+	sharedContentKind: 'content';
+	adapterId: string;
+	componentVariantId: string;
+	inputSha256: string;
+	content: TContent;
+};
