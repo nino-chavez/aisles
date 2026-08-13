@@ -81,6 +81,7 @@
 		return 'waiting for a signal';
 	};
 	const rehearsalStatus = $derived(describeKibbleRehearsalStatus(rehearsalPersona, livePreview, rehearsalQueued, rehearsalError));
+	const rehearsalBusy = $derived(rehearsalQueued || livePreview.state === 'updating');
 	const sendRehearsalSignal = async (signal: (typeof rehearsalSignals)[number]) => {
 		const emitter = getEmitter();
 		if (!emitter) {
@@ -189,7 +190,11 @@
 			<p>Each button sends one allowed <code>nav.search</code> event through the actual signal endpoint. No model is called, and this is not a shopper control.</p>
 			<div class="kc-dev-inspector__rehearsal-actions">
 				{#each rehearsalSignals as signal}
-					<button type="button" disabled={rehearsalQueued || livePreview.state === 'updating'} onclick={() => sendRehearsalSignal(signal)}>Signal {signal.persona}</button>
+					<button
+						type="button"
+						aria-disabled={rehearsalBusy}
+						onclick={() => { if (!rehearsalBusy) void sendRehearsalSignal(signal); }}
+					>Signal {signal.persona}</button>
 				{/each}
 			</div>
 			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite" aria-atomic="true">{rehearsalStatus}</p>
@@ -300,7 +305,7 @@
 	.kc-dev-inspector__rehearsal-actions { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.65rem; }
 	.kc-dev-inspector a, .kc-dev-inspector button { display:inline-flex; min-height:44px; align-items:center; border:1px solid #aebee1; background:#fff; color:#1c4cab; font:inherit; font-weight:700; padding:.45rem .65rem; text-decoration:none; }
 	.kc-dev-inspector button { cursor:pointer; border-color:#78ae9f; color:#075d4c; }
-	.kc-dev-inspector button:disabled { cursor:wait; opacity:.55; }
+	.kc-dev-inspector button[aria-disabled='true'] { cursor:wait; opacity:.55; }
 	.kc-dev-inspector a:hover { background:#e8eefb; }
 	.kc-dev-inspector button:hover { background:#ddf1ea; }
 	.kc-dev-inspector a:focus-visible, .kc-dev-inspector button:focus-visible, .kc-dev-inspector summary:focus-visible { outline:3px solid var(--dev-blue); outline-offset:3px; }

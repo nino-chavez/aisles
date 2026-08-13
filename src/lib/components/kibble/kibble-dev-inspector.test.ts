@@ -99,6 +99,8 @@ describe('KibbleDevInspector', () => {
 		expect(result.body).not.toContain('Reset session view');
 		expect(result.body).toContain('Choose a persona to send one synthetic search signal.');
 		expect(result.body).toContain('aria-atomic="true"');
+		expect(result.body).toContain('aria-disabled="false"');
+		expect(result.body).not.toMatch(/<button[^>]*\sdisabled(?:=|\s|>)/);
 		expect(render(KibbleDevInspector, { props: { inspector } }).body).not.toContain('Live synthetic signal rehearsal');
 	});
 });
