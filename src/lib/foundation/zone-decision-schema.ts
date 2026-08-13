@@ -29,6 +29,13 @@ export interface BoundedCopyField {
 	sourceClasses: readonly CopySourceClass[];
 }
 
+/** A reference-authorized component configuration; CSS never varies independently. */
+export interface TrustedCompleteComponentVariant {
+	componentVariantId: string;
+	cssVariantId?: string;
+	compatibleCopyVariantIds: readonly string[];
+}
+
 /**
  * Trusted, contract-authored vocabulary for one zone. Nothing in this type
  * comes from browser input or from model output.
@@ -40,6 +47,7 @@ export interface TrustedZoneFieldCatalog {
 	registeredRecipeIds: readonly string[];
 	registeredProductIds: readonly string[];
 	registeredPlacementIds: readonly string[];
+	completeComponentVariants: readonly TrustedCompleteComponentVariant[];
 	/** Additional per-zone policy bounds for values the current policy type does not own. */
 	allowedRecipeIds: readonly string[];
 	allowedProductIds: readonly string[];
@@ -51,7 +59,6 @@ export interface TrustedZoneFieldCatalog {
 	 */
 	fixed: {
 		componentVariantId: string;
-		cssVariantId?: string;
 		copyVariantId?: string;
 		recipeId?: string;
 		productIds?: readonly string[];
@@ -87,7 +94,7 @@ export interface GenerativeZoneDecisionContract extends ZoneDecisionMetadata {
 	/** Server-side candidate sets, used when materializing a parsed decision. */
 	allowed: {
 		componentVariantIds: readonly string[];
-		cssVariantIds: readonly string[];
+		completeComponentVariants: readonly TrustedCompleteComponentVariant[];
 		copyVariantIds: readonly string[];
 		recipeIds: readonly string[];
 		productIds: readonly string[];
@@ -116,9 +123,10 @@ export function createZoneDecisionContract(
 	catalog: TrustedZoneFieldCatalog,
 ): ZoneDecisionContract {
 	validateCatalog(catalog);
+	const completeComponentVariants = eligibleCompleteVariants(catalog, policy);
 	const allowed = {
-		componentVariantIds: intersect(catalog.registeredComponentVariantIds, policy.allowedComponentVariantIds),
-		cssVariantIds: intersect(catalog.registeredCssVariantIds, policy.allowedCssVariantIds),
+		componentVariantIds: completeComponentVariants.map(({ componentVariantId }) => componentVariantId),
+		completeComponentVariants,
 		copyVariantIds: intersect(catalog.registeredCopyVariantIds, policy.allowedCopyVariantIds),
 		recipeIds: intersect(catalog.registeredRecipeIds, catalog.allowedRecipeIds),
 		productIds: intersect(catalog.registeredProductIds, catalog.allowedProductIds),
@@ -140,7 +148,6 @@ export function createZoneDecisionContract(
 	const shape: Record<string, z.ZodType> = {};
 	if (policy.capabilities.includes('select_component_variant') && allowed.componentVariantIds.length > 0) {
 		shape.componentVariantId = enumFor(allowed.componentVariantIds).optional();
-		if (allowed.cssVariantIds.length > 0) shape.cssVariantId = enumFor(allowed.cssVariantIds).optional();
 	}
 	if (policy.capabilities.includes('select_copy_variant') && allowed.copyVariantIds.length > 0) {
 		shape.copyVariantId = enumFor(allowed.copyVariantIds).optional();
@@ -185,6 +192,15 @@ export function createZoneDecisionContract(
 			if (Object.keys(value).length === 0) {
 				ctx.addIssue({ code: 'custom', message: 'at least one permitted decision field is required' });
 			}
+			const componentVariantId = readOptionalString(value, 'componentVariantId') ?? catalog.fixed.componentVariantId;
+			const completeVariant = allowed.completeComponentVariants.find(
+				(binding) => binding.componentVariantId === componentVariantId,
+			);
+			const copyVariantId = readOptionalString(value, 'copyVariantId');
+			if (copyVariantId !== undefined && !completeVariant?.compatibleCopyVariantIds.includes(copyVariantId)) {
+				ctx.addIssue({ code: 'custom', message: 'copy variant is not compatible with the selected complete component variant' });
+			}
+			validateProductDecision(value, allowed.productIds, policy.capabilities, ctx);
 		}) as unknown as z.ZodType<Record<string, unknown>>;
 
 	return {
@@ -230,11 +246,16 @@ export function materializeTrustedZoneDecision(
 	}
 
 	const componentVariantId = readOptionalString(output, 'componentVariantId') ?? contract.fixed.componentVariantId;
-	const cssVariantId = readOptionalString(output, 'cssVariantId') ?? contract.fixed.cssVariantId;
+	const completeVariant = contract.allowed.completeComponentVariants.find(
+		(binding) => binding.componentVariantId === componentVariantId,
+	);
+	if (!completeVariant) throw new ZoneDecisionSchemaError(`component variant "${componentVariantId}" has no trusted complete binding`);
+	const cssVariantId = completeVariant.cssVariantId;
 	const copyVariantId = readOptionalString(output, 'copyVariantId') ?? contract.fixed.copyVariantId;
 	assertChoice(componentVariantId, contract.allowed.componentVariantIds, 'component variant');
-	if (cssVariantId !== undefined) assertChoice(cssVariantId, contract.allowed.cssVariantIds, 'CSS variant');
-	if (copyVariantId !== undefined) assertChoice(copyVariantId, contract.allowed.copyVariantIds, 'copy variant');
+	if (copyVariantId !== undefined && !completeVariant.compatibleCopyVariantIds.includes(copyVariantId)) {
+		throw new ZoneDecisionSchemaError(`copy variant "${copyVariantId}" is not compatible with component variant "${componentVariantId}"`);
+	}
 
 	return {
 		envelope: {
@@ -254,7 +275,7 @@ export function materializeTrustedZoneDecision(
 
 function deriveRequiredCapabilities(output: Record<string, unknown>): AutonomyCapability[] {
 	const capabilities = new Set<AutonomyCapability>();
-	if (hasOwn(output, 'componentVariantId') || hasOwn(output, 'cssVariantId')) capabilities.add('select_component_variant');
+	if (hasOwn(output, 'componentVariantId')) capabilities.add('select_component_variant');
 	if (hasOwn(output, 'copyVariantId')) capabilities.add('select_copy_variant');
 	if (hasOwn(output, 'recipeId')) capabilities.add('select_page_recipe');
 	if (hasOwn(output, 'productIds')) capabilities.add('select_products');
@@ -272,6 +293,7 @@ function validateCatalog(catalog: TrustedZoneFieldCatalog): void {
 	assertIds(catalog.registeredRecipeIds, 'registered recipes');
 	assertIds(catalog.registeredProductIds, 'registered products');
 	assertIds(catalog.registeredPlacementIds, 'registered placements');
+	validateCompleteComponentVariants(catalog);
 	assertIds(catalog.allowedRecipeIds, 'allowed recipes');
 	assertIds(catalog.allowedProductIds, 'allowed products');
 	assertIds(catalog.allowedPlacementIds, 'allowed placements');
@@ -289,13 +311,72 @@ function validateCatalog(catalog: TrustedZoneFieldCatalog): void {
 	}
 }
 
+function validateCompleteComponentVariants(catalog: TrustedZoneFieldCatalog): void {
+	if (catalog.completeComponentVariants.length === 0) {
+		throw new ZoneDecisionSchemaError('at least one trusted complete component variant is required');
+	}
+	const componentIds = catalog.completeComponentVariants.map(({ componentVariantId }) => componentVariantId);
+	assertIds(componentIds, 'complete component variant identifiers');
+	for (const binding of catalog.completeComponentVariants) {
+		assertChoice(binding.componentVariantId, catalog.registeredComponentVariantIds, 'complete component variant');
+		if (binding.cssVariantId !== undefined) {
+			assertChoice(binding.cssVariantId, catalog.registeredCssVariantIds, 'complete component CSS variant');
+		}
+		assertIds(binding.compatibleCopyVariantIds, 'complete component compatible copy variants');
+		for (const copyVariantId of binding.compatibleCopyVariantIds) {
+			assertChoice(copyVariantId, catalog.registeredCopyVariantIds, 'complete component copy variant');
+		}
+	}
+}
+
+function eligibleCompleteVariants(
+	catalog: TrustedZoneFieldCatalog,
+	policy: EffectiveCompositionPolicy,
+): TrustedCompleteComponentVariant[] {
+	const componentSet = new Set(intersect(catalog.registeredComponentVariantIds, policy.allowedComponentVariantIds));
+	const cssSet = new Set(intersect(catalog.registeredCssVariantIds, policy.allowedCssVariantIds));
+	const copySet = new Set(intersect(catalog.registeredCopyVariantIds, policy.allowedCopyVariantIds));
+	return catalog.completeComponentVariants
+		.filter((binding) => componentSet.has(binding.componentVariantId))
+		.filter((binding) => binding.cssVariantId === undefined || cssSet.has(binding.cssVariantId))
+		.map((binding) => ({
+			componentVariantId: binding.componentVariantId,
+			...(binding.cssVariantId === undefined ? {} : { cssVariantId: binding.cssVariantId }),
+			compatibleCopyVariantIds: binding.compatibleCopyVariantIds.filter((copyVariantId) => copySet.has(copyVariantId)),
+		}));
+}
+
+function validateProductDecision(
+	value: Record<string, unknown>,
+	allowedProductIds: readonly string[],
+	capabilities: readonly AutonomyCapability[],
+	ctx: z.RefinementCtx,
+): void {
+	const ranked = value.rankedProductIds;
+	if (!Array.isArray(ranked)) return;
+	const selected = value.productIds;
+	const selectionAllowed = capabilities.includes('select_products');
+	const expected = Array.isArray(selected) && selectionAllowed ? selected : allowedProductIds;
+	if (!sameSet(ranked, expected)) {
+		ctx.addIssue({
+			code: 'custom',
+			message: selectionAllowed
+				? 'ranked products must be an exact ordering of the selected products or the trusted full rankable set'
+				: 'rank-only output must be an exact permutation of the trusted rankable set',
+		});
+	}
+}
+
 function validateFixed(
 	fixed: TrustedZoneFieldCatalog['fixed'],
 	allowed: GenerativeZoneDecisionContract['allowed'],
 ): void {
 	assertChoice(fixed.componentVariantId, allowed.componentVariantIds, 'fixed component variant');
-	if (fixed.cssVariantId !== undefined) assertChoice(fixed.cssVariantId, allowed.cssVariantIds, 'fixed CSS variant');
-	if (fixed.copyVariantId !== undefined) assertChoice(fixed.copyVariantId, allowed.copyVariantIds, 'fixed copy variant');
+	const completeVariant = allowed.completeComponentVariants.find((binding) => binding.componentVariantId === fixed.componentVariantId);
+	if (!completeVariant) throw new ZoneDecisionSchemaError(`fixed component variant "${fixed.componentVariantId}" has no complete binding`);
+	if (fixed.copyVariantId !== undefined && !completeVariant.compatibleCopyVariantIds.includes(fixed.copyVariantId)) {
+		throw new ZoneDecisionSchemaError('fixed copy variant is not compatible with the fixed component variant');
+	}
 	if (fixed.recipeId !== undefined) assertChoice(fixed.recipeId, allowed.recipeIds, 'fixed recipe');
 	for (const productId of fixed.productIds ?? []) assertChoice(productId, allowed.productIds, 'fixed product');
 	if (fixed.placementId !== undefined) assertChoice(fixed.placementId, allowed.placementIds, 'fixed placement');
@@ -332,6 +413,10 @@ function uniqueIdArray(values: readonly string[]) {
 			ctx.addIssue({ code: 'custom', message: 'identifier arrays must not contain duplicates' });
 		}
 	});
+}
+
+function sameSet(values: readonly unknown[], expected: readonly string[]): boolean {
+	return values.length === expected.length && values.every((value) => typeof value === 'string' && expected.includes(value));
 }
 
 function intersect(registered: readonly string[], allowed: readonly string[]): string[] {

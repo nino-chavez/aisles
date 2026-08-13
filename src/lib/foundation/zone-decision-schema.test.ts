@@ -47,6 +47,11 @@ const catalog = (overrides: Partial<TrustedZoneFieldCatalog> = {}): TrustedZoneF
 	registeredRecipeIds: ['recipe.home', 'recipe.private'],
 	registeredProductIds: ['product.a', 'product.b', 'product.private'],
 	registeredPlacementIds: ['placement.top', 'placement.after-grid', 'placement.private'],
+	completeComponentVariants: [
+		{ componentVariantId: 'component.hero', cssVariantId: 'css.airy', compatibleCopyVariantIds: ['copy.spring'] },
+		{ componentVariantId: 'component.grid', cssVariantId: 'css.dense', compatibleCopyVariantIds: ['copy.evergreen'] },
+		{ componentVariantId: 'component.private', cssVariantId: 'css.private', compatibleCopyVariantIds: ['copy.private'] },
+	],
 	allowedRecipeIds: ['recipe.home'],
 	allowedProductIds: ['product.a', 'product.b'],
 	allowedPlacementIds: ['placement.top', 'placement.after-grid'],
@@ -56,7 +61,6 @@ const catalog = (overrides: Partial<TrustedZoneFieldCatalog> = {}): TrustedZoneF
 	],
 	fixed: {
 		componentVariantId: 'component.hero',
-		cssVariantId: 'css.airy',
 		copyVariantId: 'copy.spring',
 		recipeId: 'recipe.home',
 		productIds: ['product.a'],
@@ -94,15 +98,18 @@ describe('zone decision schema', () => {
 		expect(parsed.success).toBe(false);
 	});
 
-	it('omits CSS selection with component selection instead of exposing a standalone CSS control', () => {
-		const contract = modelContract({ capabilities: ['select_products'] });
+	it('never exposes CSS as a model-authored control', () => {
+		const contract = modelContract();
 		expect(contract.outputSchema.safeParse({ cssVariantId: 'css.dense' }).success).toBe(false);
 	});
 
 	it('intersects registered variants, recipes, and products with their policy bounds', () => {
 		const contract = modelContract();
 		expect(contract.allowed.componentVariantIds).toEqual(['component.hero', 'component.grid']);
-		expect(contract.allowed.cssVariantIds).toEqual(['css.airy', 'css.dense']);
+		expect(contract.allowed.completeComponentVariants).toEqual([
+			{ componentVariantId: 'component.hero', cssVariantId: 'css.airy', compatibleCopyVariantIds: ['copy.spring'] },
+			{ componentVariantId: 'component.grid', cssVariantId: 'css.dense', compatibleCopyVariantIds: ['copy.evergreen'] },
+		]);
 		expect(contract.allowed.copyVariantIds).toEqual(['copy.spring', 'copy.evergreen']);
 		expect(contract.allowed.recipeIds).toEqual(['recipe.home']);
 		expect(contract.allowed.productIds).toEqual(['product.a', 'product.b']);
@@ -111,6 +118,17 @@ describe('zone decision schema', () => {
 		expect(contract.outputSchema.safeParse({ recipeId: 'recipe.private' }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ productIds: ['product.private'] }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ placementId: 'placement.private' }).success).toBe(false);
+	});
+
+	it('makes incompatible component, CSS, and copy combinations impossible', () => {
+		const contract = modelContract();
+		expect(contract.outputSchema.safeParse({ componentVariantId: 'component.grid', copyVariantId: 'copy.spring' }).success).toBe(false);
+		expect(contract.outputSchema.safeParse({ componentVariantId: 'component.grid', cssVariantId: 'css.airy' }).success).toBe(false);
+		const decision = materializeTrustedZoneDecision(contract, { componentVariantId: 'component.grid', copyVariantId: 'copy.evergreen' });
+		expect(decision.envelope.cssVariantId).toBe('css.dense');
+		expect(decision.envelope.rawModelContent).not.toHaveProperty('cssVariantId');
+		const narrowedCss = modelContract({ allowedCssVariantIds: ['css.airy'] });
+		expect(narrowedCss.outputSchema.safeParse({ componentVariantId: 'component.grid' }).success).toBe(false);
 	});
 
 	it('enforces copy bounds and source classes from the trusted catalog', () => {
@@ -124,6 +142,16 @@ describe('zone decision schema', () => {
 		expect(contract.outputSchema.safeParse({ boundedCopy: {} }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ boundedCopy: { headline: 'Pinned headline' } }).success).toBe(true);
 		expect(contract.outputSchema.safeParse({ productIds: ['product.a', 'product.a'] }).success).toBe(false);
+	});
+
+	it('makes rank-only output a permutation and keeps selection separate from ordering', () => {
+		const rankOnly = modelContract({ capabilities: ['rank_products'] });
+		expect(rankOnly.outputSchema.safeParse({ rankedProductIds: ['product.b', 'product.a'] }).success).toBe(true);
+		expect(rankOnly.outputSchema.safeParse({ rankedProductIds: ['product.a'] }).success).toBe(false);
+		const rankAndSelect = modelContract({ capabilities: ['rank_products', 'select_products'] });
+		expect(rankAndSelect.outputSchema.safeParse({ productIds: ['product.a'], rankedProductIds: ['product.a'] }).success).toBe(true);
+		expect(rankAndSelect.outputSchema.safeParse({ productIds: ['product.a'], rankedProductIds: ['product.b'] }).success).toBe(false);
+		expect(rankAndSelect.outputSchema.safeParse({ rankedProductIds: ['product.a'] }).success).toBe(false);
 	});
 
 	it('rejects extra keys and prototype-looking identifiers at both contract and output boundaries', () => {
@@ -200,7 +228,7 @@ describe('zone decision schema', () => {
 	it('refuses model/rules schemas with no eligible values rather than broadening the vocabulary', () => {
 		expect(() => createZoneDecisionContract(
 			policy({ capabilities: ['select_products'] }),
-			catalog({ allowedProductIds: [], fixed: { componentVariantId: 'component.hero', cssVariantId: 'css.airy', copyVariantId: 'copy.spring', recipeId: 'recipe.home', productIds: [] } }),
+			catalog({ allowedProductIds: [], fixed: { componentVariantId: 'component.hero', copyVariantId: 'copy.spring', recipeId: 'recipe.home', productIds: [] } }),
 		)).toThrow('do not call a model');
 	});
 });
