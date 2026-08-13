@@ -65,6 +65,10 @@ export interface KibbleDevInspectorData {
 	provenance?: Record<string, unknown>;
 }
 
+export type KibbleLivePreviewStatus =
+	| { state: 'waiting' | 'updating' | 'failed' }
+	| { state: 'applied'; persona: KibbleInspectorPersona };
+
 export const KIBBLE_INSPECTOR_PERSONAS: readonly KibbleInspectorPersona[] = [
 	'gatherer',
 	'hunter',

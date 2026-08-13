@@ -9,17 +9,22 @@
 		type KibbleInspectorInference,
 		type KibbleInspectorProductSummary,
 		type KibbleInspectorZone,
+		type KibbleLivePreviewStatus,
 	} from './kibble-dev-inspector';
 
-	let { inspector }: { inspector: KibbleDevInspectorData } = $props();
+	let {
+		inspector,
+		livePreview = { state: 'waiting' },
+	}: {
+		inspector: KibbleDevInspectorData;
+		livePreview?: KibbleLivePreviewStatus;
+	} = $props();
 	let liveInference = $state<KibbleInspectorInference | null>(null);
-	let hasLiveInferenceUpdate = $state(false);
 	const safeInspectorInference = $derived(sanitizeInspectorInference(inspector.inference));
 	const currentInference = $derived(liveInference ?? safeInspectorInference);
 
 	$effect(() => {
 		liveInference = safeInspectorInference;
-		hasLiveInferenceUpdate = false;
 	});
 
 	onMount(() => {
@@ -30,7 +35,6 @@
 				: detail;
 			if (!isKibbleInspectorInference(candidate)) return;
 			liveInference = sanitizeInspectorInference(candidate);
-			hasLiveInferenceUpdate = true;
 		};
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
 		return () => window.removeEventListener('aisles-inference-update', onInferenceUpdate);
@@ -41,6 +45,12 @@
 	const productNames = (products: readonly KibbleInspectorProductSummary[] | undefined) =>
 		products?.map((product) => product.variant ? `${product.name} (${product.variant})` : product.name).join(' → ') ?? '—';
 	const raw = (value: unknown) => JSON.stringify(redactInspectorDebugValue(value), null, 2);
+	const previewMessage = (status: KibbleLivePreviewStatus) => {
+		if (status.state === 'updating') return 'updating preview';
+		if (status.state === 'applied') return `preview applied for ${status.persona}`;
+		if (status.state === 'failed') return 'preview failed; last approved shelf retained';
+		return 'waiting for a signal';
+	};
 </script>
 
 <aside class="kc-dev-inspector" aria-labelledby="kibble-dev-inspector-title">
@@ -82,9 +92,9 @@
 			{/if}
 		</div>
 
-		{#if hasLiveInferenceUpdate}
-			<p class="kc-dev-inspector__notice">Live inference updated. Zone decisions below are the last rendered decision until the route refreshes.</p>
-		{/if}
+		<p class="kc-dev-inspector__notice" aria-live="polite">
+			<b>Live shelf preview:</b> {previewMessage(livePreview)}. Production applies decisions on a route boundary; this live change is a development preview.
+		</p>
 	</section>
 
 	<section class="kc-dev-inspector__facts" aria-label="Policy and reference facts">

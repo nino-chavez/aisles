@@ -61,4 +61,11 @@ describe('KibbleDevInspector', () => {
 		expect(result.body).toContain('policy publication mode');
 		expect(result.body).toContain('not deployment status');
 	});
+
+	it('labels the development-only shelf preview and its applied status', () => {
+		const result = render(KibbleDevInspector, { props: { inspector, livePreview: { state: 'applied', persona: 'hunter' } } });
+		expect(result.body).toContain('preview applied for hunter');
+		expect(result.body).toContain('Production applies decisions on a route boundary; this live change is a development preview.');
+		expect(result.body).toContain('aria-live="polite"');
+	});
 });

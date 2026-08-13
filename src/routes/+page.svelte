@@ -5,7 +5,9 @@
 	import type { Layout } from '$lib/schema/layout';
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
 	import { KibbleHomeReference } from '$lib/components/kibble';
-	import type { KibbleDevInspectorData } from '$lib/components/kibble/kibble-dev-inspector';
+	import type { KibbleDevInspectorData, KibbleLivePreviewStatus } from '$lib/components/kibble/kibble-dev-inspector';
+	import { validateKibbleLivePreview } from '$lib/components/kibble/kibble-live-preview';
+	import type { KibbleProduct } from '$lib/components/kibble/types';
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 	import { KIBBLE_PARITY_FIXED_DATA_IDENTITY } from '$lib/brand/reference/kibble-parity';
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
@@ -15,14 +17,46 @@
 	let aiLayout = $state<Layout | null>(null);
 	let aiError = $state<string | null>(null);
 	let overridePersona = $state<string | null>(null);
-	let DevInspector = $state<Component<{ inspector: KibbleDevInspectorData }> | null>(null);
+	let DevInspector = $state<Component<{ inspector: KibbleDevInspectorData; livePreview?: KibbleLivePreviewStatus }> | null>(null);
+	let previewProducts = $state<KibbleProduct[] | null>(null);
+	let previewInspector = $state<KibbleDevInspectorData | null>(null);
+	let livePreviewStatus = $state<KibbleLivePreviewStatus>({ state: 'waiting' });
+	let previewController: AbortController | null = null;
+	let previewGeneration = 0;
 	let currentPersona = $derived(overridePersona ?? data.persona ?? 'gatherer');
+	let previewEnabled = $derived(dev && data.renderMode === 'reference-preserve' && !!data.kibbleHomeInspector);
 
 	$effect(() => {
 		if (!dev || !data.kibbleHomeInspector || DevInspector) return;
 		void import('$lib/components/kibble/KibbleDevInspector.svelte').then(({ default: component }) => {
 			DevInspector = component;
 		});
+	});
+
+	// A navigation establishes a new approved shelf. Do not carry a dev preview
+	// or an in-flight response across that PageData boundary.
+	$effect(() => {
+		data;
+		previewGeneration += 1;
+		previewController?.abort();
+		previewController = null;
+		previewProducts = null;
+		previewInspector = null;
+		livePreviewStatus = { state: 'waiting' };
+	});
+
+	$effect(() => {
+		if (!previewEnabled || !data.kibbleHomeInspector) return;
+		const expectation = {
+			reference: { ...data.kibbleHomeInspector.reference },
+			policyVersion: data.kibbleHomeInspector.policyVersion,
+		};
+		const onInferenceUpdate = () => void requestKibbleHomePreview(expectation);
+		window.addEventListener('aisles-inference-update', onInferenceUpdate);
+		return () => {
+			window.removeEventListener('aisles-inference-update', onInferenceUpdate);
+			previewController?.abort();
+		};
 	});
 
 	// Fetch an AI-generated layout for categorySlug "home" on mount, and again
@@ -120,6 +154,31 @@
 			console.error('AI homepage layout generation failed, using static homepage:', aiError);
 		}
 	}
+
+	async function requestKibbleHomePreview(expectation: { reference: { id: string; version: string }; policyVersion: string }) {
+		const requestGeneration = previewGeneration;
+		previewController?.abort();
+		const controller = new AbortController();
+		previewController = controller;
+		livePreviewStatus = { state: 'updating' };
+
+		try {
+			const response = await fetch('/api/kibble/home-decision?dev=true', { method: 'POST', signal: controller.signal });
+			if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
+			const validation = validateKibbleLivePreview(await response.json(), expectation);
+			if (!validation.ok) throw new Error(validation.reason);
+			if (requestGeneration !== previewGeneration || controller.signal.aborted) return;
+			previewProducts = validation.preview.products;
+			previewInspector = validation.preview.inspector;
+			livePreviewStatus = { state: 'applied', persona: validation.preview.persona };
+		} catch (error) {
+			if (controller.signal.aborted || requestGeneration !== previewGeneration) return;
+			console.warn('Kibble live preview was rejected; retaining the approved shelf.', error);
+			livePreviewStatus = { state: 'failed' };
+		} finally {
+			if (previewController === controller) previewController = null;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -129,7 +188,7 @@
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleHome}
 	{#if data.kibbleHomeInspector && DevInspector}
-		<DevInspector inspector={data.kibbleHomeInspector} />
+		<DevInspector inspector={previewInspector ?? data.kibbleHomeInspector} livePreview={livePreviewStatus} />
 	{/if}
 	<div
 		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}
@@ -139,7 +198,7 @@
 	>
 		<KibbleHomeReference
 			hero={data.kibbleHome.hero}
-			products={data.kibbleHome.products}
+			products={previewProducts ?? data.kibbleHome.products}
 			productHrefs={data.kibbleHome.productHrefs}
 			categories={data.kibbleHome.categories}
 			serviceProof={data.kibbleHome.serviceProof}
