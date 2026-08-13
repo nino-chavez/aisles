@@ -1,6 +1,10 @@
 export { default as KibbleFeaturedGrid } from './KibbleFeaturedGrid.svelte';
 export { default as KibbleErrorReference } from './KibbleErrorReference.svelte';
-export { default as KibbleUnavailableReference } from './KibbleUnavailableReference.svelte';
+export { default as KibbleSearchReference } from './KibbleSearchReference.svelte';
+export { default as KibbleCartReference } from './KibbleCartReference.svelte';
+export { default as KibbleAccountReference } from './KibbleAccountReference.svelte';
+export { default as KibbleCheckoutReference } from './KibbleCheckoutReference.svelte';
+export { default as KibbleSubscriptionsReference } from './KibbleSubscriptionsReference.svelte';
 export { default as KibbleFooter } from './KibbleFooter.svelte';
 export { default as KibbleCategoryReference } from './KibbleCategoryReference.svelte';
 export { default as KibbleHeader } from './KibbleHeader.svelte';

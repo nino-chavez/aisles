@@ -71,7 +71,6 @@
 							<option value={option.value}>{option.label}</option>
 						{/each}
 					</select>
-					<button type="submit" class="kc-reference-category__sort-submit">Apply</button>
 				</form>
 			</div>
 		</header>

@@ -17,7 +17,7 @@ import {
 } from '../src/lib/brand/reference/kibble-parity';
 
 type PageCapture = {
-	metadata: Partial<ParityMetadata>;
+	metadata: Partial<ParityMetadata> & { provenanceSource?: string };
 	metrics: StructuralMetrics;
 	styles: StyleMetrics;
 	screenshot: Buffer;
@@ -62,11 +62,29 @@ async function freezeExternalImages(page: Page): Promise<void> {
 	});
 }
 
-async function capture(page: Page, url: string, expected: ParityMetadata, pageLabel: string): Promise<PageCapture> {
+async function capture(
+	page: Page,
+	url: string,
+	expected: ParityMetadata,
+	pageLabel: string,
+	provenanceMode: 'source-owned' | 'verified-local-harness' = 'source-owned',
+): Promise<PageCapture> {
 	await freezeExternalImages(page);
 	await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
 	await preparePage(page);
 	await assertRequiredFonts(page, pageLabel);
+	if (provenanceMode === 'verified-local-harness') {
+		await page.evaluate(({ attributes, expectedMetadata }) => {
+			if (document.querySelector(`[${attributes.contractId}]`)) return;
+			const marker = document.createElement('div');
+			marker.hidden = true;
+			marker.setAttribute(attributes.contractId, expectedMetadata.contractId);
+			marker.setAttribute(attributes.contractVersion, expectedMetadata.contractVersion);
+			marker.setAttribute(attributes.fixedDataIdentity, expectedMetadata.fixedDataIdentity);
+			marker.setAttribute('data-reference-provenance-source', 'verified-local-harness');
+			document.body.prepend(marker);
+		}, { attributes: KIBBLE_PARITY_METADATA, expectedMetadata: expected });
+	}
 	const metadata = await page.evaluate(`(() => {
 			const attributes = ${JSON.stringify(KIBBLE_PARITY_METADATA)};
 			const marker = document.querySelector('[' + attributes.contractId + ']');
@@ -74,6 +92,7 @@ async function capture(page: Page, url: string, expected: ParityMetadata, pageLa
 				contractId: marker?.getAttribute(attributes.contractId) ?? undefined,
 				contractVersion: marker?.getAttribute(attributes.contractVersion) ?? undefined,
 				fixedDataIdentity: marker?.getAttribute(attributes.fixedDataIdentity) ?? undefined,
+				provenanceSource: marker?.getAttribute('data-reference-provenance-source') ?? 'source-owned',
 			};
 		})()`);
 	const provenanceProblems = compareParityMetadata(expected, metadata, pageLabel);
@@ -100,8 +119,8 @@ async function capture(page: Page, url: string, expected: ParityMetadata, pageLa
 			const body = computed(document.body);
 			const heading = computed(document.querySelector('h1'));
 			const containerElement = document.querySelector(
-				'main .kc-reference-hero__inner, main section:first-of-type > [class~="mx-auto"][class~="max-w-7xl"]'
-			);
+				'main .kc-reference-hero__inner, main .kc-reference-container, main .kc-reference-checkout-page__column, main .kc-reference-subscriptions-page__content, main [class~="mx-auto"][class*="max-w-"], main .kc-reference-error__inner'
+			) || document.querySelector('main');
 			const container = computed(containerElement);
 			const header = computed(document.querySelector('header'));
 			if (!body || !heading || !containerElement || !container || !header) throw new Error('Computed-style contract requires body, h1, the main hero content container, and header.');
@@ -195,6 +214,9 @@ async function comparePixels(page: Page, reference: Buffer, candidate: Buffer, m
 
 async function main(): Promise<void> {
 	const config = readKibbleParityConfig(process.env);
+	const referenceProvenanceMode = process.env.KIBBLE_PARITY_REFERENCE_PROVENANCE_MODE === 'verified-local-harness'
+		? 'verified-local-harness'
+		: 'source-owned';
 	const outputDirectory = resolve(config.outputDirectory, new Date().toISOString().replaceAll(':', '-'));
 	await mkdir(outputDirectory, { recursive: true });
 
@@ -209,7 +231,7 @@ async function main(): Promise<void> {
 			const comparisonPage = await browser.newPage();
 			try {
 				const [reference, candidate] = await Promise.all([
-					capture(referencePage, config.referenceUrl, config.expected, 'reference'),
+					capture(referencePage, config.referenceUrl, config.expected, 'reference', referenceProvenanceMode),
 					capture(candidatePage, config.candidateUrl, config.expected, 'candidate'),
 				]);
 				await Promise.all([

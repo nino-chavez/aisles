@@ -11,6 +11,7 @@ import { load as loadSearch } from './search/+page.server';
 import { GET as getCart, POST as postCart } from './api/cart/+server';
 import type { Product } from '$lib/types';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
+import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 
 const route = (path: string) => readFileSync(resolve(import.meta.dirname, path), 'utf8');
 const product: Product = {
@@ -53,7 +54,7 @@ describe('Preserve route boundaries', () => {
 			expect(kibble.kibbleChrome?.navItems[0]).toEqual({ label: 'Dog Food', href: '/category/dog-food' });
 			expect(kibble.kibbleChrome?.statusItems).toEqual([]);
 			expect(kibble.kibbleErrorPolicy).toMatchObject({
-				referenceId: 'kibble-shelf-native', referenceVersion: '1.5.0',
+				referenceId: 'kibble-shelf-native', referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
 				policies: [{ surface: 'error-404' }, { surface: 'error-empty' }],
 			});
 
@@ -164,7 +165,7 @@ describe('Preserve route boundaries', () => {
 			},
 		});
 		expect(result.body).toContain('data-reference-pdp="catalog-display-only"');
-		expect(result.body).toContain('data-reference-contract-version="1.5.0"');
+		expect(result.body).toContain(`data-reference-contract-version="${KIBBLE_REFERENCE_CONTRACT.version}"`);
 		expect(result.body).toContain('Purchase unavailable in this preview');
 		expect(result.body).not.toMatch(/Add to Cart|Add to Picks|Pairs well with/);
 	});
@@ -179,7 +180,7 @@ describe('Preserve route boundaries', () => {
 	it('renders search as a fixed Kibble unavailable state without requesting the catalog', async () => {
 		const parent = async () => ({ devMode: false, chromeMode: 'reference', renderMode: 'reference-preserve' });
 		await expect(loadSearch({ url: new URL('https://aisles.test/search?q=food'), parent } as never))
-			.resolves.toMatchObject({ renderMode: 'reference-preserve', kibbleSearch: { query: 'food', heading: 'Search' } });
+			.resolves.toMatchObject({ renderMode: 'reference-preserve', kibbleSearch: { query: 'food', availabilityMessage: expect.stringContaining('No result request') } });
 	});
 
 	it('fails the unsupported Kibble cart API closed', async () => {

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { access } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -11,12 +11,37 @@ export const KIBBLE_PARITY_CONTRACT_ID = KIBBLE_REFERENCE_CONTRACT.id;
 export const KIBBLE_PARITY_CONTRACT_VERSION = KIBBLE_REFERENCE_CONTRACT.version;
 export const KIBBLE_PARITY_FIXED_DATA_IDENTITY = KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256;
 export const KIBBLE_PARITY_PDP_SOURCE_FILES = KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.adapted;
+const KIBBLE_PARITY_SOURCE_GROUPS = [
+	KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.adapted,
+	KIBBLE_REFERENCE_CONTRACT.recipes.search.source.dependencyClosure.adapted,
+	KIBBLE_REFERENCE_CONTRACT.recipes.cart.source.dependencyClosure.adapted,
+	KIBBLE_REFERENCE_CONTRACT.recipes.account.source.dependencyClosure.adapted,
+	KIBBLE_REFERENCE_CONTRACT.recipes.checkout.source.dependencyClosure.adapted,
+	KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.source.dependencyClosure.adapted,
+] as const;
+export const KIBBLE_PARITY_ADAPTED_SOURCE_FILES = [...new Map(
+	KIBBLE_PARITY_SOURCE_GROUPS.flatMap((group) => [...group]).map((file) => [file.path, file]),
+).values()];
 export const KIBBLE_PARITY_DEFAULT_TOLERANCES = {
 	header: 0, nav: 0, main: 0, footer: 0, h1: 0, h2: 0, h3: 0,
 	section: 0, image: 0, link: 0, button: 0, pageHeight: 0,
 };
 
-export type LocalParityRoute = { id: string; path: string };
+export type LocalParityRoute = { id: string; referencePath: string; candidatePath: string };
+
+export const KIBBLE_PARITY_DEFAULT_ROUTES: LocalParityRoute[] = [
+	{ id: 'home', referencePath: '/', candidatePath: '/' },
+	{ id: 'plp', referencePath: '/category/dog-food', candidatePath: '/category/dog-food' },
+	{ id: 'pdp-review', referencePath: '/products/openfarm-goodgut-grass-fed-beef-dog-kibble', candidatePath: '/product/openfarm-goodgut-grass-fed-beef-dog-kibble?dev=true' },
+	{ id: 'search', referencePath: '/search?q=goodgut', candidatePath: '/search?q=goodgut' },
+	{ id: 'cart', referencePath: '/cart', candidatePath: '/cart' },
+	{ id: 'account', referencePath: '/account/login', candidatePath: '/account/login' },
+	{ id: 'subscriptions', referencePath: '/subscriptions', candidatePath: '/subscriptions' },
+	{ id: 'checkout-gift', referencePath: '/checkout/gift', candidatePath: '/checkout/gift' },
+	{ id: 'checkout-prepaid', referencePath: '/checkout/prepaid', candidatePath: '/checkout/prepaid' },
+	{ id: 'checkout-confirmation', referencePath: '/checkout/confirmation', candidatePath: '/checkout/confirmation' },
+	{ id: 'error-404', referencePath: '/missing-kibble-route', candidatePath: '/missing-kibble-route' },
+];
 
 export function deriveLocalParityPaths(workspaceRoot: string): { referenceRoot: string; fixturePath: string } {
 	return {
@@ -35,7 +60,7 @@ export function findWorkspaceRoot(repositoryRoot: string): string {
 }
 
 export function readLocalParityRoutes(value: string | undefined): LocalParityRoute[] {
-	if (!value) return [{ id: 'home', path: '/' }];
+	if (!value) return KIBBLE_PARITY_DEFAULT_ROUTES.map((route) => ({ ...route }));
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(value);
@@ -50,18 +75,21 @@ export function readLocalParityRoutes(value: string | undefined): LocalParityRou
 		if (typeof candidate.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/i.test(candidate.id) || ids.has(candidate.id)) {
 			throw new Error(`KIBBLE_PARITY_LOCAL_ROUTES[${index}].id must be a unique filesystem-safe value.`);
 		}
-		if (typeof candidate.path !== 'string' || !candidate.path.startsWith('/') || candidate.path.startsWith('//')) {
-			throw new Error(`KIBBLE_PARITY_LOCAL_ROUTES[${index}].path must be an absolute storefront path.`);
+		const sharedPath = typeof candidate.path === 'string' ? candidate.path : null;
+		const referencePath = typeof candidate.referencePath === 'string' ? candidate.referencePath : sharedPath;
+		const candidatePath = typeof candidate.candidatePath === 'string' ? candidate.candidatePath : sharedPath;
+		for (const [field, path] of [['referencePath', referencePath], ['candidatePath', candidatePath]] as const) {
+			if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) throw new Error(`KIBBLE_PARITY_LOCAL_ROUTES[${index}].${field} must be an absolute storefront path.`);
 		}
 		ids.add(candidate.id);
-		return { id: candidate.id, path: candidate.path };
+		return { id: candidate.id, referencePath, candidatePath };
 	});
 }
 
 export function verifyPinnedFixture(fixturePath: string, referenceRoot: string): void {
 	const digest = createHash('sha256').update(readFileSync(fixturePath)).digest('hex');
 	if (digest !== KIBBLE_PARITY_FIXED_DATA_IDENTITY) throw new Error(`Pinned Kibble fixture SHA mismatch: expected ${KIBBLE_PARITY_FIXED_DATA_IDENTITY}, received ${digest}.`);
-	verifyPinnedPdpSourceFiles(referenceRoot);
+	verifyPinnedAdaptedSourceFiles(referenceRoot);
 	const source = readFileSync(resolve(referenceRoot, 'src/lib/brand/kibble-shelf-reference.ts'), 'utf8');
 	for (const marker of [KIBBLE_PARITY_CONTRACT_ID, KIBBLE_PARITY_CONTRACT_VERSION, KIBBLE_PARITY_FIXED_DATA_IDENTITY]) {
 		if (!source.includes(marker)) throw new Error(`Canonical reference provenance does not contain ${marker}.`);
@@ -69,23 +97,34 @@ export function verifyPinnedFixture(fixturePath: string, referenceRoot: string):
 }
 
 export function verifyPinnedPdpSourceFiles(referenceRoot: string): void {
+	verifyPinnedAdaptedSourceFiles(referenceRoot);
+}
+
+export function verifyPinnedAdaptedSourceFiles(referenceRoot: string): void {
 	const applicationPrefix = `${KIBBLE_REFERENCE_CONTRACT.source.applicationPath}/`;
-	const digests = Object.fromEntries(KIBBLE_PARITY_PDP_SOURCE_FILES.map(({ path }) => {
+	const digests = Object.fromEntries(KIBBLE_PARITY_ADAPTED_SOURCE_FILES.map(({ path }) => {
 		if (!path.startsWith(applicationPrefix)) {
-			throw new Error(`Pinned Kibble PDP source path is outside ${KIBBLE_REFERENCE_CONTRACT.source.applicationPath}: ${path}.`);
+			throw new Error(`Pinned Kibble adapted source path is outside ${KIBBLE_REFERENCE_CONTRACT.source.applicationPath}: ${path}.`);
 		}
 		const relativePath = path.slice(applicationPrefix.length);
 		const digest = createHash('sha256').update(readFileSync(resolve(referenceRoot, relativePath))).digest('hex');
 		return [path, digest];
 	}));
-	verifyPinnedPdpSourceDigests(digests);
+	verifyPinnedAdaptedSourceDigests(digests);
 }
 
 export function verifyPinnedPdpSourceDigests(digests: Readonly<Record<string, string>>): void {
 	for (const { path, sha256 } of KIBBLE_PARITY_PDP_SOURCE_FILES) {
 		const received = digests[path];
+		if (received !== sha256) throw new Error(`Pinned Kibble PDP source SHA mismatch for ${path}: expected ${sha256}, received ${received ?? 'missing'}.`);
+	}
+}
+
+export function verifyPinnedAdaptedSourceDigests(digests: Readonly<Record<string, string>>): void {
+	for (const { path, sha256 } of KIBBLE_PARITY_ADAPTED_SOURCE_FILES) {
+		const received = digests[path];
 		if (received !== sha256) {
-			throw new Error(`Pinned Kibble PDP source SHA mismatch for ${path}: expected ${sha256}, received ${received ?? 'missing'}.`);
+			throw new Error(`Pinned Kibble adapted source SHA mismatch for ${path}: expected ${sha256}, received ${received ?? 'missing'}.`);
 		}
 	}
 }
@@ -121,10 +160,10 @@ function stop(process: ChildProcess): Promise<void> {
 	});
 }
 
-function run(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<void> {
-	return new Promise((resolveRun, rejectRun) => {
+function runForStatus(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<number> {
+	return new Promise((resolveRun) => {
 		const process = child(command, args, { cwd, env });
-		process.once('exit', (code) => code === 0 ? resolveRun() : rejectRun(new Error(`${command} ${args.join(' ')} exited ${code ?? 'without a code'}.`)));
+		process.once('exit', (code) => resolveRun(code ?? 1));
 	});
 }
 
@@ -155,6 +194,7 @@ async function main(): Promise<void> {
 		CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: 'postgres://kibble-parity:fixture@127.0.0.1:5432/kibble-parity',
 		BIGCOMMERCE_STORE_HASH: 'kibble-parity-fixture',
 		BIGCOMMERCE_STOREFRONT_TOKEN: 'kibble-parity-fixture',
+		KIBBLE_PARITY_FIXED_DATA_IDENTITY,
 	};
 	const reference = child('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(referencePort), '--strictPort'], { cwd: referenceRoot, env: baseEnv });
 	const candidate = child('npx', ['vite', '--config', 'scripts/kibble-parity-local-vite.config.ts', '--host', '127.0.0.1', '--port', String(candidatePort), '--strictPort'], {
@@ -168,12 +208,12 @@ async function main(): Promise<void> {
 			waitForRenderedPage(`http://127.0.0.1:${candidatePort}/`, 'Aisles candidate'),
 		]);
 		const evidenceRoot = `validation/kibble-parity-local/${new Date().toISOString().replaceAll(':', '-')}`;
+		const routeResults: Array<{ id: string; referencePath: string; candidatePath: string; status: 'passed' | 'failed' }> = [];
 		for (const route of routes) {
-			const routePath = route.path.replace(/^\//, '');
-			const referenceUrl = new URL(routePath, `http://127.0.0.1:${referencePort}/`).toString();
-			const candidateUrl = new URL(routePath, `http://127.0.0.1:${candidatePort}/`).toString();
-			console.log(`Kibble local parity: ${route.id} (${route.path})`);
-			await run('npm', ['run', 'test:kibble-parity'], candidateRoot, {
+			const referenceUrl = new URL(route.referencePath.replace(/^\//, ''), `http://127.0.0.1:${referencePort}/`).toString();
+			const candidateUrl = new URL(route.candidatePath.replace(/^\//, ''), `http://127.0.0.1:${candidatePort}/`).toString();
+			console.log(`Kibble local parity: ${route.id} (${route.referencePath} -> ${route.candidatePath})`);
+			const code = await runForStatus('npm', ['run', 'test:kibble-parity'], candidateRoot, {
 				...baseEnv,
 				KIBBLE_PARITY_REFERENCE_URL: referenceUrl,
 				KIBBLE_PARITY_CANDIDATE_URL: candidateUrl,
@@ -184,8 +224,23 @@ async function main(): Promise<void> {
 				KIBBLE_PARITY_MAX_PIXEL_DIFFERENCE_RATIO: process.env.KIBBLE_PARITY_MAX_PIXEL_DIFFERENCE_RATIO ?? '0',
 				KIBBLE_PARITY_STRUCTURE_TOLERANCES: process.env.KIBBLE_PARITY_STRUCTURE_TOLERANCES ?? JSON.stringify(KIBBLE_PARITY_DEFAULT_TOLERANCES),
 				KIBBLE_PARITY_OUTPUT_DIR: `${evidenceRoot}/${route.id}`,
+				KIBBLE_PARITY_ROUTE_ID: route.id,
+				KIBBLE_PARITY_REFERENCE_PROVENANCE_MODE: 'verified-local-harness',
 			});
+			routeResults.push({ ...route, status: code === 0 ? 'passed' : 'failed' });
 		}
+		await mkdir(evidenceRoot, { recursive: true });
+		const differenceLedger = {
+			status: routeResults.some(({ status }) => status === 'failed') ? 'open' : 'passed',
+			generatedAt: new Date().toISOString(),
+			masks: [],
+			routes: routeResults,
+			requiredFixes: routeResults.filter(({ status }) => status === 'failed').map(({ id }) => ({ routeId: id, evidence: `${evidenceRoot}/${id}`, reason: 'Executable visual or structural parity reported unresolved differences.' })),
+			deliberateOpenApprovalItems: [{ routeId: 'home', reason: 'Truth and accessibility differences, including omission of unsubstantiated reference claims, remain visible and require named human approval. They are not masked or accepted by this runner.' }],
+		};
+		await writeFile(`${evidenceRoot}/difference-ledger.json`, `${JSON.stringify(differenceLedger, null, 2)}\n`);
+		console.log(`Kibble local parity difference ledger: ${evidenceRoot}/difference-ledger.json`);
+		if (differenceLedger.status === 'open') throw new Error(`Kibble local parity remains open after the full route matrix. Evidence: ${evidenceRoot}`);
 	} finally {
 		await Promise.all([stop(reference), stop(candidate)]);
 	}

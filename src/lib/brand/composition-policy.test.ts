@@ -91,7 +91,7 @@ describe('Kibble composition policy registry', () => {
 		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'pdp')).not.toThrow();
 	});
 
-	it('binds search, cart, and checkout to fixed unavailable Kibble shells', () => {
+	it('binds search, cart, and checkout to their fixed route-native Kibble shells', () => {
 		for (const surface of ['search', 'cart', 'checkout'] as const) {
 			const decision = getContractSurfaceDecision('kibble', surface);
 			expect(decision.mode).toBe('reference-preserve');
@@ -99,7 +99,8 @@ describe('Kibble composition policy registry', () => {
 			expect(decision.policy.capabilities).toEqual([]);
 			expect(decision.policy.decisionMode).toBe('fixed');
 			expect(decision.policy.publicationMode).toBe('live');
-			expect(decision.policy.allowedComponentVariantIds).toContain('kibble.unavailable.reference-shell');
+			expect(decision.policy.allowedComponentVariantIds).toContain(KIBBLE_REFERENCE_CONTRACT.recipes[surface].variantId);
+			expect(decision.policy.allowedComponentVariantIds).not.toContain('kibble.unavailable.reference-shell');
 			expect(() => assertKibblePreserveRoutePolicy(decision.policy, surface)).not.toThrow();
 		}
 	});

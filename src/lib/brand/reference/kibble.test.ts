@@ -5,9 +5,15 @@ import {
 	KIBBLE_PDP_EXCLUDED_DEPENDENCIES,
 	KIBBLE_PDP_EXTERNAL_DEPENDENCIES,
 	KIBBLE_REFERENCE_CONTRACT,
+	KIBBLE_SEARCH_SOURCE_CLOSURE,
+	KIBBLE_CART_SOURCE_CLOSURE,
+	KIBBLE_ACCOUNT_SOURCE_CLOSURE,
+	KIBBLE_CHECKOUT_SOURCE_CLOSURE,
+	KIBBLE_SUBSCRIPTIONS_SOURCE_CLOSURE,
 	KibbleReferenceContractSchema,
 } from './kibble';
 import { KIBBLE_PLP_GRAPHQL_SORT } from './kibble-plp';
+import { KIBBLE_CANONICAL_UNION_ZONE_IDS } from './kibble-zone-union';
 
 type MutableContract = ReturnType<typeof structuredClone<typeof KIBBLE_REFERENCE_CONTRACT>>;
 
@@ -90,7 +96,7 @@ describe('Kibble reference contract', () => {
 
 	it('separates root chrome from the home component anatomy', () => {
 		const anatomy = KIBBLE_REFERENCE_CONTRACT.recipes.home.orderedAnatomy;
-		expect(KIBBLE_REFERENCE_CONTRACT.recipes.home.acceptance).toBe('approved');
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.home.acceptance).toBe('pending-parity');
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp.acceptance).toBe('approved');
 		expect(KIBBLE_REFERENCE_CONTRACT.chrome.mobileDrawerBreakpointPx).toBe(1024);
 		expect(anatomy.map(({ slot, owner }) => ({ slot, owner }))).toEqual([
@@ -195,8 +201,8 @@ describe('Kibble reference contract', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp).toMatchObject({
 			acceptance: 'implemented-pending-visual-approval',
 			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4' },
-			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-bundle-contents', 'catalog-options', 'merchant-approved-purchase-unavailable', 'description-and-specifications', 'related-products'],
-			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'merchant-approved-purchase-unavailable' },
+			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-bundle-contents', 'catalog-options', 'truthful-purchase-unavailable', 'description-and-specifications', 'related-products'],
+			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'truthful-purchase-unavailable' },
 			publication: { mode: 'approval-required', reviewAvailability: 'development-build-only', productLinks: 'disabled-until-approved' },
 			modelLayoutRequest: false,
 		});
@@ -227,7 +233,7 @@ describe('Kibble reference contract', () => {
 			{ module: '$lib/subscriptions/eligible-products.json', reason: 'Aisles excludes Auto-Refill eligibility, subscribe pricing, and savings claims from related-product cards.' },
 			{ module: '$lib/server/cart', reason: 'Aisles does not create or mutate a cart from the review-only PDP.' },
 			{ module: '$lib/server/cart-intents', reason: 'Aisles does not persist subscription intents from the review-only PDP.' },
-			{ module: 'products/[slug]/+page.server.ts#actions.addToCart', reason: 'Aisles replaces canonical purchase actions with the merchant-approved purchase-unavailable state.' },
+			{ module: 'products/[slug]/+page.server.ts#actions.addToCart', reason: 'Aisles replaces canonical purchase actions with a truthful purchase-unavailable state while parity remains pending.' },
 		]);
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.external).toEqual([
 			{ module: '@sveltejs/kit', classification: 'framework-runtime' },
@@ -309,5 +315,71 @@ describe('Kibble reference contract', () => {
 		const badError = cloneContract();
 		(badError.recipes.error as { implementation: string }).implementation = 'KibbleFooter.svelte';
 		expect(KibbleReferenceContractSchema.safeParse(badError).success).toBe(false);
+	});
+
+	it('matches the independently hard-coded 28-zone union exactly', () => {
+		const expected = [
+			'home.hero', 'home.featured-row', 'home.editorial-strip', 'home.brand-spotlight', 'home.below-fold',
+			'plp.banner', 'plp.editorial-header', 'plp.cluster-row', 'plp.between-thirds', 'plp.below-grid', 'plp.empty-state',
+			'pdp.below-description', 'pdp.related', 'pdp.cross-sell', 'pdp.recently-viewed', 'pdp.below-recs',
+			'cart.above-checkout-cta', 'cart.below-fold', 'cart.empty-state',
+			'checkout.assurance-strip', 'checkout.last-chance-upsell', 'search.empty-state', 'search.zero-results-rescue',
+			'account.welcome', 'account.dashboard-pick', 'locator.editorial-intro', 'error-404.rescue', 'error-empty.rescue',
+		];
+		expect(KIBBLE_CANONICAL_UNION_ZONE_IDS).toEqual(expected);
+		expect(KIBBLE_REFERENCE_CONTRACT.unionZoneCoverage.map(({ id }) => id)).toEqual(expected);
+
+		const renamed = cloneContract();
+		(renamed.unionZoneCoverage[10] as { id: string }).id = 'plp.empty';
+		expect(KibbleReferenceContractSchema.safeParse(renamed).success).toBe(false);
+		const substituted = cloneContract();
+		(substituted.unionZoneCoverage[15] as { id: string }).id = 'pdp.below-recommendations';
+		expect(KibbleReferenceContractSchema.safeParse(substituted).success).toBe(false);
+		const duplicated = cloneContract();
+		(duplicated.unionZoneCoverage[18] as { id: string }).id = 'cart.below-fold';
+		expect(KibbleReferenceContractSchema.safeParse(duplicated).success).toBe(false);
+	});
+
+	it('pins complete route dependency classifications and rejects independent mutations', () => {
+		const closures = {
+			search: KIBBLE_SEARCH_SOURCE_CLOSURE,
+			cart: KIBBLE_CART_SOURCE_CLOSURE,
+			account: KIBBLE_ACCOUNT_SOURCE_CLOSURE,
+			checkout: KIBBLE_CHECKOUT_SOURCE_CLOSURE,
+			subscriptions: KIBBLE_SUBSCRIPTIONS_SOURCE_CLOSURE,
+		} as const;
+		const hardCodedFirstHashes = {
+			search: '75cbfe8a6fa9dbbda7cea804200c9b0dc021fa732927194b0b812454c3ab2158',
+			cart: '2940a76fb4a3fb5d49cfb5325497833060312af6ab184e840c97c8986675a768',
+			account: '1addd8ff2da26b481e24a7cffde1ec5b9b2b9c6737c3b1a318a10cc53a512d38',
+			checkout: '3cb7b0b58389fcf1e30e8843046e4ab8f72436027292bcdad3bbb7dd007ca39b',
+			subscriptions: '7430e47767c479480b4cf04231543f00985b42c32810a989c402b013c6e94f92',
+		};
+		for (const [surface, expected] of Object.entries(closures)) {
+			const recipe = KIBBLE_REFERENCE_CONTRACT.recipes[surface as keyof typeof closures];
+			expect(recipe.acceptance).toBe('pending-parity');
+			expect(recipe.source.dependencyClosure).toEqual(expected);
+			expect(recipe.source.dependencyClosure.adapted[0].sha256).toBe(hardCodedFirstHashes[surface as keyof typeof hardCodedFirstHashes]);
+			for (const root of recipe.source.dependencyClosure.roots) {
+				const classified = [
+					...recipe.source.dependencyClosure.adapted.map(({ path }) => path),
+					...recipe.source.dependencyClosure.excluded.map(({ module }) => module),
+				];
+				expect(classified).toContain(root);
+			}
+		}
+
+		const changedHash = cloneContract();
+		(changedHash.recipes.search.source.dependencyClosure.adapted[0] as { sha256: string }).sha256 = '0'.repeat(64);
+		expect(KibbleReferenceContractSchema.safeParse(changedHash).success).toBe(false);
+		const changedReason = cloneContract();
+		(changedReason.recipes.cart.source.dependencyClosure.excluded[0] as { reason: string }).reason = 'Temporary';
+		expect(KibbleReferenceContractSchema.safeParse(changedReason).success).toBe(false);
+		const changedInvariant = cloneContract();
+		(changedInvariant.recipes.checkout.source.dependencyClosure.excluded[0] as { invariant: string }).invariant = 'Later';
+		expect(KibbleReferenceContractSchema.safeParse(changedInvariant).success).toBe(false);
+		const unclassifiedRoot = cloneContract();
+		unclassifiedRoot.recipes.subscriptions.source.dependencyClosure.excluded.splice(0, 1);
+		expect(KibbleReferenceContractSchema.safeParse(unclassifiedRoot).success).toBe(false);
 	});
 });

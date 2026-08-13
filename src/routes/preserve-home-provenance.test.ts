@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '$lib/types';
+import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 
 const mocks = vi.hoisted(() => ({
 	logGeneration: vi.fn(async () => {}),
@@ -81,7 +82,7 @@ describe('Kibble Preserve home publication', () => {
 
 		if (!data) throw new Error('Expected Preserve home data.');
 		expect(data.provenance).toMatchObject({
-			reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.5.0' },
+			reference: { status: 'contracted', id: 'kibble-shelf-native', version: KIBBLE_REFERENCE_CONTRACT.version },
 			autonomy: { preset: 'preserve', decisionMode: 'rules', publicationMode: 'live' },
 			renderer: { componentId: 'kibble.home', variantId: 'kibble-home-reference-v1' },
 		});
@@ -104,7 +105,7 @@ describe('Kibble Preserve home publication', () => {
 
 		if (!data) throw new Error('Expected Preserve home data.');
 		expect(data.kibbleHomeInspector).toMatchObject({
-			reference: { id: 'kibble-shelf-native', version: '1.5.0' },
+			reference: { id: 'kibble-shelf-native', version: KIBBLE_REFERENCE_CONTRACT.version },
 			surface: 'home',
 			dataSourceLabel: 'merchant-enrichment',
 			inference: { primary: 'gatherer', ruleMatches: [] },

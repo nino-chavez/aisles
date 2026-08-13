@@ -32,7 +32,7 @@ describe('Kibble Preserve API authority boundary', () => {
 
 	it('renders checkout as a Kibble-native unavailable state before the generic shell mounts', async () => {
 		await expect(checkoutLoad({ parent: async () => ({ chromeMode: 'reference' }) } as never))
-			.resolves.toMatchObject({ kibbleCheckout: { heading: 'Checkout' } });
+			.resolves.toMatchObject({ kibbleCheckout: { subtype: 'checkout', availabilityMessage: expect.stringContaining('No checkout service') } });
 		expect(await checkoutLoad({ parent: async () => ({ chromeMode: 'legacy' }) } as never)).toEqual({});
 	});
 });

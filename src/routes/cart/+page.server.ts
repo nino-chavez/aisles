@@ -7,9 +7,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 		return {
 			renderMode,
 			kibbleCart: {
-				heading: 'Your cart',
-				message: 'Cart services are not available in this reference-preserved preview. No cart was read, created, or changed.',
-				returnLabel: 'Return to Kibble & Co.',
+				availabilityMessage: 'Cart services are not available in this reference-preserved preview.',
 			},
 		};
 	}

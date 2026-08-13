@@ -2,10 +2,28 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render } from 'svelte/server';
+import { chromium } from 'playwright';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 import KibbleProductDetailReference from './KibbleProductDetailReference.svelte';
+import KibbleCategoryReference from './KibbleCategoryReference.svelte';
 
 const component = (name: string) => readFileSync(resolve(import.meta.dirname, name), 'utf8');
+
+const pdpProps = (images: Array<{ url: string; alt: string }>) => ({
+	product: {
+		id: 'fixture-product', entityId: 42, name: 'Fixture Product', sku: 'FIXTURE-42', price: 24,
+		image: images[0]?.url ?? '', imageAlt: 'Fixture Product', description: '<p>Fixture details.</p>',
+		descriptionPlain: 'Fixture details.', specs: {}, tags: [], category: 'Dog Food', categoryPath: '/dog-food/',
+		currencyCode: 'USD', isInStock: true, images,
+	},
+	bundle: null,
+	breadcrumbs: [{ label: 'Home', href: '/' }, { label: 'Fixture Product' }],
+	options: [], relatedProducts: [], relatedProductHrefs: {},
+	purchaseUnavailableLabel: KIBBLE_PRESERVE_MANIFEST.display.pdp.purchaseUnavailableLabel,
+	purchaseUnavailableBody: KIBBLE_PRESERVE_MANIFEST.display.pdp.purchaseUnavailableBody,
+	relatedHeading: KIBBLE_PRESERVE_MANIFEST.display.pdp.relatedHeading,
+	copy: { ...KIBBLE_PRESERVE_MANIFEST.display.pdp.copy },
+});
 
 describe('Kibble reference components fail closed', () => {
 	it('does not carry unsupported account, cart, search, or product route defaults', () => {
@@ -71,6 +89,30 @@ describe('Kibble reference components fail closed', () => {
 		expect(category).toContain('name="sort"');
 		expect(category).toContain('{#if loadMoreHref}');
 		expect(category).toContain('productHref={productHrefs[product.id]}');
+		expect(category).not.toContain('kc-reference-category__sort-submit');
+	});
+
+	it('keeps the PLP sort control visible, semantic, and at least 44 pixels tall', async () => {
+		const body = render(KibbleCategoryReference, {
+			props: {
+				eyebrow: 'Catalog', title: 'Dog Food', breadcrumbs: [{ label: 'Home', href: '/' }, { label: 'Dog Food' }],
+				sortLabel: 'Sort by', sortOptions: [{ value: 'FEATURED', label: 'Featured' }], selectedSort: 'FEATURED',
+				productCount: 0, productSingular: 'product', productPlural: 'products', emptyMessage: 'No products.',
+				products: [], productHrefs: {}, loadMoreHref: null, loadMoreLabel: 'Load more',
+			},
+		}).body;
+		const browser = await chromium.launch({ headless: true });
+		try {
+			const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+			await page.setContent(`<style>${component('kibble-reference.css')}</style>${body}`);
+			const select = page.locator('#kibble-category-sort');
+			await select.focus();
+			expect(await select.evaluate((element) => document.activeElement === element)).toBe(true);
+			expect((await select.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+			expect(await page.locator('button[type="submit"]').count()).toBe(0);
+		} finally {
+			await browser.close();
+		}
 	});
 
 	it('keeps the PDP catalog-only and routes every visible label through its adapter copy', () => {
@@ -81,6 +123,27 @@ describe('Kibble reference components fail closed', () => {
 		expect(pdp).toContain('aria-pressed={activeImage === index}');
 		expect(pdp).toContain("aria-current={activeImage === index ? 'true' : undefined}");
 		expect(pdp).toContain('{@html product.description}');
+	});
+
+	it.each([768, 1280])('does not reserve the thumbnail column for a one-image PDP at %ipx', async (width) => {
+		const image = { url: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>', alt: 'Fixture Product' };
+		const oneImage = render(KibbleProductDetailReference, { props: pdpProps([image]) }).body;
+		const multiImage = render(KibbleProductDetailReference, { props: pdpProps([image, { ...image, url: `${image.url}%20` }]) }).body;
+		const browser = await chromium.launch({ headless: true });
+		try {
+			const page = await browser.newPage({ viewport: { width, height: 900 } });
+			await page.setContent(`<style>${component('kibble-reference.css')}</style><div id="one">${oneImage}</div><div id="multi">${multiImage}</div>`);
+			const one = page.locator('#one .kc-reference-pdp__gallery');
+			const multi = page.locator('#multi .kc-reference-pdp__gallery');
+			expect(await one.getAttribute('data-gallery-count')).toBe('1');
+			expect(await one.getAttribute('class')).not.toContain('kc-reference-pdp__gallery--with-thumbnails');
+			expect((await one.evaluate((element) => getComputedStyle(element).gridTemplateColumns)).split(' ')).toHaveLength(1);
+			expect(await multi.getAttribute('data-gallery-count')).toBe('2');
+			expect(await multi.getAttribute('class')).toContain('kc-reference-pdp__gallery--with-thumbnails');
+			expect((await multi.evaluate((element) => getComputedStyle(element).gridTemplateColumns)).split(' ')).toHaveLength(2);
+		} finally {
+			await browser.close();
+		}
 	});
 
 	it('SSR preserves conditional bundle contents and the non-commerce state', () => {

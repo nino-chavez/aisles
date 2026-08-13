@@ -46,9 +46,19 @@ const errorComponentVariantIds = [
 	KIBBLE_REFERENCE_CONTRACT.recipes.error.variantId,
 	'kibble.footer.four-column',
 ] as const;
-const unavailableComponentVariantIds = [
+const searchComponentVariantIds = [
 	'kibble.header.responsive-chrome',
-	'kibble.unavailable.reference-shell',
+	KIBBLE_REFERENCE_CONTRACT.recipes.search.variantId,
+	'kibble.footer.four-column',
+] as const;
+const cartComponentVariantIds = [
+	'kibble.header.responsive-chrome',
+	KIBBLE_REFERENCE_CONTRACT.recipes.cart.variantId,
+	'kibble.footer.four-column',
+] as const;
+const checkoutComponentVariantIds = [
+	'kibble.header.responsive-chrome',
+	KIBBLE_REFERENCE_CONTRACT.recipes.checkout.variantId,
 	'kibble.footer.four-column',
 ] as const;
 
@@ -107,18 +117,18 @@ const kibble: BrandCompositionPolicy = {
 		},
 		search: {
 			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
-			allowedComponentVariantIds: unavailableComponentVariantIds,
-			allowedCssVariantIds: cssFor(unavailableComponentVariantIds), allowedCopyVariantIds: [],
+			allowedComponentVariantIds: searchComponentVariantIds,
+			allowedCssVariantIds: cssFor(searchComponentVariantIds), allowedCopyVariantIds: [],
 		},
 		cart: {
 			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
-			allowedComponentVariantIds: unavailableComponentVariantIds,
-			allowedCssVariantIds: cssFor(unavailableComponentVariantIds), allowedCopyVariantIds: [],
+			allowedComponentVariantIds: cartComponentVariantIds,
+			allowedCssVariantIds: cssFor(cartComponentVariantIds), allowedCopyVariantIds: [],
 		},
 		checkout: {
 			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
-			allowedComponentVariantIds: unavailableComponentVariantIds,
-			allowedCssVariantIds: cssFor(unavailableComponentVariantIds), allowedCopyVariantIds: [],
+			allowedComponentVariantIds: checkoutComponentVariantIds,
+			allowedCssVariantIds: cssFor(checkoutComponentVariantIds), allowedCopyVariantIds: [],
 		},
 		'error-404': {
 			preset: 'preserve',
@@ -172,9 +182,9 @@ const REQUIRED_PRESERVE_POLICY = {
 		componentVariantIds: pdpComponentVariantIds,
 		cssVariantIds: cssFor(pdpComponentVariantIds),
 	},
-	search: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: unavailableComponentVariantIds, cssVariantIds: cssFor(unavailableComponentVariantIds) },
-	cart: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: unavailableComponentVariantIds, cssVariantIds: cssFor(unavailableComponentVariantIds) },
-	checkout: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: unavailableComponentVariantIds, cssVariantIds: cssFor(unavailableComponentVariantIds) },
+	search: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: searchComponentVariantIds, cssVariantIds: cssFor(searchComponentVariantIds) },
+	cart: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: cartComponentVariantIds, cssVariantIds: cssFor(cartComponentVariantIds) },
+	checkout: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: checkoutComponentVariantIds, cssVariantIds: cssFor(checkoutComponentVariantIds) },
 	'error-404': {
 		decisionMode: 'fixed',
 		publicationMode: 'live',

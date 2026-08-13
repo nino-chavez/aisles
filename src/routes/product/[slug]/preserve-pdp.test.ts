@@ -16,7 +16,7 @@ vi.mock('$lib/server/layout-provenance', () => ({ buildContractedLayoutProvenanc
 vi.mock('$lib/server/generation-log', () => ({ logGeneration: mocks.logGeneration }));
 
 import { load } from './+page.server';
-import { KIBBLE_PDP_BOUNDS } from '$lib/brand/reference/kibble';
+import { KIBBLE_PDP_BOUNDS, KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 
 const detail = {
 	entityId: 7, name: 'Verified Food', sku: 'DOG-7', path: '/verified-food/', description: '<p>Catalog description</p>',
@@ -47,7 +47,7 @@ describe('Kibble Preserve PDP route', () => {
 		} });
 		mocks.infer.mockReset().mockReturnValue({ primary: 'gatherer', probabilities: { gatherer: 1, hunter: 0, researcher: 0, gifter: 0 } });
 		mocks.buildContractedLayoutProvenance.mockReset().mockImplementation((input) => ({
-			surface: input.surface, reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.5.0' },
+			surface: input.surface, reference: { status: 'contracted', id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version },
 			autonomy: { decisionMode: 'fixed' }, decisionSource: 'fixed',
 		}));
 		mocks.logGeneration.mockClear();

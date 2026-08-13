@@ -6,9 +6,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 		return {
 			renderMode,
 			kibbleCheckout: {
-				heading: 'Checkout',
-				message: 'Checkout is not available in this reference-preserved preview. No checkout service or redirect is started here.',
-				returnLabel: 'Return to Kibble & Co.',
+				subtype: 'checkout' as const,
+				availabilityMessage: 'Checkout is not available in this reference-preserved preview. No checkout service or redirect was started.',
 			},
 		};
 	}

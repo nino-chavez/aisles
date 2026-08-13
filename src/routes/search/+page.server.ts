@@ -14,9 +14,7 @@ export const load: PageServerLoad = async ({ url, cookies, request, parent }) =>
 			renderMode,
 			kibbleSearch: {
 				query: query.slice(0, 160),
-				heading: 'Search',
-				message: 'Search is not connected in this reference-preserved preview. The catalog stays unchanged until a merchant-approved search service is available.',
-				returnLabel: 'Return to Kibble & Co.',
+				availabilityMessage: 'Catalog search is not connected in this reference-preserved preview. No result request was started.',
 			},
 		};
 	}

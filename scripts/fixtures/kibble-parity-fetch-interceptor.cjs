@@ -5,12 +5,19 @@
  * intentionally outside either storefront's source tree and never runs in a
  * production build. Both Vite processes retain their own rendered routes.
  */
+const { createHash } = require('node:crypto');
 const { readFileSync } = require('node:fs');
 
 const fixturePath = process.env.KIBBLE_PARITY_FIXTURE_PATH;
 if (!fixturePath) throw new Error('KIBBLE_PARITY_FIXTURE_PATH is required by the local parity fixture interceptor.');
 
-const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
+const fixtureBytes = readFileSync(fixturePath);
+const fixtureIdentity = createHash('sha256').update(fixtureBytes).digest('hex');
+const expectedFixtureIdentity = process.env.KIBBLE_PARITY_FIXED_DATA_IDENTITY;
+if (expectedFixtureIdentity && fixtureIdentity !== expectedFixtureIdentity) {
+	throw new Error(`Local Kibble parity fixture identity mismatch: expected ${expectedFixtureIdentity}, received ${fixtureIdentity}.`);
+}
+const fixture = JSON.parse(fixtureBytes.toString('utf8'));
 
 const categories = Object.entries(fixture.categories).map(([name, entityId]) => ({
 	entityId,
@@ -27,6 +34,7 @@ function imageFor(product) {
 function productNode(product) {
 	const category = categories.find((candidate) => candidate.entityId === product.bc_category_id);
 	return {
+		__typename: 'Product',
 		entityId: product.bc_product_id,
 		name: product.name,
 		sku: product.sku,
@@ -41,6 +49,10 @@ function productNode(product) {
 			salePrice: null,
 		},
 		defaultImage: { url: imageFor(product), altText: product.name },
+		images: { edges: [{ node: { url: imageFor(product), altText: product.name } }] },
+		inventory: { isInStock: true },
+		productOptions: { edges: [] },
+		relatedProducts: { edges: [] },
 		customFields: { edges: [] },
 		categories: { edges: category ? [{ node: category }] : [] },
 	};
@@ -48,24 +60,62 @@ function productNode(product) {
 
 const products = fixture.products.map(productNode);
 
+function pageInfo() {
+	return { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null };
+}
+
+function productForPath(path) {
+	const normalized = String(path || '').replace(/^\/+|\/+$/g, '');
+	return products.find((product) => product.path.replace(/^\/+|\/+$/g, '') === normalized) ?? null;
+}
+
+function operationName(query) {
+	return query.match(/\bquery\s+([A-Za-z0-9_]+)/)?.[1] ?? 'unknown';
+}
+
 function responseFor(query, variables) {
-	if (/CategoryTree|GetCategories/.test(query)) return { site: { categoryTree: categories } };
-	if (/FeaturedProducts|GetFeaturedProducts/.test(query)) {
+	const operation = operationName(query);
+	if (operation === 'CategoryTree' || operation === 'GetCategories') return { site: { categoryTree: categories } };
+	if (operation === 'FeaturedProducts' || operation === 'GetFeaturedProducts') {
 		const limit = Math.max(1, Number(variables.first) || 8);
 		return { site: { featuredProducts: { edges: products.slice(0, limit).map((node) => ({ node })) } } };
 	}
-	if (/NewestProducts|GetNewestProducts/.test(query)) {
+	if (operation === 'NewestProducts' || operation === 'GetNewestProducts') {
 		const limit = Math.max(1, Number(variables.first) || 8);
 		return { site: { newestProducts: { edges: products.slice(0, limit).map((node) => ({ node })) } } };
 	}
-	if (/query GetProduct\b|query GetProduct\(/.test(query)) {
+	if (operation === 'CategoryBySlug') {
+		const category = categories.find((candidate) => candidate.path === variables.path);
+		const limit = Math.max(1, Number(variables.first) || 24);
+		const members = category ? products.filter((product) => product.categories.edges.some(({ node }) => node.entityId === category.entityId)) : [];
+		return {
+			site: {
+				route: {
+					node: category ? {
+						__typename: 'Category', entityId: category.entityId, name: category.name, path: category.path,
+						description: '', products: { edges: members.slice(0, limit).map((node) => ({ node })), pageInfo: pageInfo() },
+					} : null,
+				},
+			},
+		};
+	}
+	if (operation === 'SearchProducts') {
+		const term = String(variables.searchTerm || '').trim().toLowerCase();
+		const limit = Math.max(1, Number(variables.first) || 24);
+		const members = term ? products.filter((product) => `${product.name} ${product.sku}`.toLowerCase().includes(term)) : [];
+		return { site: { search: { searchProducts: { products: { edges: members.slice(0, limit).map((node) => ({ node })), pageInfo: pageInfo() } } } } };
+	}
+	if (operation === 'ProductDetail' || operation === 'GetKibbleProductDetail' || operation === 'GetProductByPath') {
+		return { site: { route: { node: productForPath(variables.path) } } };
+	}
+	if (operation === 'GetProduct') {
 		return { site: { product: products.find((product) => product.entityId === Number(variables.entityId)) ?? null } };
 	}
-	if (/GetProducts\b/.test(query)) {
+	if (operation === 'GetProducts') {
 		const limit = Math.max(1, Number(variables.first) || 30);
-		return { site: { products: { edges: products.slice(0, limit).map((node) => ({ node })), pageInfo: { hasNextPage: false, endCursor: null } } } };
+		return { site: { products: { edges: products.slice(0, limit).map((node) => ({ node })), pageInfo: pageInfo() } } };
 	}
-	if (/GetCategoryProducts/.test(query)) {
+	if (operation === 'GetCategoryProducts') {
 		const category = categories.find((candidate) => candidate.entityId === Number(variables.categoryId));
 		if (!category) return { site: { category: null } };
 		const limit = Math.max(1, Number(variables.first) || 24);
@@ -76,13 +126,15 @@ function responseFor(query, variables) {
 					entityId: category.entityId,
 					name: category.name,
 					description: '',
-					products: { edges: members.slice(0, limit).map((node) => ({ node })), pageInfo: { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null } },
+					products: { edges: members.slice(0, limit).map((node) => ({ node })), pageInfo: pageInfo() },
 				},
 			},
 		};
 	}
-	throw new Error(`Local Kibble parity fixture does not implement this GraphQL operation: ${query.match(/query\s+\w+/)?.[0] ?? 'unknown'}`);
+	throw new Error(`Local Kibble parity fixture does not implement GraphQL operation ${operation}.`);
 }
+
+module.exports = { fixtureIdentity, operationName, responseFor };
 
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {

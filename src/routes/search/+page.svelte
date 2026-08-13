@@ -4,7 +4,7 @@
 	import GathererLayout from '$lib/components/layouts/GathererLayout.svelte';
 	import RefinementChat from '$lib/components/RefinementChat.svelte';
 	import type { Layout } from '$lib/schema/layout';
-	import { KibbleUnavailableReference } from '$lib/components/kibble';
+	import { KibbleSearchReference } from '$lib/components/kibble';
 
 	let { data }: { data: PageData } = $props();
 	let refinedLayout = $state<Layout | null>(null);
@@ -16,7 +16,7 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleSearch}
-	<KibbleUnavailableReference surface="search" {...data.kibbleSearch} />
+	<KibbleSearchReference {...data.kibbleSearch} />
 {:else}
 <div class="mx-auto max-w-7xl px-6 py-8">
 	<!-- Dev mode: persona shift detection -->

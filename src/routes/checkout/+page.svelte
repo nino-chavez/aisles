@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
-	import { KibbleUnavailableReference } from '$lib/components/kibble';
+	import { KibbleCheckoutReference } from '$lib/components/kibble';
 
 	let { data }: { data: PageData } = $props();
 
@@ -79,7 +79,7 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleCheckout}
-	<KibbleUnavailableReference surface="checkout" {...data.kibbleCheckout} />
+	<KibbleCheckoutReference {...data.kibbleCheckout} />
 {:else}
 <div class="mx-auto max-w-4xl px-6 py-8">
 	<h1 class="text-2xl">Checkout</h1>

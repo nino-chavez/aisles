@@ -57,7 +57,7 @@
 		</nav>
 
 		<div class="kc-reference-pdp__layout">
-			<section class="kc-reference-pdp__gallery" aria-label={`${product.name} ${copy.galleryLabel}`}>
+			<section class:kc-reference-pdp__gallery--with-thumbnails={gallery.length > 1} class="kc-reference-pdp__gallery" data-gallery-count={gallery.length} aria-label={`${product.name} ${copy.galleryLabel}`}>
 				{#if gallery.length > 1}
 					<div class="kc-reference-pdp__thumbnails" aria-label={copy.galleryImagesLabel}>
 						{#each gallery as image, index (image.url)}
