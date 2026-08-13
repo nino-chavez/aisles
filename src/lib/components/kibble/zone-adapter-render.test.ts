@@ -117,6 +117,9 @@ describe('Kibble native zone DOM bindings', () => {
 			expect(bodies).toContain(`data-kibble-zone-adapter="${adapter.adapterId}"`);
 			expect(bodies).toContain(`data-kibble-zone-variant="${adapter.componentVariantId}"`);
 			expect(bodies).toContain(`data-kibble-zone-input-sha256="${adapter.inputSha256}"`);
+			expect(bodies).toContain(`data-aisles-zone-instance="${adapter.instanceId}"`);
+			expect(bodies).toContain(`data-aisles-authority="${adapter.decisionMode}"`);
+			expect(bodies).toContain('data-aisles-model-calls="0"');
 		}
 		for (const hidden of KIBBLE_ZONE_TERMINALS.filter(({ terminal }) => terminal === 'trusted-hidden')) {
 			expect(bodies).not.toContain(`data-kibble-zone-instance="${hidden.instanceId}"`);

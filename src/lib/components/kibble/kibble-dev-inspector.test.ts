@@ -31,7 +31,7 @@ describe('KibbleDevInspector', () => {
 	it('renders the demo contract, all authority states, and deterministic scenario links', () => {
 		const result = render(KibbleDevInspector, { props: { inspector } });
 		for (const label of ['Aisles decision inspector', 'Live demo controls', 'Template', 'Rules', 'AI model']) expect(result.body).toContain(label);
-		for (const persona of ['gatherer', 'hunter', 'researcher', 'gifter']) expect(result.body).toContain(`?observe=true&amp;intent=${persona}`);
+		for (const persona of ['gatherer', 'hunter', 'researcher', 'gifter']) expect(result.body).toContain(`?observe=true&amp;intent=${persona}#kibble-signal-lab`);
 		expect(result.body).toContain('Template stays fixed. Rules react to signals. AI model appears only where policy authorizes generation.');
 		expect(result.body).toContain('0 model calls · Not authorized in Preserve');
 		expect(result.body).toContain('aria-expanded="true"');

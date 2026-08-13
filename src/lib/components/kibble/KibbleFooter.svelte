@@ -15,7 +15,13 @@
 	} = $props();
 </script>
 
-<footer class="kibble-reference kc-reference-footer">
+<footer
+	class="kibble-reference kc-reference-footer"
+	data-aisles-zone-instance="merchant-footer"
+	data-aisles-zone-label="Merchant footer"
+	data-aisles-authority="fixed"
+	data-aisles-model-calls="0"
+>
 	<div class="kc-reference-container">
 		<div class="kc-reference-footer__grid">
 			<div>

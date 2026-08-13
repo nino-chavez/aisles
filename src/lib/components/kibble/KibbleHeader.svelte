@@ -72,7 +72,14 @@
 		</div>
 </div>
 
-<header class:kc-reference-header--searching={searchOpen} class="kibble-reference kc-reference-header">
+<header
+	class:kc-reference-header--searching={searchOpen}
+	class="kibble-reference kc-reference-header"
+	data-aisles-zone-instance="merchant-chrome"
+	data-aisles-zone-label="Merchant header"
+	data-aisles-authority="fixed"
+	data-aisles-model-calls="0"
+>
 	<div class="kc-reference-chrome-container kc-reference-header__inner">
 			<button
 				type="button"

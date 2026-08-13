@@ -135,7 +135,7 @@
 		try {
 			const response = await fetch('/api/session/reset', { method: 'POST' });
 			if (!response.ok) throw new Error(`Session reset returned ${response.status}.`);
-			window.location.assign('/?observe=true');
+			window.location.assign('/?observe=true#kibble-signal-lab');
 		} catch (error) {
 			resetBusy = false;
 			rehearsalError = error instanceof Error ? error.message : 'Synthetic shopper reset failed.';
@@ -151,7 +151,7 @@
 	};
 </script>
 
-<aside class:kc-dev-inspector--collapsed={!inspectorExpanded} class="kc-dev-inspector" aria-labelledby="kibble-dev-inspector-title">
+<aside id="kibble-signal-lab" class:kc-dev-inspector--collapsed={!inspectorExpanded} class="kc-dev-inspector" aria-labelledby="kibble-dev-inspector-title">
 	<header class="kc-dev-inspector__header">
 		<div>
 			<p class="kc-dev-inspector__eyebrow">Live demo controls</p>
@@ -218,7 +218,7 @@
 		<p>Reload with one deterministic request hint, then use the behavior simulator below. These shortcuts do not change policy authority.</p>
 		<nav aria-label="Intent scenarios">
 			{#each KIBBLE_INSPECTOR_PERSONAS as persona}
-				<a href={`?observe=true&intent=${persona}`}>{persona}</a>
+				<a href={`?observe=true&intent=${persona}#kibble-signal-lab`}>{persona}</a>
 			{/each}
 		</nav>
 	</section>
@@ -410,5 +410,5 @@
 	.kc-dev-inspector th, .kc-dev-inspector td { border-bottom:1px solid var(--dev-border); padding:.45rem; vertical-align:top; }
 	.kc-dev-inspector th { color:var(--dev-muted); font-size:.64rem; text-transform:uppercase; }
 	@media (max-width: 960px) { .kc-dev-inspector__rehearsal-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
-	@media (max-width: 760px) { .kc-dev-inspector { margin-inline:.75rem; } .kc-dev-inspector__probabilities, .kc-dev-inspector__facts, .kc-dev-inspector dl, .kc-dev-inspector__rehearsal-actions { grid-template-columns:1fr; } .kc-dev-inspector__header, .kc-dev-inspector__inference-heading, .kc-dev-inspector__zone-header, .kc-dev-inspector__section-heading { align-items:flex-start; flex-wrap:wrap; } .kc-dev-inspector__header-controls { width:100%; justify-content:flex-start; } .kc-dev-inspector__behavior { min-height:0 !important; } }
+	@media (max-width: 760px) { .kc-dev-inspector { margin-inline:.75rem; } .kc-dev-inspector__probabilities, .kc-dev-inspector__facts, .kc-dev-inspector dl, .kc-dev-inspector__rehearsal-actions { grid-template-columns:1fr; } .kc-dev-inspector__header, .kc-dev-inspector__inference-heading, .kc-dev-inspector__zone-header, .kc-dev-inspector__section-heading { align-items:flex-start; flex-wrap:wrap; } .kc-dev-inspector__header { position:static; } .kc-dev-inspector__header-controls { width:100%; justify-content:flex-start; } .kc-dev-inspector__behavior { min-height:0 !important; } }
 </style>

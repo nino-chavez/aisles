@@ -147,6 +147,10 @@ export type KibbleZoneAdapterBinding<TContent = unknown> = {
 	instanceId: string;
 	sharedStatus: 'live' | 'approval_candidate';
 	sharedContentKind: 'content';
+	/** Actual authority used by the shared executor for this rendered content. */
+	decisionMode?: 'fixed' | 'rules' | 'model';
+	/** Actual model calls used to produce this binding, not merely authorization. */
+	modelCallCount?: number;
 	adapterId: string;
 	componentVariantId: string;
 	inputSha256: string;

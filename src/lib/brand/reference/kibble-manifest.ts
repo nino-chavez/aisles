@@ -35,6 +35,7 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 			{ field: 'home.serviceProof', reason: 'Replaces unverified commerce promises with bounded merchant-facing copy derived from the pinned category framing and current catalog configuration.' },
 			{ field: 'error.notFoundHeadline', reason: 'Names the actual 404 state instead of implying a temporary catalog outage.' },
 			{ field: 'pdp.purchaseUnavailable', reason: 'The pinned source provides purchase controls. Aisles cannot transact, so the contracted difference states that boundary instead of imitating a purchasable flow.' },
+			{ field: 'pdp.description', reason: 'Omits catalog description blocks that advertise Auto-Refill, subscription, savings, or one-time offers this read-only sibling cannot fulfill.' },
 		] as const,
 	},
 	display: {

@@ -36,7 +36,7 @@
 
 			<div class="kc-reference-product-grid">
 				{#each resolvedAdapters as adapter (adapter.instanceId)}
-					<div class="kc-reference-zone-segment" data-kibble-zone-instance={adapter.instanceId} data-kibble-zone-status={adapter.sharedStatus} data-kibble-zone-content-kind={adapter.sharedContentKind} data-kibble-zone-adapter={adapter.adapterId} data-kibble-zone-variant={adapter.componentVariantId} data-kibble-zone-input-sha256={adapter.inputSha256}>
+					<div class="kc-reference-zone-segment" data-kibble-zone-instance={adapter.instanceId} data-kibble-zone-status={adapter.sharedStatus} data-kibble-zone-content-kind={adapter.sharedContentKind} data-kibble-zone-adapter={adapter.adapterId} data-kibble-zone-variant={adapter.componentVariantId} data-kibble-zone-input-sha256={adapter.inputSha256} data-aisles-zone-instance={adapter.instanceId} data-aisles-zone-label={adapter.instanceId} data-aisles-authority={adapter.decisionMode ?? 'fixed'} data-aisles-model-calls={adapter.modelCallCount ?? 0}>
 						{#each adapter.content.props.products as productRef (productRef.productId)}
 							{@const product = productsByEntityId.get(productRef.productId)}
 							{#if product}

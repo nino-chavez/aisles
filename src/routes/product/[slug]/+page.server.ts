@@ -259,7 +259,9 @@ function materializeKibbleCatalogProduct(p: BCProduct, label: string) {
 	const category = categoryNode ? boundedCopy(categoryNode.name, 'product.category', `${label} category`) : '';
 	const categoryPath = categoryNode ? materializeCategoryPath(categoryNode.path, label) : '';
 	const specs = materializeSpecs(p, label);
-	const description = materializeRichDescription(p?.description, `${label} description`);
+	const description = projectReadOnlyKibbleDescription(
+		materializeRichDescription(p?.description, `${label} description`),
+	);
 	const image = p.defaultImage ? validatedHttpsUrl(p.defaultImage.url, `${label} default image`) : '';
 	const imageAlt = p.defaultImage
 		? boundedCopy(p.defaultImage.altText || name, 'product.images[].alt', `${label} default image alt text`)
@@ -373,6 +375,20 @@ function materializeRichDescription(value: unknown, label: string): string {
 	const trailing = description.slice(cursor);
 	if (trailing.includes('<') || anchorDepth !== 0) throw new Error(`Kibble ${label} contains malformed HTML.`);
 	return boundedOptionalCopy(output + trailing, 'product.description', label);
+}
+
+/**
+ * The connected reference storefront may publish transactional Auto-Refill
+ * prices inside catalog descriptions. Preserve can display catalog facts, but
+ * it must not repeat an offer that this sibling cannot fulfill. If a catalog
+ * description mixes product copy with one of those operational claims, omit
+ * the block instead of presenting a contradictory partial sentence.
+ */
+function projectReadOnlyKibbleDescription(description: string): string {
+	const plain = stripHtml(description);
+	return /\b(?:auto[-\s]?refill|subscribe|subscription|member\s+price|one[-\s]?time\s+(?:price|purchase|\$)|save\s+\d+%)\b/i.test(plain)
+		? ''
+		: description;
 }
 
 function boundedCopy(value: unknown, field: string, label: string): string {

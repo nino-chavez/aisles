@@ -79,7 +79,7 @@ describe('Kibble exact union-zone execution', () => {
 		for (const binding of visible) {
 			expect(binding.content).toBeTruthy();
 			expect(binding.sharedContentKind).toBe('content');
-			expect(binding.sharedStatus).toBe(binding.instanceId === 'pdp.related' ? 'approval_candidate' : 'live');
+			expect(binding.sharedStatus).toBe('live');
 			expect(binding.componentVariantId).toBe(exactVariants[binding.instanceId as keyof typeof exactVariants]);
 			expect(binding.inputSha256).toMatch(/^[0-9a-f]{64}$/);
 		}

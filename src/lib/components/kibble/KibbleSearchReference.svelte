@@ -67,7 +67,7 @@
 			</div>
 			{#if loadMoreHref}<div class="kc-reference-category__pagination"><a class="kc-reference-focus" href={loadMoreHref}>Load more</a></div>{/if}
 		{:else if zoneAdapter}
-			<div class="kc-reference-route__empty" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256}>
+			<div class="kc-reference-route__empty" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256} data-aisles-zone-instance={zoneAdapter.instanceId} data-aisles-zone-label={zoneAdapter.instanceId} data-aisles-authority={zoneAdapter.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter.modelCallCount ?? 0}>
 				<p class="kc-reference-eyebrow">{zoneAdapter.content.props.eyebrow}</p>
 				<h2>{zoneAdapter.content.props.headline}</h2>
 				<p>{zoneAdapter.content.props.body}</p>

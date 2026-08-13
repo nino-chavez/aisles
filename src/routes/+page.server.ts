@@ -17,7 +17,7 @@ import { executeKibbleHomeZoneAdapters } from '$lib/brand/reference/kibble-zone-
 import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
 
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
-	const { devMode, renderMode } = await parent();
+	const { devMode, renderMode, observeMode } = await parent();
 	const brand = getBrand();
 	const loadRequestState = async () => {
 		const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: 'home' });
@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 		const preserveStartedAt = Date.now();
 		try {
 			const { store, visitCount, inference } = await loadRequestState();
-			const inspectorRequested = url.searchParams.get('observe') === 'true';
+			const inspectorRequested = observeMode || url.searchParams.get('observe') === 'true';
 			const inspectorScenarioId = inspectorRequested
 				? privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo'
 				: '';
@@ -91,8 +91,8 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				generationTimeMs: Date.now() - preserveStartedAt, productCount: homeDecision.products.length, sessionId: cookies.get('aisles_session') || undefined,
 				provenance,
 			});
-			// Kibble's public demo inspector requires an explicit query on this
-			// request. The older site-wide dev cookie never reopens it.
+			// The public demo query starts a short-lived site-wide session in the
+			// root layout, so ordinary catalog navigation keeps this trace active.
 			const kibbleHomeInspector = inspectorRequested
 				? {
 					...homeDecision.inspector,

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { Component } from 'svelte';
+	import { onMount } from 'svelte';
 	import type { PageData } from './$types';
 	import type { Layout } from '$lib/schema/layout';
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
 	import { KibbleHomeReference } from '$lib/components/kibble';
-	import KibbleDevInspectorLauncher from '$lib/components/kibble/KibbleDevInspectorLauncher.svelte';
 	import type { KibbleDevInspectorData, KibbleLivePreviewStatus } from '$lib/components/kibble/kibble-dev-inspector';
 	import type { KibbleProduct } from '$lib/components/kibble/types';
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
@@ -20,12 +20,19 @@
 	let previewProducts = $state<KibbleProduct[] | null>(null);
 	let previewInspector = $state<KibbleDevInspectorData | null>(null);
 	let livePreviewStatus = $state<KibbleLivePreviewStatus>({ state: 'waiting' });
+	let signalLabOpen = $state(false);
 	let currentPersona = $derived(overridePersona ?? data.persona ?? 'gatherer');
-	const inspectorShowHref = '/?observe=true';
-	const inspectorHideHref = '/';
+	let inspectorHideHref = $derived(data.observeEnableHref ?? '/?observe=true');
+
+	onMount(() => {
+		const syncSignalLab = () => { signalLabOpen = window.location.hash === '#kibble-signal-lab'; };
+		syncSignalLab();
+		window.addEventListener('hashchange', syncSignalLab);
+		return () => window.removeEventListener('hashchange', syncSignalLab);
+	});
 
 	$effect(() => {
-		if (!data.kibbleHomeInspector || DevInspector) return;
+		if (!data.kibbleHomeInspector || !signalLabOpen || DevInspector) return;
 		void import('$lib/components/kibble/KibbleDevInspector.svelte').then(({ default: component }) => {
 			DevInspector = component;
 		});
@@ -172,15 +179,13 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleHome}
-	{#if data.kibbleHomeInspector && DevInspector}
+	{#if data.kibbleHomeInspector && signalLabOpen && DevInspector}
 		<DevInspector
 			inspector={previewInspector ?? data.kibbleHomeInspector}
 			livePreview={livePreviewStatus}
 			sessionId={data.sessionId}
 			hideHref={inspectorHideHref}
 		/>
-	{:else}
-		<KibbleDevInspectorLauncher href={inspectorShowHref} />
 	{/if}
 	<div
 		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}

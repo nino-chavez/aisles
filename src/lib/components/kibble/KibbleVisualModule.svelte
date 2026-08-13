@@ -22,7 +22,7 @@
 </script>
 
 {#if tiles.length > 0}
-	<section class="kibble-reference kc-reference-section kc-reference-section--muted" aria-labelledby={headingId} data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256}>
+	<section class="kibble-reference kc-reference-section kc-reference-section--muted" aria-labelledby={headingId} data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256} data-aisles-zone-instance={zoneAdapter?.instanceId} data-aisles-zone-label={zoneAdapter?.instanceId} data-aisles-authority={zoneAdapter?.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter?.modelCallCount ?? 0}>
 		<div class="kc-reference-container">
 			<p class="kc-reference-eyebrow">{zoneAdapter?.content.props.eyebrow ?? eyebrow}</p>
 			<h2 id={headingId} class="kc-reference-section__title">{zoneAdapter?.content.props.headline ?? title}</h2>

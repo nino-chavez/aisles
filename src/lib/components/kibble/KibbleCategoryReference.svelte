@@ -59,7 +59,7 @@
 			</ol>
 		</nav>
 
-		<header class="kc-reference-category__header" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256}>
+		<header class="kc-reference-category__header" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256} data-aisles-zone-instance={zoneAdapter?.instanceId} data-aisles-zone-label={zoneAdapter?.instanceId} data-aisles-authority={zoneAdapter?.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter?.modelCallCount ?? 0}>
 			<div>
 				<p class="kc-reference-eyebrow">{zoneAdapter?.content.props.eyebrow ?? eyebrow}</p>
 				<h1 id="kibble-category-heading">{zoneAdapter?.content.props.headline ?? title}</h1>
