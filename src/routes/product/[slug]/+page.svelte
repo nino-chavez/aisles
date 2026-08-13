@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { KibbleProductDetailReference } from '$lib/components/kibble';
+	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
+	import { KIBBLE_PARITY_FIXED_DATA_IDENTITY } from '$lib/brand/reference/kibble-parity';
 	import { getEmitter } from '$lib/signals/emitter';
 	import { addPick, isPicked, removePick } from '$lib/stores/picks.svelte';
 
@@ -51,7 +53,13 @@
 <svelte:head><title>{data.renderMode === 'reference-preserve' ? data.kibblePdp?.product.name : product?.name}</title><meta name="description" content={data.renderMode === 'reference-preserve' ? data.kibblePdp?.product.description.slice(0, 160) : product?.descriptionPlain.slice(0, 160)} /></svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibblePdp}
-	<div data-reference-pdp="catalog-display-only" data-reference-policy={data.provenance?.reference.version}><KibbleProductDetailReference {...data.kibblePdp} /></div>
+	<div
+		data-reference-pdp="catalog-display-only"
+		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}
+		data-reference-contract-version={KIBBLE_REFERENCE_CONTRACT.version}
+		data-reference-fixture={KIBBLE_REFERENCE_CONTRACT.source.fixturePath}
+		data-reference-fixture-sha256={KIBBLE_PARITY_FIXED_DATA_IDENTITY}
+	><KibbleProductDetailReference {...data.kibblePdp} /></div>
 {:else if product && relatedProducts}
 	<div class="mx-auto max-w-7xl px-6 py-8">
 		<nav class="mb-8 text-sm text-surface-muted-fg"><a href="/" class="hover:text-surface-fg">Home</a><span class="mx-2">/</span>{#if product.categoryPath}<a href="/category/{product.categoryPath.replace(/^\/|\/$/g, '').replace(/^(haven|volt|ember)-/i, '')}" class="hover:text-surface-fg">{product.category.replace(/^(Haven|Volt|Ember)\s+/i, '')}</a><span class="mx-2">/</span>{/if}<span class="text-surface-fg">{product.name}</span></nav>

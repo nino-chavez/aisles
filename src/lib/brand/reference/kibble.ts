@@ -396,7 +396,7 @@ const contractInput = {
 			pagination: { strategy: 'forward-cursor', cursorParam: 'after', actionLabel: 'Load more' },
 			productCards: 'noninteractive-until-pdp-contracted',
 			modelLayoutRequest: false,
-			invariants: ['Breadcrumbs render Home then the current category.', 'The category header and four-column product grid stay fixed.', 'Exactly seven trusted sort choices map to BigCommerce CategoryProductSort values.', 'Every page requests 24 products and exposes continuation only from a returned end cursor.', 'Invalid sort or cursor input fails closed before a catalog request.', 'Unsupported product routes render as non-link cards.', 'Preserve never requests a model-authored layout.', 'Empty-state copy comes from the pinned manifest.'],
+			invariants: ['Breadcrumbs render Home then the current category.', 'The category header and four-column product grid stay fixed.', 'Exactly seven trusted sort choices map to BigCommerce CategoryProductSort values.', 'Every page requests 24 products and exposes continuation only from a returned end cursor.', 'Invalid sort or cursor input fails closed before a catalog request.', 'Contracted PDP links use only current validated Kibble product paths.', 'Preserve never requests a model-authored layout.', 'Empty-state copy comes from the pinned manifest.'],
 		},
 		pdp: {
 			id: 'kibble-pdp-reference-v1', acceptance: 'implemented-pending-visual-approval', implementation: 'KibbleProductDetailReference.svelte', variantId: 'kibble.product-detail.catalog-display-only',

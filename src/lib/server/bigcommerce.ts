@@ -323,7 +323,7 @@ interface ProductByPathResponse {
 interface KibbleProductDetailResponse {
 	site: {
 		route: {
-			node: BCKibbleProductDetail | null;
+			node: (BCKibbleProductDetail & { __typename: 'Product' }) | { __typename: string } | null;
 		};
 	};
 }
@@ -363,6 +363,7 @@ export async function getKibbleProductDetailByPath(path: string): Promise<BCKibb
 			site {
 				route(path: $path) {
 					node {
+						__typename
 						... on Product {
 							${PRODUCT_FRAGMENT}
 							images(first: 10) { edges { node { url(width: 1200, height: 1200) altText } } }
@@ -384,7 +385,9 @@ export async function getKibbleProductDetailByPath(path: string): Promise<BCKibb
 		}
 	`, { path: fullPath });
 
-	return data.site.route.node;
+	const node = data.site.route.node;
+	if (!node || node.__typename !== 'Product' || !('entityId' in node)) return null;
+	return node;
 }
 
 /**

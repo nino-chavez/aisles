@@ -87,6 +87,7 @@ describe('BigCommerce Kibble Preserve PDP query', () => {
 
 	it('requests only the fixed catalog-detail fields and no commerce mutation', async () => {
 		const detail = {
+			__typename: 'Product',
 			...product(7),
 			images: { edges: [{ node: { url: 'https://example.com/product.png', altText: 'Product 7' } }] },
 			inventory: { isInStock: true },
@@ -102,8 +103,16 @@ describe('BigCommerce Kibble Preserve PDP query', () => {
 		const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
 		expect(request.variables).toEqual({ path: '/product-7/' });
 		expect(request.query).toContain('images(first: 10)');
+		expect(request.query).toContain('__typename');
 		expect(request.query).toContain('productOptions(first: 10)');
 		expect(request.query).toContain('relatedProducts(first: 4)');
 		expect(request.query).not.toMatch(/mutation|createCart|addCartLineItems|subscription/i);
+	});
+
+	it('returns null for a non-product route node', async () => {
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+			data: { site: { route: { node: { __typename: 'Category' } } } },
+		}), { status: 200, headers: { 'content-type': 'application/json' } }));
+		await expect(getKibbleProductDetailByPath('dog-food')).resolves.toBeNull();
 	});
 });

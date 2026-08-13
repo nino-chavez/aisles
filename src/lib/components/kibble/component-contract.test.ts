@@ -68,4 +68,9 @@ describe('Kibble reference components fail closed', () => {
 		for (const forbidden of ['/api/cart', '/api/suggest', 'addToCart', 'Auto-Refill', 'subscription']) expect(pdp).not.toContain(forbidden);
 		for (const field of ['purchaseUnavailableLabel', 'purchaseUnavailableBody', 'galleryLabel', 'skuLabel', 'detailsHeading']) expect(pdp).toContain(field);
 	});
+
+	it('exposes the full fixed-data parity marker set at the PDP route root', () => {
+		const page = readFileSync(resolve(import.meta.dirname, '../../../routes/product/[slug]/+page.svelte'), 'utf8');
+		for (const marker of ['data-reference-id', 'data-reference-contract-version', 'data-reference-fixture', 'data-reference-fixture-sha256']) expect(page).toContain(marker);
+	});
 });
