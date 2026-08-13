@@ -9,9 +9,9 @@ live. Weight fitting still waits for real labeled shopper sessions by design.
 **Limit:** this completed standalone work established data, security, enrichment,
 signals, and deployment boundaries. It did not establish desktop or mobile visual
 parity with Kibble's reference storefront. Follow-up source work now provides a
-pinned Kibble design contract and Preserve rendering for home and error
-surfaces. Product listing remains an unaccepted contract candidate. None of
-that work is deployed or accepted as complete parity. The
+pinned Kibble design contract and Preserve rendering for home, product-listing,
+and error surfaces. None of that corrective work is deployed or accepted as
+complete visual parity. The
 remaining reference-preservation and merchant-control work is tracked in the
 [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md);
 the reason for the boundary is recorded in the

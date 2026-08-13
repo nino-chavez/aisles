@@ -25,9 +25,16 @@ const registeredComponentVariantIds = KIBBLE_REFERENCE_CONTRACT.components.flatM
 	(component) => component.variants.map((variant) => variant.id),
 );
 
-const homeComponentVariantIds = KIBBLE_REFERENCE_CONTRACT.recipes.home.orderedAnatomy.map(
-	(slot) => slot.variantId,
-);
+const homeComponentVariantIds = [
+	...KIBBLE_REFERENCE_CONTRACT.recipes.home.orderedAnatomy.map((slot) => slot.variantId),
+	'kibble.product-card.featured-tile',
+] as const;
+const plpComponentVariantIds = [
+	'kibble.header.responsive-chrome',
+	KIBBLE_REFERENCE_CONTRACT.recipes.plp.variantId,
+	'kibble.product-card.catalog-card',
+	'kibble.footer.four-column',
+] as const;
 const errorComponentVariantIds = [
 	'kibble.header.responsive-chrome',
 	KIBBLE_REFERENCE_CONTRACT.recipes.error.variantId,
@@ -69,6 +76,15 @@ const kibble: BrandCompositionPolicy = {
 			allowedCssVariantIds: cssFor(homeComponentVariantIds),
 			allowedCopyVariantIds: [],
 		},
+		plp: {
+			preset: 'preserve',
+			capabilities: [],
+			decisionMode: 'fixed',
+			publicationMode: 'live',
+			allowedComponentVariantIds: plpComponentVariantIds,
+			allowedCssVariantIds: cssFor(plpComponentVariantIds),
+			allowedCopyVariantIds: [],
+		},
 		'error-404': {
 			preset: 'preserve',
 			capabilities: [],
@@ -106,6 +122,13 @@ const REQUIRED_PRESERVE_POLICY = {
 		capabilities: ['rank_products', 'select_products'],
 		componentVariantIds: homeComponentVariantIds,
 		cssVariantIds: cssFor(homeComponentVariantIds),
+	},
+	plp: {
+		decisionMode: 'fixed',
+		publicationMode: 'live',
+		capabilities: [],
+		componentVariantIds: plpComponentVariantIds,
+		cssVariantIds: cssFor(plpComponentVariantIds),
 	},
 	'error-404': {
 		decisionMode: 'fixed',
@@ -151,7 +174,7 @@ export function getContractSurfaceDecision(
  */
 export function assertKibblePreserveRoutePolicy(
 	policy: EffectiveCompositionPolicy,
-	surface: 'home' | 'error-404' | 'error-empty',
+	surface: 'home' | 'plp' | 'error-404' | 'error-empty',
 ): void {
 	const required = REQUIRED_PRESERVE_POLICY[surface];
 	const identityMatches =

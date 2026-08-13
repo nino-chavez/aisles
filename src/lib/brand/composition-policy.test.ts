@@ -59,8 +59,23 @@ describe('Kibble composition policy registry', () => {
 		}
 	});
 
+	it('binds the fixed PLP shell and nested product cards outside model authority', () => {
+		const decision = getContractSurfaceDecision('kibble', 'plp');
+		expect(decision.mode).toBe('reference-preserve');
+		if (decision.mode !== 'reference-preserve') throw new Error('expected Preserve');
+		expect(decision.policy.capabilities).toEqual([]);
+		expect(decision.policy.decisionMode).toBe('fixed');
+		expect(decision.policy.allowedComponentVariantIds).toEqual([
+			'kibble.header.responsive-chrome',
+			'kibble.product-card.catalog-card',
+			'kibble.footer.four-column',
+			'kibble.category-listing.fixed-grid',
+		]);
+		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'plp')).not.toThrow();
+	});
+
 	it('does not mislabel unsupported Kibble surfaces or other brands as Preserve', () => {
-		for (const surface of ['plp', 'pdp', 'search', 'cart', 'checkout'] as const) {
+		for (const surface of ['pdp', 'search', 'cart', 'checkout'] as const) {
 			expect(getContractSurfaceDecision('kibble', surface)).toEqual({
 				mode: 'legacy-generated',
 				reason: 'unsupported-surface',

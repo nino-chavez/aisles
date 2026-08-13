@@ -20,12 +20,12 @@ longer only a proposal. Local follow-up work now includes:
 - a trusted policy-aware resolver and bounded zone-decision schema;
 - a version-pinned Kibble design contract with native chrome, components,
   page recipes, and fallbacks;
-- Kibble Preserve rendering on home and error surfaces, with product listing
-  retained as an unaccepted contract candidate; and
+- Kibble Preserve rendering on home, product-listing, and error surfaces, with
+  fixed product-listing structure, trusted sorting, and cursor pagination; and
 - reference/policy provenance in cache values, generation logs, and Observe.
 
-The work has not been pushed or deployed. The database migration has not been
-applied. Kibble product detail, search, cart, and checkout are not contracted.
+The corrective work has not been pushed or deployed. Its database migration has
+not been applied. Kibble product detail, search, cart, and checkout are not contracted.
 The reference and candidate now expose matching source-owned fixture markers,
 and a fail-closed desktop/mobile comparison command exists. A real fixed-data
 parity run and named human approval are still open.

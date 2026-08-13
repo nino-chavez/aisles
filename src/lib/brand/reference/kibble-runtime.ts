@@ -23,7 +23,7 @@ export type KibbleFeaturedSource = 'featured' | 'newest' | 'deterministic-catalo
 export function selectMerchantRenderMode(brandId: unknown, surface: Surface | null): MerchantRenderMode {
 	const decision = getContractSurfaceDecision(brandId, surface);
 	if (decision.mode !== 'reference-preserve') return decision.mode;
-	if (surface !== 'home' && surface !== 'error-404' && surface !== 'error-empty') {
+	if (surface !== 'home' && surface !== 'plp' && surface !== 'error-404' && surface !== 'error-empty') {
 		return 'legacy-generated';
 	}
 	assertKibblePreserveRoutePolicy(decision.policy, surface);

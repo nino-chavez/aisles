@@ -11,11 +11,15 @@ import {
 import { loadSessionIncentives } from '$lib/server/incentives/session';
 import { getBrand } from '$lib/brand/config';
 import { materializeKibbleCategory } from '$lib/brand/reference/kibble-runtime';
+import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
+import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
 import {
 	KibblePlpInputError,
 	parseKibblePlpCursor,
 	parseKibblePlpSort,
 } from '$lib/brand/reference/kibble-plp';
+import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
+import { logGeneration } from '$lib/server/generation-log';
 
 export function _parseKibblePlpRequest(url: URL) {
 	try {
@@ -32,6 +36,22 @@ export function _parseKibblePlpRequest(url: URL) {
 export const load: PageServerLoad = async ({ params, url, cookies, request, parent }) => {
 	const slug = params.slug;
 	const { devMode, renderMode } = await parent();
+	const preserveStartedAt = Date.now();
+	const surfaceDecision = renderMode === 'reference-preserve'
+		? getContractSurfaceDecision(getBrand().id, 'plp')
+		: null;
+	if (surfaceDecision && surfaceDecision.mode !== 'reference-preserve') {
+		throw error(503, 'This Kibble shelf is temporarily unavailable.');
+	}
+	if (surfaceDecision?.mode === 'reference-preserve') {
+		try {
+			assertKibblePreserveRoutePolicy(surfaceDecision.policy, 'plp');
+		} catch (cause) {
+			const detail = cause instanceof Error ? cause.message : 'Unknown Kibble category policy error.';
+			console.error('[kibble-preserve] category policy failed closed:', detail);
+			throw error(503, dev ? `Kibble Preserve cannot render: ${detail}` : 'This Kibble shelf is temporarily unavailable.');
+		}
+	}
 
 	const configuredCategory = renderMode === 'reference-preserve'
 		? Object.hasOwn(CATEGORY_MAP, slug)
@@ -56,11 +76,43 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 	}
 
 	let kibbleCategory = null;
-	if (renderMode === 'reference-preserve' && kibblePlp && 'pageInfo' in result) {
+	let provenance = null;
+	if (renderMode === 'reference-preserve' && kibblePlp && 'pageInfo' in result && surfaceDecision?.mode === 'reference-preserve') {
 		try {
 			kibbleCategory = materializeKibbleCategory(getBrand(), slug, result.products, {
 				sort: kibblePlp.sort,
 				pageInfo: result.pageInfo,
+			});
+			provenance = buildContractedLayoutProvenance({
+				policy: surfaceDecision.policy,
+				surface: 'plp',
+				route: url.pathname,
+				persona: inference.primary,
+				rendererComponentId: 'kibble.category-listing',
+				rendererVariantId: KIBBLE_REFERENCE_CONTRACT.recipes.plp.id,
+				decisionSource: 'fixed',
+				promptVersion: 'no-model-preserve-v1',
+				schemaVersion: `kibble-reference-${KIBBLE_REFERENCE_CONTRACT.version}`,
+				contractInput: KIBBLE_REFERENCE_CONTRACT.recipes.plp,
+				catalogInput: {
+					category: result.categoryName,
+					products: result.products,
+					pageInfo: result.pageInfo,
+					sort: kibblePlp.sort,
+					after: kibblePlp.after,
+				},
+				shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
+				scenarioId: store.getCrossSessionContext().scenarioId,
+			});
+			await logGeneration({
+				type: 'preserve_render',
+				persona: inference.primary,
+				categorySlug: slug,
+				cacheHit: false,
+				generationTimeMs: Date.now() - preserveStartedAt,
+				productCount: result.products.length,
+				sessionId: cookies.get('aisles_session') || undefined,
+				provenance,
 			});
 		} catch (cause) {
 			const detail = cause instanceof Error ? cause.message : 'Unknown Kibble category adapter error.';
@@ -79,6 +131,7 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 
 	return {
 		renderMode,
+		provenance,
 		kibbleCategory,
 		category: {
 			slug,

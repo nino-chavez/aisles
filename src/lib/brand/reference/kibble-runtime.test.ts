@@ -38,7 +38,7 @@ const product = (entityId: number, id: string): Product => ({
 describe('Kibble Preserve runtime adapter', () => {
 	it('selects Preserve only through an own trusted brand id', () => {
 		expect(selectMerchantRenderMode('kibble', 'home')).toBe('reference-preserve');
-		expect(selectMerchantRenderMode('kibble', 'plp')).toBe('legacy-generated');
+		expect(selectMerchantRenderMode('kibble', 'plp')).toBe('reference-preserve');
 		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('haven', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('__proto__', 'home')).toBe('legacy-generated');

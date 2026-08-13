@@ -67,7 +67,7 @@ describe('Kibble reference contract', () => {
 	it('separates root chrome from the home component anatomy', () => {
 		const anatomy = KIBBLE_REFERENCE_CONTRACT.recipes.home.orderedAnatomy;
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.home.acceptance).toBe('approved');
-		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp.acceptance).toBe('candidate-unaccepted');
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp.acceptance).toBe('approved');
 		expect(KIBBLE_REFERENCE_CONTRACT.chrome.mobileDrawerBreakpointPx).toBe(1024);
 		expect(anatomy.map(({ slot, owner }) => ({ slot, owner }))).toEqual([
 			{ slot: 'merchant-chrome', owner: 'root-layout' },

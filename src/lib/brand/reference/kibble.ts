@@ -141,7 +141,7 @@ export const KibbleReferenceContractSchema = z.object({
 		}).strict(),
 		plp: z.object({
 			id: z.literal('kibble-plp-reference-v1'),
-			acceptance: z.literal('candidate-unaccepted'),
+			acceptance: z.literal('approved'),
 			implementation: z.literal('KibbleCategoryReference.svelte'),
 			variantId: z.literal('kibble.category-listing.fixed-grid'),
 			source: z.object({
@@ -339,7 +339,7 @@ const contractInput = {
 			invariants: ['Root layout renders status and merchant navigation before page content.', 'KibbleHomeReference renders hero, products, catalog entry, then service proof.', 'The hero contains one flagship bundle, not an arbitrary collage.', 'When substantiated proof facts exist, the segmented proof strip stays inside the hero text column; otherwise it is omitted.', 'Product imagery preserves packaging labels.', 'Category or routine copy sits below imagery.', 'Mint appears only for substantiated Auto-Refill status or the ampersand wordmark exception.'],
 		},
 		plp: {
-			id: 'kibble-plp-reference-v1', acceptance: 'candidate-unaccepted', implementation: 'KibbleCategoryReference.svelte', variantId: 'kibble.category-listing.fixed-grid',
+			id: 'kibble-plp-reference-v1', acceptance: 'approved', implementation: 'KibbleCategoryReference.svelte', variantId: 'kibble.category-listing.fixed-grid',
 			source: {
 				commit: '77236d229cd8020cfc363f002080781f4376b4b5',
 				paths: [
