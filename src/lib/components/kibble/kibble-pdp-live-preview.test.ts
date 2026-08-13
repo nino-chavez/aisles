@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { validateKibblePdpLivePreview } from './kibble-pdp-live-preview';
 import type { KibbleProduct } from './types';
 
@@ -43,5 +45,11 @@ describe('Kibble PDP live preview validation', () => {
 		const invalid = response();
 		invalid.zoneAdapter.content.props.title = 'Model-authored title';
 		expect(validateKibblePdpLivePreview(invalid, expected, products)).toBeNull();
+	});
+
+	it('holds repeated paid requests while one action is pending and has a bounded client watchdog', () => {
+		const source = readFileSync(resolve(import.meta.dirname, 'kibble-pdp-live-preview.ts'), 'utf8');
+		expect(source).toContain('if (controller) return;');
+		expect(source).toContain('KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS');
 	});
 });

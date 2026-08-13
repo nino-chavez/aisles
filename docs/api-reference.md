@@ -353,6 +353,11 @@ confirmed by `POST /api/signals`. An empty body or exact
 control sends exact `{"mode":"model"}`. The browser supplies no persona,
 product order, score, product facts, or policy identity.
 
+Each Kibble model action has one 12-second total provider deadline across its
+primary and fallback attempts. Its atomic per-session in-flight/cooldown gate
+lasts 45 seconds, longer than the 15-second PLP and 30-second Home/PDP browser
+watchdogs; every reservation still consumes the worst-case two provider units.
+
 The no-store response contains sanitized inference, the approved shelf order,
 the Template/Rules/AI-model zone trace, exact rendered shelf adapters, and
 contracted provenance. The rules path makes zero model calls. The model path

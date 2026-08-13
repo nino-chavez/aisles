@@ -34,12 +34,21 @@ export function model(id: string = PRIMARY_MODEL) {
  * actually served it.
  */
 export async function withModelFallback<T>(
-	run: (modelId: string) => Promise<T>
+	run: (modelId: string) => Promise<T>,
+	signal?: AbortSignal,
 ): Promise<{ result: T; modelId: string }> {
+	throwIfAborted(signal);
 	try {
 		return { result: await run(PRIMARY_MODEL), modelId: PRIMARY_MODEL };
 	} catch (primaryError) {
+		// The action has one total deadline. A primary failure may fall back only
+		// while the same deadline remains live.
+		if (signal?.aborted) throw primaryError;
 		console.warn(`[model] ${PRIMARY_MODEL} failed, retrying on ${FALLBACK_MODEL}:`, primaryError);
 		return { result: await run(FALLBACK_MODEL), modelId: FALLBACK_MODEL };
 	}
+}
+
+function throwIfAborted(signal: AbortSignal | undefined) {
+	if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error('Model action was aborted.');
 }

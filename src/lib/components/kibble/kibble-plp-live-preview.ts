@@ -1,4 +1,5 @@
 import type { KibbleProduct, KibbleZoneAdapterBinding } from './types';
+import { KIBBLE_DEMO_PLP_CLIENT_TIMEOUT_MS } from '$lib/kibble-demo-ai-boundary';
 
 const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'routePath', 'sort', 'cursor', 'policyVersion', 'reference', 'prefixIds', 'tailIds', 'rankedPrefixIds', 'zoneAdapter', 'modelCallCount', 'provenance']);
 const ADAPTER_KEYS = new Set(['instanceId', 'sharedStatus', 'sharedContentKind', 'decisionMode', 'modelCallCount', 'adapterId', 'componentVariantId', 'inputSha256', 'content']);
@@ -6,7 +7,7 @@ const CONTENT_KEYS = new Set(['component', 'props']);
 const PROP_KEYS = new Set(['columns', 'products', 'imageRatio', 'showDescription', 'showSpecs', 'showQuickAdd']);
 const PRODUCT_REF_KEYS = new Set(['productId', 'role']);
 const HEX_64 = /^[0-9a-f]{64}$/;
-const REQUEST_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = KIBBLE_DEMO_PLP_CLIENT_TIMEOUT_MS;
 
 export type KibblePlpLivePreviewExpectation = {
 	routePath: '/category/dog-food'; sort: 'FEATURED'; cursor: null; policyVersion: string;
