@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { getBrandById } from '$lib/brand/config';
 import type { Product } from '$lib/types';
-import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
+import {
+	assertKibblePdpBundleProjection,
+	KIBBLE_PDP_BUNDLE_PROJECTION_VERIFIED_SHA256,
+	KIBBLE_PRESERVE_MANIFEST,
+} from './kibble-manifest';
+import { KIBBLE_PDP_BOUNDS, KIBBLE_PDP_BUNDLE_PROJECTION_SHA256, KIBBLE_REFERENCE_CONTRACT } from './kibble';
 import {
 	buildKibbleHomeReference,
+	isKibblePdpPublished,
 	materializeKibbleCategory,
 	selectMerchantRenderMode,
 	verifyAndMaterializeBundle,
@@ -39,7 +45,9 @@ describe('Kibble Preserve runtime adapter', () => {
 	it('selects Preserve only through an own trusted brand id', () => {
 		expect(selectMerchantRenderMode('kibble', 'home')).toBe('reference-preserve');
 		expect(selectMerchantRenderMode('kibble', 'plp')).toBe('reference-preserve');
-		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('legacy-generated');
+		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('reference-unavailable');
+		expect(selectMerchantRenderMode('kibble', 'pdp', { allowPendingReview: true })).toBe('reference-review');
+		expect(isKibblePdpPublished()).toBe(false);
 		expect(selectMerchantRenderMode('haven', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('__proto__', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode({ id: 'kibble' }, 'home')).toBe('legacy-generated');
@@ -79,7 +87,7 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(home.hero.proofItems).toEqual([]);
 	});
 
-	it('materializes breadcrumb, sort, and cursor continuation without PDP links', () => {
+	it('materializes breadcrumb, sort, and cursor continuation without publishing pending PDP links', () => {
 		const brand = getBrandById('kibble')!;
 		const category = materializeKibbleCategory(brand, 'dog-food', [product(1, 'one')], {
 			sort: 'LOWEST_PRICE',
@@ -97,7 +105,7 @@ describe('Kibble Preserve runtime adapter', () => {
 
 	it('records every bounded copy divergence and withholds operational claims', () => {
 		expect(KIBBLE_PRESERVE_MANIFEST.copyProvenance.approvedBoundedDivergences.map(({ field }) => field)).toEqual([
-			'home.hero.eyebrow', 'home.hero.headline', 'home.hero.body', 'home.serviceProof',
+			'home.hero.eyebrow', 'home.hero.headline', 'home.hero.body', 'home.serviceProof', 'pdp.purchaseUnavailable',
 		]);
 		expect(KIBBLE_PRESERVE_MANIFEST.withheldSourceClaims).toContain('engine health');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('$30M');
@@ -105,5 +113,30 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('Preserve adapter');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('fixed shelf structure');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('never lapses');
+		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles)).not.toMatch(/subscribable|subscribe_price|save/);
+		const pdpVariant = KIBBLE_REFERENCE_CONTRACT.components.find(({ id }) => id === 'kibble.product-detail')!.variants[0];
+		const copyLimit = pdpVariant.copyFields.find(({ field }) => field === 'copy.*')!.maxLength;
+		expect(Object.values(KIBBLE_PRESERVE_MANIFEST.display.pdp.copy).every((value) => value.length <= copyLimit)).toBe(true);
+		for (const item of Object.values(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles)) {
+			expect(Object.keys(item).sort()).toEqual(['contents', 'name']);
+			expect(item.contents.length).toBeLessThanOrEqual(KIBBLE_PDP_BOUNDS.arrays.bundleContents);
+			for (const content of item.contents) expect(Object.keys(content).sort()).toEqual(['brand', 'image', 'role', 'title']);
+		}
+	});
+
+	it('pins the safe eight-bundle projection and rejects copied-data tampering', () => {
+		expect(KIBBLE_PDP_BUNDLE_PROJECTION_VERIFIED_SHA256).toBe(KIBBLE_PDP_BUNDLE_PROJECTION_SHA256);
+		expect(assertKibblePdpBundleProjection(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles))
+			.toBe(KIBBLE_PDP_BUNDLE_PROJECTION_SHA256);
+		const reordered = Object.fromEntries(Object.entries(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles).reverse());
+		expect(assertKibblePdpBundleProjection(reordered)).toBe(KIBBLE_PDP_BUNDLE_PROJECTION_SHA256);
+
+		const changedCopy = structuredClone(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles);
+		(changedCopy['essential-bundle-kns4'].contents[0] as { role: string }).role = 'Tampered role';
+		expect(() => assertKibblePdpBundleProjection(changedCopy)).toThrow(/SHA mismatch/);
+
+		const missingBundle = structuredClone(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles) as Record<string, unknown>;
+		delete missingBundle['gift-bundle'];
+		expect(() => assertKibblePdpBundleProjection(missingBundle)).toThrow(/exactly 8 bundles/);
 	});
 });

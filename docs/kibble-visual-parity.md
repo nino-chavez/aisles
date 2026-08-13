@@ -62,7 +62,9 @@ local deterministic data URLs, and the pixel gate still compares their rendered
 positions and dimensions.
 
 Before either endpoint starts, the runner hashes the canonical seed fixture and
-checks its ID, version, and SHA against the canonical source. The gate then
+every product-detail dependency classified as adapted, then checks those values
+against the pinned contract. The dependency closure also classifies intentionally
+excluded commerce dependencies and framework or generated imports. The gate then
 checks the rendered markers before it captures screenshots. Evidence is written
 to `validation/kibble-parity-local/`.
 
@@ -75,8 +77,9 @@ npm run test:kibble-parity:local
 ```
 
 The route matrix only runs surfaces already contracted and rendered by both
-repositories. It does not make product-detail, cart, checkout, or any other
-uncontracted surface into evidence.
+repositories. A product-detail comparison remains review evidence until its
+visual and human approval gates pass; it does not authorize publication. Cart,
+checkout, and other uncontracted surfaces remain outside this evidence.
 
 The local command defaults to a zero pixel difference and zero structural
 tolerance. Supplying either tolerance through environment variables makes the

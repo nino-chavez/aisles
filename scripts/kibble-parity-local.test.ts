@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { deriveLocalParityPaths, findWorkspaceRoot, readLocalParityRoutes } from './kibble-parity-local';
+import {
+	deriveLocalParityPaths,
+	findWorkspaceRoot,
+	KIBBLE_PARITY_PDP_SOURCE_FILES,
+	readLocalParityRoutes,
+	verifyPinnedPdpSourceDigests,
+} from './kibble-parity-local';
 
 describe('Kibble local visual parity runner', () => {
 	it('uses Home by default and supports an explicit route matrix', () => {
@@ -21,5 +27,17 @@ describe('Kibble local visual parity runner', () => {
 			referenceRoot: '/workspace/dev/labs/bc-subscriptions/apps/storefront-svelte',
 			fixturePath: '/workspace/dev/labs/bc-subscriptions/scripts/kibble-demo/data/seed-output.json',
 		});
+	});
+
+	it('requires every adapted PDP dependency to match its canonical SHA', () => {
+		const exact = Object.fromEntries(KIBBLE_PARITY_PDP_SOURCE_FILES.map(({ path, sha256 }) => [path, sha256]));
+		expect(() => verifyPinnedPdpSourceDigests(exact)).not.toThrow();
+
+		const tampered = { ...exact, [KIBBLE_PARITY_PDP_SOURCE_FILES[0].path]: '0'.repeat(64) };
+		expect(() => verifyPinnedPdpSourceDigests(tampered)).toThrow(/PDP source SHA mismatch/);
+
+		const missing = { ...exact };
+		delete missing[KIBBLE_PARITY_PDP_SOURCE_FILES[1].path];
+		expect(() => verifyPinnedPdpSourceDigests(missing)).toThrow(/received missing/);
 	});
 });

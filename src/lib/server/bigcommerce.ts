@@ -89,6 +89,21 @@ export interface BCProduct {
 	};
 }
 
+export interface BCProductOption {
+	entityId: number;
+	displayName: string;
+	isRequired: boolean;
+	displayStyle: string | null;
+	values: { edges: Array<{ node: { entityId: number; label: string; isDefault: boolean } }> } | null;
+}
+
+export interface BCKibbleProductDetail extends BCProduct {
+	images: { edges: Array<{ node: { url: string; altText: string } }> };
+	inventory: { isInStock: boolean } | null;
+	productOptions: { edges: Array<{ node: BCProductOption }> };
+	relatedProducts: { edges: Array<{ node: BCProduct }> };
+}
+
 interface ProductsResponse {
 	site: {
 		products: {
@@ -305,6 +320,14 @@ interface ProductByPathResponse {
 	};
 }
 
+interface KibbleProductDetailResponse {
+	site: {
+		route: {
+			node: (BCKibbleProductDetail & { __typename: 'Product' }) | { __typename: string } | null;
+		};
+	};
+}
+
 export async function getProductByPath(path: string): Promise<BCProduct | null> {
 	const fullPath = path.startsWith('/') ? path : `/${path}/`;
 	const data = await query<ProductByPathResponse>(`
@@ -322,6 +345,49 @@ export async function getProductByPath(path: string): Promise<BCProduct | null> 
 	`, { path: fullPath });
 
 	return data.site.route.node;
+}
+
+/**
+ * Fixed catalog-only PDP payload for Kibble Preserve. This is intentionally a
+ * query: the Preserve route never creates carts, subscriptions, or purchases.
+ *
+ * Verified 2026-08-12 against the pinned Kibble source at
+ * `ef122b8e17b9eb0b327c9d42491c44a61577ead4`,
+ * `apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts`, and
+ * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/products-and-catalog/products.md
+ */
+export async function getKibbleProductDetailByPath(path: string): Promise<BCKibbleProductDetail | null> {
+	const fullPath = path.startsWith('/') ? path : `/${path}/`;
+	const data = await query<KibbleProductDetailResponse>(`
+		query GetKibbleProductDetail($path: String!) {
+			site {
+				route(path: $path) {
+					node {
+						__typename
+						... on Product {
+							${PRODUCT_FRAGMENT}
+							images(first: 10) { edges { node { url(width: 1200, height: 1200) altText } } }
+							inventory { isInStock }
+							productOptions(first: 10) {
+								edges { node {
+									entityId displayName isRequired
+									... on MultipleChoiceOption {
+										displayStyle
+										values(first: 25) { edges { node { entityId label isDefault } } }
+									}
+								} }
+							}
+							relatedProducts(first: 4) { edges { node { ${PRODUCT_FRAGMENT} } } }
+						}
+					}
+				}
+			}
+		}
+	`, { path: fullPath });
+
+	const node = data.site.route.node;
+	if (!node || node.__typename !== 'Product' || !('entityId' in node)) return null;
+	return node;
 }
 
 /**

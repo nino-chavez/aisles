@@ -108,11 +108,11 @@ describe('layout provenance and cache identity', () => {
 			policy: decision.policy,
 			surface: 'home', route: '/', persona: 'gatherer',
 			rendererComponentId: 'kibble.home', rendererVariantId: 'kibble-home-reference-v1',
-			decisionSource: 'rules', promptVersion: 'no-model', schemaVersion: 'kibble-reference-1.4.0',
+			decisionSource: 'rules', promptVersion: 'no-model', schemaVersion: 'kibble-reference-1.5.0',
 			contractInput: { recipe: 'home' }, catalogInput: [{ id: 'one' }], shopperContext: { persona: 'gatherer' },
 		});
 		expect(provenance).toMatchObject({
-			reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.4.0' },
+			reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.5.0' },
 			autonomy: { preset: 'preserve', decisionMode: 'rules', publicationMode: 'live' },
 			decisionSource: 'rules',
 		});

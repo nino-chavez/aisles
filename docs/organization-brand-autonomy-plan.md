@@ -18,7 +18,7 @@ isolated branches and has not been pushed or deployed.
 | 1 — policy compiler | Implemented in Aisles; Bealls-family policies record observed legacy behavior | Production adoption beyond the Kibble slice |
 | 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
 | 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, and fallbacks implemented | Approved visual comparison |
-| 4 — Kibble routes | Home, product listing, and error surfaces render the Preserve path locally | Complete product detail, search, cart, and checkout contracts; approve visual parity |
+| 4 — Kibble routes | Home, product listing, and error surfaces render the Preserve path locally; product detail is implemented for development review only | Approve product-detail visual parity and human acceptance before publication; complete search, cart, and checkout contracts |
 | 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented | Enable it only when a contracted model-backed zone is approved |
 | 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, and actual home and product-listing Preserve records implemented | Apply the migration and verify the deployed runtime |
 | 7 — executable parity | Fail-closed mobile/desktop structural and pixel harness implemented; source and candidate share pinned provenance markers | Run an approved fixed-data comparison, resolve every unmasked difference, and obtain named human approval |
@@ -411,6 +411,13 @@ Aisles does not implement.
 Render ordered reference zones on the Kibble home surface first. Product listing
 enters Preserve only after its canonical breadcrumbs, sort controls, cursor
 pagination, and load-more behavior pass the same contract gate.
+Product detail now has a deterministic catalog-only implementation pinned to
+Kibble contract `1.5.0` and canonical source
+`ef122b8e17b9eb0b327c9d42491c44a61577ead4`. Its publication policy remains
+`approval_required` while visual approval is open. Development builds may render
+the fixed review surface, but live builds fail into the Preserve error shell.
+Home and product-listing cards remain non-links until that acceptance and policy
+gate moves to approved and live.
 Keep the current whole-page renderer as an explicit legacy path for brands that
 have not adopted contracts. Select the path from trusted server-side brand and
 contract data. Kibble Preserve mode server-renders its fixed shell and does not
@@ -470,8 +477,8 @@ not merge, publication, deployment, migration, or human acceptance.
 | B | `aisles`: README and existing documentation amendments | Implemented and integrated |
 | C | `bealls-aisles`: scope corrections and organization-bound config/docs | Implemented on an isolated branch |
 | D | `aisles`: Kibble reference components and CSS | Implemented and integrated; source pinned to a local canonical commit |
-| E | `aisles`: Kibble route and renderer integration | Home, product listing, and errors integrated; remaining routes fail closed |
-| F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for the current contracted surfaces |
+| E | `aisles`: Kibble route and renderer integration | Home, product listing, and errors integrated; product detail implemented for development comparison but pending visual approval and unavailable in live publication; remaining routes fail closed |
+| F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for live contracted surfaces and the approval-gated product-detail review path |
 | G | Both repos: deterministic and visual parity suites | Kibble harness implemented; real comparison and Bealls-family suites remain open |
 
 ## Compatibility and rollout

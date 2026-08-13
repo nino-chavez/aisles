@@ -100,3 +100,45 @@ export type KibbleServiceProofItem = {
 };
 
 export type KibbleProduct = Product;
+
+export type KibbleProductOption = {
+	entityId: number;
+	displayName: string;
+	isRequired: boolean;
+	displayStyle: string | null;
+	values: Array<{ entityId: number; label: string; isDefault: boolean }>;
+};
+
+export type KibblePdpProduct = KibbleProduct & {
+	sku: string;
+	categoryPath: string;
+	currencyCode: string;
+	isInStock: boolean | null;
+	images: Array<{ url: string; alt: string }>;
+	descriptionPlain: string;
+};
+
+export type KibblePdpBundle = {
+	name: string;
+	contents: Array<{ brand: string; title: string; role: string; image: string }>;
+};
+
+export type KibblePdpCopy = {
+	breadcrumbLabel: string;
+	galleryLabel: string;
+	galleryImagesLabel: string;
+	viewImageLabel: string;
+	imageUnavailableLabel: string;
+	priceLabel: string;
+	skuLabel: string;
+	inStockLabel: string;
+	outOfStockLabel: string;
+	availabilityUnavailableLabel: string;
+	bundleEyebrow: string;
+	bundleProductSingular: string;
+	bundleProductPlural: string;
+	bundleContentsHeading: string;
+	optionsLegend: string;
+	requiredSuffix: string;
+	detailsHeading: string;
+};

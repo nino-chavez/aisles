@@ -4,12 +4,13 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import HomePage from './+page.svelte';
 import CategoryPage from './category/[slug]/+page.svelte';
+import ProductPage from './product/[slug]/+page.svelte';
 import { _parseKibblePlpRequest } from './category/[slug]/+page.server';
 import { load as loadLayout } from './+layout.server';
-import { load as loadProduct } from './product/[slug]/+page.server';
 import { load as loadSearch } from './search/+page.server';
 import { GET as getCart, POST as postCart } from './api/cart/+server';
 import type { Product } from '$lib/types';
+import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 
 const route = (path: string) => readFileSync(resolve(import.meta.dirname, path), 'utf8');
 const product: Product = {
@@ -52,7 +53,7 @@ describe('Preserve route boundaries', () => {
 			expect(kibble.kibbleChrome?.navItems[0]).toEqual({ label: 'Dog Food', href: '/category/dog-food' });
 			expect(kibble.kibbleChrome?.statusItems).toEqual([]);
 			expect(kibble.kibbleErrorPolicy).toMatchObject({
-				referenceId: 'kibble-shelf-native', referenceVersion: '1.4.0',
+				referenceId: 'kibble-shelf-native', referenceVersion: '1.5.0',
 				policies: [{ surface: 'error-404' }, { surface: 'error-empty' }],
 			});
 
@@ -65,10 +66,10 @@ describe('Preserve route boundaries', () => {
 			expect(legacy.kibbleErrorPolicy).toBeNull();
 
 			process.env.BRAND_ID = 'kibble';
-			const unsupported = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);
-			if (!unsupported) throw new Error('Expected the unsupported Kibble surface load to return data.');
-			expect(unsupported.renderMode).toBe('legacy-generated');
-			expect(unsupported.chromeMode).toBe('reference');
+			const pdp = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);
+			if (!pdp) throw new Error('Expected the contracted Kibble PDP layout to return data.');
+			expect(pdp.renderMode).toBe('reference-review');
+			expect(pdp.chromeMode).toBe('reference');
 		} finally {
 			if (previousBrand === undefined) delete process.env.BRAND_ID;
 			else process.env.BRAND_ID = previousBrand;
@@ -141,6 +142,33 @@ describe('Preserve route boundaries', () => {
 		expect(result.body).not.toContain('Personalizing');
 	});
 
+	it('SSR renders the approval-gated PDP review without generic commerce controls', () => {
+		const result = render(ProductPage, {
+			props: {
+				data: {
+					renderMode: 'reference-review',
+					kibblePdp: {
+						product: {
+							...product, sku: 'ACTUAL-10', categoryPath: '/dog-food/', currencyCode: 'USD',
+							isInStock: true, images: [], description: '<p>Catalog details.</p>', descriptionPlain: 'Catalog details.',
+						},
+						bundle: null,
+						breadcrumbs: [{ label: 'Home', href: '/' }, { label: product.name }],
+						options: [], relatedProducts: [], relatedProductHrefs: {},
+						purchaseUnavailableLabel: KIBBLE_PRESERVE_MANIFEST.display.pdp.purchaseUnavailableLabel,
+						purchaseUnavailableBody: KIBBLE_PRESERVE_MANIFEST.display.pdp.purchaseUnavailableBody,
+						relatedHeading: KIBBLE_PRESERVE_MANIFEST.display.pdp.relatedHeading,
+						copy: { ...KIBBLE_PRESERVE_MANIFEST.display.pdp.copy },
+					},
+				} as never,
+			},
+		});
+		expect(result.body).toContain('data-reference-pdp="catalog-display-only"');
+		expect(result.body).toContain('data-reference-contract-version="1.5.0"');
+		expect(result.body).toContain('Purchase unavailable in this preview');
+		expect(result.body).not.toMatch(/Add to Cart|Add to Picks|Pairs well with/);
+	});
+
 	it('keeps stream calls inside an explicit legacy guard on both routes', () => {
 		for (const source of [route('+page.svelte'), route('category/[slug]/+page.svelte')]) {
 			expect(source).toContain("if (data.renderMode === 'reference-preserve') return;");
@@ -148,10 +176,8 @@ describe('Preserve route boundaries', () => {
 		}
 	});
 
-	it('fails closed before unsupported Kibble product and search adapters run', async () => {
+	it('keeps search unavailable while PDP has its own contracted server adapter', async () => {
 		const parent = async () => ({ devMode: false, chromeMode: 'reference' });
-		await expect(loadProduct({ params: { slug: 'anything' }, url: new URL('https://aisles.test/product/anything'), parent } as never))
-			.rejects.toMatchObject({ status: 503 });
 		await expect(loadSearch({ url: new URL('https://aisles.test/search?q=food'), parent } as never))
 			.rejects.toMatchObject({ status: 503 });
 	});
