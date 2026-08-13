@@ -16,6 +16,7 @@
 		relatedHeading,
 		copy,
 		zoneAdapter,
+		relatedModelDecision = null,
 	}: {
 		product: KibblePdpProduct;
 		bundle: KibblePdpBundle | null;
@@ -28,6 +29,7 @@
 		relatedHeading: string;
 		copy: KibblePdpCopy;
 		zoneAdapter?: KibbleZoneAdapterBinding<any> | null;
+		relatedModelDecision?: { zoneId: 'pdp.related'; routePath: string } | null;
 	} = $props();
 
 	let activeImage = $state(0);
@@ -123,6 +125,6 @@
 	</div>
 
 	{#if zoneAdapter}
-		<div class="kc-reference-pdp__related" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256} data-aisles-zone-instance={zoneAdapter.instanceId} data-aisles-zone-label={zoneAdapter.instanceId} data-aisles-authority={zoneAdapter.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter.modelCallCount ?? 0}><div class="kc-reference-container"><h2 class="kc-reference-display">{zoneAdapter.content.props.title}</h2><div class="kc-reference-product-grid">{#each zoneAdapter.content.props.products as productRef (productRef.productId)}{@const related = relatedByEntityId.get(productRef.productId)}{#if related}<KibbleProductCard product={related} productHref={relatedProductHrefs[related.id]} />{/if}{/each}</div></div></div>
+		<div class="kc-reference-pdp__related" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256} data-aisles-zone-instance={zoneAdapter.instanceId} data-aisles-zone-label={zoneAdapter.instanceId} data-aisles-authority={zoneAdapter.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter.modelCallCount ?? 0} data-aisles-pdp-model-eligible={relatedModelDecision?.zoneId === 'pdp.related' ? 'true' : undefined}><div class="kc-reference-container"><h2 class="kc-reference-display">{zoneAdapter.content.props.title}</h2><div class="kc-reference-product-grid">{#each zoneAdapter.content.props.products as productRef (productRef.productId)}{@const related = relatedByEntityId.get(productRef.productId)}{#if related}<KibbleProductCard product={related} productHref={relatedProductHrefs[related.id]} />{/if}{/each}</div></div></div>
 	{/if}
 </article>

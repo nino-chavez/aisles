@@ -43,4 +43,11 @@ describe('KibbleObserveRail', () => {
 		expect(source).toContain('aria-live="polite"');
 		expect(source).toContain('min-height:44px');
 	});
+
+	it('keeps the PDP AI action status mounted and disables it while a ranking runs', () => {
+		const source = readFileSync(resolve(import.meta.dirname, 'KibbleObserveRail.svelte'), 'utf8');
+		expect(source).toContain('role="status" aria-live="polite"');
+		expect(source).toContain('disabled={pdpModelAction.disabled}');
+		expect(source).toContain("pdpModelActionStatus = 'updating'");
+	});
 });

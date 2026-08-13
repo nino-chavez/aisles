@@ -10,8 +10,10 @@
 ## Implementation checkpoint
 
 The plan is not complete. The corrective implementation is integrated on the
-local project branches. Nothing in this execution has been pushed or
-deployed, and no database migration has been applied.
+project branches. The Home model action is merged at `426045a6`, deployed as
+Cloudflare Pages deployment `1691752f-db95-402c-be7c-8d2ae9c1945b`, and was
+verified live on 2026-08-13. The PDP model action is implemented locally and
+still needs deploy. No database migration has been applied.
 
 | Phase | Local state on 2026-08-13 | Remaining gate |
 |---|---|---|
@@ -20,7 +22,7 @@ deployed, and no database migration has been applied.
 | 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
 | 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, fallbacks, classified route dependencies, and the final cold-review accessibility repairs are implemented. The contract records the exact 28 zone families and 36 expanded Bealls identities: 11 content-backed Kibble-native adapters and 25 Trusted Hidden terminals. | Approved route-by-route visual comparison |
 | 4 — Kibble routes | Home, product listing, product detail, search, and error surfaces render Preserve. Product detail is live as a catalog-display-only route, and product cards link to it. Cart, account, subscriptions, and the three canonical checkout phase routes render source-native unavailable shells rather than functional commerce; bare `/checkout` remains the source 404. Home applies bounded signal-informed product ranking without changing its reference shell. | Complete route-by-route human visual review; do not treat the PDP or unavailable shells as functional commerce |
-| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented; Kibble Home uses the approved deterministic rules path for `rank_products` and `select_products` | Enable model decisions only when a contracted model-backed zone is approved |
+| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented. Home has a live opt-in `rank_products` model action; the exact-route PDP related-products action is implemented locally. | Review and deploy the PDP action; retain route-by-route visual and operational gates |
 | 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, actual Home and product-listing Preserve records, and a Home decision trace implemented | Apply the migration and verify the deployed runtime |
 | 7 — executable parity | The local Kibble harness covers 15 named routes at 390, 768, and 1280 pixels. It checks pinned provenance, dependency classifications, structure, and screenshots. The latest zero-tolerance run leaves all 15 routes and all 45 viewport cells open: 12,313,565 of 66,597,260 comparable pixels differ (18.4896%), with no masks. Mechanical evidence is not an approval. The Bealls internal regression harness covers its 90 brand/route/viewport cells. | Obtain named route-by-route human visual approval; no masks or tolerances are approved by this record |
 | 8 — Bealls adoption | Separate brand policies and versioned internal renderer contracts are integrated for Bealls, Bealls Florida, and Home Centric. The final clean internal run at `6b7faee` mechanically passed all 90 cells per side with exact active-brand and zone coverage, zero model requests, and no provider/database traffic. Its unmasked comparison still has 62 changed cells and 27,989,468 changed pixels. All brands remain explicitly `uncontracted` for external-reference preservation. | Obtain named human review of the internal visual deltas; add approved external-reference contracts and visual gates before making a preservation claim |
@@ -433,9 +435,11 @@ page data is serialized.
 Normal production applies that bounded decision when the Home route renders.
 For a prospect-facing demo, the public launcher on every shopper route adds
 `?observe=true`, starts a four-hour site-wide observability session, and shows
-the current route's visible Template, Rules, and AI authority. On Home it also
-immediately previews the latest persisted-session decision at
-`POST /api/kibble/home-decision?observe=true`. The endpoint is server-authoritative:
+the current route's visible Template, Rules, and AI authority. Home previews
+the latest persisted-session rules decision at
+`POST /api/kibble/home-decision?observe=true`. Its separate **Run bounded AI
+ranking** control is an opt-in model action, not a normal Home render. The
+endpoint is server-authoritative:
 it accepts no persona, score, policy, candidate, or product-order input from the
 browser. It requires the active Kibble brand, the trusted Home
 `reference-preserve` policy, and a valid scoped `aisles_session`; otherwise it
@@ -443,10 +447,22 @@ fails closed with `404` for an unavailable surface or `409` for a missing or
 unknown session. Its no-store response is versioned and carries sanitized
 inference, the score-free zone trace, a runner data-source override when set,
 and contracted `rules` provenance for the current scenario. It does not create
-or mutate a session, call a model, generate a layout, read or write the
-layout-decision cache, write telemetry, or write a database. It does read the
-existing scoped session from the in-memory session cache or Redis when
-configured.
+or mutate a session, generate a layout, or read or write the layout-decision
+cache. The rules preview writes no telemetry or database records. A successful
+model action writes its generation telemetry to Postgres after the bounded
+provider response is validated. Both read the existing scoped session from the
+in-memory session cache or Redis when configured.
+
+The only PDP model action is equally narrow. The Observe rail shows **AI-rank
+related products** only on the exact approved route
+`/product/puppy-starter-kit`, only while its server-reloaded related rail has
+three or four candidates, and only when the demo-model flag is enabled. Its
+`POST /api/kibble/pdp-related-decision?observe=true` request accepts only
+`{"mode":"model"}`. It reloads that literal PDP on the server, reserves the
+same Redis budget before any provider call, and can return only one exact
+permutation of those related IDs. Adjacent slugs and browser-supplied route,
+candidate, or product facts have no authority. The fixed PDP, heading, copy,
+prices, links, actions, component, and CSS do not change.
 
 The behavior simulator is an explicit Home signal-lab control, not a commerce
 control. It emits named typed event sequences—category views, product views,
@@ -474,10 +490,12 @@ source-class labels alone are not authority.
 
 The first executable contracted decision is deliberately the smaller rules case:
 Kibble Home can rank and select products, while every other Home zone remains
-fixed. An opt-in demo inspector shows the inference, policy, permitted
-capabilities, input and output order, and zero model calls. Its live preview
-requires a site-wide demo session that begins with an explicit `?observe=true`
-request;
+fixed. Its opt-in model action is now live for the approved Home shelf. The
+normal rules preview truthfully reports zero model calls; the model action
+reports its actual provider attempts. The PDP related-products model action is
+implemented locally for only `/product/puppy-starter-kit` and remains pending
+review and deploy. Each live preview requires a site-wide demo session that
+begins with an explicit `?observe=true` request;
 the route then re-derives the persisted-session decision server-side rather than
 accepting browser-controlled decision data. A separate local showcase supplies
 a pinned catalog and clearly labeled synthetic fit scores; its behavior controls
@@ -540,8 +558,9 @@ runtime-owned policy storage contract described above.
 
 ## Execution map
 
-Work proceeds in isolated worktrees. The status below records local execution,
-not merge, publication, deployment, migration, or human acceptance.
+Work proceeds in isolated worktrees. The status below records implementation
+state. A row names merge or deployment only when this plan also pins that
+evidence. It does not imply a database migration or human visual acceptance.
 
 | Slice | Repository and ownership | Local state |
 |---|---|---|
@@ -553,7 +572,7 @@ not merge, publication, deployment, migration, or human acceptance.
 | F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for live contracted surfaces, including fixed product-detail provenance |
 | G | Both repos: deterministic and visual parity suites | Kibble's 15-route × 3-viewport harness and Bealls's 90-cell internal regression harness are implemented and code-reviewed; both strict visual comparisons and named human approval remain open |
 | H | `aisles-admin`: merchant control surface | Dedicated read-only sandbox integrated; versioned runtime writes and audit storage remain unbuilt |
-| I | `aisles`: Kibble Home decision proof | Bounded rules ranking, explicit dev inspector, and isolated synthetic local showcase implemented; no model-backed Preserve zone is approved |
+| I | `aisles`: Kibble decision proof | Home rules ranking and live opt-in model ranking are deployed. The exact-route PDP related-products model action is implemented locally, pending review and deploy. The isolated local showcase remains provider-free. |
 
 ## Compatibility and rollout
 

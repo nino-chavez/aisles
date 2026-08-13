@@ -4,6 +4,7 @@
 	import { buildObserveSessionHref } from '$lib/signals/observe-session-link';
 	import KibbleDevInspectorLauncher from './KibbleDevInspectorLauncher.svelte';
 	import type { KibbleInspectorPersona } from './kibble-dev-inspector';
+	import { describeKibblePdpModelAction, type KibblePdpModelActionStatus } from './kibble-pdp-model-action';
 
 	type ZoneAuthority = 'fixed' | 'rules' | 'model';
 	type ZoneEvidence = {
@@ -41,6 +42,10 @@
 	let showZones = $state(false);
 	let zones = $state<ZoneEvidence[]>([]);
 	let persona = $state<string | null>(null);
+	let pdpModelActionEligible = $state(false);
+	let pdpModelActionReady = $state(false);
+	let pdpModelActionStatus = $state<KibblePdpModelActionStatus>('idle');
+	const pdpModelAction = $derived(describeKibblePdpModelAction(pdpModelActionStatus));
 	const visiblePersona = $derived(persona ?? initialPersona);
 	const observeHref = $derived(buildObserveSessionHref(sessionId));
 	const templateCount = $derived(zones.filter(({ authority }) => authority === 'fixed').length);
@@ -74,6 +79,11 @@
 				variant: element.dataset.kibbleZoneVariant || element.dataset.aislesVariant || 'reference-owned',
 			});
 		}
+		pdpModelActionEligible = document.querySelector('[data-aisles-pdp-model-eligible="true"]') !== null;
+		if (!pdpModelActionEligible) {
+			pdpModelActionStatus = 'idle';
+			pdpModelActionReady = false;
+		}
 		zones = [...evidence.values()];
 	};
 
@@ -94,6 +104,7 @@
 			attributeFilter: [
 				'data-aisles-zone-instance', 'data-aisles-zone-label', 'data-aisles-authority',
 				'data-aisles-model-calls', 'data-kibble-zone-instance', 'data-kibble-zone-status',
+				'data-aisles-pdp-model-eligible',
 			],
 		});
 		const onInferenceUpdate = (event: Event) => {
@@ -103,12 +114,21 @@
 				persona = inference.primary as KibbleInspectorPersona;
 			}
 		};
+		const onPdpModelStatus = (event: Event) => {
+			const status = event instanceof CustomEvent ? event.detail : null;
+			if (status === 'updating' || status === 'applied' || status === 'failed') pdpModelActionStatus = status;
+		};
+		const onPdpModelReady = () => { pdpModelActionReady = true; };
 		window.addEventListener('hashchange', collapseForSignalLab);
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
+		window.addEventListener('aisles-kibble-pdp-model-status', onPdpModelStatus);
+		window.addEventListener('aisles-kibble-pdp-model-ready', onPdpModelReady);
 		return () => {
 			observer.disconnect();
 			window.removeEventListener('hashchange', collapseForSignalLab);
 			window.removeEventListener('aisles-inference-update', onInferenceUpdate);
+			window.removeEventListener('aisles-kibble-pdp-model-status', onPdpModelStatus);
+			window.removeEventListener('aisles-kibble-pdp-model-ready', onPdpModelReady);
 		};
 	});
 
@@ -125,6 +145,12 @@
 	function toggleZones() {
 		showZones = !showZones;
 		localStorage.setItem('aisles-observe-zones', String(showZones));
+	}
+
+	function requestPdpModelDecision() {
+		if (!pdpModelActionEligible || !pdpModelActionReady || pdpModelAction.disabled) return;
+		pdpModelActionStatus = 'updating';
+		window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-request'));
 	}
 
 	function parseAuthority(value: string | undefined, instanceId: string): ZoneAuthority {
@@ -195,8 +221,10 @@
 					{showZones ? 'Hide zone map' : 'Show zone map'}
 				</button>
 				{#if surface === 'home'}<a href="/?observe=true#kibble-signal-lab">Open signal lab</a>{/if}
+				{#if surface === 'pdp' && pdpModelActionEligible && pdpModelActionReady}<button type="button" onclick={requestPdpModelDecision} disabled={pdpModelAction.disabled}>{pdpModelAction.label}</button>{/if}
 				{#if observeHref}<a href={observeHref} target="_blank" rel="noopener">Open session in Observe <span aria-hidden="true">↗</span></a>{/if}
 			</div>
+			<p class="aisles-observe__truth" role="status" aria-live="polite">{surface === 'pdp' ? pdpModelAction.detail : ''}</p>
 
 			<details class="aisles-observe__zones">
 				<summary>Visible page zones ({zones.length})</summary>

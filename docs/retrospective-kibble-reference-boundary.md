@@ -39,8 +39,8 @@ longer only a proposal. Local follow-up work now includes:
 - bounded, signal-informed product ranking inside the fixed Kibble Home recipe,
   with enrichment scores kept on the server;
 - an explicit demo inspector showing inference, zone authority, before
-  and after product order, policy provenance, zero model calls, and an
-  immediate server-derived preview after a persisted allowed signal; and
+  and after product order, policy provenance, and the truthful rules/model
+  call count after a persisted allowed signal; and
 - an isolated local showcase using a pinned catalog and visibly labeled
   synthetic persona-fit data, with production data connections blanked.
 
@@ -56,10 +56,12 @@ one named approval item per route. Route-by-route human visual approval,
 merchant runtime policy writes and audit storage, migration/deploy/live
 database-provider verification, and Bealls external-reference contracts remain
 open.
-The Home proof uses deterministic rules, not a model. It demonstrates that
-signals can change an approved merchandising field while the reference-owned
-shell remains unchanged. Model-backed Assist behavior still requires its own
-contract, approval, and acceptance evidence.
+The normal Home proof uses deterministic rules. Its separate **Run bounded AI
+ranking** control is a live, opt-in Assist action with its own exact policy,
+provider budget, and permutation validation. The only PDP Assist action is the
+`pdp.related` rail on `/product/puppy-starter-kit`; it can reorder only the
+three-to-four server-reloaded related candidates. Both keep the
+reference-owned shell unchanged.
 Normal production applies that decision at the Home route boundary. The public
 demo begins only with an explicit `?observe=true` request, then keeps a
 lightweight observability rail active across shopper navigation for four hours.
@@ -70,10 +72,12 @@ the server. It fails closed without the active Kibble brand, the trusted
 `reference-preserve` Home policy, or a valid `aisles_session`; it accepts no
 browser-supplied persona, policy, scores, candidates, or order. The no-store,
 versioned preview exposes sanitized inference, a score-free zone trace, runner
-data-source labeling, and contracted `rules` provenance. It does not call a
-model, generate a layout, mutate the session, read or write the layout-decision
-cache, write telemetry, or write a database. It does read the existing scoped
-session from the in-memory session cache or Redis when configured.
+data-source labeling, and contracted provenance. The normal rules preview does
+not call a model and writes no telemetry. A successful opt-in model action logs
+generation telemetry to Postgres after validation. Neither path generates a
+layout, mutates the session, or reads or writes the layout-decision cache. Both
+read the existing scoped session from the in-memory session cache or Redis when
+configured.
 
 The behavior simulator is an explicit Home signal-lab control, not a commerce control. It
 emits recognizable typed event sequences through `/api/signals`, then requests

@@ -1,4 +1,5 @@
 import type { PageServerLoad } from './$types';
+import { env as privateEnv } from '$env/dynamic/private';
 import {
 	customFieldsToRecord,
 	getKibbleProductDetailByPath,
@@ -18,7 +19,12 @@ import {
 } from '$lib/brand/reference/kibble';
 import { isKibblePdpPublished, materializeKibblePdpHrefs, type MerchantRenderMode } from '$lib/brand/reference/kibble-runtime';
 import type { KibblePdpBundle, KibblePdpCopy, KibbleProductOption } from '$lib/components/kibble/types';
-import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
+import {
+	assertKibblePreserveRoutePolicy,
+	getContractSurfaceDecision,
+	getKibbleObservePdpRelatedModelPolicyDescriptor,
+	KIBBLE_OBSERVE_PDP_RELATED_ROUTE,
+} from '$lib/brand/composition-policy';
 import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
@@ -30,7 +36,7 @@ import { dev } from '$app/environment';
 
 export const load: PageServerLoad = async ({ params, url, request, cookies, parent }) => {
 	const slug = params.slug;
-	const { devMode, renderMode } = await parent();
+	const { devMode, renderMode, observeMode } = await parent();
 
 	if (renderMode === 'reference-unavailable') {
 		await throwKibblePreserveError({
@@ -42,7 +48,7 @@ export const load: PageServerLoad = async ({ params, url, request, cookies, pare
 		});
 	}
 	if (renderMode === 'reference-preserve' || renderMode === 'reference-review') {
-		return loadKibblePreservePdp({ slug, url, request, cookies, renderMode });
+		return loadKibblePreservePdp({ slug, url, request, cookies, renderMode, observeMode });
 	}
 
 	const persona = url.searchParams.get('intent') || 'gatherer';
@@ -65,13 +71,14 @@ export const load: PageServerLoad = async ({ params, url, request, cookies, pare
 };
 
 async function loadKibblePreservePdp({
-	slug, url, request, cookies, renderMode,
+	slug, url, request, cookies, renderMode, observeMode,
 }: {
 	slug: string;
 	url: URL;
 	request: Request;
 	cookies: { get: (name: string) => string | undefined; set: (name: string, value: string, options: { path: string; maxAge?: number }) => void };
 	renderMode: Extract<MerchantRenderMode, 'reference-preserve' | 'reference-review'>;
+	observeMode: boolean;
 }) {
 	const preserveStartedAt = Date.now();
 	const failClosed = async (cause: unknown, phase: string): Promise<never> => {
@@ -129,6 +136,12 @@ async function loadKibblePreservePdp({
 			.map(({ node }) => materializeKibbleCatalogProduct(node, 'related product'))
 			.filter((candidate) => candidate.entityId !== product.entityId);
 		assertUnique(relatedProducts.map(({ entityId }) => entityId), 'related product entity ids');
+		const relatedModelDecision = (
+			observeMode &&
+			privateEnv.KIBBLE_DEMO_AI_ENABLED === 'true' &&
+			url.pathname === KIBBLE_OBSERVE_PDP_RELATED_ROUTE &&
+			relatedProducts.length >= 3 && relatedProducts.length <= 4
+		) ? getKibbleObservePdpRelatedModelPolicyDescriptor(url.pathname) : null;
 		const options = materializeKibbleOptions(detail);
 		const breadcrumbs = [
 			{ label: boundedCopy(manifest.breadcrumbHomeLabel, 'breadcrumbs[].label', 'PDP home breadcrumb'), href: '/' },
@@ -175,6 +188,7 @@ async function loadKibblePreservePdp({
 				relatedHeading: manifest.relatedHeading,
 				copy: manifest.copy,
 				zoneAdapter: await executeKibblePdpRelatedZoneAdapter(relatedProducts, manifest.relatedHeading, url.pathname),
+				relatedModelDecision,
 			},
 			provenance,
 		};

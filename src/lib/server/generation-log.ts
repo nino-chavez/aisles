@@ -14,11 +14,11 @@ import { LayoutProvenanceSchema, type LayoutProvenance } from './layout-provenan
 
 // Per-1M token pricing (USD) — update when Anthropic changes pricing
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-	'anthropic/claude-haiku-4.5': { input: 0.80, output: 4.00 },
-	'anthropic/claude-sonnet-4.6': { input: 3.00, output: 15.00 },
+	'anthropic/claude-haiku-4-5': { input: 0.80, output: 4.00 },
+	'anthropic/claude-sonnet-4-6': { input: 3.00, output: 15.00 },
 };
 
-function estimateCost(model: string | undefined, inputTokens: number | undefined, outputTokens: number | undefined): number | null {
+export function estimateCost(model: string | undefined, inputTokens: number | undefined, outputTokens: number | undefined): number | null {
 	if (!model || !inputTokens || !outputTokens) return null;
 	const pricing = MODEL_PRICING[model];
 	if (!pricing) return null;

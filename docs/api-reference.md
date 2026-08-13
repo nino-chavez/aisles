@@ -360,7 +360,8 @@ reserves the worst-case provider budget before sending sanitized inference and
 bounded approved product facts to the configured model. Its response schema can
 only return an exact permutation of the approved product IDs. Neither path may
 generate or replace the Kibble layout, components, copy, prices, links, CSS, or
-commerce actions.
+commerce actions. A successful model action writes its generation telemetry to
+Postgres after response validation; the rules path writes no telemetry.
 
 | Status | Condition |
 |---|---|
@@ -371,6 +372,32 @@ commerce actions.
 | 429 | Session cooldown or daily provider-call budget exhausted |
 | 503 | Bounded AI is disabled or its production Redis budget is unavailable |
 | 500 | Server decision or catalog operation failed |
+
+---
+
+### POST /api/kibble/pdp-related-decision?observe=true
+
+Runs one opt-in model ranking for the `pdp.related` rail on the single approved
+route `/product/puppy-starter-kit`. The request body must be exactly
+`{"mode":"model"}`. The browser cannot provide a route, candidate, product
+fact, or order. The server reloads the approved PDP and refuses to call a model
+unless it finds three or four unique related products. It reserves the same
+session/global Redis budget as the Home action before contacting a provider.
+
+The no-store response contains only the route identity, provenance, model-call
+count, a strict permutation of the server-reloaded related IDs, and the exact
+related-rail adapter. The PDP itself remains fixed: copy, prices, links,
+actions, component, and CSS are unchanged.
+
+| Status | Condition |
+|---|---|
+| 200 | Explicit observe session, exact approved route, eligible server-reloaded rail, and budget reservation |
+| 400 | Body is not exactly `{"mode":"model"}` |
+| 404 | Missing demo flag or wrong brand |
+| 409 | Missing session or fewer than three related candidates |
+| 429 | Session cooldown or daily provider-call budget exhausted |
+| 503 | Bounded AI is disabled or its production Redis budget is unavailable |
+| 500 | Catalog, provider, or output validation failed; the client retains the fixed rail |
 
 ---
 
