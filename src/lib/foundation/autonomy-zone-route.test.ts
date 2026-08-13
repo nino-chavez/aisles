@@ -13,8 +13,8 @@ import {
 } from './autonomy-zone-route';
 
 const REVIEWED_ROUTE_MANIFEST_RELEASE = {
-	version: '2026-08-13.4',
-	digest: 'sha256:a2140ba29c7fa216920cfe522f7caaf5722592db2d1f59905d9b56737a6d772f',
+	version: '2026-08-13.3',
+	digest: 'sha256:932ded9111cb77e8c4b7808aaaa7dfc110718129e01480de0b546c1b6c610fd7',
 } as const;
 
 describe('trusted shopper route normalization', () => {
@@ -62,6 +62,7 @@ describe('trusted shopper route normalization', () => {
 		['/category/dog-food', 'plp'],
 		['/product/kibble-bites', 'pdp'],
 		['/cart', 'cart'],
+		['/checkout', 'checkout'],
 		['/checkout/gift', 'checkout'],
 		['/checkout/prepaid', 'checkout'],
 		['/checkout/confirmation', 'checkout'],
@@ -82,7 +83,6 @@ describe('trusted shopper route normalization', () => {
 			routePath: '/category/no-results', surface: 'error-empty', routeManifestVersion: SHOPPER_ROUTE_MANIFEST_VERSION, routeManifestDigest: SHOPPER_ROUTE_MANIFEST_DIGEST,
 		});
 		expect(tryNormalizeTrustedShopperRoute('/missing-product')).toBeNull();
-		expect(tryNormalizeTrustedShopperRoute('/checkout')).toBeNull();
 		expect(tryNormalizeTrustedErrorRoute('/missing-product', 'home')).toBeNull();
 		expect(tryNormalizeTrustedErrorRoute('/missing?query=x', 'error-404')).toBeNull();
 	});
@@ -119,7 +119,6 @@ describe('trusted shopper route normalization', () => {
 		'/portal/login',
 		'/subscriptions/123',
 		'/checkout/admin',
-		'/checkout',
 		'/account/admin',
 		'/locator',
 		'/locator/private',

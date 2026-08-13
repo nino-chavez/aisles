@@ -3,9 +3,9 @@
 import type { Surface } from './zones';
 import { freezeAuthorityGraph } from './authority-immutability';
 
-export const SHOPPER_ROUTE_MANIFEST_VERSION = '2026-08-13.4';
+export const SHOPPER_ROUTE_MANIFEST_VERSION = '2026-08-13.3';
 /** SHA-256 of JSON.stringify(SHOPPER_ROUTE_MANIFEST_DEFINITION). */
-export const SHOPPER_ROUTE_MANIFEST_DIGEST = 'sha256:a2140ba29c7fa216920cfe522f7caaf5722592db2d1f59905d9b56737a6d772f';
+export const SHOPPER_ROUTE_MANIFEST_DIGEST = 'sha256:932ded9111cb77e8c4b7808aaaa7dfc110718129e01480de0b546c1b6c610fd7';
 
 export interface TrustedRouteSurface {
 	/** Exact input pathname retained for decision provenance. */
@@ -47,9 +47,7 @@ const SHOPPER_STATIC_ROUTES = freezeAuthorityGraph([
 	{ path: '/account/addresses', surface: 'account' },
 	{ path: '/account/payment-methods', surface: 'account' },
 	{ path: '/account/subscriptions', surface: 'account' },
-	// The pinned storefront has only checkout subroutes. Its missing index
-	// resolves through SvelteKit's 404 surface, so Preserve must not invent an
-	// unavailable checkout form for it.
+	{ path: '/checkout', surface: 'checkout' },
 	{ path: '/checkout/gift', surface: 'checkout' },
 	{ path: '/checkout/prepaid', surface: 'checkout' },
 	{ path: '/checkout/confirmation', surface: 'checkout' },
