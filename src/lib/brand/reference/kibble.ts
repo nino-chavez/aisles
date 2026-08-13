@@ -297,7 +297,7 @@ const REGISTRY = {
 
 export const KibbleReferenceContractSchema = z.object({
 	id: z.literal('kibble-shelf-native'),
-	version: z.literal('1.7.0'),
+	version: z.literal('1.8.0'),
 	status: z.literal('approved-reference'),
 		source: z.object({
 		repository: z.literal('bc-subscriptions'),
@@ -653,7 +653,7 @@ const variant = (
 ) => ({ id, cssVariantIds, dynamicPropFields, assetSlots, linkTargets, actionTargets, copyFields });
 
 const contractInput = {
-	id: 'kibble-shelf-native', version: '1.7.0', status: 'approved-reference',
+	id: 'kibble-shelf-native', version: '1.8.0', status: 'approved-reference',
 	source: {
 		repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
 		commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', referenceContractVersion: '1.5.0', applicationPath: 'apps/storefront-svelte',
@@ -727,7 +727,7 @@ const contractInput = {
 		},
 		{
 			id: 'kibble.category-listing', implementation: 'KibbleCategoryReference.svelte',
-			variants: [variant('kibble.category-listing.fixed-grid', ['kc.category-listing.fixed-grid'], ['eyebrow', 'title', 'breadcrumbs', 'sortLabel', 'sortOptions', 'selectedSort', 'productCount', 'productSingular', 'productPlural', 'emptyMessage', 'products', 'productHrefs', 'loadMoreHref', 'loadMoreLabel'], ['product.image'], ['home', 'catalog-category'], [], [copy('eyebrow', 24, ['reference-copy']), copy('title', 64, ['merchant-policy']), copy('breadcrumbs[].label', 64, ['reference-copy', 'merchant-policy']), copy('sortLabel', 24, ['reference-copy']), copy('sortOptions[].label', 32, ['reference-copy']), copy('loadMoreLabel', 24, ['reference-copy']), copy('productSingular', 16, ['reference-copy']), copy('productPlural', 16, ['reference-copy']), copy('emptyMessage', 120, ['reference-copy']), copy('products[].name', 96, ['merchant-catalog'])]), variant('kibble.category-listing.editorial-header', ['kc.category-listing.fixed-grid'], ['zoneAdapter'], [], [], [], [])],
+			variants: [variant('kibble.category-listing.fixed-grid', ['kc.category-listing.fixed-grid'], ['eyebrow', 'title', 'breadcrumbs', 'sortLabel', 'sortOptions', 'selectedSort', 'productCount', 'productSingular', 'productPlural', 'emptyMessage', 'products', 'productHrefs', 'loadMoreHref', 'loadMoreLabel'], ['product.image'], ['home', 'catalog-category'], [], [copy('eyebrow', 24, ['reference-copy']), copy('title', 64, ['merchant-policy']), copy('breadcrumbs[].label', 64, ['reference-copy', 'merchant-policy']), copy('sortLabel', 24, ['reference-copy']), copy('sortOptions[].label', 32, ['reference-copy']), copy('loadMoreLabel', 24, ['reference-copy']), copy('productSingular', 16, ['reference-copy']), copy('productPlural', 16, ['reference-copy']), copy('emptyMessage', 120, ['reference-copy']), copy('products[].name', 96, ['merchant-catalog'])]), variant('kibble.category-listing.editorial-header', ['kc.category-listing.fixed-grid'], ['zoneAdapter'], [], [], [], []), variant('kibble.category-listing.ranked-prefix', ['kc.category-listing.fixed-grid'], ['productRankingZoneAdapter', 'products'], [], [], [], [])],
 			referenceOwned: ['breadcrumb anatomy', 'fixed title and count header', 'seven-choice sort control', 'four-column product grid', 'cursor continuation control', 'catalog-card anatomy', 'bounded empty state'],
 			aislesOwned: ['category title', 'trusted BigCommerce sort mapping', 'live product order', 'live product fields', 'validated cursor destination'],
 		},

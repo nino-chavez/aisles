@@ -422,7 +422,7 @@ subscription, or checkout behavior. The bare `/checkout` path remains the
 canonical source's 404.
 
 Product detail has a deterministic catalog-only implementation in Kibble
-package `1.7.0`, pinned to source reference contract `1.5.0` and canonical source
+package `1.8.0`, pinned to source reference contract `1.5.0` and canonical source
 `ef122b8e17b9eb0b327c9d42491c44a61577ead4`. Its fixed publication policy is
 `live`, and Home, product-listing, search, and related-product cards may link to
 it. The route displays validated catalog facts and an explicit purchase-unavailable

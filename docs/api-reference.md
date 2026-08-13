@@ -401,6 +401,34 @@ actions, component, and CSS are unchanged.
 
 ---
 
+### POST /api/kibble/plp-product-ranking-decision?observe=true
+
+Runs one opt-in ranking for only the first `min(8, current products)` IDs in
+the fixed grid on `/category/dog-food?sort=FEATURED`. The request body must be
+exactly `{"mode":"model"}`. The server reloads that literal route with cursor
+`null`; the browser cannot supply a category, sort, cursor, products, persona,
+policy, or order. The action is eligible only when the reloaded prefix has three
+through eight unique products.
+
+The response records the exact input prefix, ranked prefix, and immutable tail.
+The dedicated `kibble.category-listing.ranked-prefix` adapter owns ordering in
+the existing grid only. Product-card anatomy, selected sort, category, cursor,
+load-more link, copy, prices, links, layout, and CSS remain template-owned. Any
+provider, budget, or validation failure leaves the full server-rendered order in
+place.
+
+| Status | Condition |
+|---|---|
+| 200 | Observe session, literal approved route state, eligible server-reloaded prefix, and budget reservation |
+| 400 | Body is not exactly `{"mode":"model"}` |
+| 404 | Missing demo flag or wrong brand |
+| 409 | Missing session or fewer than three prefix candidates |
+| 429 | Session cooldown or daily provider-call budget exhausted |
+| 503 | Bounded AI is disabled or its production Redis budget is unavailable |
+| 500 | Catalog, provider, or output validation failed; the client retains the full fixed grid |
+
+---
+
 ## Cart Endpoints
 
 ### POST /api/cart

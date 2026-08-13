@@ -50,4 +50,13 @@ describe('KibbleObserveRail', () => {
 		expect(source).toContain('disabled={pdpModelAction.disabled}');
 		expect(source).toContain("pdpModelActionStatus = 'updating'");
 	});
+
+	it('keeps the PLP first-eight action scoped, accessible, and removes its listeners', () => {
+		const source = readFileSync(resolve(import.meta.dirname, 'KibbleObserveRail.svelte'), 'utf8');
+		expect(source).toContain("document.querySelector('[data-aisles-plp-model-eligible=\"true\"]')");
+		expect(source).toContain("window.addEventListener('aisles-kibble-plp-model-status', onPlpModelStatus)");
+		expect(source).toContain("window.removeEventListener('aisles-kibble-plp-model-status', onPlpModelStatus)");
+		expect(source).toContain("window.dispatchEvent(new CustomEvent('aisles-kibble-plp-model-request'))");
+		expect(source).toContain('disabled={plpModelAction.disabled}');
+	});
 });

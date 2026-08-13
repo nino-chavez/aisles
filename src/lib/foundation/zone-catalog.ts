@@ -121,7 +121,7 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		organizationId: 'kibble-demo-merchant',
 		brandId: 'kibble',
 		referenceId: 'kibble-shelf-native',
-		referenceVersion: '1.7.0',
+		referenceVersion: '1.8.0',
 		routePath: '/',
 		instanceId: 'home.featured-row.1',
 	}],
@@ -129,13 +129,21 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		organizationId: 'kibble-demo-merchant',
 		brandId: 'kibble',
 		referenceId: 'kibble-shelf-native',
-		referenceVersion: '1.7.0',
+		referenceVersion: '1.8.0',
 		routePath: '/product/puppy-starter-kit',
 		instanceId: 'pdp.related',
 	}],
+	'plp.product-ranking': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.8.0',
+		routePath: '/category/dog-food',
+		instanceId: 'plp.product-ranking',
+	}],
 });
 
-export const ZONE_CATALOG_VERSION = '2026-08-13.4';
+export const ZONE_CATALOG_VERSION = '2026-08-13.5';
 export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = freezeAuthorityGraph(Object.fromEntries(unionIds.map((zoneId) => {
 	const isAisles = Object.prototype.hasOwnProperty.call(ZONES, zoneId);
 	const aislesZoneId = zoneId as ZoneId;

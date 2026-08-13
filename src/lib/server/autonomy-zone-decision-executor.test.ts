@@ -64,6 +64,7 @@ const organizationPolicy: OrganizationCompositionPolicy = {
 
 const headerContent = { component: 'editorial-header', props: { eyebrow: 'TRUSTED', headline: 'Trusted content', body: 'Server materialized.' } } as const;
 const carouselContent = { component: 'product-carousel', props: { title: 'Trusted products', products: productIds.map((productId) => ({ productId, role: 'standard' as const })), showQuickAdd: false } } as const;
+const gridContent = { component: 'product-grid', props: { columns: 4, products: productIds.map((productId) => ({ productId, role: 'standard' as const })), imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false } } as const;
 const serviceContent = { component: 'service-callouts-grid', props: { columns: 3, callouts: [{ icon: 'shipping', label: 'Shipping' }, { icon: 'returns', label: 'Returns' }, { icon: 'secure', label: 'Secure' }] } } as const;
 const tileContent = { component: 'category-tile-grid', props: { columns: 3, tiles: productIds.map((productId) => ({ label: productId, product: { productId, role: 'standard' as const } })) } } as const;
 const chipContent = { component: 'cluster-chip-row', props: { chips: productIds.map((productId) => ({ label: productId, product: { productId, role: 'standard' as const } })) } } as const;
@@ -72,6 +73,7 @@ function contentForZone(zoneId: ZoneId): unknown {
 	if (zoneId === 'home.below-fold' || zoneId === 'checkout.assurance-strip') return serviceContent;
 	if (zoneId === 'plp.cluster-row') return chipContent;
 	if (zoneId === 'plp.below-grid') return tileContent;
+	if (zoneId === 'plp.product-ranking') return gridContent;
 	if (['home.featured-row', 'pdp.related', 'pdp.cross-sell', 'pdp.recently-viewed', 'cart.above-checkout-cta', 'checkout.last-chance-upsell'].includes(zoneId)) return carouselContent;
 	return headerContent;
 }
@@ -447,7 +449,7 @@ describe('identity-bound zone decision executor', () => {
 		expect(Reflect.set(fallbackMap, fallbackBrand, originalFallback === 'content' ? 'hidden' : 'content')).toBe(false);
 		expect(ZONE_CATALOG['home.hero']).toBe(heroEntry);
 		expect(heroEntry.liveModelApprovals).toEqual([]);
-		expect(rankedApproval).toMatchObject({ organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.7.0', routePath: '/', instanceId: 'home.featured-row.1' });
+		expect(rankedApproval).toMatchObject({ organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.8.0', routePath: '/', instanceId: 'home.featured-row.1' });
 		expect(aislesFacts.routeRendered).toBe(false);
 		expect(heroEntry.definitions[0]).toBe(heroDefinition);
 		expect(heroDefinition.engineComposable).toBe(true);

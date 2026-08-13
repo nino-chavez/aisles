@@ -24,7 +24,7 @@ longer only a proposal. Local follow-up work now includes:
   surfaces, with fixed product-listing structure, trusted sorting, and cursor
   pagination;
 - a deterministic catalog-only product-detail implementation in Kibble package
-  `1.7.0`, pinned to source reference contract `1.5.0`, published read-only with
+  `1.8.0`, pinned to source reference contract `1.5.0`, published read-only with
   purchase, cart, checkout, subscription, and savings actions disabled;
 - a 15-route Kibble comparison harness at 390, 768, and 1280 pixels, plus a
   90-cell Bealls-family internal regression harness;

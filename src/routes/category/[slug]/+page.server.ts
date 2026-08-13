@@ -11,7 +11,13 @@ import { loadSessionIncentives } from '$lib/server/incentives/session';
 import { getBrand } from '$lib/brand/config';
 import { materializeKibbleCategory } from '$lib/brand/reference/kibble-runtime';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
-import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
+import {
+	assertKibblePreserveRoutePolicy,
+	getContractSurfaceDecision,
+	KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE,
+	KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT,
+	getKibbleObservePlpProductRankingModelPolicyDescriptor,
+} from '$lib/brand/composition-policy';
 import {
 	KibblePlpInputError,
 	parseKibblePlpCursor,
@@ -118,6 +124,15 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 			});
 			kibbleCategory = {
 				...categoryBase,
+				productRanking: (() => {
+					const prefix = result.products.slice(0, Math.min(8, result.products.length)).map(({ entityId }) => String(entityId));
+					const tail = result.products.slice(prefix.length).map(({ entityId }) => String(entityId));
+					const observing = url.searchParams.get('observe') === 'true' || cookies.get('aisles_observe_demo') === '1';
+					const exactApproval = url.pathname === KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE && kibblePlp.sort === KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT && kibblePlp.after === null;
+					return observing && exactApproval && prefix.length >= 3 && prefix.length <= 8
+						? { eligible: true, ...getKibbleObservePlpProductRankingModelPolicyDescriptor(url.pathname), prefixIds: prefix, tailIds: tail }
+						: null;
+				})(),
 				zoneAdapter: await executeKibblePlpZoneAdapter({
 					routePath: url.pathname,
 					eyebrow: categoryBase.eyebrow,

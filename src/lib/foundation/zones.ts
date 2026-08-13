@@ -69,6 +69,10 @@ export const ZONES = freezeAuthorityGraph({
 
 	// PLP (category) — medium latitude
 	'plp.editorial-header': { surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
+	// The canonical catalog grid owns its structure. This local identity may
+	// only rank the server-reloaded first eight catalog IDs; it never creates a
+	// second merchandising row or changes the remaining page.
+	'plp.product-ranking': { surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: false },
 	// Themed merchandising row (e.g. "New Arrivals", "Under $200"). Engine
 	// composes when it detects a worthwhile cluster; no static default.
 	'plp.cluster-row': { surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },

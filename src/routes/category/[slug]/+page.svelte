@@ -12,6 +12,7 @@
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
 	import { getEmitter } from '$lib/signals/emitter';
 	import { KibbleCategoryReference } from '$lib/components/kibble';
+	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 
 	let { data }: { data: PageData } = $props();
 
@@ -24,6 +25,38 @@
 	let legacyPersona = $derived(data.renderMode === 'reference-preserve' ? 'gatherer' : (data.persona ?? 'gatherer'));
 	let legacyProducts = $derived(data.renderMode === 'reference-preserve' ? [] : (data.products ?? []));
 	let currentPersona = $derived(overridePersona ?? legacyPersona);
+	type KibblePlpData = NonNullable<PageData['kibbleCategory']>;
+	let previewProducts = $state<KibblePlpData['products'] | null>(null);
+	let previewRankingAdapter = $state<KibblePlpData['zoneAdapter'] | null>(null);
+
+	$effect(() => {
+		data;
+		previewProducts = null;
+		previewRankingAdapter = null;
+	});
+
+	$effect(() => {
+		const category = data.kibbleCategory;
+		const decision = category?.productRanking;
+		if (data.renderMode !== 'reference-preserve' || !category || !decision?.eligible) return;
+		const products = category.products;
+		let active = true;
+		let cleanup: (() => void) | undefined;
+		void import('$lib/components/kibble/kibble-plp-live-preview').then(({ listenForKibblePlpLivePreview }) => {
+			if (!active) return;
+			cleanup = listenForKibblePlpLivePreview({
+				expectation: { routePath: decision.routePath, sort: decision.sort, cursor: decision.cursor, policyVersion: decision.policyVersion, reference: { id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version }, prefixIds: decision.prefixIds, tailIds: decision.tailIds },
+				products,
+				onApplied: (preview) => {
+					previewProducts = preview.products as KibblePlpData['products'];
+					previewRankingAdapter = preview.zoneAdapter as KibblePlpData['zoneAdapter'];
+				},
+				onStatus: (status) => window.dispatchEvent(new CustomEvent('aisles-kibble-plp-model-status', { detail: status })),
+			});
+			window.dispatchEvent(new CustomEvent('aisles-kibble-plp-model-ready'));
+		});
+		return () => { active = false; cleanup?.(); };
+	});
 
 	// Fetch AI-generated layout on mount / persona change
 	// Track category to reset layout on navigation
@@ -213,7 +246,7 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleCategory}
-	<KibbleCategoryReference {...data.kibbleCategory} />
+	<KibbleCategoryReference {...data.kibbleCategory} products={previewProducts ?? data.kibbleCategory.products} productRankingZoneAdapter={previewRankingAdapter} />
 {:else}
 <div class="mx-auto max-w-7xl px-6 py-8">
 	<!-- Dev mode panel -->

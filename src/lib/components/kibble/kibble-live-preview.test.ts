@@ -3,12 +3,12 @@ import { applyKibbleLivePreview, expectationFromTrustedInspector, listenForKibbl
 import type { KibbleDevInspectorData, KibbleLivePreviewStatus } from './kibble-dev-inspector';
 
 const expectation = {
-	reference: { id: 'kibble-shelf-native', version: '1.5.0' },
-	policyVersion: 'org:kibble|brand:kibble-policy-1.5.0',
+	reference: { id: 'kibble-shelf-native', version: '1.8.0' },
+	policyVersion: 'org:kibble|brand:kibble-policy-1.8.0',
 	dataSourceLabel: 'fixture',
 	synthetic: { value: true, scenarioId: 'local-showcase' },
 	modelDecision: {
-		policyVersion: 'org:kibble|brand:kibble-observe-assist-policy-1.5.0-v1',
+		policyVersion: 'org:kibble|brand:kibble-observe-assist-policy-1.8.0-v1',
 		zoneId: 'home.featured-row' as const,
 		capabilities: ['rank_products'] as const,
 		publicationMode: 'live' as const,
@@ -41,7 +41,7 @@ const inspector: KibbleDevInspectorData = {
 		inputHash: '0123456789abcdef', catalogVersion: 'catalog:0123456789abcdef', shopperContextHash: 'fedcba9876543210',
 		picksHash: null, incentiveHash: null,
 		autonomy: { preset: 'preserve', effectiveCapabilities: ['rank_products', 'select_products'], decisionMode: 'rules', publicationMode: 'live' },
-		promptVersion: 'no-model-preserve-v1', schemaVersion: 'kibble-reference-1.5.0',
+		promptVersion: 'no-model-preserve-v1', schemaVersion: 'kibble-reference-1.8.0',
 		synthetic: { value: true, scenarioId: 'local-showcase' },
 	},
 };

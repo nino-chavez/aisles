@@ -67,7 +67,7 @@ describe('portable zone catalog coverage', () => {
 		expect(Object.entries(ZONES).map(([zoneId, metadata]) => ({ zoneId, ...metadata }))).toEqual(
 			AISLES_ZONE_REGISTRY_SNAPSHOT,
 		);
-		const aislesCatalogIds = ZONE_CATALOG_IDS.filter((zoneId) => ZONE_CATALOG[zoneId].implementation.aisles);
+		const aislesCatalogIds = ZONE_IDS.filter((zoneId) => ZONE_CATALOG[zoneId].implementation.aisles);
 		expect(aislesCatalogIds).toEqual(ZONE_IDS);
 		for (const zoneId of ZONE_IDS) {
 			const definition = ZONE_CATALOG[zoneId].definitions.find(({ repository }) => repository === 'aisles');
@@ -78,7 +78,7 @@ describe('portable zone catalog coverage', () => {
 
 	it('consumes the checked-in Bealls snapshot without a sibling checkout', () => {
 		const snapshotIds = BEALLS_ZONE_SNAPSHOT.zones.map(({ zoneId }) => zoneId);
-		expect(ZONE_CATALOG_IDS).toEqual(snapshotIds);
+		expect(ZONE_CATALOG_IDS.filter((zoneId) => BEALLS_ZONE_SNAPSHOT.zones.some((zone) => zone.zoneId === zoneId))).toEqual(snapshotIds);
 		expect(new Set(snapshotIds).size).toBe(snapshotIds.length);
 		expect(BEALLS_ZONE_SNAPSHOT.source.ref).toMatch(/^[a-f0-9]{40}$/);
 		for (const file of BEALLS_ZONE_SNAPSHOT.source.files) {
@@ -135,7 +135,7 @@ describe('portable zone catalog coverage', () => {
 	});
 
 	it('retains per-brand Bealls fallback decisions from the pinned registry sources', () => {
-		for (const zoneId of ZONE_CATALOG_IDS) {
+		for (const zoneId of BEALLS_ZONE_SNAPSHOT.zones.map(({ zoneId }) => zoneId)) {
 			const recorded = ZONE_CATALOG[zoneId].fallbackByBeallsBrand;
 			expect(Object.keys(recorded ?? {}), zoneId).toEqual(['bealls', 'beallsflorida', 'homecentric']);
 		}

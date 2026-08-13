@@ -92,6 +92,7 @@ describe('Kibble composition policy registry', () => {
 			'kibble.footer.four-column',
 			'kibble.category-listing.fixed-grid',
 			'kibble.category-listing.editorial-header',
+			'kibble.category-listing.ranked-prefix',
 		]);
 		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'plp')).not.toThrow();
 	});
