@@ -60,6 +60,24 @@ function productNode(product) {
 	};
 }
 
+function searchProductNode(product) {
+	return {
+		entityId: product.entityId,
+		name: product.name,
+		sku: product.sku,
+		path: product.path,
+		description: product.description,
+		prices: product.prices,
+		defaultImage: product.defaultImage,
+		customFields: product.customFields,
+		categories: {
+			edges: product.categories.edges.map(({ node }) => ({
+				node: { entityId: node.entityId, name: node.name, path: node.path },
+			})),
+		},
+	};
+}
+
 const products = fixture.products.map(productNode);
 
 function pageInfo() {
@@ -105,7 +123,7 @@ function responseFor(query, variables) {
 		const term = String(variables.searchTerm || '').trim().toLowerCase();
 		const limit = Math.max(1, Number(variables.first) || 24);
 		const members = term ? products.filter((product) => `${product.name} ${product.sku}`.toLowerCase().includes(term)) : [];
-		return { site: { search: { searchProducts: { products: { edges: members.slice(0, limit).map((node) => ({ node })), pageInfo: pageInfo() } } } } };
+		return { site: { search: { searchProducts: { products: { edges: members.slice(0, limit).map((node) => ({ node: searchProductNode(node) })), pageInfo: pageInfo() } } } } };
 	}
 	if (operation === 'ProductDetail' || operation === 'GetKibbleProductDetail' || operation === 'GetProductByPath') {
 		return { site: { route: { node: productForPath(variables.path) } } };

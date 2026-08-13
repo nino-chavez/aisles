@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { getBrand } from '$lib/brand/config';
 import { getTrustedKibbleRoutePolicy } from '$lib/brand/composition-policy';
+import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 import {
 	buildKibbleSearchHref,
 	parseKibbleSearchCursor,
@@ -38,6 +39,11 @@ export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, r
 				pageInfo: result.pageInfo,
 				loadMoreHref: result.pageInfo.hasNextPage && result.pageInfo.endCursor ? buildKibbleSearchHref(query, result.pageInfo.endCursor) : null,
 				policyVersion: routePolicy.policy.policyVersion,
+				responseProvenance: {
+					...result.provenance,
+					policyVersion: routePolicy.policy.policyVersion,
+					routePath: '/search' as const,
+				},
 				zoneAdapter: emptyExecution.adapter ? kibbleNativeAdapterBinding(emptyExecution) : null,
 			},
 		};
@@ -55,6 +61,8 @@ export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, r
 			message,
 			kibbleErrorAdapter,
 			kibbleErrorPolicy: {
+				referenceId: KIBBLE_REFERENCE_CONTRACT.id,
+				referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
 				policies: [{ surface: 'error-empty', policyVersion: routePolicy.policy.policyVersion }],
 			},
 		} as never);

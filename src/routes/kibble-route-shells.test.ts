@@ -21,6 +21,11 @@ describe('Kibble route-specific unavailable shells', () => {
 			query: 'goodgut',
 			products: [{ id: 'goodgut', entityId: 3023, name: 'GoodGut', price: 34.99, image: '', imageAlt: 'GoodGut', description: '', specs: {}, tags: [], category: 'Dog Food' }],
 			pageInfo: { hasNextPage: false, endCursor: null }, loadMoreHref: null,
+			responseProvenance: {
+				referenceId: KIBBLE_REFERENCE_CONTRACT.id, referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
+				policyVersion: 'trusted-policy', routePath: '/search', source: 'parity-fixture', query: 'goodgut', cursor: null, pageSize: 24,
+				catalogSha256: 'b'.repeat(64), resultSha256: 'c'.repeat(64), fixedDataIdentity: KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256,
+			},
 		} }).body;
 		expect(body).toContain('data-kibble-route-shell="search"');
 		expect(body).toContain('Results for "goodgut"');
@@ -28,6 +33,9 @@ describe('Kibble route-specific unavailable shells', () => {
 		expect(body).toContain('action="/search"');
 		expect(body).toContain('1 product');
 		expect(body).toContain('GoodGut');
+		expect(body).toContain(`data-reference-fixture-sha256="${KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256}"`);
+		expect(body).toContain('data-reference-provenance-source="parity-fixture"');
+		expect(body).toContain(`data-kibble-search-catalog-sha256="${'b'.repeat(64)}"`);
 		expect(body).not.toContain('/product/goodgut');
 		expect(body).not.toContain('KibbleUnavailableReference');
 	});

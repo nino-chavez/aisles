@@ -9,6 +9,7 @@ import {
 } from '$lib/server/bigcommerce';
 import { getBrand } from '$lib/brand/config';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
+import { KIBBLE_PDP_BUNDLE_PROJECTION_VERIFIED_SHA256 } from '$lib/brand/reference/kibble-manifest.server';
 import {
 	KIBBLE_PDP_BOUNDS,
 	KIBBLE_PDP_RICH_DESCRIPTION_TAGS,
@@ -118,7 +119,11 @@ async function loadKibblePreservePdp({
 			decisionSource: 'fixed',
 			promptVersion: 'no-model-preserve-v1',
 			schemaVersion: `kibble-reference-${KIBBLE_REFERENCE_CONTRACT.version}`,
-			contractInput: { recipe: KIBBLE_REFERENCE_CONTRACT.recipes.pdp, renderedManifest: manifest },
+			contractInput: {
+				recipe: KIBBLE_REFERENCE_CONTRACT.recipes.pdp,
+				renderedManifest: manifest,
+				bundleProjectionSha256: KIBBLE_PDP_BUNDLE_PROJECTION_VERIFIED_SHA256,
+			},
 			catalogInput: { product, options, relatedProducts },
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
 			scenarioId: store.getCrossSessionContext().scenarioId,

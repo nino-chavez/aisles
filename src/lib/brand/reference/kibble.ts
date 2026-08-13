@@ -474,6 +474,7 @@ export const KibbleReferenceContractSchema = z.object({
 			orderedAnatomy: z.tuple([z.literal('breadcrumbs'), z.literal('query-heading'), z.literal('search-control'), z.literal('result-count'), z.literal('results-grid-or-empty-message'), z.literal('catalog-recovery-or-pagination')]),
 			responsive: z.object({ mobile: z.literal('fluid-search-and-single-column-results'), desktop: z.literal('wide-query-header-and-results-grid') }).strict(),
 			backend: z.literal('authorized-read-only-storefront-graphql-search'),
+			responseProvenance: z.object({ shopperFields: UniqueRequiredStrings, liveFixtureBoundary: z.literal('fixed-fixture-identity-only-when-the-fixture-interceptor-served-the-response') }).strict(),
 			fallback: z.literal('fail-closed-no-results-claim-on-request-or-validation-failure'),
 		}).strict(),
 		cart: z.object({
@@ -735,7 +736,7 @@ const contractInput = {
 		},
 		{
 			id: 'kibble.search', implementation: 'KibbleSearchReference.svelte',
-			variants: [variant('kibble.search.reference-shell', ['kc.search.reference-shell'], ['query', 'products', 'pageInfo', 'loadMoreHref', 'policyVersion', 'zoneAdapter'], ['product.image'], ['home', 'search-results'], [], [copy('query', 160, ['computed-fact']), copy('products[].name', 96, ['merchant-catalog'])]), variant('kibble.search.empty-state', ['kc.search.reference-shell'], ['zoneAdapter'], [], ['home', 'search-results'], [], [])],
+			variants: [variant('kibble.search.reference-shell', ['kc.search.reference-shell'], ['query', 'products', 'pageInfo', 'loadMoreHref', 'policyVersion', 'responseProvenance', 'zoneAdapter'], ['product.image'], ['home', 'search-results'], [], [copy('query', 160, ['computed-fact']), copy('products[].name', 96, ['merchant-catalog'])]), variant('kibble.search.empty-state', ['kc.search.reference-shell'], ['zoneAdapter'], [], ['home', 'search-results'], [], [])],
 			referenceOwned: ['breadcrumb placement', 'query heading', 'large search control', 'result count position', 'result grid', 'empty-result spacing'],
 			aislesOwned: ['bounded query and cursor', 'validated read-only Storefront GraphQL results', 'inert cards while PDP approval is pending', 'safe pagination'],
 		},
@@ -827,7 +828,7 @@ const contractInput = {
 		},
 		search: {
 			id: 'kibble-search-reference-v1', acceptance: 'pending-parity', implementation: 'KibbleSearchReference.svelte', variantId: 'kibble.search.reference-shell',
-			source: { owner: 'canonical-reference-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', dependencyClosure: KIBBLE_SEARCH_SOURCE_CLOSURE }, orderedAnatomy: ['breadcrumbs', 'query-heading', 'search-control', 'result-count', 'results-grid-or-empty-message', 'catalog-recovery-or-pagination'], responsive: { mobile: 'fluid-search-and-single-column-results', desktop: 'wide-query-header-and-results-grid' }, backend: 'authorized-read-only-storefront-graphql-search', fallback: 'fail-closed-no-results-claim-on-request-or-validation-failure',
+			source: { owner: 'canonical-reference-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', dependencyClosure: KIBBLE_SEARCH_SOURCE_CLOSURE }, orderedAnatomy: ['breadcrumbs', 'query-heading', 'search-control', 'result-count', 'results-grid-or-empty-message', 'catalog-recovery-or-pagination'], responsive: { mobile: 'fluid-search-and-single-column-results', desktop: 'wide-query-header-and-results-grid' }, backend: 'authorized-read-only-storefront-graphql-search', responseProvenance: { shopperFields: ['source', 'query', 'cursor', 'pageSize', 'catalogSha256', 'resultSha256', 'referenceId', 'referenceVersion', 'policyVersion', 'routePath', 'fixedDataIdentity-when-parity-fixture'], liveFixtureBoundary: 'fixed-fixture-identity-only-when-the-fixture-interceptor-served-the-response' }, fallback: 'fail-closed-no-results-claim-on-request-or-validation-failure',
 		},
 		cart: {
 			id: 'kibble-cart-reference-v1', acceptance: 'pending-parity', implementation: 'KibbleCartReference.svelte', variantId: 'kibble.cart.reference-shell',

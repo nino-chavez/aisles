@@ -132,8 +132,8 @@
 	{:else}
 		<div
 			class="flex min-h-screen flex-col"
-			data-reference-id={data.chromeMode === 'reference' ? data.kibbleProvenance?.referenceId : undefined}
-			data-reference-contract-version={data.chromeMode === 'reference' ? data.kibbleProvenance?.referenceVersion : undefined}
+			data-reference-id={data.chromeMode === 'reference' && data.kibbleProvenance?.fixtureSha256 ? data.kibbleProvenance.referenceId : undefined}
+			data-reference-contract-version={data.chromeMode === 'reference' && data.kibbleProvenance?.fixtureSha256 ? data.kibbleProvenance.referenceVersion : undefined}
 			data-reference-fixture={data.chromeMode === 'reference' ? data.kibbleProvenance?.fixturePath : undefined}
 			data-reference-fixture-sha256={data.chromeMode === 'reference' ? data.kibbleProvenance?.fixtureSha256 : undefined}
 			data-reference-provenance-source={data.chromeMode === 'reference' ? data.kibbleProvenance?.provenanceSource : undefined}

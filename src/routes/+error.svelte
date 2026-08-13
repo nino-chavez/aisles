@@ -16,7 +16,11 @@
 
 	function errorPayload(value: unknown): {
 		kibbleErrorAdapter?: KibbleZoneAdapterBinding;
-		kibbleErrorPolicy?: { policies: Array<{ surface: string; policyVersion: string }> };
+		kibbleErrorPolicy?: {
+			referenceId?: string;
+			referenceVersion?: string;
+			policies: Array<{ surface: string; policyVersion: string }>;
+		};
 	} | null {
 		return value && typeof value === 'object' ? value as never : null;
 	}
@@ -28,8 +32,8 @@
 
 {#if chromeMode === 'reference'}
 	<div
-		data-reference-id={$page.data.kibbleErrorPolicy?.referenceId}
-		data-reference-contract-version={$page.data.kibbleErrorPolicy?.referenceVersion}
+		data-reference-id={$page.data.kibbleErrorPolicy?.referenceId ?? errorPayload($page.error)?.kibbleErrorPolicy?.referenceId}
+		data-reference-contract-version={$page.data.kibbleErrorPolicy?.referenceVersion ?? errorPayload($page.error)?.kibbleErrorPolicy?.referenceVersion}
 		data-reference-policy={errorPolicyAttribute}
 	>
 		<KibbleErrorReference {status} message={errorMessage} {zoneAdapter} {...KIBBLE_PRESERVE_MANIFEST.display.error} />

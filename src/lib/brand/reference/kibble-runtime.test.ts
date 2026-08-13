@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { getBrandById } from '$lib/brand/config';
 import type { Product } from '$lib/types';
+import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
 import {
 	assertKibblePdpBundleProjection,
 	KIBBLE_PDP_BUNDLE_PROJECTION_VERIFIED_SHA256,
-	KIBBLE_PRESERVE_MANIFEST,
-} from './kibble-manifest';
+} from './kibble-manifest.server';
 import { KIBBLE_PDP_BOUNDS, KIBBLE_PDP_BUNDLE_PROJECTION_SHA256, KIBBLE_REFERENCE_CONTRACT } from './kibble';
 import {
 	buildKibbleHomeReference,

@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$env/dynamic/private', () => ({
 	env: {
-		BIGCOMMERCE_STORE_HASH: 'fixture-store',
+		BIGCOMMERCE_STORE_HASH: 'kibble-parity-fixture',
 		KIBBLE_STOREFRONT_TOKEN: 'fixture-token',
+		KIBBLE_PARITY_FIXED_DATA_IDENTITY: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
 	},
 }));
 
@@ -50,21 +51,38 @@ describe('Kibble read-only Storefront search', () => {
 		const result = await searchKibbleCatalog({ query: '  goodgut  ', fetchImpl });
 		expect(fetchImpl).toHaveBeenCalledOnce();
 		const [url, init] = fetchImpl.mock.calls[0];
-		expect(url).toBe('https://store-fixture-store.mybigcommerce.com/graphql');
+		expect(url).toBe('https://store-kibble-parity-fixture.mybigcommerce.com/graphql');
 		expect(init).toMatchObject({ method: 'POST', headers: { Accept: 'application/json', Authorization: 'Bearer fixture-token' } });
 		const body = JSON.parse(String(init?.body));
 		expect(body).toEqual({ query: KIBBLE_SEARCH_PRODUCTS_QUERY, variables: { searchTerm: 'goodgut', first: KIBBLE_SEARCH_PAGE_SIZE, after: null } });
 		expect(result.products).toEqual([expect.objectContaining({ entityId: 3023, name: fixtureProduct.name, price: 34.99 })]);
 		expect(result.products[0]).not.toHaveProperty('salePrice');
+		expect(result.provenance).toMatchObject({
+			source: 'parity-fixture', query: 'goodgut', cursor: null, pageSize: 24,
+			catalogSha256: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
+			fixedDataIdentity: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
+			resultSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+		});
 	});
 
 	it('makes no request for an empty query and rejects unbounded input or response shapes', async () => {
 		const fetchImpl = vi.fn();
-		await expect(searchKibbleCatalog({ query: ' ', fetchImpl })).resolves.toEqual({ products: [], pageInfo });
+		await expect(searchKibbleCatalog({ query: ' ', fetchImpl })).resolves.toMatchObject({
+			products: [], pageInfo, provenance: { source: 'not-requested', query: '', cursor: null, pageSize: 24 },
+		});
 		expect(fetchImpl).not.toHaveBeenCalled();
 		expect(() => parseKibbleSearchQuery('x'.repeat(161))).toThrow('160');
 		expect(() => parseKibbleSearchCursor('bad cursor')).toThrow('cursor');
 		await expect(searchKibbleCatalog({ query: 'food', fetchImpl: vi.fn(async () => new Response(JSON.stringify({ data: {} }), { status: 200 })) })).rejects.toThrow('invalid response');
+		await expect(searchKibbleCatalog({
+			query: 'food',
+			fetchImpl: vi.fn(async () => new Response(JSON.stringify({
+				data: { site: { search: { searchProducts: { products: {
+					edges: [{ node: { ...fixtureProduct, prices: { price: { value: 34.99, currencyCode: 'EUR' }, salePrice: null } } }],
+						pageInfo,
+				} } } } },
+			}), { status: 200 })),
+		})).rejects.toThrow('invalid response');
 	});
 
 	it('keeps pagination query and cursor encoded', () => {

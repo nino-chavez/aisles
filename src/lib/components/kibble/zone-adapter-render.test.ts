@@ -37,6 +37,26 @@ const products: KibbleProduct[] = Array.from({ length: 6 }, (_, index) => ({
 }));
 
 describe('Kibble native zone DOM bindings', () => {
+	it('renders executed adapter content instead of fallback component copy', async () => {
+		const adapter = await executeKibbleErrorZoneAdapter({
+			surface: 'error-404', routePath: '/missing-content-check', status: 404,
+			message: 'EXECUTED ADAPTER BODY',
+		});
+		const body = render(KibbleErrorReference, { props: {
+			status: 404,
+			message: 'FALLBACK BODY SENTINEL',
+			eyebrow: 'FALLBACK EYEBROW SENTINEL',
+			headline: 'FALLBACK HEADLINE SENTINEL',
+			returnLabel: 'Return home',
+			zoneAdapter: adapter as never,
+		} }).body;
+		expect(body).toContain('EXECUTED ADAPTER BODY');
+		expect(body).toContain(KIBBLE_PRESERVE_MANIFEST.display.error.headline);
+		expect(body).not.toContain('FALLBACK BODY SENTINEL');
+		expect(body).not.toContain('FALLBACK EYEBROW SENTINEL');
+		expect(body).not.toContain('FALLBACK HEADLINE SENTINEL');
+	});
+
 	it('renders every content-backed adapter with its exact shared terminal markers and no Hidden zone DOM', async () => {
 		const home = await executeKibbleHomeZoneAdapters({
 			hero: { eyebrow: 'Catalog', headline: 'Trusted shelf', body: 'Pinned catalog copy.' },

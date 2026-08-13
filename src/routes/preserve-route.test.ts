@@ -75,6 +75,8 @@ describe('Preserve route boundaries', () => {
 			const successfulSearch = await loadLayout({ url: new URL('https://aisles.test/search?q=food'), cookies } as never);
 			if (!successfulSearch) throw new Error('Expected the Kibble search layout server load to return data.');
 			expect(successfulSearch.kibbleRoutePolicy).toMatchObject({ routePath: '/search', surface: 'search' });
+			expect(successfulSearch.kibbleProvenance).not.toHaveProperty('fixturePath');
+			expect(successfulSearch.kibbleProvenance).not.toHaveProperty('fixtureSha256');
 			expect(successfulSearch).not.toHaveProperty('kibbleErrorPolicy');
 			expect(successfulSearch).not.toHaveProperty('kibbleErrorAdapter');
 			expect(successfulSearch).not.toHaveProperty('kibbleZoneTerminals');
@@ -229,6 +231,12 @@ describe('Preserve route boundaries', () => {
 			searchMocks.searchKibbleCatalog.mockResolvedValueOnce({
 				products: [product],
 				pageInfo: { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null },
+				provenance: {
+					referenceId: KIBBLE_REFERENCE_CONTRACT.id,
+					referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
+					source: 'live-storefront', query: 'food', cursor: null, pageSize: 24,
+					catalogSha256: 'b'.repeat(64), resultSha256: 'c'.repeat(64),
+				},
 			});
 			const parent = async () => ({ devMode: false, chromeMode: 'reference', renderMode: 'reference-preserve' });
 			const successfulSearch = await loadSearch({
@@ -237,11 +245,32 @@ describe('Preserve route boundaries', () => {
 			} as never);
 			expect(successfulSearch).toMatchObject({
 				renderMode: 'reference-preserve',
-				kibbleSearch: { query: 'food', products: [{ id: 'actual-product' }], zoneAdapter: null },
+				kibbleSearch: {
+					query: 'food', products: [{ id: 'actual-product' }], zoneAdapter: null,
+					responseProvenance: {
+						source: 'live-storefront', routePath: '/search', policyVersion: expect.any(String),
+						catalogSha256: 'b'.repeat(64), resultSha256: 'c'.repeat(64),
+					},
+				},
 			});
 			expect(successfulSearch).not.toHaveProperty('kibbleErrorAdapter');
 			expect(successfulSearch).not.toHaveProperty('kibbleZoneTerminals');
 			expect(searchMocks.searchKibbleCatalog).toHaveBeenCalledWith({ query: 'food', after: null });
+
+			const oversizedQuery = 'x'.repeat(161);
+			try {
+				await loadSearch({
+					url: new URL(`https://aisles.test/search?q=${oversizedQuery}`), parent,
+					setHeaders: vi.fn(),
+				} as never);
+				throw new Error('Expected oversized search input to fail closed.');
+			} catch (cause) {
+				expect(cause).toMatchObject({
+					status: 400,
+					body: { message: 'Search query exceeds 160 characters.' },
+				});
+				expect((cause as { body?: Record<string, unknown> }).body).not.toHaveProperty('kibbleErrorAdapter');
+			}
 
 			searchMocks.searchKibbleCatalog.mockRejectedValueOnce(new Error('fixture catalog offline'));
 			try {

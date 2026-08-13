@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
 import { env } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
-import type { KibbleProduct } from '$lib/components/kibble/types';
+import type { KibbleProduct, KibbleSearchResponseProvenance } from '$lib/components/kibble/types';
 import { z } from 'zod';
 import { parseKibblePlpCursor } from './kibble-plp';
+import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
 
 export const KIBBLE_SEARCH_PAGE_SIZE = 24;
 
@@ -18,8 +20,8 @@ const ProductSchema = z.object({
 	path: z.string().trim().min(1).max(500),
 	description: z.string().max(100_000),
 	prices: z.object({
-		price: z.object({ value: z.number().nonnegative(), currencyCode: z.string().min(3).max(3) }).strict(),
-		salePrice: z.object({ value: z.number().nonnegative(), currencyCode: z.string().min(3).max(3) }).strict().nullable(),
+		price: z.object({ value: z.number().nonnegative(), currencyCode: z.literal('USD') }).strict(),
+		salePrice: z.object({ value: z.number().nonnegative(), currencyCode: z.literal('USD') }).strict().nullable(),
 	}).strict(),
 	defaultImage: z.object({ url: z.string().url(), altText: z.string().max(500) }).strict().nullable(),
 	customFields: z.object({ edges: z.array(z.object({ node: z.object({ name: z.string(), value: z.string() }).strict() }).strict()).max(10) }).strict(),
@@ -99,13 +101,27 @@ export async function searchKibbleCatalog(input: {
 	query: string;
 	after?: string | null;
 	fetchImpl?: typeof fetch;
-}): Promise<{ products: KibbleProduct[]; pageInfo: z.infer<typeof PageInfoSchema> }> {
+}): Promise<{
+	products: KibbleProduct[];
+	pageInfo: z.infer<typeof PageInfoSchema>;
+	provenance: Omit<KibbleSearchResponseProvenance, 'policyVersion' | 'routePath'>;
+}> {
 	const query = parseKibbleSearchQuery(input.query);
 	const after = parseKibbleSearchCursor(input.after ?? null);
-	if (!query) return { products: [], pageInfo: { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null } };
 	const brand = getBrand();
 	const storeHash = env.BIGCOMMERCE_STORE_HASH;
 	const token = env[`${brand.id.toUpperCase()}_STOREFRONT_TOKEN`] || env.BIGCOMMERCE_STOREFRONT_TOKEN;
+	const emptyPageInfo = { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null };
+	if (!query) {
+		return {
+			products: [],
+			pageInfo: emptyPageInfo,
+			provenance: buildResponseProvenance({
+				brandId: brand.id, channelId: brand.bc.channelId, storeHash: storeHash ?? null,
+				query, after, source: 'not-requested', products: [], pageInfo: emptyPageInfo,
+			}),
+		};
+	}
 	if (!storeHash || !token) throw new Error('Kibble read-only catalog search is not configured.');
 	const host = brand.bc.channelId === 1
 		? `store-${storeHash}.mybigcommerce.com`
@@ -119,7 +135,67 @@ export async function searchKibbleCatalog(input: {
 	const parsed = SearchResponseSchema.safeParse(await response.json());
 	if (!parsed.success || parsed.data.errors?.length) throw new Error('Kibble catalog search returned an invalid response.');
 	const result = parsed.data.data.site.search.searchProducts.products;
-	return { products: result.edges.map(({ node }) => toKibbleProduct(node)), pageInfo: result.pageInfo };
+	const products = result.edges.map(({ node }) => toKibbleProduct(node));
+	const parityFixture = storeHash === 'kibble-parity-fixture'
+		&& env.KIBBLE_PARITY_FIXED_DATA_IDENTITY === KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256;
+	return {
+		products,
+		pageInfo: result.pageInfo,
+		provenance: buildResponseProvenance({
+			brandId: brand.id,
+			channelId: brand.bc.channelId,
+			storeHash,
+			query,
+			after,
+			source: parityFixture ? 'parity-fixture' : 'live-storefront',
+			products,
+			pageInfo: result.pageInfo,
+		}),
+	};
+}
+
+function buildResponseProvenance(input: {
+	brandId: string;
+	channelId: number;
+	storeHash: string | null;
+	query: string;
+	after: string | null;
+	source: KibbleSearchResponseProvenance['source'];
+	products: KibbleProduct[];
+	pageInfo: z.infer<typeof PageInfoSchema>;
+}): Omit<KibbleSearchResponseProvenance, 'policyVersion' | 'routePath'> {
+	const fixedDataIdentity = input.source === 'parity-fixture' ? KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256 : undefined;
+	const catalogSha256 = fixedDataIdentity ?? digest({
+		kind: input.source,
+		brandId: input.brandId,
+		channelId: input.channelId,
+		storeHash: input.storeHash,
+	});
+	return {
+		referenceId: KIBBLE_REFERENCE_CONTRACT.id,
+		referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
+		source: input.source,
+		query: input.query,
+		cursor: input.after,
+		pageSize: KIBBLE_SEARCH_PAGE_SIZE,
+		catalogSha256,
+		resultSha256: digest({ products: input.products, pageInfo: input.pageInfo }),
+		...(fixedDataIdentity ? { fixedDataIdentity } : {}),
+	};
+}
+
+function digest(value: unknown): string {
+	return createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
+}
+
+function canonical(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(canonical);
+	if (value && typeof value === 'object') {
+		return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, child]) => [key, canonical(child)]));
+	}
+	return value;
 }
 
 function toKibbleProduct(product: z.infer<typeof ProductSchema>): KibbleProduct {

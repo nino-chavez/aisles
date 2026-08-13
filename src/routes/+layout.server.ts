@@ -77,8 +77,10 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		kibbleProvenance: chromeMode === 'reference' ? {
 			referenceId: KIBBLE_REFERENCE_CONTRACT.id,
 			referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
-			fixturePath: KIBBLE_REFERENCE_CONTRACT.source.fixturePath,
-			fixtureSha256: KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256,
+			...(trustedRoute?.surface === 'search' ? {} : {
+				fixturePath: KIBBLE_REFERENCE_CONTRACT.source.fixturePath,
+				fixtureSha256: KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256,
+			}),
 			routePath: url.pathname,
 			surface: trustedRoute?.surface ?? 'error-404',
 			provenanceSource: 'source-owned-root-layout',

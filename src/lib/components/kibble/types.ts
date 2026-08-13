@@ -152,3 +152,17 @@ export type KibbleZoneAdapterBinding<TContent = unknown> = {
 	inputSha256: string;
 	content: TContent;
 };
+
+export type KibbleSearchResponseProvenance = {
+	referenceId: string;
+	referenceVersion: string;
+	policyVersion: string;
+	routePath: '/search';
+	source: 'live-storefront' | 'parity-fixture' | 'not-requested';
+	query: string;
+	cursor: string | null;
+	pageSize: number;
+	catalogSha256: string;
+	resultSha256: string;
+	fixedDataIdentity?: string;
+};

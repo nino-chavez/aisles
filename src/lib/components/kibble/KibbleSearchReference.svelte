@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibbleProduct, KibbleZoneAdapterBinding } from './types';
+	import type { KibbleProduct, KibbleSearchResponseProvenance, KibbleZoneAdapterBinding } from './types';
 
 	let {
 		query,
@@ -9,6 +9,7 @@
 		pageInfo,
 		loadMoreHref,
 		policyVersion,
+		responseProvenance,
 		zoneAdapter,
 		availabilityMessage = '',
 	}: {
@@ -17,6 +18,7 @@
 		pageInfo?: { hasNextPage: boolean; endCursor: string | null };
 		loadMoreHref?: string | null;
 		policyVersion?: string;
+		responseProvenance?: KibbleSearchResponseProvenance;
 		zoneAdapter?: KibbleZoneAdapterBinding<any> | null;
 		availabilityMessage?: string;
 	} = $props();
@@ -26,7 +28,22 @@
 	const renderedPageInfo = $derived(pageInfo ?? { hasNextPage: false, endCursor: null });
 </script>
 
-<div class="kibble-reference kc-reference-route kc-reference-search-page" data-kibble-route-shell="search" data-kibble-route-policy={policyVersion} aria-labelledby="kibble-search-heading">
+<div
+	class="kibble-reference kc-reference-route kc-reference-search-page"
+	data-kibble-route-shell="search"
+	data-kibble-route-policy={policyVersion}
+	data-reference-id={responseProvenance?.referenceId}
+	data-reference-contract-version={responseProvenance?.referenceVersion}
+	data-reference-fixture-sha256={responseProvenance?.fixedDataIdentity}
+	data-reference-provenance-source={responseProvenance?.source}
+	data-reference-route={responseProvenance?.routePath}
+	data-reference-surface={responseProvenance ? 'search' : undefined}
+	data-kibble-search-cursor={responseProvenance?.cursor ?? undefined}
+	data-kibble-search-page-size={responseProvenance?.pageSize}
+	data-kibble-search-catalog-sha256={responseProvenance?.catalogSha256}
+	data-kibble-search-result-sha256={responseProvenance?.resultSha256}
+	aria-labelledby="kibble-search-heading"
+>
 	<div class="kc-reference-container">
 		<nav class="kc-reference-breadcrumbs" aria-label="Breadcrumb">
 			<a class="kc-reference-focus" href="/">Home</a><span aria-hidden="true">/</span><span aria-current="page">Search</span>
