@@ -9,7 +9,6 @@ import KibbleCheckoutReference from '$lib/components/kibble/KibbleCheckoutRefere
 import KibbleSubscriptionsReference from '$lib/components/kibble/KibbleSubscriptionsReference.svelte';
 import SearchPage from './search/+page.svelte';
 import CartPage from './cart/+page.svelte';
-import CheckoutPage from './checkout/+page.svelte';
 import AccountPage from './account/+page.svelte';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 
@@ -71,7 +70,7 @@ describe('Kibble route-specific unavailable shells', () => {
 		expect(body).not.toContain('method="POST"');
 	});
 
-	it.each(['checkout', 'gift', 'prepaid', 'confirmation'] as const)('renders the %s checkout subtype without a money-path claim', (subtype) => {
+	it.each(['gift', 'prepaid', 'confirmation'] as const)('renders the %s checkout subtype without a money-path claim', (subtype) => {
 		const body = render(KibbleCheckoutReference, { props: { subtype, availabilityMessage: 'Checkout unavailable.' } }).body;
 		expect(body).toContain(`data-kibble-checkout-subtype="${subtype}"`);
 		if (subtype !== 'confirmation') expect(body).toContain('disabled');
@@ -109,7 +108,7 @@ describe('Kibble route-specific unavailable shells', () => {
 	it('does not let a contracted route select generic Haven DOM', () => {
 		const routeFiles = [
 			['search/+page.svelte', 'KibbleSearchReference'], ['cart/+page.svelte', 'KibbleCartReference'],
-			['checkout/+page.svelte', 'KibbleCheckoutReference'], ['account/+page.svelte', 'KibbleAccountReference'],
+			['account/+page.svelte', 'KibbleAccountReference'],
 			['checkout/[subtype]/+page.svelte', 'KibbleCheckoutReference'], ['account/[...path]/+page.svelte', 'KibbleAccountReference'],
 			['subscriptions/+page.svelte', 'KibbleSubscriptionsReference'], ['portal/subscriptions/[id]/+page.svelte', 'KibbleSubscriptionsReference'],
 		] as const;
@@ -139,13 +138,8 @@ describe('Kibble route-specific unavailable shells', () => {
 		expect(cart).toContain('data-kibble-route-shell="cart"');
 		expect(cart).not.toContain('mx-auto max-w-3xl');
 
-		const checkout = render(CheckoutPage, { props: { data: {
-			renderMode: 'reference-preserve',
-			kibbleCheckout: { subtype: 'checkout', availabilityMessage: 'Checkout unavailable.', policyVersion: 'trusted-policy' },
-		} as never } }).body;
-		expect(checkout).toContain('data-kibble-route-shell="checkout"');
-		expect(checkout).not.toContain('Loading checkout');
-		expect(checkout).not.toContain('Checkout — Haven');
+		const checkoutSource = route('checkout/+page.server.ts');
+		expect(checkoutSource).toContain("throw error(404, 'Not found')");
 
 		const account = render(AccountPage, { props: { data: {
 			kibbleAccount: { subtype: 'login', brandName: 'Kibble & Co.', availabilityMessage: 'Account unavailable.', recipeId: 'kibble-account-reference-v1', policyVersion: 'trusted-policy' },

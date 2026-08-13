@@ -9,7 +9,7 @@
 
 <div class="kibble-reference kc-reference-route kc-reference-checkout-page" data-kibble-route-shell="checkout" data-kibble-route-policy={policyVersion} data-kibble-checkout-subtype={subtype} aria-labelledby="kibble-checkout-heading">
 	{#if subtype === 'confirmation'}
-		<div class="kc-reference-checkout-page__confirmation" data-kibble-backend-state="unavailable">
+		<div class="kc-reference-container kc-reference-checkout-page__confirmation" data-kibble-backend-state="unavailable">
 			<nav class="kc-reference-breadcrumbs" aria-label="Breadcrumb"><a class="kc-reference-focus" href="/">Home</a><span aria-hidden="true">/</span><span aria-current="page">Order confirmation</span></nav>
 			<div class="kc-reference-checkout-page__confirmation-body">
 				<h1 id="kibble-checkout-heading">Order confirmation unavailable</h1>

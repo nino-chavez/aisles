@@ -12,7 +12,7 @@
 			<KibbleAccountReference subtype="login" {brandName} {availabilityMessage} {policyVersion} />
 		</div>
 	{:else}
-		<div class="kc-reference-subscriptions-page__content" data-kibble-backend-state="unavailable">
+		<div class="kc-reference-container kc-reference-subscriptions-page__content kc-reference-subscriptions-page__content--detail" data-kibble-backend-state="unavailable">
 			<a class="kc-reference-route__text-link kc-reference-focus" href="/subscriptions">← Back to subscriptions</a>
 			<h1 id="kibble-subscriptions-heading">Subscription detail</h1>
 			<p>{availabilityMessage}</p>

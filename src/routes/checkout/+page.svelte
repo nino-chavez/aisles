@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import type { PageData } from './$types';
-	import { KibbleCheckoutReference } from '$lib/components/kibble';
 
 	let { data }: { data: PageData } = $props();
 
@@ -75,12 +74,9 @@
 </script>
 
 <svelte:head>
-	<title>{data.renderMode === 'reference-preserve' ? 'Checkout — Kibble & Co.' : 'Checkout — Haven'}</title>
+	<title>Checkout — Haven</title>
 </svelte:head>
 
-{#if data.renderMode === 'reference-preserve' && data.kibbleCheckout}
-	<KibbleCheckoutReference {...data.kibbleCheckout} />
-{:else}
 <div class="mx-auto max-w-4xl px-6 py-8">
 	<h1 class="text-2xl">Checkout</h1>
 
@@ -100,4 +96,3 @@
 		<div bind:this={checkoutContainer} class="mt-6"></div>
 	{/if}
 </div>
-{/if}

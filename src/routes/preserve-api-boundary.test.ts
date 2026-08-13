@@ -31,10 +31,10 @@ describe('Kibble Preserve API authority boundary', () => {
 		expect(await response.json()).toMatchObject({ error: expect.stringContaining('reference-preserved') });
 	});
 
-	it('renders checkout as a Kibble-native unavailable state before the generic shell mounts', async () => {
+	it('keeps the missing canonical checkout index on the Kibble 404 path', async () => {
 		brandState.id = 'kibble';
 		await expect(checkoutLoad({ url: new URL('https://aisles.test/checkout'), parent: async () => ({ renderMode: 'reference-preserve' }) } as never))
-			.resolves.toMatchObject({ kibbleCheckout: { subtype: 'checkout', availabilityMessage: expect.stringContaining('No checkout service') } });
+			.rejects.toMatchObject({ status: 404 });
 		brandState.id = 'haven';
 		expect(await checkoutLoad({ url: new URL('https://aisles.test/checkout'), parent: async () => ({ renderMode: 'legacy-generated' }) } as never)).toEqual({ renderMode: 'legacy-generated' });
 		brandState.id = 'kibble';

@@ -494,7 +494,7 @@ export const KibbleReferenceContractSchema = z.object({
 		checkout: z.object({
 			id: z.literal('kibble-checkout-reference-v1'), acceptance: z.literal('pending-parity'), implementation: z.literal('KibbleCheckoutReference.svelte'), variantId: z.literal('kibble.checkout.reference-shell'),
 			source: CanonicalAdaptationSourceSchema,
-			subtypes: z.tuple([z.literal('checkout'), z.literal('gift'), z.literal('prepaid'), z.literal('confirmation')]),
+			subtypes: z.tuple([z.literal('gift'), z.literal('prepaid'), z.literal('confirmation')]),
 			orderedAnatomy: z.tuple([z.literal('bounded-checkout-column'), z.literal('route-heading'), z.literal('route-introduction'), z.literal('disabled-route-fields'), z.literal('unavailable-action'), z.literal('catalog-recovery')]),
 			responsive: z.object({ mobile: z.literal('full-width-form-card'), desktop: z.literal('centered-max-lg-form-card') }).strict(),
 			backend: z.literal('not-authorized-no-checkout-sdk-or-redirect'),
@@ -533,7 +533,7 @@ export const KibbleReferenceContractSchema = z.object({
 	unionZoneCoverage: z.array(z.object({ id: z.enum(KIBBLE_CANONICAL_UNION_ZONE_IDS), classification: z.enum(['fixed', 'hidden', 'not-applicable']), reason: RequiredString }).strict()).length(KIBBLE_CANONICAL_UNION_ZONE_IDS.length).superRefine((entries, ctx) => {
 		if (JSON.stringify(entries.map(({ id }) => id)) !== JSON.stringify(KIBBLE_CANONICAL_UNION_ZONE_IDS)) ctx.addIssue({ code: 'custom', message: 'Union zone coverage must exactly match the canonical ordered snapshot' });
 	}),
-	routeInventory: z.array(z.object({ path: RequiredString, audience: z.enum(['shopper', 'operator', 'development']), classification: z.enum(['reference-preserve', 'reference-unavailable', 'operator-only', 'development-only', 'not-applicable']), reason: RequiredString }).strict()).min(1),
+	routeInventory: z.array(z.object({ path: RequiredString, audience: z.enum(['shopper', 'operator', 'development']), classification: z.enum(['reference-preserve', 'reference-unavailable', 'canonical-404', 'operator-only', 'development-only', 'not-applicable']), reason: RequiredString }).strict()).min(1),
 }).strict().superRefine((contract, ctx) => {
 	const componentIds = new Set(contract.components.map((component) => component.id));
 	if (componentIds.size !== contract.components.length) ctx.addIssue({ code: 'custom', message: 'Reference component ids must be unique', path: ['components'] });
@@ -846,7 +846,7 @@ const contractInput = {
 		},
 		checkout: {
 			id: 'kibble-checkout-reference-v1', acceptance: 'pending-parity', implementation: 'KibbleCheckoutReference.svelte', variantId: 'kibble.checkout.reference-shell',
-			source: { owner: 'canonical-reference-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', dependencyClosure: KIBBLE_CHECKOUT_SOURCE_CLOSURE }, subtypes: ['checkout', 'gift', 'prepaid', 'confirmation'], orderedAnatomy: ['bounded-checkout-column', 'route-heading', 'route-introduction', 'disabled-route-fields', 'unavailable-action', 'catalog-recovery'], responsive: { mobile: 'full-width-form-card', desktop: 'centered-max-lg-form-card' }, backend: 'not-authorized-no-checkout-sdk-or-redirect', fallback: 'canonical-route-form-anatomy-with-disabled-actions',
+			source: { owner: 'canonical-reference-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', dependencyClosure: KIBBLE_CHECKOUT_SOURCE_CLOSURE }, subtypes: ['gift', 'prepaid', 'confirmation'], orderedAnatomy: ['bounded-checkout-column', 'route-heading', 'route-introduction', 'disabled-route-fields', 'unavailable-action', 'catalog-recovery'], responsive: { mobile: 'full-width-form-card', desktop: 'centered-max-lg-form-card' }, backend: 'not-authorized-no-checkout-sdk-or-redirect', fallback: 'canonical-route-form-anatomy-with-disabled-actions',
 		},
 		account: {
 			id: 'kibble-account-reference-v1', acceptance: 'pending-parity', implementation: 'KibbleAccountReference.svelte', variantId: 'kibble.account.reference-shell',
@@ -899,7 +899,7 @@ const contractInput = {
 		{ path: '/product/[slug]', audience: 'shopper', classification: 'reference-unavailable', reason: 'Development review only until PDP approval passes.' },
 		{ path: '/search', audience: 'shopper', classification: 'reference-preserve', reason: 'Canonical search anatomy uses bounded validated read-only Storefront GraphQL; product cards remain inert while PDP publication is pending.' },
 		{ path: '/cart', audience: 'shopper', classification: 'reference-unavailable', reason: 'Canonical empty-cart anatomy is visible; cart services are not authorized.' },
-		{ path: '/checkout', audience: 'shopper', classification: 'reference-unavailable', reason: 'Kibble checkout boundary is visible; checkout SDK and redirects are not authorized.' },
+		{ path: '/checkout', audience: 'shopper', classification: 'canonical-404', reason: 'The pinned Kibble source has no checkout index route, so the candidate keeps the canonical 404 boundary instead of inventing a checkout form.' },
 		{ path: '/checkout/gift', audience: 'shopper', classification: 'reference-unavailable', reason: 'Canonical gift form anatomy is visible with every money-path action disabled.' },
 		{ path: '/checkout/prepaid', audience: 'shopper', classification: 'reference-unavailable', reason: 'Canonical prepaid form anatomy is visible without a term, savings, amount, or purchase claim.' },
 		{ path: '/checkout/confirmation', audience: 'shopper', classification: 'reference-unavailable', reason: 'Canonical confirmation hierarchy is visible but never claims an order exists.' },

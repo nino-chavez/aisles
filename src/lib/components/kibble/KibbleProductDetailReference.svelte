@@ -61,7 +61,7 @@
 		</nav>
 
 		<div class="kc-reference-pdp__layout">
-			<section class:kc-reference-pdp__gallery--with-thumbnails={gallery.length > 1} class="kc-reference-pdp__gallery" data-gallery-count={gallery.length} aria-label={`${product.name} ${copy.galleryLabel}`}>
+			<div class:kc-reference-pdp__gallery--with-thumbnails={gallery.length > 1} class="kc-reference-pdp__gallery" data-gallery-count={gallery.length} aria-label={`${product.name} ${copy.galleryLabel}`}>
 				{#if gallery.length > 1}
 					<div class="kc-reference-pdp__thumbnails" aria-label={copy.galleryImagesLabel}>
 						{#each gallery as image, index (image.url)}
@@ -74,9 +74,9 @@
 				<div class="kc-reference-pdp__primary-image">
 					{#if currentImage}<img src={currentImage.url} alt={currentImage.alt || product.name} width="1200" height="1200" loading="eager" />{:else}<span>{copy.imageUnavailableLabel}</span>{/if}
 				</div>
-			</section>
+			</div>
 
-			<section class="kc-reference-pdp__details">
+			<div class="kc-reference-pdp__details">
 				{#if product.category}<p class="kc-reference-eyebrow">{product.category}</p>{/if}
 				<h1 class="kc-reference-display">{product.name}</h1>
 				{#if bundle}<p class="kc-reference-pdp__bundle-summary">{copy.bundleEyebrow} · {bundle.contents.length} {bundle.contents.length === 1 ? copy.bundleProductSingular : copy.bundleProductPlural}</p>{/if}
@@ -87,7 +87,7 @@
 				<p class:kc-reference-pdp__stock--in={product.isInStock === true} class="kc-reference-pdp__stock">{product.isInStock === true ? copy.inStockLabel : product.isInStock === false ? copy.outOfStockLabel : copy.availabilityUnavailableLabel}</p>
 
 				{#if bundle}
-					<section class="kc-reference-pdp__bundle-contents">
+					<div class="kc-reference-pdp__bundle-contents">
 						<h2 class="kc-reference-eyebrow">{copy.bundleContentsHeading}</h2>
 						<ul>
 							{#each bundle.contents as content (content.title)}
@@ -97,7 +97,7 @@
 								</li>
 							{/each}
 						</ul>
-					</section>
+					</div>
 				{/if}
 
 				{#if options.length > 0}
@@ -116,13 +116,13 @@
 					<p>{purchaseUnavailableBody}</p>
 				</aside>
 
-				{#if product.description}<section class="kc-reference-pdp__description"><h2>{copy.detailsHeading}</h2><div>{@html product.description}</div></section>{/if}
+				{#if product.description}<div class="kc-reference-pdp__description"><h2>{copy.detailsHeading}</h2><div>{@html product.description}</div></div>{/if}
 				{#if Object.keys(product.specs).length > 0}<dl class="kc-reference-pdp__specs">{#each Object.entries(product.specs) as [label, value]}<div><dt>{label}</dt><dd>{value}</dd></div>{/each}</dl>{/if}
-			</section>
+			</div>
 		</div>
 	</div>
 
 	{#if zoneAdapter}
-		<section class="kc-reference-pdp__related" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256}><div class="kc-reference-container"><h2 class="kc-reference-display">{zoneAdapter.content.props.title}</h2><div class="kc-reference-product-grid">{#each zoneAdapter.content.props.products as productRef (productRef.productId)}{@const related = relatedByEntityId.get(productRef.productId)}{#if related}<KibbleProductCard product={related} productHref={relatedProductHrefs[related.id]} />{/if}{/each}</div></div></section>
+		<div class="kc-reference-pdp__related" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256}><div class="kc-reference-container"><h2 class="kc-reference-display">{zoneAdapter.content.props.title}</h2><div class="kc-reference-product-grid">{#each zoneAdapter.content.props.products as productRef (productRef.productId)}{@const related = relatedByEntityId.get(productRef.productId)}{#if related}<KibbleProductCard product={related} productHref={relatedProductHrefs[related.id]} />{/if}{/each}</div></div></div>
 	{/if}
 </article>
