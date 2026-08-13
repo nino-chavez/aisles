@@ -431,9 +431,9 @@ contract. Enrichment scores stay server-side and are removed before shopper
 page data is serialized.
 
 Normal production applies that bounded decision when the Home route renders.
-For an engineer's explicit local inspection, compile-time development mode plus
-`?dev=true` may immediately preview the latest persisted-session decision at
-`POST /api/kibble/home-decision?dev=true`. The endpoint is server-authoritative:
+For a prospect-facing demo, the public Home launcher adds `?observe=true` and
+immediately previews the latest persisted-session decision at
+`POST /api/kibble/home-decision?observe=true`. The endpoint is server-authoritative:
 it accepts no persona, score, policy, candidate, or product-order input from the
 browser. It requires the active Kibble brand, the trusted Home
 `reference-preserve` policy, and a valid scoped `aisles_session`; otherwise it
@@ -446,11 +446,11 @@ layout-decision cache, write telemetry, or write a database. It does read the
 existing scoped session from the in-memory session cache or Redis when
 configured.
 
-The local behavior simulator is a development inspector control, not a shopper
+The behavior simulator is an explicit demo inspector control, not a commerce
 control. It emits named typed event sequences—category views, product views,
 returns, dwell, and search—through `/api/signals`, then requests that
 server-derived preview. Its header can collapse the panel, hide it, or open
-Observe pinned to the same scoped session. A local-only launcher makes the
+Observe pinned to the same scoped session. A public demo launcher makes the
 inspector discoverable without requiring query-parameter knowledge. The
 simulator uses the showcase's pinned synthetic catalog and fit fixture; it does
 not create production decision authority or change the fixed Preserve shell.
@@ -471,14 +471,14 @@ source-class labels alone are not authority.
 
 The first executable contracted decision is deliberately the smaller rules case:
 Kibble Home can rank and select products, while every other Home zone remains
-fixed. A development-only inspector shows the inference, policy, permitted
+fixed. An opt-in demo inspector shows the inference, policy, permitted
 capabilities, input and output order, and zero model calls. Its live preview
-requires both compile-time development mode and an explicit `?dev=true` request;
+requires an explicit `?observe=true` request;
 the route then re-derives the persisted-session decision server-side rather than
 accepting browser-controlled decision data. A separate local showcase supplies
 a pinned catalog and clearly labeled synthetic fit scores; its behavior controls
 send real typed storefront events through `/api/signals`, are not shopper
-controls, and mark the resulting preview provenance synthetic. Development receipts bind
+controls, and mark the resulting preview provenance synthetic. Demo receipts bind
 each control to its exact client sequence, validate the complete inference
 response, and include a ten-second uncertain-delivery fail-safe rather than
 letting an older response confirm the wrong control. The local transport
@@ -487,8 +487,8 @@ and immediately drains any newer control. The preview has its own ten-second
 fail-closed watchdog. The client applies a new shelf only after validating the
 complete versioned preview payload, including reference and policy identity,
 zone decisions, contracted rules provenance, data-source labeling, and score
-absence. Receipt and preview client modules compile out of the production
-shopper bundle.
+absence. Receipt and preview client modules are lazy-loaded only for the opted-in
+demo inspector.
 
 ### Phase 6: Version cache and provenance
 

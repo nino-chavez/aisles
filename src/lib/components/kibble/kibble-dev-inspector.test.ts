@@ -28,10 +28,11 @@ const inspector: KibbleDevInspectorData = {
 };
 
 describe('KibbleDevInspector', () => {
-	it('renders the developer contract, all authority states, and deterministic scenario links', () => {
+	it('renders the demo contract, all authority states, and deterministic scenario links', () => {
 		const result = render(KibbleDevInspector, { props: { inspector } });
-		for (const label of ['Dev Mode — Kibble decision inspector', 'Local development only', 'Fixed', 'Rules', 'Model']) expect(result.body).toContain(label);
-		for (const persona of ['gatherer', 'hunter', 'researcher', 'gifter']) expect(result.body).toContain(`?dev=true&amp;intent=${persona}`);
+		for (const label of ['Aisles decision inspector', 'Live demo controls', 'Template', 'Rules', 'AI model']) expect(result.body).toContain(label);
+		for (const persona of ['gatherer', 'hunter', 'researcher', 'gifter']) expect(result.body).toContain(`?observe=true&amp;intent=${persona}`);
+		expect(result.body).toContain('Template stays fixed. Rules react to signals. AI model appears only where policy authorizes generation.');
 		expect(result.body).toContain('0 model calls · Not authorized in Preserve');
 		expect(result.body).toContain('aria-expanded="true"');
 		expect(result.body).toContain('Collapse');
@@ -81,10 +82,10 @@ describe('KibbleDevInspector', () => {
 		expect(result.body).toContain('not deployment status');
 	});
 
-	it('labels the development-only shelf preview and its applied status', () => {
+	it('labels the public demo shelf preview and its applied status', () => {
 		const result = render(KibbleDevInspector, { props: { inspector, livePreview: { state: 'applied', persona: 'hunter', changed: true } } });
 		expect(result.body).toContain('preview applied for hunter');
-		expect(result.body).toContain('Production applies decisions on a route boundary; this live change is a development preview.');
+		expect(result.body).toContain('Signals may reorder the approved product shelf; the Kibble template remains fixed.');
 		expect(result.body).not.toContain('View changed shelf');
 	});
 

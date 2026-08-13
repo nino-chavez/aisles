@@ -61,9 +61,8 @@ export type KibbleLivePreviewListenerOptions = {
 };
 
 /**
- * Install the dev-only signal-to-preview bridge. The caller lazy-loads this
- * module behind SvelteKit's compile-time dev flag so none of the endpoint or
- * validation machinery enters the production shopper bundle.
+ * Install the opt-in demo signal-to-preview bridge. The caller lazy-loads this
+ * module only when the public Kibble inspector is open.
  */
 export function listenForKibbleLivePreview({
 	expectation,
@@ -88,7 +87,7 @@ export function listenForKibbleLivePreview({
 		onStatus({ state: 'updating' });
 
 		try {
-			const response = await fetch('/api/kibble/home-decision?dev=true', {
+			const response = await fetch('/api/kibble/home-decision?observe=true', {
 				method: 'POST',
 				signal: requestController.signal,
 			});

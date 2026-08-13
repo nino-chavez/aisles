@@ -101,11 +101,11 @@ describe('Kibble Preserve home publication', () => {
 		expect(data.products[0]).not.toHaveProperty('personaFit');
 	});
 
-	it('exposes the bounded decision inspector only when server dev and dev mode are both active', async () => {
+	it('exposes the bounded decision inspector in production with the explicit observe query', async () => {
 		const data = await load({
-			url: new URL('https://aisles.test/?dev=true'), request: new Request('https://aisles.test/?dev=true'),
+			url: new URL('https://aisles.test/?observe=true'), request: new Request('https://aisles.test/?observe=true'),
 			cookies: { get: () => undefined, set: () => undefined },
-			parent: async () => ({ devMode: true, renderMode: 'reference-preserve' }),
+			parent: async () => ({ devMode: false, renderMode: 'reference-preserve' }),
 		} as never);
 
 		if (!data) throw new Error('Expected Preserve home data.');
@@ -115,6 +115,7 @@ describe('Kibble Preserve home publication', () => {
 			dataSourceLabel: 'merchant-enrichment',
 			inference: { primary: 'gatherer', ruleMatches: [] },
 		});
+		expect(data.provenance.synthetic).toEqual({ value: true, scenarioId: 'kibble-public-observe-demo' });
 		const productZone = data.kibbleHomeInspector?.zones.find((zone: { id: string }) => zone.id === 'ranked-products');
 		expect(productZone?.outputProducts?.map((product: { id: string }) => product.id))
 			.toEqual(data.kibbleHome?.products.map((product: { id: string }) => product.id));
@@ -135,7 +136,7 @@ describe('Kibble Preserve home publication', () => {
 		mocks.privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID = 'kibble-local-showcase';
 		try {
 			const data = await load({
-				url: new URL('https://aisles.test/?dev=true&intent=gifter'), request: new Request('https://aisles.test/?dev=true&intent=gifter'),
+				url: new URL('https://aisles.test/?observe=true&intent=gifter'), request: new Request('https://aisles.test/?observe=true&intent=gifter'),
 				cookies: { get: () => undefined, set: () => undefined },
 				parent: async () => ({ devMode: true, renderMode: 'reference-preserve' }),
 			} as never);

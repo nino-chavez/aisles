@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { dev } from '$app/environment';
-	import { page } from '$app/stores';
 	import type { Component } from 'svelte';
 	import type { PageData } from './$types';
 	import type { Layout } from '$lib/schema/layout';
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
 	import { KibbleHomeReference } from '$lib/components/kibble';
+	import KibbleDevInspectorLauncher from '$lib/components/kibble/KibbleDevInspectorLauncher.svelte';
 	import type { KibbleDevInspectorData, KibbleLivePreviewStatus } from '$lib/components/kibble/kibble-dev-inspector';
 	import type { KibbleProduct } from '$lib/components/kibble/types';
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
@@ -18,34 +17,21 @@
 	let aiError = $state<string | null>(null);
 	let overridePersona = $state<string | null>(null);
 	let DevInspector = $state<Component<{ inspector: KibbleDevInspectorData; livePreview?: KibbleLivePreviewStatus; sessionId?: string | null; hideHref?: string }> | null>(null);
-	let DevInspectorLauncher = $state<Component<{ href: string }> | null>(null);
 	let previewProducts = $state<KibbleProduct[] | null>(null);
 	let previewInspector = $state<KibbleDevInspectorData | null>(null);
 	let livePreviewStatus = $state<KibbleLivePreviewStatus>({ state: 'waiting' });
 	let currentPersona = $derived(overridePersona ?? data.persona ?? 'gatherer');
-	const devModeHref = (enabled: boolean) => {
-		const next = new URL($page.url);
-		next.searchParams.set('dev', enabled ? 'true' : 'false');
-		return `${next.pathname}${next.search}${next.hash}`;
-	};
-	let inspectorShowHref = $derived(devModeHref(true));
-	let inspectorHideHref = $derived(devModeHref(false));
+	const inspectorShowHref = '/?observe=true';
+	const inspectorHideHref = '/';
 
 	$effect(() => {
-		if (!dev || !data.kibbleHomeInspector || DevInspector) return;
+		if (!data.kibbleHomeInspector || DevInspector) return;
 		void import('$lib/components/kibble/KibbleDevInspector.svelte').then(({ default: component }) => {
 			DevInspector = component;
 		});
 	});
 
-	$effect(() => {
-		if (!dev || data.renderMode !== 'reference-preserve' || data.kibbleHomeInspector || DevInspectorLauncher) return;
-		void import('$lib/components/kibble/KibbleDevInspectorLauncher.svelte').then(({ default: component }) => {
-			DevInspectorLauncher = component;
-		});
-	});
-
-	// A navigation establishes a new approved shelf. Do not carry a dev preview
+	// A navigation establishes a new approved shelf. Do not carry a demo preview
 	// or an in-flight response across that PageData boundary.
 	$effect(() => {
 		data;
@@ -55,7 +41,7 @@
 	});
 
 	$effect(() => {
-		if (!dev || data.renderMode !== 'reference-preserve' || !data.kibbleHomeInspector) return;
+		if (data.renderMode !== 'reference-preserve' || !data.kibbleHomeInspector) return;
 		const trustedInspector = data.kibbleHomeInspector;
 		let disposed = false;
 		let cleanup: (() => void) | undefined;
@@ -193,8 +179,8 @@
 			sessionId={data.sessionId}
 			hideHref={inspectorHideHref}
 		/>
-	{:else if dev && DevInspectorLauncher}
-		<DevInspectorLauncher href={inspectorShowHref} />
+	{:else}
+		<KibbleDevInspectorLauncher href={inspectorShowHref} />
 	{/if}
 	<div
 		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}

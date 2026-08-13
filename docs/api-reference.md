@@ -342,6 +342,28 @@ If no valid session cookie exists, `inference` will be `null` and `received` wil
 
 ---
 
+## Kibble Demo Decision Endpoint
+
+### POST /api/kibble/home-decision?observe=true
+
+Re-derives the current Kibble Home decision from the existing scoped session.
+The public demo inspector calls this after a simulated behavior is confirmed by
+`POST /api/signals`. The browser supplies no persona, product order, score, or
+policy input.
+
+The no-store response contains sanitized inference, the approved shelf order,
+the Template/Rules/AI-model zone trace, and contracted provenance. This endpoint
+does not call a model or generate a layout.
+
+| Status | Condition |
+|---|---|
+| 200 | Explicit `observe=true`, active Kibble Preserve Home, and an existing scoped session |
+| 404 | Missing demo flag, wrong brand, or unavailable Preserve policy |
+| 409 | Missing or unknown scoped session |
+| 500 | Server decision or catalog operation failed |
+
+---
+
 ## Cart Endpoints
 
 ### POST /api/cart

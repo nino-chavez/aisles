@@ -38,7 +38,7 @@ longer only a proposal. Local follow-up work now includes:
 - reference/policy provenance in cache values, generation logs, and Observe;
 - bounded, signal-informed product ranking inside the fixed Kibble Home recipe,
   with enrichment scores kept on the server;
-- an explicit development inspector showing inference, zone authority, before
+- an explicit demo inspector showing inference, zone authority, before
   and after product order, policy provenance, zero model calls, and an
   immediate server-derived preview after a persisted allowed signal; and
 - an isolated local showcase using a pinned catalog and visibly labeled
@@ -60,10 +60,9 @@ The Home proof uses deterministic rules, not a model. It demonstrates that
 signals can change an approved merchandising field while the reference-owned
 shell remains unchanged. Model-backed Assist behavior still requires its own
 contract, approval, and acceptance evidence.
-Normal production applies that decision at the Home route boundary. The local
-inspector has a narrower purpose: only compile-time development with the
-explicit `?dev=true` query can call
-`POST /api/kibble/home-decision?dev=true` to preview the current scoped-session
+Normal production applies that decision at the Home route boundary. The public
+demo inspector has a narrower purpose: only an explicit `?observe=true` query
+can call `POST /api/kibble/home-decision?observe=true` to preview the current scoped-session
 decision. The endpoint derives inference and the approved nine-product shelf on
 the server. It fails closed without the active Kibble brand, the trusted
 `reference-preserve` Home policy, or a valid `aisles_session`; it accepts no
@@ -74,11 +73,11 @@ model, generate a layout, mutate the session, read or write the layout-decision
 cache, write telemetry, or write a database. It does read the existing scoped
 session from the in-memory session cache or Redis when configured.
 
-The local behavior simulator is an inspector control, not a shopper control. It
+The behavior simulator is an explicit demo control, not a commerce control. It
 emits recognizable typed event sequences through `/api/signals`, then requests
-the server preview. The inspector is discoverable from a local-only storefront
+the server preview. The inspector is discoverable from a public demo storefront
 control, can collapse or hide, and opens Observe pinned to the same session.
-Each development receipt is correlated to the exact client sequence and strictly
+Each demo receipt is correlated to the exact client sequence and strictly
 validates the returned inference. It has a
 ten-second uncertain-delivery fail-safe. The showcase transport normally
 restores the controls first: it drops an uncertain stalled batch after four
@@ -87,7 +86,7 @@ independently fails closed after ten seconds and retains the approved shelf.
 Before changing the shelf, the client validates the complete versioned preview:
 reference and policy identity, data-source label, zone decisions, contracted
 rules provenance, and score absence. These receipt and preview client modules
-compile out of the production shopper bundle. The showcase catalog and
+load only when the inspector is open. The local showcase catalog and
 fit values are pinned synthetic fixtures. They do not change production
 authority, and the Preserve
 shell remains fixed.

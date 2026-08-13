@@ -2,8 +2,8 @@
 	let { href }: { href: string } = $props();
 </script>
 
-<aside class="kc-dev-launcher" aria-label="Development decision inspector">
-	<span>Local development</span>
+<aside class="kc-dev-launcher" aria-label="Aisles decision inspector">
+	<span>Aisles demo</span>
 	<a {href}>Show decision inspector</a>
 </aside>
 
