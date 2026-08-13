@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import type { PageData } from './$types';
+	import { KibbleUnavailableReference } from '$lib/components/kibble';
+
+	let { data }: { data: PageData } = $props();
 
 	let checkoutContainer: HTMLDivElement;
 	let isLoading = $state(true);
@@ -8,6 +12,7 @@
 	let cartId = $state('');
 
 	onMount(async () => {
+		if (data.renderMode === 'reference-preserve') return;
 		// Get cart ID from our API
 		try {
 			const res = await fetch('/api/cart');
@@ -70,9 +75,12 @@
 </script>
 
 <svelte:head>
-	<title>Checkout — Haven</title>
+	<title>{data.renderMode === 'reference-preserve' ? 'Checkout — Kibble & Co.' : 'Checkout — Haven'}</title>
 </svelte:head>
 
+{#if data.renderMode === 'reference-preserve' && data.kibbleCheckout}
+	<KibbleUnavailableReference surface="checkout" {...data.kibbleCheckout} />
+{:else}
 <div class="mx-auto max-w-4xl px-6 py-8">
 	<h1 class="text-2xl">Checkout</h1>
 
@@ -92,3 +100,4 @@
 		<div bind:this={checkoutContainer} class="mt-6"></div>
 	{/if}
 </div>
+{/if}

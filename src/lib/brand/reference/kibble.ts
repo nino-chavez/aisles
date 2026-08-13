@@ -45,6 +45,36 @@ export const KIBBLE_PDP_EXTERNAL_DEPENDENCIES = [
 
 export const KIBBLE_PDP_BUNDLE_PROJECTION_SHA256 = '3dcf34363dbf9c9eacc1667773b1b8506ccbb801a8152154cade748eef424710' as const;
 
+/**
+ * Canonical surface closures verified with `git show <pinned-commit>:<path> |
+ * shasum -a 256`. They document the source anatomy without importing its
+ * cart, account, subscription, or search services into the Preserve runtime.
+ */
+export const KIBBLE_SEARCH_ADAPTED_SOURCE_FILES = [
+	{ path: 'apps/storefront-svelte/src/routes/search/+page.server.ts', sha256: '61a9fcb709b4cb9b4482e70df54ca805d98057f664b6864c80bcdce7a0c5fa99' },
+	{ path: 'apps/storefront-svelte/src/routes/search/+page.svelte', sha256: '75cbfe8a6fa9dbbda7cea804200c9b0dc021fa732927194b0b812454c3ab2158' },
+	{ path: 'apps/storefront-svelte/src/lib/components/SearchInput.svelte', sha256: 'f2e2fc9b766e0301e22df2ea6d171fda74cb91457d8b23dc7a9aef3696fe1a8e' },
+	{ path: 'apps/storefront-svelte/src/lib/components/ProductCard.svelte', sha256: '738d4ee911fa6b852672d2067ec45dcc4e0365756c5572108e91bd4a5828d38d' },
+	{ path: 'apps/storefront-svelte/src/lib/components/Breadcrumbs.svelte', sha256: '89bee94fca474e2c587a1fc12ab912fade83804e9bb27eeca7c4a557d06d43ac' },
+] as const;
+export const KIBBLE_CART_ADAPTED_SOURCE_FILES = [
+	{ path: 'apps/storefront-svelte/src/routes/cart/+page.server.ts', sha256: 'fe62eac21e7c5416df4e63463b716255618b4fdec7b733966d7ebb389949bcaf' },
+	{ path: 'apps/storefront-svelte/src/routes/cart/+page.svelte', sha256: '2940a76fb4a3fb5d49cfb5325497833060312af6ab184e840c97c8986675a768' },
+	{ path: 'apps/storefront-svelte/src/lib/components/CartLine.svelte', sha256: '25d65c9ff07435718d52b46ccda57bb70c2ce6a7b91257fa50661c104209e0d1' },
+	{ path: 'apps/storefront-svelte/src/lib/components/CartTotals.svelte', sha256: 'c8036d534b624f7eb1dd725021065982b7cb68955086b2cb8845e339778a0fde' },
+	{ path: 'apps/storefront-svelte/src/lib/components/Breadcrumbs.svelte', sha256: '89bee94fca474e2c587a1fc12ab912fade83804e9bb27eeca7c4a557d06d43ac' },
+] as const;
+export const KIBBLE_ACCOUNT_ADAPTED_SOURCE_FILES = [
+	{ path: 'apps/storefront-svelte/src/routes/account/+layout.server.ts', sha256: '92657ad86391b2d74766a4bc45a634f2909855d23050a4d898b6caa22e6e1fd9' },
+	{ path: 'apps/storefront-svelte/src/routes/account/+layout.svelte', sha256: '1addd8ff2da26b481e24a7cffde1ec5b9b2b9c6737c3b1a318a10cc53a512d38' },
+	{ path: 'apps/storefront-svelte/src/routes/account/login/+page.server.ts', sha256: '0067d7d47c136fb04f84e09e1a886156bc3fd80b40c3a6c9b7d37ea6b463cc5c' },
+	{ path: 'apps/storefront-svelte/src/routes/account/login/+page.svelte', sha256: 'e0d7f8ea0346222f1cd4d0b15dcb47102ca78763dce6374679be64353e39e44c' },
+] as const;
+export const KIBBLE_CHECKOUT_ADAPTED_SOURCE_FILES = [
+	{ path: 'apps/storefront-svelte/src/routes/checkout/gift/+page.svelte', sha256: '3cb7b0b58389fcf1e30e8843046e4ab8f72436027292bcdad3bbb7dd007ca39b' },
+	{ path: 'apps/storefront-svelte/src/routes/checkout/prepaid/+page.svelte', sha256: '7f5b2d971e57563b49d302f0eb693768855a802518549dd7900b0268579b51e6' },
+] as const;
+
 export const KIBBLE_PDP_BOUNDS = {
 	arrays: {
 		breadcrumbs: 3,
@@ -121,9 +151,10 @@ const REGISTRY = {
 		'kc.product-card.auto-refill', 'kc.featured-grid.four-column', 'kc.visual-module.routine',
 		'kc.visual-module.category', 'kc.service-proof.three-column', 'kc.footer.four-column',
 		'kc.category-listing.fixed-grid', 'kc.product-detail.catalog-display-only', 'kc.error.reference-shell',
+		'kc.unavailable.reference-shell',
 	],
 	assetSlots: ['featured.image', 'product.image', 'product.gallery', 'tile.image'],
-	linkTargets: ['home', 'catalog-category', 'search-results', 'account', 'cart', 'saved-picks', 'product-detail', 'featured-bundle', 'browse-all', 'visual-tile'],
+	linkTargets: ['home', 'catalog-category', 'search-results', 'account', 'cart', 'saved-picks', 'product-detail', 'featured-bundle', 'browse-all', 'visual-tile', 'checkout'],
 	actionTargets: ['open-mobile-navigation', 'close-mobile-navigation', 'open-search', 'close-search', 'open-cart-drawer', 'open-picks-tray'],
 } as const;
 
@@ -304,6 +335,38 @@ export const KibbleReferenceContractSchema = z.object({
 			variantId: z.literal('kibble.error.reference-shell'),
 			invariants: UniqueRequiredStrings,
 		}).strict(),
+		search: z.object({
+			id: z.literal('kibble-search-reference-v1'), acceptance: z.literal('approved-unavailable-state'), implementation: z.literal('KibbleUnavailableReference.svelte'), variantId: z.literal('kibble.unavailable.reference-shell'),
+			source: z.object({ owner: z.literal('reference-shell-adaptation'), commit: z.literal('ef122b8e17b9eb0b327c9d42491c44a61577ead4'), files: z.array(z.object({ path: RequiredString, sha256: z.string().regex(/^[0-9a-f]{64}$/) }).strict()).min(1) }).strict(),
+			orderedAnatomy: z.tuple([z.literal('search-heading'), z.literal('unavailable-state'), z.literal('return-home')]),
+			responsive: z.object({ mobile: z.literal('single-column'), desktop: z.literal('centered-panel') }).strict(),
+			backend: z.literal('not-authorized-no-catalog-or-search-call'),
+			fallback: z.literal('fixed-kibble-unavailable-shell'),
+		}).strict(),
+		cart: z.object({
+			id: z.literal('kibble-cart-reference-v1'), acceptance: z.literal('approved-unavailable-state'), implementation: z.literal('KibbleUnavailableReference.svelte'), variantId: z.literal('kibble.unavailable.reference-shell'),
+			source: z.object({ owner: z.literal('reference-shell-adaptation'), commit: z.literal('ef122b8e17b9eb0b327c9d42491c44a61577ead4'), files: z.array(z.object({ path: RequiredString, sha256: z.string().regex(/^[0-9a-f]{64}$/) }).strict()).min(1) }).strict(),
+			orderedAnatomy: z.tuple([z.literal('cart-heading'), z.literal('unavailable-state'), z.literal('return-home')]),
+			responsive: z.object({ mobile: z.literal('single-column'), desktop: z.literal('centered-panel') }).strict(),
+			backend: z.literal('not-authorized-no-cart-read-or-write'),
+			fallback: z.literal('fixed-kibble-unavailable-shell'),
+		}).strict(),
+		checkout: z.object({
+			id: z.literal('kibble-checkout-reference-v1'), acceptance: z.literal('approved-unavailable-state'), implementation: z.literal('KibbleUnavailableReference.svelte'), variantId: z.literal('kibble.unavailable.reference-shell'),
+			source: z.object({ owner: z.literal('reference-shell-adaptation'), commit: z.literal('ef122b8e17b9eb0b327c9d42491c44a61577ead4'), files: z.array(z.object({ path: RequiredString, sha256: z.string().regex(/^[0-9a-f]{64}$/) }).strict()).min(1) }).strict(),
+			orderedAnatomy: z.tuple([z.literal('checkout-heading'), z.literal('unavailable-state'), z.literal('return-home')]),
+			responsive: z.object({ mobile: z.literal('single-column'), desktop: z.literal('centered-panel') }).strict(),
+			backend: z.literal('not-authorized-no-checkout-sdk-or-redirect'),
+			fallback: z.literal('fixed-kibble-unavailable-shell'),
+		}).strict(),
+		account: z.object({
+			id: z.literal('kibble-account-reference-v1'), acceptance: z.literal('approved-unavailable-state'), implementation: z.literal('KibbleUnavailableReference.svelte'), variantId: z.literal('kibble.unavailable.reference-shell'),
+			source: z.object({ owner: z.literal('reference-shell-adaptation'), commit: z.literal('ef122b8e17b9eb0b327c9d42491c44a61577ead4'), files: z.array(z.object({ path: RequiredString, sha256: z.string().regex(/^[0-9a-f]{64}$/) }).strict()).min(1) }).strict(),
+			orderedAnatomy: z.tuple([z.literal('account-heading'), z.literal('unavailable-state'), z.literal('return-home')]),
+			responsive: z.object({ mobile: z.literal('single-column'), desktop: z.literal('centered-panel') }).strict(),
+			backend: z.literal('not-authorized-no-account-read-or-write'),
+			fallback: z.literal('fixed-kibble-unavailable-shell'),
+		}).strict(),
 	}).strict(),
 	viewports: z.object({
 		mobile: z.object({ minPx: z.literal(320), maxPx: z.literal(767), columns: z.literal(1) }).strict(),
@@ -316,6 +379,10 @@ export const KibbleReferenceContractSchema = z.object({
 		aislesOwns: UniqueRequiredStrings,
 		forbiddenAtRuntime: UniqueRequiredStrings,
 	}).strict(),
+	unionZoneCoverage: z.array(z.object({ id: RequiredString, classification: z.enum(['fixed', 'hidden', 'not-applicable']), reason: RequiredString }).strict()).length(28).superRefine((entries, ctx) => {
+		if (new Set(entries.map(({ id }) => id)).size !== entries.length) ctx.addIssue({ code: 'custom', message: 'Union zone coverage ids must be unique' });
+	}),
+	routeInventory: z.array(z.object({ path: RequiredString, audience: z.enum(['shopper', 'operator', 'development']), classification: z.enum(['reference-preserve', 'reference-unavailable', 'operator-only', 'development-only', 'not-applicable']), reason: RequiredString }).strict()).min(1),
 }).strict().superRefine((contract, ctx) => {
 	const componentIds = new Set(contract.components.map((component) => component.id));
 	if (componentIds.size !== contract.components.length) ctx.addIssue({ code: 'custom', message: 'Reference component ids must be unique', path: ['components'] });
@@ -384,7 +451,7 @@ export const KibbleReferenceContractSchema = z.object({
 		if (!isRootChrome && slot.owner !== 'home-recipe') ctx.addIssue({ code: 'custom', message: 'Home content must be owned by home-recipe', path: ['recipes', 'home', 'orderedAnatomy', index, 'owner'] });
 	}
 
-	for (const [recipeName, recipe] of Object.entries({ plp: contract.recipes.plp, pdp: contract.recipes.pdp, error: contract.recipes.error })) {
+	for (const [recipeName, recipe] of Object.entries({ plp: contract.recipes.plp, pdp: contract.recipes.pdp, error: contract.recipes.error, search: contract.recipes.search, cart: contract.recipes.cart, checkout: contract.recipes.checkout, account: contract.recipes.account })) {
 		const component = contract.components.find(({ implementation }) => implementation === recipe.implementation);
 		if (!component) {
 			ctx.addIssue({ code: 'custom', message: `${recipeName} recipe implementation is not registered`, path: ['recipes', recipeName, 'implementation'] });
@@ -488,6 +555,12 @@ const contractInput = {
 			referenceOwned: ['centered status composition', 'reference type hierarchy', 'single bounded recovery action'],
 			aislesOwned: ['HTTP status', 'safe public message', 'home destination'],
 		},
+		{
+			id: 'kibble.unavailable', implementation: 'KibbleUnavailableReference.svelte',
+			variants: [variant('kibble.unavailable.reference-shell', ['kc.unavailable.reference-shell'], ['surface', 'query', 'heading', 'message', 'returnLabel'], [], ['home'], [], [copy('heading', 72, ['reference-copy']), copy('message', 240, ['merchant-policy']), copy('returnLabel', 40, ['reference-copy']), copy('query', 160, ['computed-fact'])])],
+			referenceOwned: ['search and cart header hierarchy', 'breadcrumb placement', 'quiet empty-state spacing', 'single recovery action'],
+			aislesOwned: ['safe unavailable state', 'request query echo', 'home destination'],
+		},
 	],
 	recipes: {
 		home: {
@@ -550,6 +623,22 @@ const contractInput = {
 			id: 'kibble-error-reference-v1', acceptance: 'approved', implementation: 'KibbleErrorReference.svelte', variantId: 'kibble.error.reference-shell',
 			invariants: ['The Kibble chrome remains visible.', 'Production copy never exposes internal adapter mismatch details.', 'The only recovery action returns home.'],
 		},
+		search: {
+			id: 'kibble-search-reference-v1', acceptance: 'approved-unavailable-state', implementation: 'KibbleUnavailableReference.svelte', variantId: 'kibble.unavailable.reference-shell',
+			source: { owner: 'reference-shell-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', files: KIBBLE_SEARCH_ADAPTED_SOURCE_FILES }, orderedAnatomy: ['search-heading', 'unavailable-state', 'return-home'], responsive: { mobile: 'single-column', desktop: 'centered-panel' }, backend: 'not-authorized-no-catalog-or-search-call', fallback: 'fixed-kibble-unavailable-shell',
+		},
+		cart: {
+			id: 'kibble-cart-reference-v1', acceptance: 'approved-unavailable-state', implementation: 'KibbleUnavailableReference.svelte', variantId: 'kibble.unavailable.reference-shell',
+			source: { owner: 'reference-shell-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', files: KIBBLE_CART_ADAPTED_SOURCE_FILES }, orderedAnatomy: ['cart-heading', 'unavailable-state', 'return-home'], responsive: { mobile: 'single-column', desktop: 'centered-panel' }, backend: 'not-authorized-no-cart-read-or-write', fallback: 'fixed-kibble-unavailable-shell',
+		},
+		checkout: {
+			id: 'kibble-checkout-reference-v1', acceptance: 'approved-unavailable-state', implementation: 'KibbleUnavailableReference.svelte', variantId: 'kibble.unavailable.reference-shell',
+			source: { owner: 'reference-shell-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', files: KIBBLE_CHECKOUT_ADAPTED_SOURCE_FILES }, orderedAnatomy: ['checkout-heading', 'unavailable-state', 'return-home'], responsive: { mobile: 'single-column', desktop: 'centered-panel' }, backend: 'not-authorized-no-checkout-sdk-or-redirect', fallback: 'fixed-kibble-unavailable-shell',
+		},
+		account: {
+			id: 'kibble-account-reference-v1', acceptance: 'approved-unavailable-state', implementation: 'KibbleUnavailableReference.svelte', variantId: 'kibble.unavailable.reference-shell',
+			source: { owner: 'reference-shell-adaptation', commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', files: KIBBLE_ACCOUNT_ADAPTED_SOURCE_FILES }, orderedAnatomy: ['account-heading', 'unavailable-state', 'return-home'], responsive: { mobile: 'single-column', desktop: 'centered-panel' }, backend: 'not-authorized-no-account-read-or-write', fallback: 'fixed-kibble-unavailable-shell',
+		},
 	},
 	viewports: { mobile: { minPx: 320, maxPx: 767, columns: 1 }, tablet: { minPx: 768, maxPx: 1023, columns: 2 }, desktop: { minPx: 1024, contentMaxPx: 1200, productColumns: 4 }, comparison: { widthsPx: [390, 768, 1280, 1440] } },
 	ownership: {
@@ -557,6 +646,49 @@ const contractInput = {
 		aislesOwns: ['catalog and subscription data', 'ranking within approved slots', 'approved bounded copy values', 'named navigation targets', 'supported interaction callbacks'],
 		forbiddenAtRuntime: ['inventing CSS', 'inventing component variants', 'reordering Preserve recipe slots', 'using mint outside Auto-Refill status and the wordmark exception', 'overlaying copy on packaging labels', 'materializing unsupported links or actions'],
 	},
+	unionZoneCoverage: [
+		{ id: 'home.hero', classification: 'fixed', reason: 'Home recipe owns the opening merchandising slot.' },
+		{ id: 'home.featured-row', classification: 'fixed', reason: 'Home recipe owns the ranked shelf.' },
+		{ id: 'home.editorial-strip', classification: 'fixed', reason: 'Home recipe owns the category entry module.' },
+		{ id: 'home.below-fold', classification: 'fixed', reason: 'Home recipe owns the service proof.' },
+		{ id: 'home.brand-spotlight', classification: 'not-applicable', reason: 'No pinned Kibble source recipe names this Bealls-only zone.' },
+		{ id: 'plp.editorial-header', classification: 'hidden', reason: 'The fixed Kibble PLP owns its category header directly.' },
+		{ id: 'plp.cluster-row', classification: 'hidden', reason: 'No composable merchandising row is authorized in Preserve.' },
+		{ id: 'plp.below-grid', classification: 'hidden', reason: 'No below-grid module exists in the pinned PLP recipe.' },
+		{ id: 'plp.banner', classification: 'not-applicable', reason: 'No pinned Kibble source banner is in the PLP anatomy.' },
+		{ id: 'plp.between-thirds', classification: 'not-applicable', reason: 'No pinned Kibble source insertion divides the grid.' },
+		{ id: 'plp.empty', classification: 'fixed', reason: 'The fixed PLP recipe owns its empty message.' },
+		{ id: 'pdp.below-description', classification: 'hidden', reason: 'The fixed PDP has no composable post-description slot.' },
+		{ id: 'pdp.related', classification: 'fixed', reason: 'The fixed PDP owns its related-product shelf.' },
+		{ id: 'pdp.cross-sell', classification: 'hidden', reason: 'Cross-sell selection is not authorized.' },
+		{ id: 'pdp.recently-viewed', classification: 'hidden', reason: 'History-backed recommendations are not implemented.' },
+		{ id: 'pdp.below-recommendations', classification: 'not-applicable', reason: 'No pinned Kibble source recipe names this Bealls-only slot.' },
+		{ id: 'cart.above-checkout-cta', classification: 'fixed', reason: 'Cart renders a fixed unavailable state and no CTA.' },
+		{ id: 'cart.below-fold', classification: 'not-applicable', reason: 'No cart composition is authorized without cart data.' },
+		{ id: 'cart.empty', classification: 'fixed', reason: 'The cart unavailable state is fixed and visible.' },
+		{ id: 'checkout.assurance-strip', classification: 'hidden', reason: 'Checkout is unavailable and exposes no assurance claims.' },
+		{ id: 'checkout.last-chance-upsell', classification: 'hidden', reason: 'Checkout merchandising is not authorized.' },
+		{ id: 'search.empty-state', classification: 'fixed', reason: 'Search renders its fixed unavailable state without catalog access.' },
+		{ id: 'search.zero-results-rescue', classification: 'fixed', reason: 'Search cannot claim zero results without a search backend.' },
+		{ id: 'error-404.rescue', classification: 'fixed', reason: 'The Kibble error recipe owns recovery.' },
+		{ id: 'error-empty.rescue', classification: 'fixed', reason: 'The Kibble error recipe owns empty recovery.' },
+		{ id: 'account.welcome', classification: 'fixed', reason: 'Account renders a fixed unavailable state.' },
+		{ id: 'account.dashboard-pick', classification: 'hidden', reason: 'Account data and picks storage are not authorized.' },
+		{ id: 'locator.editorial-intro', classification: 'not-applicable', reason: 'The pinned Kibble source has no store-locator route.' },
+	],
+	routeInventory: [
+		{ path: '/', audience: 'shopper', classification: 'reference-preserve', reason: 'Contracted Home recipe.' },
+		{ path: '/category/[slug]', audience: 'shopper', classification: 'reference-preserve', reason: 'Contracted PLP recipe.' },
+		{ path: '/product/[slug]', audience: 'shopper', classification: 'reference-unavailable', reason: 'Development review only until PDP approval passes.' },
+		{ path: '/search', audience: 'shopper', classification: 'reference-unavailable', reason: 'Kibble shell is visible; search backend is not authorized.' },
+		{ path: '/cart', audience: 'shopper', classification: 'reference-unavailable', reason: 'Kibble shell is visible; cart backend is not authorized.' },
+		{ path: '/checkout', audience: 'shopper', classification: 'reference-unavailable', reason: 'Kibble shell is visible; checkout SDK and redirect are not authorized.' },
+		{ path: '/account', audience: 'shopper', classification: 'reference-unavailable', reason: 'Kibble shell is visible; account backend is not authorized.' },
+		{ path: '/store-locator', audience: 'shopper', classification: 'not-applicable', reason: 'No pinned Kibble source route exists.' },
+		{ path: '/compare', audience: 'operator', classification: 'operator-only', reason: 'Comparison tooling is not a shopper surface.' },
+		{ path: '/observe', audience: 'operator', classification: 'operator-only', reason: 'Observe is an operator surface, not Kibble storefront content.' },
+		{ path: '/style-guide', audience: 'development', classification: 'development-only', reason: 'Style guide is a development surface, not a shopper route.' },
+	],
 } as const;
 
 export type KibbleReferenceContract = z.infer<typeof KibbleReferenceContractSchema>;

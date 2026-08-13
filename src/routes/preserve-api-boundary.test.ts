@@ -30,9 +30,9 @@ describe('Kibble Preserve API authority boundary', () => {
 		expect(await response.json()).toMatchObject({ error: expect.stringContaining('reference-preserved') });
 	});
 
-	it('rejects checkout on the server before the generic shell mounts', async () => {
+	it('renders checkout as a Kibble-native unavailable state before the generic shell mounts', async () => {
 		await expect(checkoutLoad({ parent: async () => ({ chromeMode: 'reference' }) } as never))
-			.rejects.toMatchObject({ status: 503 });
+			.resolves.toMatchObject({ kibbleCheckout: { heading: 'Checkout' } });
 		expect(await checkoutLoad({ parent: async () => ({ chromeMode: 'legacy' }) } as never)).toEqual({});
 	});
 });

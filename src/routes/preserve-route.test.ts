@@ -176,10 +176,10 @@ describe('Preserve route boundaries', () => {
 		}
 	});
 
-	it('keeps search unavailable while PDP has its own contracted server adapter', async () => {
-		const parent = async () => ({ devMode: false, chromeMode: 'reference' });
+	it('renders search as a fixed Kibble unavailable state without requesting the catalog', async () => {
+		const parent = async () => ({ devMode: false, chromeMode: 'reference', renderMode: 'reference-preserve' });
 		await expect(loadSearch({ url: new URL('https://aisles.test/search?q=food'), parent } as never))
-			.rejects.toMatchObject({ status: 503 });
+			.resolves.toMatchObject({ renderMode: 'reference-preserve', kibbleSearch: { query: 'food', heading: 'Search' } });
 	});
 
 	it('fails the unsupported Kibble cart API closed', async () => {

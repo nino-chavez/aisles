@@ -32,7 +32,7 @@ export function selectMerchantRenderMode(
 ): MerchantRenderMode {
 	const decision = getContractSurfaceDecision(brandId, surface);
 	if (decision.mode !== 'reference-preserve') return decision.mode;
-	if (surface !== 'home' && surface !== 'plp' && surface !== 'pdp' && surface !== 'error-404' && surface !== 'error-empty') {
+	if (surface !== 'home' && surface !== 'plp' && surface !== 'pdp' && surface !== 'search' && surface !== 'cart' && surface !== 'checkout' && surface !== 'error-404' && surface !== 'error-empty') {
 		return 'legacy-generated';
 	}
 	assertKibblePreserveRoutePolicy(decision.policy, surface);
@@ -48,6 +48,8 @@ export function buildKibbleChrome(brand: BrandConfig): {
 	statusLabel: string;
 	statusItems: [];
 	searchAction?: string;
+	accountHref?: string;
+	cartHref?: string;
 	footer: {
 		brandName: string;
 		tagline: string;
@@ -64,6 +66,9 @@ export function buildKibbleChrome(brand: BrandConfig): {
 		copy: { ...KIBBLE_PRESERVE_MANIFEST.display.chrome },
 		statusLabel: KIBBLE_PRESERVE_MANIFEST.display.chrome.statusLabel,
 		statusItems: [],
+		searchAction: '/search',
+		accountHref: '/account',
+		cartHref: '/cart',
 		footer: {
 			brandName: brand.name,
 			tagline: KIBBLE_PRESERVE_MANIFEST.display.chrome.footerTagline,

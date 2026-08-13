@@ -4,15 +4,20 @@
 	import GathererLayout from '$lib/components/layouts/GathererLayout.svelte';
 	import RefinementChat from '$lib/components/RefinementChat.svelte';
 	import type { Layout } from '$lib/schema/layout';
+	import { KibbleUnavailableReference } from '$lib/components/kibble';
 
 	let { data }: { data: PageData } = $props();
 	let refinedLayout = $state<Layout | null>(null);
+	const results = $derived(data.results ?? []);
 </script>
 
 <svelte:head>
-	<title>Search: {data.query}</title>
+	<title>{data.renderMode === 'reference-preserve' ? 'Search — Kibble & Co.' : `Search: ${data.query}`}</title>
 </svelte:head>
 
+{#if data.renderMode === 'reference-preserve' && data.kibbleSearch}
+	<KibbleUnavailableReference surface="search" {...data.kibbleSearch} />
+{:else}
 <div class="mx-auto max-w-7xl px-6 py-8">
 	<!-- Dev mode: persona shift detection -->
 	{#if data.devMode && data.personaShift}
@@ -29,7 +34,7 @@
 		</div>
 	{/if}
 
-	{#if data.results.length === 0}
+	{#if results.length === 0}
 		<div class="py-24 text-center">
 			<h1 class="text-2xl">No results for "{data.query}"</h1>
 			<p class="mt-2 text-surface-muted-fg">Try a different search or browse our categories.</p>
@@ -52,18 +57,18 @@
 		{#if data.persona === 'hunter'}
 			<HunterLayout
 				category={{ name: `Results for "${data.query}"`, slug: 'search' }}
-				products={data.results}
+			products={results}
 			/>
 		{:else}
 			<GathererLayout
 				category={{ name: `Results for "${data.query}"`, slug: 'search' }}
-				products={data.results}
+			products={results}
 			/>
 		{/if}
 	{:else}
 		<h1 class="text-2xl">{data.resultCount} results for "{data.query}"</h1>
 		<div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-			{#each data.results as product}
+			{#each results as product}
 				<a href="/product/{product.id}" class="group">
 					<div class="aspect-[4/3] overflow-hidden rounded-sm bg-surface-muted">
 						{#if product.image}
@@ -80,8 +85,10 @@
 	{/if}
 </div>
 
+{/if}
+
 <!-- Refinement chat — floats over the page, same as category pages -->
-{#if data.results.length > 0 && (data.suggestedCategory || data.persona)}
+{#if data.renderMode !== 'reference-preserve' && results.length > 0 && (data.suggestedCategory || data.persona)}
 	<RefinementChat
 		persona={data.persona}
 		categorySlug={data.suggestedCategory || 'living-room'}

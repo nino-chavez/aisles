@@ -91,13 +91,20 @@ describe('Kibble composition policy registry', () => {
 		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'pdp')).not.toThrow();
 	});
 
-	it('does not mislabel unsupported Kibble surfaces or other brands as Preserve', () => {
+	it('binds search, cart, and checkout to fixed unavailable Kibble shells', () => {
 		for (const surface of ['search', 'cart', 'checkout'] as const) {
-			expect(getContractSurfaceDecision('kibble', surface)).toEqual({
-				mode: 'legacy-generated',
-				reason: 'unsupported-surface',
-			});
+			const decision = getContractSurfaceDecision('kibble', surface);
+			expect(decision.mode).toBe('reference-preserve');
+			if (decision.mode !== 'reference-preserve') throw new Error('expected Preserve');
+			expect(decision.policy.capabilities).toEqual([]);
+			expect(decision.policy.decisionMode).toBe('fixed');
+			expect(decision.policy.publicationMode).toBe('live');
+			expect(decision.policy.allowedComponentVariantIds).toContain('kibble.unavailable.reference-shell');
+			expect(() => assertKibblePreserveRoutePolicy(decision.policy, surface)).not.toThrow();
 		}
+	});
+
+	it('does not mislabel other brands as Preserve', () => {
 		expect(getContractSurfaceDecision('haven', 'home')).toEqual({
 			mode: 'legacy-generated',
 			reason: 'uncontracted-brand',

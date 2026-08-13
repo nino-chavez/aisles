@@ -46,6 +46,11 @@ const errorComponentVariantIds = [
 	KIBBLE_REFERENCE_CONTRACT.recipes.error.variantId,
 	'kibble.footer.four-column',
 ] as const;
+const unavailableComponentVariantIds = [
+	'kibble.header.responsive-chrome',
+	'kibble.unavailable.reference-shell',
+	'kibble.footer.four-column',
+] as const;
 
 function cssFor(componentVariantIds: readonly string[]): string[] {
 	const wanted = new Set(componentVariantIds);
@@ -100,6 +105,21 @@ const kibble: BrandCompositionPolicy = {
 			allowedCssVariantIds: cssFor(pdpComponentVariantIds),
 			allowedCopyVariantIds: [],
 		},
+		search: {
+			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
+			allowedComponentVariantIds: unavailableComponentVariantIds,
+			allowedCssVariantIds: cssFor(unavailableComponentVariantIds), allowedCopyVariantIds: [],
+		},
+		cart: {
+			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
+			allowedComponentVariantIds: unavailableComponentVariantIds,
+			allowedCssVariantIds: cssFor(unavailableComponentVariantIds), allowedCopyVariantIds: [],
+		},
+		checkout: {
+			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
+			allowedComponentVariantIds: unavailableComponentVariantIds,
+			allowedCssVariantIds: cssFor(unavailableComponentVariantIds), allowedCopyVariantIds: [],
+		},
 		'error-404': {
 			preset: 'preserve',
 			capabilities: [],
@@ -152,6 +172,9 @@ const REQUIRED_PRESERVE_POLICY = {
 		componentVariantIds: pdpComponentVariantIds,
 		cssVariantIds: cssFor(pdpComponentVariantIds),
 	},
+	search: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: unavailableComponentVariantIds, cssVariantIds: cssFor(unavailableComponentVariantIds) },
+	cart: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: unavailableComponentVariantIds, cssVariantIds: cssFor(unavailableComponentVariantIds) },
+	checkout: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: unavailableComponentVariantIds, cssVariantIds: cssFor(unavailableComponentVariantIds) },
 	'error-404': {
 		decisionMode: 'fixed',
 		publicationMode: 'live',
@@ -196,7 +219,7 @@ export function getContractSurfaceDecision(
  */
 export function assertKibblePreserveRoutePolicy(
 	policy: EffectiveCompositionPolicy,
-	surface: 'home' | 'plp' | 'pdp' | 'error-404' | 'error-empty',
+	surface: 'home' | 'plp' | 'pdp' | 'search' | 'cart' | 'checkout' | 'error-404' | 'error-empty',
 ): void {
 	const required = REQUIRED_PRESERVE_POLICY[surface];
 	const identityMatches =
@@ -230,6 +253,8 @@ export function surfaceForPath(pathname: string): Surface | null {
 	if (/^\/category\/[^/]+\/?$/.test(pathname)) return 'plp';
 	if (/^\/product\/[^/]+\/?$/.test(pathname)) return 'pdp';
 	if (pathname === '/search') return 'search';
+	if (pathname === '/cart') return 'cart';
+	if (pathname === '/checkout') return 'checkout';
 	return null;
 }
 

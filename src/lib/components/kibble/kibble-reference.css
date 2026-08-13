@@ -1172,6 +1172,64 @@
 	line-height: 1.7;
 }
 
+/* Search and cart retain the pinned route hierarchy when their backing
+ * services are deliberately unavailable. The panel is a state within the
+ * reference recipe, not a generic Aisles fallback. */
+.kc-reference-unavailable {
+	min-height: min(38rem, 65vh);
+}
+
+.kc-reference-unavailable__header {
+	padding: 1.5rem 0 2rem;
+	border-bottom: 1px solid var(--kc-border);
+}
+
+.kc-reference-unavailable__header h1 {
+	margin: 0;
+	font-size: clamp(2.25rem, 5vw, 3.5rem);
+	line-height: 1.04;
+}
+
+.kc-reference-unavailable__search {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	max-width: 40rem;
+	margin-top: 1.5rem;
+	padding: 0 1rem;
+	border: 1px solid var(--kc-border);
+	border-radius: var(--kc-radius-sm);
+	background: var(--kc-surface);
+	color: var(--kc-muted-text);
+}
+
+.kc-reference-unavailable__search input {
+	width: 100%;
+	min-height: 3rem;
+	border: 0;
+	background: transparent;
+	color: var(--kc-muted-text);
+	font: inherit;
+}
+
+.kc-reference-unavailable__body {
+	max-width: 38rem;
+	padding: clamp(4rem, 10vw, 7.5rem) 0;
+	text-align: center;
+	margin-inline: auto;
+}
+
+.kc-reference-unavailable__body p {
+	margin: 0;
+	color: var(--kc-muted-text);
+	font-size: 1.05rem;
+	line-height: 1.7;
+}
+
+.kc-reference-unavailable__body .kc-reference-button {
+	margin-top: 1.75rem;
+}
+
 @media (min-width: 640px) {
 	.kc-reference-chrome-container {
 		padding-inline: 1.5rem;

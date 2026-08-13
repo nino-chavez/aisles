@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getProducts, customFieldsToRecord, type BCProduct } from '$lib/server/bigcommerce';
-import { error, redirect } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { searchProducts } from '$lib/server/search';
@@ -8,9 +8,17 @@ import { loadSessionIncentives } from '$lib/server/incentives/session';
 
 export const load: PageServerLoad = async ({ url, cookies, request, parent }) => {
 	const query = url.searchParams.get('q') || '';
-	const { devMode, chromeMode } = await parent();
+	const { devMode, chromeMode, renderMode } = await parent();
 	if (chromeMode === 'reference') {
-		throw error(503, 'This Kibble & Co. section is not available in the reference-preserved preview.');
+		return {
+			renderMode,
+			kibbleSearch: {
+				query: query.slice(0, 160),
+				heading: 'Search',
+				message: 'Search is not connected in this reference-preserved preview. The catalog stays unchanged until a merchant-approved search service is available.',
+				returnLabel: 'Return to Kibble & Co.',
+			},
+		};
 	}
 
 	if (!query.trim()) {
@@ -70,6 +78,7 @@ export const load: PageServerLoad = async ({ url, cookies, request, parent }) =>
 	cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
 
 	return {
+		renderMode,
 		query,
 		results: matched,
 		resultCount: matched.length,

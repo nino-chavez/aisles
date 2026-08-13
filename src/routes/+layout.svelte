@@ -145,6 +145,8 @@
 					{cartCount}
 					{picksCount}
 					searchAction={data.kibbleChrome.searchAction}
+					accountHref={data.kibbleChrome.accountHref}
+					cartHref={data.kibbleChrome.cartHref}
 				/>
 			{:else}
 				<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} categories={data.brand?.categories ?? {}} />
