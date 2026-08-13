@@ -3,6 +3,7 @@ import type { Product } from '$lib/types';
 
 const mocks = vi.hoisted(() => ({
 	logGeneration: vi.fn(async () => {}),
+	createStoreFromRequest: vi.fn(),
 }));
 
 const bundle: Product = {
@@ -17,13 +18,7 @@ const shelfProduct: Product = {
 };
 
 vi.mock('$lib/signals/request', () => ({
-	createStoreFromRequest: vi.fn(async () => ({
-		visitCount: 1,
-		store: {
-			toInferenceContext: () => ({}),
-			getCrossSessionContext: () => ({ scenarioId: null }),
-		},
-	})),
+	createStoreFromRequest: mocks.createStoreFromRequest,
 }));
 vi.mock('$lib/signals/inference', () => ({
 	infer: vi.fn(() => ({
@@ -50,6 +45,13 @@ describe('Kibble Preserve home publication', () => {
 	beforeEach(() => {
 		process.env.BRAND_ID = 'kibble';
 		mocks.logGeneration.mockClear();
+		mocks.createStoreFromRequest.mockReset().mockResolvedValue({
+			visitCount: 1,
+			store: {
+				toInferenceContext: () => ({}),
+				getCrossSessionContext: () => ({ scenarioId: null }),
+			},
+		});
 	});
 
 	afterEach(() => {
@@ -79,5 +81,17 @@ describe('Kibble Preserve home publication', () => {
 			type: 'preserve_render', categorySlug: 'home', sessionId: 'session-one',
 			provenance: data.provenance,
 		}));
+	});
+
+	it('turns request-state failures into the branded Preserve 503 boundary', async () => {
+		mocks.createStoreFromRequest.mockRejectedValueOnce(new Error('database unavailable'));
+		await expect(load({
+			url: new URL('https://aisles.test/'), request: new Request('https://aisles.test/'),
+			cookies: { get: () => undefined, set: () => undefined },
+			parent: async () => ({ devMode: false, renderMode: 'reference-preserve' }),
+		} as never)).rejects.toMatchObject({
+			status: 503,
+			body: { message: expect.stringContaining('Kibble Preserve cannot render') },
+		});
 	});
 });

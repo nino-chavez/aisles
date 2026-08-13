@@ -17,6 +17,13 @@ const REFINE_PROMPT_VERSION = 'legacy-refine-prompt-v1';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const startTime = Date.now();
+	const brand = getBrand();
+	if (brand.id === 'kibble') {
+		return json(
+			{ error: 'Generated refinement is unavailable for this reference-preserved storefront.' },
+			{ status: 503 },
+		);
+	}
 	const sessionId = cookies.get('aisles_session') || undefined;
 	const scenario = sessionId && await hasSession(sessionId)
 		? (await getSessionStore(sessionId)).getCrossSessionContext().scenarioId
@@ -64,7 +71,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			return `- ID: "${p.id}" | ${p.name} | ${price} | ${specs}${fit}`;
 		}).join('\n');
 
-		const brand = getBrand();
 		const rules = await getActiveRules(persona, categorySlug);
 		const rulesContext = rulesToPromptContext(rules);
 		const availableCategories = Object.values(brand.categories).map((c) => c.displayName).join(', ');

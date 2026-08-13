@@ -3,6 +3,8 @@ import type { Product } from '$lib/types';
 
 const mocks = vi.hoisted(() => ({
 	logGeneration: vi.fn(async () => {}),
+	createStoreFromRequest: vi.fn(),
+	loadReferenceCategoryProducts: vi.fn(),
 }));
 
 const shelfProduct: Product = {
@@ -12,14 +14,7 @@ const shelfProduct: Product = {
 };
 
 vi.mock('$lib/signals/request', () => ({
-	createStoreFromRequest: vi.fn(async () => ({
-		visitCount: 1,
-		store: {
-			eventCount: 1,
-			toInferenceContext: () => ({}),
-			getCrossSessionContext: () => ({ scenarioId: null }),
-		},
-	})),
+	createStoreFromRequest: mocks.createStoreFromRequest,
 }));
 vi.mock('$lib/signals/inference', () => ({
 	infer: vi.fn(() => ({
@@ -32,10 +27,7 @@ vi.mock('$lib/signals/inference', () => ({
 }));
 vi.mock('$lib/server/catalog', () => ({
 	CATEGORY_MAP: { 'dog-food': 1 },
-	loadReferenceCategoryProducts: vi.fn(async () => ({
-		categoryName: 'Dog Food', products: [shelfProduct],
-		pageInfo: { hasNextPage: true, endCursor: 'YXJyYXljb25uZWN0aW9uOjIz' },
-	})),
+	loadReferenceCategoryProducts: mocks.loadReferenceCategoryProducts,
 	loadCategoryProducts: vi.fn(),
 }));
 vi.mock('$lib/server/incentives/session', () => ({ loadSessionIncentives: vi.fn() }));
@@ -49,6 +41,18 @@ describe('Kibble Preserve PLP publication', () => {
 	beforeEach(() => {
 		process.env.BRAND_ID = 'kibble';
 		mocks.logGeneration.mockClear();
+		mocks.createStoreFromRequest.mockReset().mockResolvedValue({
+			visitCount: 1,
+			store: {
+				eventCount: 1,
+				toInferenceContext: () => ({}),
+				getCrossSessionContext: () => ({ scenarioId: null }),
+			},
+		});
+		mocks.loadReferenceCategoryProducts.mockReset().mockResolvedValue({
+			categoryName: 'Dog Food', products: [shelfProduct],
+			pageInfo: { hasNextPage: true, endCursor: 'YXJyYXljb25uZWN0aW9uOjIz' },
+		});
 	});
 
 	afterEach(() => {
@@ -83,5 +87,19 @@ describe('Kibble Preserve PLP publication', () => {
 			type: 'preserve_render', categorySlug: 'dog-food', sessionId: 'session-one',
 			provenance: data.provenance,
 		}));
+	});
+
+	it('turns catalog failures into the branded Preserve 503 boundary', async () => {
+		mocks.loadReferenceCategoryProducts.mockRejectedValueOnce(new Error('catalog unavailable'));
+		await expect(load({
+			params: { slug: 'dog-food' },
+			url: new URL('https://aisles.test/category/dog-food'),
+			request: new Request('https://aisles.test/category/dog-food'),
+			cookies: { get: () => undefined, set: () => undefined },
+			parent: async () => ({ devMode: false, renderMode: 'reference-preserve' }),
+		} as never)).rejects.toMatchObject({
+			status: 503,
+			body: { message: expect.stringContaining('Kibble Preserve cannot render') },
+		});
 	});
 });

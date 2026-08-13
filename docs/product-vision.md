@@ -45,7 +45,7 @@ Aisles ships with three built-in configurations that demonstrate the current gen
 
 The configurations share no product data, no BC channel, and no visual identity. They do share the inference engine, the layout component vocabulary, the enrichment pipeline, and the prompt construction logic. `src/lib/brand/config.ts` is current renderer configuration, not a complete merchant design contract.
 
-This supports reuse for brands designed around the shared renderer. It does not establish that an unrelated merchant can keep an existing storefront through theme configuration alone. A contract-bound Kibble Preserve path now exists locally for home and error surfaces. Product listing remains an unaccepted contract candidate. The required route coverage, visual acceptance, deployment evidence, and merchant control surface are incomplete. The boundary and remaining work are described in the [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md) and its [Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
+This supports reuse for brands designed around the shared renderer. It does not establish that an unrelated merchant can keep an existing storefront through theme configuration alone. A contract-bound Kibble Preserve path now exists locally for home, product-listing, and error surfaces. The required route coverage, visual acceptance, deployment evidence, and merchant control surface are incomplete. The boundary and remaining work are described in the [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md) and its [Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
 
 ---
 

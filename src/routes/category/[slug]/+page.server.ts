@@ -37,6 +37,12 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 	const slug = params.slug;
 	const { devMode, renderMode } = await parent();
 	const preserveStartedAt = Date.now();
+	const failPreserve = (cause: unknown, phase: string): never => {
+		if (renderMode !== 'reference-preserve') throw cause;
+		const detail = cause instanceof Error ? cause.message : `Unknown Kibble category ${phase} error.`;
+		console.error(`[kibble-preserve] category ${phase} failed closed:`, detail);
+		throw error(503, dev ? `Kibble Preserve cannot render: ${detail}` : 'This Kibble shelf is temporarily unavailable.');
+	};
 	const surfaceDecision = renderMode === 'reference-preserve'
 		? getContractSurfaceDecision(getBrand().id, 'plp')
 		: null;
@@ -47,9 +53,7 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 		try {
 			assertKibblePreserveRoutePolicy(surfaceDecision.policy, 'plp');
 		} catch (cause) {
-			const detail = cause instanceof Error ? cause.message : 'Unknown Kibble category policy error.';
-			console.error('[kibble-preserve] category policy failed closed:', detail);
-			throw error(503, dev ? `Kibble Preserve cannot render: ${detail}` : 'This Kibble shelf is temporarily unavailable.');
+			failPreserve(cause, 'policy');
 		}
 	}
 
@@ -62,15 +66,19 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 	const kibblePlp = renderMode === 'reference-preserve' ? _parseKibblePlpRequest(url) : null;
 
 	// ─── Signal Store: preserve request-time signals and inference. ───
-	const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: slug });
-	const inferenceContext = store.toInferenceContext();
-	const inference = infer(inferenceContext);
+	const requestState = await (async () => {
+		const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: slug });
+		const inferenceContext = store.toInferenceContext();
+		return { store, visitCount, inferenceContext, inference: infer(inferenceContext) };
+	})().catch((cause) => failPreserve(cause, 'session'));
+	const { store, visitCount, inferenceContext, inference } = requestState;
 
 	// Preserve uses the canonical category sort and cursor. Legacy retains the
 	// existing enrichment and persona-fit ordering path.
-	const result = kibblePlp
-		? await loadReferenceCategoryProducts(slug, kibblePlp)
-		: await loadCategoryProducts(slug, inference.primary);
+	const result = await (kibblePlp
+		? loadReferenceCategoryProducts(slug, kibblePlp)
+		: loadCategoryProducts(slug, inference.primary)
+	).catch((cause) => failPreserve(cause, 'catalog'));
 	if (!result) {
 		throw error(404, `Category "${slug}" not found in BigCommerce`);
 	}
@@ -115,9 +123,7 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 				provenance,
 			});
 		} catch (cause) {
-			const detail = cause instanceof Error ? cause.message : 'Unknown Kibble category adapter error.';
-			console.error('[kibble-preserve] category failed closed:', detail);
-			throw error(503, dev ? `Kibble Preserve cannot render: ${detail}` : 'This Kibble shelf is temporarily unavailable.');
+			failPreserve(cause, 'adapter');
 		}
 	}
 	const sessionIncentives = renderMode === 'reference-preserve'

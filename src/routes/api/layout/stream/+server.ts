@@ -24,6 +24,13 @@ import {
  */
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const startTime = Date.now();
+	const brand = getBrand();
+	if (brand.id === 'kibble') {
+		return json(
+			{ error: 'Generated layouts are unavailable for this reference-preserved storefront.' },
+			{ status: 503 },
+		);
+	}
 	const sessionId = cookies.get('aisles_session') || undefined;
 	const scenario = sessionId && await hasSession(sessionId)
 		? (await getSessionStore(sessionId)).getCrossSessionContext().scenarioId
@@ -66,7 +73,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			isHome,
 		);
 		const provenance = buildLegacyLayoutProvenance({
-			brand: getBrand(),
+			brand,
 			surface: isHome ? 'home' : 'plp',
 			route: isHome ? '/' : `/category/${categorySlug}`,
 			persona,

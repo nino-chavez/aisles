@@ -16,17 +16,20 @@ import { logGeneration } from '$lib/server/generation-log';
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
 	const { devMode, renderMode } = await parent();
 	const brand = getBrand();
-	const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: 'home' });
-	const inferenceContext = store.toInferenceContext();
-	const inference = infer(inferenceContext);
-	const storedPersona = cookies.get('aisles_persona') || null;
-	const storedCategory = cookies.get('aisles_last_category') || null;
-	cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
-	cookies.set('aisles_visits', String(visitCount), { path: '/', maxAge: 60 * 60 * 24 * 30 });
+	const loadRequestState = async () => {
+		const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: 'home' });
+		const inferenceContext = store.toInferenceContext();
+		return { store, visitCount, inferenceContext, inference: infer(inferenceContext) };
+	};
 
 	if (renderMode === 'reference-preserve') {
 		const preserveStartedAt = Date.now();
 		try {
+			const { store, visitCount, inference } = await loadRequestState();
+			const storedPersona = cookies.get('aisles_persona') || null;
+			const storedCategory = cookies.get('aisles_last_category') || null;
+			cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
+			cookies.set('aisles_visits', String(visitCount), { path: '/', maxAge: 60 * 60 * 24 * 30 });
 			const surfaceDecision = getContractSurfaceDecision(brand.id, 'home');
 			if (surfaceDecision.mode !== 'reference-preserve') throw new Error('Kibble home reference policy is unavailable.');
 			assertKibblePreserveRoutePolicy(surfaceDecision.policy, 'home');
@@ -91,6 +94,11 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 	}
 
 	// ─── Legacy generation retains its current incentive and persona path. ───
+	const { store, visitCount, inferenceContext, inference } = await loadRequestState();
+	const storedPersona = cookies.get('aisles_persona') || null;
+	const storedCategory = cookies.get('aisles_last_category') || null;
+	cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });
+	cookies.set('aisles_visits', String(visitCount), { path: '/', maxAge: 60 * 60 * 24 * 30 });
 	const sessionIncentives = await loadSessionIncentives(store, cookies);
 
 	// Cross-category product set, sorted by persona-fit — same shape and

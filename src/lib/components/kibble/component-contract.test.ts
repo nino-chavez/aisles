@@ -32,6 +32,8 @@ describe('Kibble reference components fail closed', () => {
 		const desktop = component('KibbleHeader.svelte');
 		expect(desktop).toContain('{#if accountHref}');
 		expect(desktop).toContain('aria-label={copy.cartUnavailableLabel}');
+		expect(desktop).toContain('<span class="kc-reference-header__cart-unavailable">{copy.cartUnavailableLabel}</span>');
+		expect(desktop).toContain('>{copy.searchUnavailableLabel}</span>');
 		const mobile = component('KibbleMobileNavigation.svelte');
 		expect(mobile).toContain('{#if accountHref || onPicksClick || picksHref}');
 		expect(mobile).toContain('aria-label={copy.cartUnavailableLabel}');

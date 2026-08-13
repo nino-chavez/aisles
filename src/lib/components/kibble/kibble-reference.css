@@ -252,6 +252,14 @@
 	font-weight: 600;
 }
 
+.kc-reference-header__cart-unavailable {
+	color: var(--kc-muted-text);
+	font-family: var(--kc-font-machinery);
+	font-size: 0.6rem;
+	line-height: 1.2;
+	max-width: 4.5rem;
+}
+
 .kc-reference-control-wrap {
 	position: relative;
 }
@@ -1154,6 +1162,7 @@
 @media (max-width: 1023px) {
 	.kc-reference-header__nav,
 	.kc-reference-header__search-label,
+	.kc-reference-header__cart-unavailable,
 	.kc-reference-header__account,
 	.kc-reference-header__picks,
 	.kc-reference-status__item:nth-child(n + 3) {
