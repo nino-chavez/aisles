@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { replaceState } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import {
 		SignalConfirmationError,
@@ -116,7 +117,7 @@
 		event.preventDefault();
 		const shelf = document.getElementById('kibble-featured-shelf');
 		if (!shelf) return;
-		window.history.replaceState(null, '', '#kibble-featured-shelf');
+		replaceState('#kibble-featured-shelf', {});
 		shelf.scrollIntoView({ block: 'start' });
 		shelf.focus({ preventScroll: true });
 	};
