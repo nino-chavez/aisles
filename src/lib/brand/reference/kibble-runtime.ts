@@ -85,10 +85,9 @@ export function buildKibbleHomeReference(
 			proofItems: [],
 		},
 		products: featuredProducts,
-		productHrefs: Object.fromEntries(featuredProducts.flatMap((product) => {
-			const href = supportedProductHref(product);
-			return href ? [[product.id, href]] : [];
-		})),
+		// PDP is not part of the approved Kibble reference contract yet.
+		// Keep the reference card shell non-interactive until that surface lands.
+		productHrefs: {},
 		categories,
 		serviceProof: manifest.home.serviceProof.map((item): KibbleServiceProofItem => ({ ...item })),
 		featuredCopy: {
@@ -119,10 +118,7 @@ export function materializeKibbleCategory(brand: BrandConfig, slug: string, prod
 		productPlural: KIBBLE_PRESERVE_MANIFEST.display.plp.productPlural,
 		emptyMessage: KIBBLE_PRESERVE_MANIFEST.display.plp.emptyMessage,
 		products,
-		productHrefs: Object.fromEntries(products.flatMap((product) => {
-			const href = supportedProductHref(product);
-			return href ? [[product.id, href]] : [];
-		})),
+		productHrefs: {},
 	};
 }
 
@@ -177,10 +173,6 @@ function materializeCategoryTiles(brand: BrandConfig): KibbleVisualTile[] {
 			imageAlt: category.displayName,
 		};
 	});
-}
-
-function supportedProductHref(product: Product): string | null {
-	return /^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(product.id) ? `/product/${product.id}` : null;
 }
 
 function assertKibbleBrand(brand: BrandConfig): void {

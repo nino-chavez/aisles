@@ -332,7 +332,9 @@ function resolvePolicyAware(
 		family,
 		index,
 		source: 'fallback',
-		content: getFallback(family, opts.trustedContext.brandId),
+		// The requested brand is the resolver input. A rejected trusted marker
+		// must never select another brand's fallback content.
+		content: getFallback(family, opts.brandId),
 		policyTrace: trace,
 	};
 }

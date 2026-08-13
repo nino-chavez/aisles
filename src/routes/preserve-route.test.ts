@@ -62,7 +62,7 @@ describe('Preserve route boundaries', () => {
 								eyebrow: 'Featured bundle', autoRefillLabel: 'Auto-Refill', savingsLabel: 'Save', ctaLabel: 'Shop the bundle',
 							},
 						},
-						products: [product], productHrefs: { 'actual-product': '/product/actual-product' }, categories: [], serviceProof: [],
+						products: [product], productHrefs: {}, categories: [], serviceProof: [],
 						featuredCopy: { title: 'Featured', eyebrow: 'Catalog', browseAllLabel: 'Browse Dog Food' },
 						browseHref: '/category/dog-food', categoryTitle: 'Shop by category', categoryEyebrow: 'Browse',
 					},
@@ -70,6 +70,7 @@ describe('Preserve route boundaries', () => {
 			},
 		});
 		expect(result.body).toContain('REFERENCE HOME SENTINEL');
+		expect(result.body).not.toContain('/product/actual-product');
 		expect(result.body).not.toContain('LEGACY HOME SENTINEL');
 		expect(result.head).toContain('<title>Kibble &amp; Co.</title>');
 		expect(result.head).not.toContain('never running out');
@@ -81,11 +82,12 @@ describe('Preserve route boundaries', () => {
 				data: {
 					renderMode: 'reference-preserve',
 					category: { name: 'Dog Food', slug: 'dog-food' }, products: [product], persona: 'gatherer',
-					kibbleCategory: { eyebrow: 'Catalog', title: 'Dog Food', productCount: 1, productSingular: 'product', productPlural: 'products', emptyMessage: 'No products.', products: [product], productHrefs: { 'actual-product': '/product/actual-product' } },
+					kibbleCategory: { eyebrow: 'Catalog', title: 'Dog Food', productCount: 1, productSingular: 'product', productPlural: 'products', emptyMessage: 'No products.', products: [product], productHrefs: {} },
 				} as never,
 			},
 		});
 		expect(result.body).toContain('Actual Product');
+		expect(result.body).not.toContain('/product/actual-product');
 		expect(result.body).toContain('1 product');
 		expect(result.body).not.toContain('Personalizing');
 	});

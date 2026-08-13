@@ -72,18 +72,20 @@ describe('Kibble Preserve runtime adapter', () => {
 		]);
 		expect(home.featuredCopy.title).toBe('Catalog shelf');
 		expect(home.products.map(({ entityId }) => entityId)).toEqual([4, 2, 3]);
+		expect(home.productHrefs).toEqual({});
 		expect(home.categories).toHaveLength(8);
 		expect(home.hero.proofItems).toEqual([]);
 	});
 
 	it('records every bounded copy divergence and withholds operational claims', () => {
 		expect(KIBBLE_PRESERVE_MANIFEST.copyProvenance.approvedBoundedDivergences.map(({ field }) => field)).toEqual([
-			'home.hero.eyebrow', 'home.hero.body', 'home.serviceProof',
+			'home.hero.eyebrow', 'home.hero.headline', 'home.hero.body', 'home.serviceProof',
 		]);
 		expect(KIBBLE_PRESERVE_MANIFEST.withheldSourceClaims).toContain('engine health');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('$30M');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('5 vetted brands');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('Preserve adapter');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('fixed shelf structure');
+		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('never lapses');
 	});
 });

@@ -28,9 +28,10 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 		'service-proof',
 	] as const,
 	copyProvenance: {
-		exactSourceCopy: ['home.hero.headline', 'home.ctas', 'home.featured', 'home.categories'] as const,
+		exactSourceCopy: ['home.ctas', 'home.featured', 'home.categories'] as const,
 		approvedBoundedDivergences: [
 			{ field: 'home.hero.eyebrow', reason: 'Removes the unverified kept-in-stock operational claim.' },
+			{ field: 'home.hero.headline', reason: 'Removes the unimplemented never-lapses refill promise while retaining the reference brand position.' },
 			{ field: 'home.hero.body', reason: 'Retains the pinned brand and category framing without shipping, savings, cadence, or control claims.' },
 			{ field: 'home.serviceProof', reason: 'Replaces unverified commerce promises with bounded merchant-facing copy derived from the pinned category framing and current catalog configuration.' },
 		] as const,
@@ -59,7 +60,7 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 		home: {
 			hero: {
 				eyebrow: 'The brands on your shelf · kept in view',
-				headline: 'The brands worth trusting, on a refill that never lapses.',
+				headline: 'The brands worth trusting, organized around your routine.',
 				body: 'Open Farm, Native Pet, Wild One, and Finn — organized around food, wellness, care, gear, and repeat-purchase routines.',
 				ctas: [
 					{ label: 'Shop Bundles', categorySlug: 'bundles', primary: true },
