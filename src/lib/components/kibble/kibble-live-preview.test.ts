@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { applyKibbleLivePreview, validateKibbleLivePreview } from './kibble-live-preview';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { applyKibbleLivePreview, listenForKibbleLivePreview, validateKibbleLivePreview } from './kibble-live-preview';
 import type { KibbleDevInspectorData } from './kibble-dev-inspector';
 
 const expectation = { reference: { id: 'kibble-preserve-home-v1', version: '2026-08-12' }, policyVersion: 'kibble-policy-v1' };
@@ -13,6 +13,8 @@ const inspector: KibbleDevInspectorData = {
 const response = () => ({ version: 'kibble-live-home-preview-v1', previewOnly: true, reference: expectation.reference, policyVersion: expectation.policyVersion, persona: 'hunter', products: [product], inspector });
 
 describe('validateKibbleLivePreview', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
 	it('accepts a complete, pinned preview response', () => {
 		const result = validateKibbleLivePreview(response(), expectation);
 		expect(result.ok).toBe(true);
@@ -36,5 +38,32 @@ describe('validateKibbleLivePreview', () => {
 	it('retains the prior approved shelf and trace on failure', () => {
 		const current = { products: [{ ...product, id: 'approved' }], inspector: { ...inspector, policyVersion: 'approved-policy' } };
 		expect(applyKibbleLivePreview(current, { ...response(), version: 'wrong' }, expectation)).toBe(current);
+	});
+
+	it('requests a server decision only after an inference event and removes the listener on cleanup', async () => {
+		const eventTarget = new EventTarget();
+		const fetchMock = vi.fn(async () => new Response(JSON.stringify(response()), {
+			status: 200,
+			headers: { 'content-type': 'application/json' },
+		}));
+		vi.stubGlobal('window', eventTarget);
+		vi.stubGlobal('fetch', fetchMock);
+		const applied = vi.fn();
+		const statuses: string[] = [];
+		const cleanup = listenForKibbleLivePreview({
+			expectation,
+			onApplied: applied,
+			onStatus: (status) => statuses.push(status.state),
+		});
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
+		await vi.waitFor(() => expect(applied).toHaveBeenCalledTimes(1));
+		expect(fetchMock).toHaveBeenCalledWith('/api/kibble/home-decision?dev=true', expect.objectContaining({ method: 'POST' }));
+		expect(statuses).toEqual(['updating', 'applied']);
+
+		cleanup();
+		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
+		expect(fetchMock).toHaveBeenCalledTimes(1);
 	});
 });

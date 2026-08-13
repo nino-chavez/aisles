@@ -3,6 +3,7 @@ import {
 	type KibbleDevInspectorData,
 	type KibbleInspectorPersona,
 	type KibbleInspectorZone,
+	type KibbleLivePreviewStatus,
 } from './kibble-dev-inspector';
 
 const PERSONAS = new Set<KibbleInspectorPersona>(['gatherer', 'hunter', 'researcher', 'gifter']);
@@ -22,6 +23,64 @@ export type KibbleLivePreview = {
 export type KibbleLivePreviewValidation =
 	| { ok: true; preview: KibbleLivePreview }
 	| { ok: false; reason: string };
+
+export type KibbleLivePreviewListenerOptions = {
+	expectation: KibbleLivePreviewExpectation;
+	onApplied: (preview: KibbleLivePreview) => void;
+	onStatus: (status: KibbleLivePreviewStatus) => void;
+};
+
+/**
+ * Install the dev-only signal-to-preview bridge. The caller lazy-loads this
+ * module behind SvelteKit's compile-time dev flag so none of the endpoint or
+ * validation machinery enters the production shopper bundle.
+ */
+export function listenForKibbleLivePreview({
+	expectation,
+	onApplied,
+	onStatus,
+}: KibbleLivePreviewListenerOptions): () => void {
+	let active = true;
+	let generation = 0;
+	let controller: AbortController | null = null;
+
+	const requestPreview = async () => {
+		const requestGeneration = ++generation;
+		controller?.abort();
+		const requestController = new AbortController();
+		controller = requestController;
+		onStatus({ state: 'updating' });
+
+		try {
+			const response = await fetch('/api/kibble/home-decision?dev=true', {
+				method: 'POST',
+				signal: requestController.signal,
+			});
+			if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
+			const validation = validateKibbleLivePreview(await response.json(), expectation);
+			if (!validation.ok) throw new Error(validation.reason);
+			if (!active || requestController.signal.aborted || requestGeneration !== generation) return;
+			onApplied(validation.preview);
+			onStatus({ state: 'applied', persona: validation.preview.persona });
+		} catch (error) {
+			if (!active || requestController.signal.aborted || requestGeneration !== generation) return;
+			console.warn('Kibble live preview was rejected; retaining the approved shelf.', error);
+			onStatus({ state: 'failed' });
+		} finally {
+			if (controller === requestController) controller = null;
+		}
+	};
+
+	const onInferenceUpdate = () => void requestPreview();
+	window.addEventListener('aisles-inference-update', onInferenceUpdate);
+	return () => {
+		active = false;
+		generation += 1;
+		controller?.abort();
+		controller = null;
+		window.removeEventListener('aisles-inference-update', onInferenceUpdate);
+	};
+}
 
 export function validateKibbleLivePreview(
 	value: unknown,
