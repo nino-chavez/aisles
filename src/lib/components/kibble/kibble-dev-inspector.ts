@@ -73,6 +73,24 @@ export const KIBBLE_INSPECTOR_PERSONAS: readonly KibbleInspectorPersona[] = [
 ];
 
 const restrictedKey = /(secret|password|credential|authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|prompt|instruction)/i;
+const inlineSecret = /\b(access[_-]?token|refresh[_-]?token|api[_-]?key|password|secret|credential)=([^&\s]+)/gi;
+const emailAddress = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const bearerToken = /\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi;
+
+/** Keep inference mechanics visible without echoing shopper-controlled values. */
+export function sanitizeInspectorInference<T extends KibbleInspectorInference>(inference: T): T {
+	return {
+		...structuredClone(inference),
+		shift: {
+			...inference.shift,
+			trigger: inference.shift.trigger ? '[request detail withheld]' : null,
+		},
+		ruleMatches: inference.ruleMatches.map((rule) => ({
+			...structuredClone(rule),
+			reason: 'Matched; raw request detail withheld.',
+		})),
+	} as T;
+}
 
 /** Remove credential-like fields before opening a raw debugging view. */
 export function redactInspectorDebugValue(value: unknown): unknown {
@@ -84,6 +102,12 @@ export function redactInspectorDebugValue(value: unknown): unknown {
 				restrictedKey.test(key) ? '[redacted]' : redactInspectorDebugValue(entry),
 			]),
 		);
+	}
+	if (typeof value === 'string') {
+		return value
+			.replace(inlineSecret, '$1=[redacted]')
+			.replace(emailAddress, '[redacted-email]')
+			.replace(bearerToken, 'Bearer [redacted]');
 	}
 	return value;
 }

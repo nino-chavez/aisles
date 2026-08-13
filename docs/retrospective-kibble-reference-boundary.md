@@ -31,13 +31,23 @@ longer only a proposal. Local follow-up work now includes:
 - separate Bealls-family internal renderer contracts that still label external
   reference preservation as `uncontracted`;
 - a dedicated, authenticated `aisles-admin` Autonomy Sandbox that explains
-  narrowing without saving or publishing policy; and
-- reference/policy provenance in cache values, generation logs, and Observe.
+  narrowing without saving or publishing policy;
+- reference/policy provenance in cache values, generation logs, and Observe;
+- bounded, signal-informed product ranking inside the fixed Kibble Home recipe,
+  with enrichment scores kept on the server;
+- an explicit development inspector showing inference, zone authority, before
+  and after product order, policy provenance, and zero model calls; and
+- an isolated local showcase using a pinned catalog and visibly labeled
+  synthetic persona-fit data, with production data connections blanked.
 
 The corrective work has not been pushed or deployed. Its database migration has
 not been applied. Kibble product detail is implemented but not approved or live;
 Home and product-listing cards therefore remain non-links. Search, cart, and
 checkout are not contracted.
+The Home proof uses deterministic rules, not a model. It demonstrates that
+signals can change an approved merchandising field while the reference-owned
+shell remains unchanged. Model-backed Assist behavior still requires its own
+contract, approval, and acceptance evidence.
 The reference and candidate expose matching source-owned fixture markers, and
 the fail-closed comparison command has run against fixed data. The latest Home
 run still fails. Its remaining differences are named consequences of withheld
@@ -207,6 +217,10 @@ This retrospective does not invalidate the complete Kibble effort.
 - Observe received server-side access control.
 - Paid enrichment publication became atomic and auditable.
 - The storefront deployed with real Kibble catalog data.
+- Kibble Home can now turn inferred intent into a bounded product-order change
+  without granting layout, component, CSS, copy, or commerce authority.
+- The local decision inspector makes that boundary visible and reports zero
+  model calls in Preserve mode.
 
 Those changes establish a stronger operational base. They do not establish
 visual preservation.

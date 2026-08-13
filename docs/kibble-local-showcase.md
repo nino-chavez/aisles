@@ -23,7 +23,8 @@ Every local response also carries a URL-encoded `x-kibble-showcase-enrichment-so
 Real in this local process:
 
 - signal extraction and the explicit `intent` inference rule;
-- policy evaluation and the existing decision renderer; and
+- policy evaluation, deterministic product ranking, and the Preserve renderer;
+- the six-zone decision trace shown by the development inspector; and
 - the production enrichment query interface, supplied by a runner-only provider.
 
 Synthetic demo enrichment — not merchant data:
@@ -40,6 +41,10 @@ Absent from this launcher:
 
 The fixture interceptor, no-op Postgres replacement, and enrichment alias are selected only by `scripts/kibble-showcase-vite.config.ts`. Normal `npm run dev`, `npm run build`, `npm run preview`, and Wrangler do not use them.
 
-The current fixed Kibble Home does not render an enrichment data-source label because its Preserve renderer does not request ranking data. The local runner and response header label the source now. The parallel backend/UI integration can read `KIBBLE_SHOWCASE_DATA_SOURCE` only in this local process and surface the same label beside its ranked result.
+The launcher blanks the app's production database, Redis, model, incentive, and Observe credentials before it starts Vite. It stamps the run with scenario ID `kibble-local-showcase`, so contracted provenance reports the catalog and scores as synthetic. The inspector and response header both display `Synthetic demo enrichment — not merchant data`.
+
+The inspector requires `?dev=true` on the current request. A previously stored site-wide dev cookie cannot reopen it. Shopper page data never includes persona-fit scores, and production builds omit the inspector code.
+
+Changing the intent link reloads the route and recomputes the product shelf. Client-side signals may update the probability display between reloads, but the rendered shelf remains the last server decision until the next route load. Preserve mode makes no model call.
 
 Stop the process with `Ctrl-C`.

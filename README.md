@@ -132,6 +132,20 @@ VITE_BRAND_ID=volt BRAND_ID=volt npm run dev
 
 Full environment reference and the enrichment/cache-warming scripts are in [`docs/development.md`](docs/development.md).
 
+To inspect the Kibble Preserve decision without live catalog, database, Redis,
+or model connections, run the isolated synthetic showcase:
+
+```bash
+npm run dev:kibble-showcase
+```
+
+Then open `http://127.0.0.1:5174/?dev=true&intent=gatherer`. The inspector shows
+the inferred persona, the fixed and rules-owned zones, the product order before
+and after the decision, and zero model calls. Its catalog and fit scores are
+synthetic demo data, not merchant data. See
+[`docs/kibble-local-showcase.md`](docs/kibble-local-showcase.md) for the exact
+evidence boundary and the four deterministic scenarios.
+
 ---
 
 ## Observe

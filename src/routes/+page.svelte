@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { dev } from '$app/environment';
+	import type { Component } from 'svelte';
 	import type { PageData } from './$types';
 	import type { Layout } from '$lib/schema/layout';
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
-	import { KibbleDevInspector, KibbleHomeReference } from '$lib/components/kibble';
+	import { KibbleHomeReference } from '$lib/components/kibble';
+	import type { KibbleDevInspectorData } from '$lib/components/kibble/kibble-dev-inspector';
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 	import { KIBBLE_PARITY_FIXED_DATA_IDENTITY } from '$lib/brand/reference/kibble-parity';
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
@@ -12,7 +15,15 @@
 	let aiLayout = $state<Layout | null>(null);
 	let aiError = $state<string | null>(null);
 	let overridePersona = $state<string | null>(null);
+	let DevInspector = $state<Component<{ inspector: KibbleDevInspectorData }> | null>(null);
 	let currentPersona = $derived(overridePersona ?? data.persona ?? 'gatherer');
+
+	$effect(() => {
+		if (!dev || !data.kibbleHomeInspector || DevInspector) return;
+		void import('$lib/components/kibble/KibbleDevInspector.svelte').then(({ default: component }) => {
+			DevInspector = component;
+		});
+	});
 
 	// Fetch an AI-generated layout for categorySlug "home" on mount, and again
 	// whenever the inferred persona changes. Failure/timeout leaves aiLayout
@@ -117,8 +128,8 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleHome}
-	{#if data.kibbleHomeInspector}
-		<KibbleDevInspector inspector={data.kibbleHomeInspector} />
+	{#if data.kibbleHomeInspector && DevInspector}
+		<DevInspector inspector={data.kibbleHomeInspector} />
 	{/if}
 	<div
 		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}

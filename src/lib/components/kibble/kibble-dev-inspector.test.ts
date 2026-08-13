@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import KibbleDevInspector from './KibbleDevInspector.svelte';
-import type { KibbleDevInspectorData } from './kibble-dev-inspector';
+import {
+	redactInspectorDebugValue,
+	sanitizeInspectorInference,
+	type KibbleDevInspectorData,
+} from './kibble-dev-inspector';
 
 const inspector: KibbleDevInspectorData = {
 	reference: { id: 'kibble-preserve-home-v1', version: '2026-08-12' },
@@ -33,5 +37,28 @@ describe('KibbleDevInspector', () => {
 		expect(result.body).not.toMatch(/Add to Cart|Checkout|Free shipping|Auto-Refill/);
 		expect(result.body).not.toContain('must not render');
 		expect(result.body).toContain('[redacted]');
+	});
+
+	it('withholds shopper-controlled inference details and secrets embedded in strings', () => {
+		const sanitized = sanitizeInspectorInference({
+			...inspector.inference,
+			shift: { detected: true, from: 'hunter', trigger: 'search person@example.com' },
+			ruleMatches: [{
+				ruleName: 'search', reason: 'https://example.com/?access_token=sekret', weight: 1,
+				adjustment: { researcher: 1 },
+			}],
+		});
+		expect(sanitized.shift.trigger).toBe('[request detail withheld]');
+		expect(sanitized.ruleMatches[0].reason).toBe('Matched; raw request detail withheld.');
+		expect(JSON.stringify(redactInspectorDebugValue({
+			reason: 'https://example.com/?access_token=sekret',
+			trigger: 'search person@example.com',
+		}))).toBe('{"reason":"https://example.com/?access_token=[redacted]","trigger":"search [redacted-email]"}');
+	});
+
+	it('labels policy publication as distinct from deployment status', () => {
+		const result = render(KibbleDevInspector, { props: { inspector } });
+		expect(result.body).toContain('policy publication mode');
+		expect(result.body).toContain('not deployment status');
 	});
 });

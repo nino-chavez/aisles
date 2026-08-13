@@ -7,6 +7,7 @@ import { KIBBLE_SHOWCASE_DATA_SOURCE } from './fixtures/kibble-showcase-enrichme
 
 export const KIBBLE_SHOWCASE_DEFAULT_PORT = 5174;
 export const KIBBLE_SHOWCASE_LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+export const KIBBLE_SHOWCASE_SCENARIO_ID = 'kibble-local-showcase';
 
 export function readShowcasePort(value: string | undefined): number {
 	if (value === undefined || value.trim() === '') return KIBBLE_SHOWCASE_DEFAULT_PORT;
@@ -29,6 +30,49 @@ export function readShowcaseHost(value: string | undefined): string {
 export function showcaseUrl(host: string, port: number, persona: string): string {
 	const formattedHost = host.includes(':') ? `[${host}]` : host;
 	return `http://${formattedHost}:${port}/?dev=true&intent=${persona}`;
+}
+
+export function isExpectedShowcaseExit(code: number | null, signal: NodeJS.Signals | null): boolean {
+	return code === 0 || code === 130 || code === 143 || signal === 'SIGINT' || signal === 'SIGTERM';
+}
+
+export function buildShowcaseChildEnvironment(
+	base: NodeJS.ProcessEnv,
+	fixturePath: string,
+	interceptor: string,
+): NodeJS.ProcessEnv {
+	return {
+		...base,
+		// Blank every production data/model credential consumed by this app.
+		// Existing process variables win over Vite env files, so the showcase
+		// cannot reconnect merely because the operator has a configured shell.
+		ANTHROPIC_API_KEY: '',
+		OPENAI_API_KEY: '',
+		OPENROUTER_API_KEY: '',
+		CF_AI_GATEWAY_URL: '',
+		DATABASE_URL: '',
+		RUNTIME_DATABASE_URL: '',
+		KV_REST_API_URL: '',
+		KV_REST_API_TOKEN: '',
+		VOUCHERIFY_API_URL: '',
+		VOUCHERIFY_APP_ID: '',
+		VOUCHERIFY_SECRET_KEY: '',
+		OBSERVE_ACCESS_TOKEN: '',
+		BIGCOMMERCE_CLIENT_ID: '',
+		BIGCOMMERCE_CLIENT_SECRET: '',
+		BIGCOMMERCE_ACCESS_TOKEN: '',
+		BIGCOMMERCE_CHANNEL_ID: '',
+		VITE_BC_STORE_HASH: '',
+		BRAND_ID: 'kibble',
+		VITE_BRAND_ID: 'kibble',
+		KIBBLE_PARITY_FIXTURE_PATH: fixturePath,
+		KIBBLE_SHOWCASE_DATA_SOURCE,
+		KIBBLE_SHOWCASE_SCENARIO_ID,
+		CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: 'postgres://kibble-showcase:fixture@127.0.0.1:5432/kibble-showcase',
+		BIGCOMMERCE_STORE_HASH: 'kibble-showcase-fixture',
+		BIGCOMMERCE_STOREFRONT_TOKEN: 'kibble-showcase-fixture',
+		NODE_OPTIONS: [base.NODE_OPTIONS, `--require=${interceptor}`].filter(Boolean).join(' '),
+	};
 }
 
 function forwardTermination(child: ChildProcess): void {
@@ -63,24 +107,14 @@ async function main(): Promise<void> {
 	], {
 		cwd: repositoryRoot,
 		stdio: 'inherit',
-		env: {
-			...process.env,
-			BRAND_ID: 'kibble',
-			VITE_BRAND_ID: 'kibble',
-			KIBBLE_PARITY_FIXTURE_PATH: fixturePath,
-			KIBBLE_SHOWCASE_DATA_SOURCE,
-			CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: 'postgres://kibble-showcase:fixture@127.0.0.1:5432/kibble-showcase',
-			BIGCOMMERCE_STORE_HASH: 'kibble-showcase-fixture',
-			BIGCOMMERCE_STOREFRONT_TOKEN: 'kibble-showcase-fixture',
-			NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require=${interceptor}`].filter(Boolean).join(' '),
-		},
+		env: buildShowcaseChildEnvironment(process.env, fixturePath, interceptor),
 	});
 
 	forwardTermination(child);
 	await new Promise<void>((resolveExit, reject) => {
 		child.once('error', reject);
 		child.once('exit', (code, signal) => {
-			if (code === 0 || signal === 'SIGINT' || signal === 'SIGTERM') resolveExit();
+			if (isExpectedShowcaseExit(code, signal)) resolveExit();
 			else reject(new Error(`Kibble showcase Vite process exited ${code ?? `from ${signal ?? 'an unknown signal'}`}.`));
 		});
 	});

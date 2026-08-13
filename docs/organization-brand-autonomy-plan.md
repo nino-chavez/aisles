@@ -19,9 +19,9 @@ deployed, and no database migration has been applied.
 | 1 — policy compiler | Implemented in Aisles; Bealls-family policies record observed legacy behavior | Production adoption beyond the Kibble slice |
 | 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
 | 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, fallbacks, PDP dependency closure, and safe bundle projection implemented | Approved route-by-route visual comparison |
-| 4 — Kibble routes | Home, product listing, and error surfaces render the Preserve path locally; product detail is implemented for development review only | Approve product-detail visual parity and human acceptance before publication; complete search, cart, and checkout contracts |
-| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented | Enable it only when a contracted model-backed zone is approved |
-| 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, and actual home and product-listing Preserve records implemented | Apply the migration and verify the deployed runtime |
+| 4 — Kibble routes | Home, product listing, and error surfaces render the Preserve path locally; Home now applies bounded signal-informed product ranking without changing its reference shell; product detail is implemented for development review only | Approve product-detail visual parity and human acceptance before publication; complete search, cart, and checkout contracts |
+| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented; Kibble Home uses the approved deterministic rules path for `rank_products` and `select_products` | Enable model decisions only when a contracted model-backed zone is approved |
+| 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, actual Home and product-listing Preserve records, and a Home decision trace implemented | Apply the migration and verify the deployed runtime |
 | 7 — executable parity | A real zero-tolerance Home comparison now runs at 390, 768, and 1280 pixels. Reference colors, type, heading metrics, content geometry, and header geometry match. The gate still fails on named truth and accessibility differences. | Approve explicit masks and tolerances, then complete the named route matrix and human review |
 | 8 — Bealls adoption | Separate brand policies and versioned internal renderer contracts are integrated for Bealls, Bealls Florida, and Home Centric. All remain explicitly `uncontracted` for external-reference preservation. | Add approved external-reference contracts and visual gates before making a preservation claim |
 | 9 — merchant control | A dedicated, authenticated, read-only Autonomy Sandbox is integrated in `aisles-admin`. It simulates organization → brand → surface → zone narrowing without loading or publishing runtime policy. | Define the runtime-owned versioned read/write contract, tenant-safe storage, audit trail, and publication workflow |
@@ -419,6 +419,12 @@ Kibble contract `1.5.0` and canonical source
 the fixed review surface, but live builds fail into the Preserve error shell.
 Home and product-listing cards remain non-links until that acceptance and policy
 gate moves to approved and live.
+Home's ranked-products zone now uses request and session signals to infer one of
+the four existing personas. Deterministic rules may rank and select only the
+merchant-provided candidate shelf. Header, hero, category module, service proof,
+footer, component variants, CSS, and copy remain fixed by the Kibble reference
+contract. Enrichment scores stay server-side and are removed before shopper
+page data is serialized.
 Keep the current whole-page renderer as an explicit legacy path for brands that
 have not adopted contracts. Select the path from trusted server-side brand and
 contract data. Kibble Preserve mode server-renders its fixed shell and does not
@@ -433,6 +439,15 @@ rules, and model decision modes. Remove forbidden fields from the model schema
 rather than asking the model not to use them. A model may select only exact
 server-bound copy values until a separate factual-copy verifier is approved;
 source-class labels alone are not authority.
+
+The first executable contracted decision is deliberately the smaller rules case:
+Kibble Home can rank and select products, while every other Home zone remains
+fixed. A development-only inspector shows the inference, policy, permitted
+capabilities, input and output order, and zero model calls. It requires an
+explicit `?dev=true` request and is removed from production builds. A separate
+local showcase supplies a pinned catalog and clearly labeled synthetic fit
+scores; it blanks production data and model credentials and marks its
+provenance synthetic.
 
 ### Phase 6: Version cache and provenance
 
@@ -485,6 +500,7 @@ not merge, publication, deployment, migration, or human acceptance.
 | F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for live contracted surfaces and the approval-gated product-detail review path |
 | G | Both repos: deterministic and visual parity suites | Real Kibble Home comparison executed and correctable geometry drift resolved; approval and remaining-route comparisons stay open |
 | H | `aisles-admin`: merchant control surface | Dedicated read-only sandbox integrated; versioned runtime writes and audit storage remain unbuilt |
+| I | `aisles`: Kibble Home decision proof | Bounded rules ranking, explicit dev inspector, and isolated synthetic local showcase implemented; no model-backed Preserve zone is approved |
 
 ## Compatibility and rollout
 

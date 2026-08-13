@@ -4,6 +4,7 @@ import type { Product } from '$lib/types';
 const mocks = vi.hoisted(() => ({
 	logGeneration: vi.fn(async () => {}),
 	createStoreFromRequest: vi.fn(),
+	privateEnv: {} as Record<string, string>,
 }));
 
 const bundle: Product = {
@@ -11,10 +12,11 @@ const bundle: Product = {
 	image: 'https://example.com/bundle.png', imageAlt: 'Essential Bundle', description: '',
 	specs: {}, tags: [], category: 'Bundles',
 };
-const shelfProduct: Product = {
+const shelfProduct: Product & { personaFit: { gatherer: number; hunter: number; researcher: number; gifter: number } } = {
 	id: 'dog-food-one', entityId: 4001, name: 'Dog Food One', price: 29,
 	image: 'https://example.com/food.png', imageAlt: 'Dog Food One', description: '',
 	specs: {}, tags: [], category: 'Dog Food',
+	personaFit: { gatherer: 0.9, hunter: 0.2, researcher: 0.5, gifter: 0.3 },
 };
 
 vi.mock('$lib/signals/request', () => ({
@@ -36,6 +38,7 @@ vi.mock('$lib/server/catalog', () => ({
 }));
 vi.mock('$lib/server/incentives/session', () => ({ loadSessionIncentives: vi.fn() }));
 vi.mock('$lib/server/generation-log', () => ({ logGeneration: mocks.logGeneration }));
+vi.mock('$env/dynamic/private', () => ({ env: mocks.privateEnv }));
 
 import { load } from './+page.server';
 
@@ -44,13 +47,19 @@ describe('Kibble Preserve home publication', () => {
 
 	beforeEach(() => {
 		process.env.BRAND_ID = 'kibble';
+		delete mocks.privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID;
+		delete mocks.privateEnv.KIBBLE_SHOWCASE_DATA_SOURCE;
 		mocks.logGeneration.mockClear();
 		mocks.createStoreFromRequest.mockReset().mockResolvedValue({
 			visitCount: 1,
-			store: {
-				toInferenceContext: () => ({}),
-				getCrossSessionContext: () => ({ scenarioId: null }),
-			},
+			store: (() => {
+				let scenarioId: string | null = null;
+				return {
+					toInferenceContext: () => ({}),
+					setScenarioId: (value: string | null) => { scenarioId = value; },
+					getCrossSessionContext: () => ({ scenarioId }),
+				};
+			})(),
 		});
 	});
 
@@ -82,11 +91,13 @@ describe('Kibble Preserve home publication', () => {
 			provenance: data.provenance,
 		}));
 		expect(data.kibbleHomeInspector).toBeNull();
+		expect(data.kibbleHome?.products[0]).not.toHaveProperty('personaFit');
+		expect(data.products[0]).not.toHaveProperty('personaFit');
 	});
 
 	it('exposes the bounded decision inspector only when server dev and dev mode are both active', async () => {
 		const data = await load({
-			url: new URL('https://aisles.test/'), request: new Request('https://aisles.test/'),
+			url: new URL('https://aisles.test/?dev=true'), request: new Request('https://aisles.test/?dev=true'),
 			cookies: { get: () => undefined, set: () => undefined },
 			parent: async () => ({ devMode: true, renderMode: 'reference-preserve' }),
 		} as never);
@@ -95,12 +106,39 @@ describe('Kibble Preserve home publication', () => {
 		expect(data.kibbleHomeInspector).toMatchObject({
 			reference: { id: 'kibble-shelf-native', version: '1.5.0' },
 			surface: 'home',
-			dataSourceLabel: 'merchant-order-fallback',
+			dataSourceLabel: 'merchant-enrichment',
 			inference: { primary: 'gatherer', ruleMatches: [] },
 		});
 		const productZone = data.kibbleHomeInspector?.zones.find((zone: { id: string }) => zone.id === 'ranked-products');
 		expect(productZone?.outputProducts?.map((product: { id: string }) => product.id))
 			.toEqual(data.kibbleHome?.products.map((product: { id: string }) => product.id));
+	});
+
+	it('does not reopen the inspector from a persisted site-wide dev cookie', async () => {
+		const data = await load({
+			url: new URL('https://aisles.test/?intent=hunter'), request: new Request('https://aisles.test/?intent=hunter'),
+			cookies: { get: () => undefined, set: () => undefined },
+			parent: async () => ({ devMode: true, renderMode: 'reference-preserve' }),
+		} as never);
+
+		if (!data) throw new Error('Expected Preserve home data.');
+		expect(data.kibbleHomeInspector).toBeNull();
+	});
+
+	it('marks runner-owned showcase data synthetic in contracted provenance', async () => {
+		mocks.privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID = 'kibble-local-showcase';
+		try {
+			const data = await load({
+				url: new URL('https://aisles.test/?dev=true&intent=gifter'), request: new Request('https://aisles.test/?dev=true&intent=gifter'),
+				cookies: { get: () => undefined, set: () => undefined },
+				parent: async () => ({ devMode: true, renderMode: 'reference-preserve' }),
+			} as never);
+
+			if (!data) throw new Error('Expected Preserve home data.');
+			expect(data.provenance.synthetic).toEqual({ value: true, scenarioId: 'kibble-local-showcase' });
+		} finally {
+			delete mocks.privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID;
+		}
 	});
 
 	it('turns request-state failures into the branded Preserve 503 boundary', async () => {

@@ -10,7 +10,15 @@ import {
 	SYNTHETIC_PERSONA_FIT_BY_ENTITY_ID,
 	getEnrichmentByEntityIds,
 } from './fixtures/kibble-showcase-enrichment';
-import { KIBBLE_SHOWCASE_DEFAULT_PORT, readShowcaseHost, readShowcasePort, showcaseUrl } from './kibble-showcase';
+import {
+	KIBBLE_SHOWCASE_DEFAULT_PORT,
+	KIBBLE_SHOWCASE_SCENARIO_ID,
+	buildShowcaseChildEnvironment,
+	isExpectedShowcaseExit,
+	readShowcaseHost,
+	readShowcasePort,
+	showcaseUrl,
+} from './kibble-showcase';
 
 const repositoryRoot = process.cwd();
 const fixturePath = deriveLocalParityPaths(findWorkspaceRoot(repositoryRoot)).fixturePath;
@@ -80,5 +88,37 @@ describe('Kibble local showcase', () => {
 		expect(readShowcaseHost(undefined)).toBe('127.0.0.1');
 		expect(() => readShowcaseHost('0.0.0.0')).toThrow(/localhost/);
 		expect(showcaseUrl('127.0.0.1', 5174, 'hunter')).toBe('http://127.0.0.1:5174/?dev=true&intent=hunter');
+	});
+
+	it('blanks production connections and stamps synthetic provenance in the child environment', () => {
+		const child = buildShowcaseChildEnvironment({
+			PATH: '/usr/bin',
+			KV_REST_API_URL: 'https://real-redis.example',
+			KV_REST_API_TOKEN: 'real-token',
+			DATABASE_URL: 'postgres://real',
+			ANTHROPIC_API_KEY: 'real-model-key',
+			BIGCOMMERCE_ACCESS_TOKEN: 'real-management-token',
+			NODE_OPTIONS: '--trace-warnings',
+		}, '/tmp/catalog.json', '/tmp/interceptor.cjs');
+		expect(child).toMatchObject({
+			PATH: '/usr/bin',
+			KV_REST_API_URL: '',
+			KV_REST_API_TOKEN: '',
+			DATABASE_URL: '',
+			ANTHROPIC_API_KEY: '',
+			BIGCOMMERCE_ACCESS_TOKEN: '',
+			KIBBLE_SHOWCASE_SCENARIO_ID,
+			KIBBLE_SHOWCASE_DATA_SOURCE,
+		});
+		expect(child.NODE_OPTIONS).toContain('--trace-warnings');
+		expect(child.NODE_OPTIONS).toContain('--require=/tmp/interceptor.cjs');
+	});
+
+	it('treats conventional terminal exits as an intentional local shutdown', () => {
+		expect(isExpectedShowcaseExit(0, null)).toBe(true);
+		expect(isExpectedShowcaseExit(130, null)).toBe(true);
+		expect(isExpectedShowcaseExit(143, null)).toBe(true);
+		expect(isExpectedShowcaseExit(null, 'SIGINT')).toBe(true);
+		expect(isExpectedShowcaseExit(1, null)).toBe(false);
 	});
 });

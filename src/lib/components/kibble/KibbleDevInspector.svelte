@@ -4,6 +4,7 @@
 		KIBBLE_INSPECTOR_PERSONAS,
 		isKibbleInspectorInference,
 		redactInspectorDebugValue,
+		sanitizeInspectorInference,
 		type KibbleDevInspectorData,
 		type KibbleInspectorInference,
 		type KibbleInspectorProductSummary,
@@ -13,10 +14,11 @@
 	let { inspector }: { inspector: KibbleDevInspectorData } = $props();
 	let liveInference = $state<KibbleInspectorInference | null>(null);
 	let hasLiveInferenceUpdate = $state(false);
-	const currentInference = $derived(liveInference ?? inspector.inference);
+	const safeInspectorInference = $derived(sanitizeInspectorInference(inspector.inference));
+	const currentInference = $derived(liveInference ?? safeInspectorInference);
 
 	$effect(() => {
-		liveInference = inspector.inference;
+		liveInference = safeInspectorInference;
 		hasLiveInferenceUpdate = false;
 	});
 
@@ -27,7 +29,7 @@
 				? detail.inference
 				: detail;
 			if (!isKibbleInspectorInference(candidate)) return;
-			liveInference = candidate;
+			liveInference = sanitizeInspectorInference(candidate);
 			hasLiveInferenceUpdate = true;
 		};
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
@@ -88,7 +90,7 @@
 	<section class="kc-dev-inspector__facts" aria-label="Policy and reference facts">
 		<div><span>preset</span><b>{inspector.preset}</b></div>
 		<div><span>policy</span><b>{inspector.policyVersion}</b></div>
-		<div><span>publication</span><b>{inspector.publicationMode}</b></div>
+		<div><span>policy publication mode</span><b>{inspector.publicationMode}</b><small>automatic inside this policy; not deployment status</small></div>
 		<div><span>reference</span><b>{inspector.reference.id}@{inspector.reference.version}</b></div>
 		<div><span>data source</span><b>{inspector.dataSourceLabel}</b></div>
 	</section>
@@ -164,17 +166,17 @@
 
 	<details class="kc-dev-inspector__raw">
 		<summary>Raw provenance and decision JSON</summary>
-		<pre>{raw({ provenance: inspector.provenance ?? {}, inference: inspector.inference, zones: inspector.zones.map(({ decision, ...zone }) => ({ ...zone, decision })) })}</pre>
+		<pre>{raw({ provenance: inspector.provenance ?? {}, inference: currentInference, zones: inspector.zones.map(({ decision, ...zone }) => ({ ...zone, decision })) })}</pre>
 	</details>
 </aside>
 
 <style>
-	.kc-dev-inspector { --dev-ink:#17213b; --dev-muted:#56617a; --dev-border:#cdd7ea; --dev-panel:#f6f8fd; --dev-blue:#315cc9; --dev-green:#08745d; --dev-amber:#9a6100; margin:1.25rem auto; max-width:1280px; border:1px solid var(--dev-border); background:var(--dev-panel); color:var(--dev-ink); font-family:var(--kc-font-machinery, ui-monospace, SFMono-Regular, Menlo, monospace); font-size:.75rem; line-height:1.45; }
+	.kc-dev-inspector { --dev-ink:#17213b; --dev-muted:#56617a; --dev-border:#cdd7ea; --dev-panel:#f6f8fd; --dev-blue:#315cc9; --dev-green:#08745d; --dev-amber:#9a6100; margin:1.25rem auto; max-width:1280px; max-height:75vh; overflow:auto; border:1px solid var(--dev-border); background:var(--dev-panel); color:var(--dev-ink); font-family:var(--kc-font-machinery, ui-monospace, SFMono-Regular, Menlo, monospace); font-size:.8rem; line-height:1.45; }
 	.kc-dev-inspector *, .kc-dev-inspector *::before, .kc-dev-inspector *::after { box-sizing:border-box; }
 	.kc-dev-inspector__header, .kc-dev-inspector__summary, .kc-dev-inspector__facts, .kc-dev-inspector__scenarios, .kc-dev-inspector__zones, .kc-dev-inspector__rules, .kc-dev-inspector__raw { padding:1rem 1.125rem; }
-	.kc-dev-inspector__header { display:flex; align-items:start; justify-content:space-between; gap:1rem; border-bottom:1px solid var(--dev-border); background:#e8eefb; }
+	.kc-dev-inspector__header { position:sticky; top:0; z-index:2; display:flex; align-items:start; justify-content:space-between; gap:1rem; border-bottom:1px solid var(--dev-border); background:#e8eefb; }
 	.kc-dev-inspector__eyebrow, .kc-dev-inspector h2, .kc-dev-inspector h3, .kc-dev-inspector h4, .kc-dev-inspector p { margin:0; }
-	.kc-dev-inspector__eyebrow, .kc-dev-inspector__label, .kc-dev-inspector__facts span, .kc-dev-inspector dt { color:var(--dev-muted); font-size:.64rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+	.kc-dev-inspector__eyebrow, .kc-dev-inspector__label, .kc-dev-inspector__facts span, .kc-dev-inspector dt { color:var(--dev-muted); font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
 	.kc-dev-inspector h2 { margin-top:.2rem; font-size:.95rem; letter-spacing:-.02em; }
 	.kc-dev-inspector__surface { color:var(--dev-blue); font-weight:700; }
 	.kc-dev-inspector__summary { border-bottom:1px solid var(--dev-border); background:#fff; }
@@ -194,12 +196,13 @@
 	.kc-dev-inspector__facts { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:.75rem; border-bottom:1px solid var(--dev-border); }
 	.kc-dev-inspector__facts div { min-width:0; }
 	.kc-dev-inspector__facts span, .kc-dev-inspector__facts b { display:block; overflow-wrap:anywhere; }
+	.kc-dev-inspector__facts small { display:block; margin-top:.2rem; color:var(--dev-muted); font-size:.68rem; line-height:1.35; }
 	.kc-dev-inspector__facts b { margin-top:.2rem; font-size:.7rem; }
 	.kc-dev-inspector__scenarios { border-bottom:1px solid var(--dev-border); }
 	.kc-dev-inspector h3 { font-size:.78rem; }
 	.kc-dev-inspector__scenarios p { margin-top:.3rem; color:var(--dev-muted); }
 	.kc-dev-inspector__scenarios nav { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.65rem; }
-	.kc-dev-inspector a { border:1px solid #aebee1; background:#fff; color:#1c4cab; font-weight:700; padding:.3rem .45rem; text-decoration:none; }
+	.kc-dev-inspector a { display:inline-flex; min-height:44px; align-items:center; border:1px solid #aebee1; background:#fff; color:#1c4cab; font-weight:700; padding:.45rem .65rem; text-decoration:none; }
 	.kc-dev-inspector a:hover { background:#e8eefb; }
 	.kc-dev-inspector a:focus-visible, .kc-dev-inspector summary:focus-visible { outline:3px solid var(--dev-blue); outline-offset:3px; }
 	.kc-dev-inspector__zones ol { display:grid; gap:.65rem; margin:.7rem 0 0; padding:0; list-style:none; }
