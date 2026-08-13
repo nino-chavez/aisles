@@ -3,10 +3,31 @@ import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
-import { loadCategoryProducts, CATEGORY_MAP } from '$lib/server/catalog';
+import {
+	loadCategoryProducts,
+	loadReferenceCategoryProducts,
+	CATEGORY_MAP,
+} from '$lib/server/catalog';
 import { loadSessionIncentives } from '$lib/server/incentives/session';
 import { getBrand } from '$lib/brand/config';
 import { materializeKibbleCategory } from '$lib/brand/reference/kibble-runtime';
+import {
+	KibblePlpInputError,
+	parseKibblePlpCursor,
+	parseKibblePlpSort,
+} from '$lib/brand/reference/kibble-plp';
+
+export function _parseKibblePlpRequest(url: URL) {
+	try {
+		return {
+			sort: parseKibblePlpSort(url.searchParams.get('sort')),
+			after: parseKibblePlpCursor(url.searchParams.get('after')),
+		};
+	} catch (cause) {
+		if (cause instanceof KibblePlpInputError) throw error(400, cause.message);
+		throw cause;
+	}
+}
 
 export const load: PageServerLoad = async ({ params, url, cookies, request, parent }) => {
 	const slug = params.slug;
@@ -18,22 +39,29 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 	if (!configuredCategory) {
 		throw error(404, `Category "${slug}" not found`);
 	}
+	const kibblePlp = renderMode === 'reference-preserve' ? _parseKibblePlpRequest(url) : null;
 
 	// ─── Signal Store: preserve request-time signals and inference. ───
 	const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: slug });
 	const inferenceContext = store.toInferenceContext();
 	const inference = infer(inferenceContext);
 
-	// ─── Load products with enrichment, sorted by persona-fit ──────
-	const result = await loadCategoryProducts(slug, inference.primary);
+	// Preserve uses the canonical category sort and cursor. Legacy retains the
+	// existing enrichment and persona-fit ordering path.
+	const result = kibblePlp
+		? await loadReferenceCategoryProducts(slug, kibblePlp)
+		: await loadCategoryProducts(slug, inference.primary);
 	if (!result) {
 		throw error(404, `Category "${slug}" not found in BigCommerce`);
 	}
 
 	let kibbleCategory = null;
-	if (renderMode === 'reference-preserve') {
+	if (renderMode === 'reference-preserve' && kibblePlp && 'pageInfo' in result) {
 		try {
-			kibbleCategory = materializeKibbleCategory(getBrand(), slug, result.products);
+			kibbleCategory = materializeKibbleCategory(getBrand(), slug, result.products, {
+				sort: kibblePlp.sort,
+				pageInfo: result.pageInfo,
+			});
 		} catch (cause) {
 			const detail = cause instanceof Error ? cause.message : 'Unknown Kibble category adapter error.';
 			console.error('[kibble-preserve] category failed closed:', detail);

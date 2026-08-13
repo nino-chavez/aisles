@@ -7,6 +7,7 @@
 
 import { env } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
+import type { BigCommerceCategoryProductSort } from '$lib/brand/reference/kibble-plp';
 
 function getGraphQLConfig() {
 	const brand = getBrand();
@@ -112,9 +113,17 @@ interface CategoryProductsResponse {
 			description: string;
 			products: {
 				edges: Array<{ node: BCProduct }>;
+				pageInfo: BCPageInfo;
 			};
 		} | null;
 	};
+}
+
+export interface BCPageInfo {
+	hasNextPage: boolean;
+	hasPreviousPage: boolean;
+	startCursor: string | null;
+	endCursor: string | null;
 }
 
 interface CategoriesResponse {
@@ -218,25 +227,61 @@ export async function getNewestProducts(limit = 8): Promise<BCProduct[]> {
 	return data.site.newestProducts?.edges.map((edge) => edge.node) ?? [];
 }
 
-export async function getProductsByCategory(categoryEntityId: number): Promise<{ category: { name: string; description: string }; products: BCProduct[] }> {
+/**
+ * Category PLP connection. Callers own the requested page size and validated
+ * cursor; BigCommerce owns the selected category ordering.
+ *
+ * Verified 2026-08-12 against:
+ * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/overview.md
+ * https://docs.bigcommerce.com/developer/docs/storefront/headless/products/faceted-textual-search.md
+ * https://github.com/bigcommerce/storefront-data-hooks/blob/6cb5d8f163a864a6c466b681972b3ad00b58bb7c/src/schema.d.ts#L424-L435
+ */
+export async function getProductsByCategory(
+	categoryEntityId: number,
+	options: {
+		first?: number;
+		after?: string | null;
+		sortBy?: BigCommerceCategoryProductSort;
+	} = {},
+): Promise<{
+	category: { name: string; description: string };
+	products: BCProduct[];
+	pageInfo: BCPageInfo;
+}> {
 	const data = await query<CategoryProductsResponse>(`
-		query GetCategoryProducts($categoryId: Int!) {
+		query GetCategoryProducts(
+			$categoryId: Int!
+			$first: Int!
+			$after: String
+			$sortBy: CategoryProductSort
+		) {
 			site {
 				category(entityId: $categoryId) {
 					entityId
 					name
 					description
-					products(first: 50) {
+					products(first: $first, after: $after, sortBy: $sortBy) {
 						edges {
 							node {
 								${PRODUCT_FRAGMENT}
 							}
 						}
+						pageInfo {
+							hasNextPage
+							hasPreviousPage
+							startCursor
+							endCursor
+						}
 					}
 				}
 			}
 		}
-	`, { categoryId: categoryEntityId });
+	`, {
+		categoryId: categoryEntityId,
+		first: options.first ?? 24,
+		after: options.after ?? null,
+		sortBy: options.sortBy ?? null,
+	});
 
 	if (!data.site.category) {
 		throw new Error(`Category ${categoryEntityId} not found`);
@@ -248,6 +293,7 @@ export async function getProductsByCategory(categoryEntityId: number): Promise<{
 			description: data.site.category.description,
 		},
 		products: data.site.category.products.edges.map((e) => e.node),
+		pageInfo: data.site.category.products.pageInfo,
 	};
 }
 

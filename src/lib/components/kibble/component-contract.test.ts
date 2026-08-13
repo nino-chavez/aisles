@@ -50,4 +50,13 @@ describe('Kibble reference components fail closed', () => {
 		expect(card).toContain('<article');
 		expect(card).toContain('kc-reference-product-card--disabled');
 	});
+
+	it('renders the contracted PLP anatomy without enabling PDP cards', () => {
+		const category = component('KibbleCategoryReference.svelte');
+		expect(category).toContain('aria-label="Breadcrumb"');
+		expect(category).toContain('aria-current="page"');
+		expect(category).toContain('name="sort"');
+		expect(category).toContain('{#if loadMoreHref}');
+		expect(category).toContain('productHref={productHrefs[product.id]}');
+	});
 });

@@ -4,6 +4,7 @@ import type { Product } from '$lib/types';
 import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
 import {
 	buildKibbleHomeReference,
+	materializeKibbleCategory,
 	selectMerchantRenderMode,
 	verifyAndMaterializeBundle,
 } from './kibble-runtime';
@@ -75,6 +76,22 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(home.productHrefs).toEqual({});
 		expect(home.categories).toHaveLength(8);
 		expect(home.hero.proofItems).toEqual([]);
+	});
+
+	it('materializes breadcrumb, sort, and cursor continuation without PDP links', () => {
+		const brand = getBrandById('kibble')!;
+		const category = materializeKibbleCategory(brand, 'dog-food', [product(1, 'one')], {
+			sort: 'LOWEST_PRICE',
+			pageInfo: { hasNextPage: true, endCursor: 'YXJyYXljb25uZWN0aW9uOjIz' },
+		});
+		expect(category.breadcrumbs).toEqual([{ label: 'Home', href: '/' }, { label: 'Dog Food' }]);
+		expect(category.sortOptions).toHaveLength(7);
+		expect(category.selectedSort).toBe('LOWEST_PRICE');
+		expect(category.loadMoreHref).toBe('?sort=LOWEST_PRICE&after=YXJyYXljb25uZWN0aW9uOjIz');
+		expect(category.productHrefs).toEqual({});
+		expect(materializeKibbleCategory(brand, 'dog-food', [product(1, 'one')], {
+			sort: 'FEATURED', pageInfo: { hasNextPage: false, endCursor: null },
+		}).loadMoreHref).toBeNull();
 	});
 
 	it('records every bounded copy divergence and withholds operational claims', () => {

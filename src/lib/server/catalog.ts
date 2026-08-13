@@ -15,9 +15,15 @@ import {
 	getProductsByCategory,
 	customFieldsToRecord,
 	type BCProduct,
+	type BCPageInfo,
 } from './bigcommerce';
 import { getEnrichmentByEntityIds } from './enrichment/query';
 import { getBrand } from '$lib/brand/config';
+import {
+	KIBBLE_PLP_GRAPHQL_SORT,
+	KIBBLE_PLP_PAGE_SIZE,
+	type KibblePlpSort,
+} from '$lib/brand/reference/kibble-plp';
 import { MAX_LAYOUT_PRODUCTS } from './layout-prompt';
 import type { Product } from '$lib/types';
 import type { PetProfile } from './enrichment/types';
@@ -36,6 +42,13 @@ export interface EnrichedProduct extends Product {
 export type ReferenceHomeProducts = {
 	products: Product[];
 	source: 'featured' | 'newest' | 'deterministic-catalog';
+};
+
+export type ReferenceCategoryProducts = {
+	products: Product[];
+	categoryName: string;
+	categoryDescription: string;
+	pageInfo: BCPageInfo;
 };
 
 /**
@@ -93,6 +106,36 @@ export async function loadCategoryProducts(
 	const enrichedProducts = await enrichAndSortByFit(products, persona);
 
 	return { products: enrichedProducts, categoryName: catConfig.displayName };
+}
+
+/**
+ * Preserve PLPs keep BigCommerce's selected category order intact. They do not
+ * enrich or persona-sort the returned slice, because doing so would break the
+ * canonical category sort contract and cursor continuation.
+ */
+export async function loadReferenceCategoryProducts(
+	categorySlug: string,
+	options: { sort: KibblePlpSort; after: string | null },
+): Promise<ReferenceCategoryProducts | null> {
+	const catConfig = CATEGORY_MAP[categorySlug];
+	if (!catConfig) return null;
+
+	const categories = await getCategories();
+	const bcCategory = categories.find((category) => category.name === catConfig.bcName);
+	if (!bcCategory) return null;
+
+	const result = await getProductsByCategory(bcCategory.entityId, {
+		first: KIBBLE_PLP_PAGE_SIZE,
+		after: options.after,
+		sortBy: KIBBLE_PLP_GRAPHQL_SORT[options.sort],
+	});
+
+	return {
+		products: uniqueProductsByEntityId(result.products.map(transformProduct)),
+		categoryName: catConfig.displayName,
+		categoryDescription: result.category.description,
+		pageInfo: result.pageInfo,
+	};
 }
 
 /**

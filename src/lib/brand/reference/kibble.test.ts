@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KIBBLE_REFERENCE_CONTRACT, KibbleReferenceContractSchema } from './kibble';
+import { KIBBLE_PLP_GRAPHQL_SORT } from './kibble-plp';
 
 type MutableContract = ReturnType<typeof structuredClone<typeof KIBBLE_REFERENCE_CONTRACT>>;
 
@@ -35,6 +36,8 @@ describe('Kibble reference contract', () => {
 		['semantic action token', ['tokens', 'colors', 'action']],
 		['full component variants', ['components', 0, 'variants']],
 		['home recipe anatomy', ['recipes', 'home', 'orderedAnatomy']],
+		['PLP page size', ['recipes', 'plp', 'pageSize']],
+		['PLP sort choices', ['recipes', 'plp', 'sortChoices']],
 	] as const)('rejects a contract missing %s', (_label, path) => {
 		expect(KibbleReferenceContractSchema.safeParse(remove([...path])).success).toBe(false);
 	});
@@ -136,6 +139,40 @@ describe('Kibble reference contract', () => {
 		expect(plp.variants.map(({ id }) => id)).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.plp.variantId);
 		const error = renderers.get('KibbleErrorReference.svelte')!;
 		expect(error.variants.map(({ id }) => id)).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.error.variantId);
+	});
+
+	it('pins the full PLP request and rendering contract', () => {
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp).toMatchObject({
+			source: { commit: '77236d229cd8020cfc363f002080781f4376b4b5' },
+			orderedAnatomy: ['breadcrumbs', 'category-header', 'sort-control', 'product-grid', 'cursor-continuation'],
+			defaultSort: 'FEATURED', pageSize: 24,
+			pagination: { strategy: 'forward-cursor', cursorParam: 'after', actionLabel: 'Load more' },
+			productCards: 'noninteractive-until-pdp-contracted', modelLayoutRequest: false,
+		});
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp.sortChoices).toEqual([
+			{ value: 'FEATURED', label: 'Featured' },
+			{ value: 'NEWEST', label: 'Newest' },
+			{ value: 'BEST_SELLING', label: 'Best selling' },
+			{ value: 'A_TO_Z', label: 'A to Z' },
+			{ value: 'Z_TO_A', label: 'Z to A' },
+			{ value: 'LOWEST_PRICE', label: 'Price: low to high' },
+			{ value: 'HIGHEST_PRICE', label: 'Price: high to low' },
+		]);
+		expect(KIBBLE_PLP_GRAPHQL_SORT).toEqual({
+			FEATURED: 'FEATURED', NEWEST: 'NEWEST', BEST_SELLING: 'BEST_SELLING',
+			A_TO_Z: 'A_TO_Z', Z_TO_A: 'Z_TO_A',
+			LOWEST_PRICE: 'LOWEST_PRICE', HIGHEST_PRICE: 'HIGHEST_PRICE',
+		});
+	});
+
+	it('rejects reordered or invented PLP sort controls', () => {
+		const reordered = cloneContract();
+		[reordered.recipes.plp.sortChoices[0], reordered.recipes.plp.sortChoices[1]] =
+			[reordered.recipes.plp.sortChoices[1], reordered.recipes.plp.sortChoices[0]];
+		expect(KibbleReferenceContractSchema.safeParse(reordered).success).toBe(false);
+		const invented = cloneContract();
+		invented.recipes.plp.sortChoices[0].value = 'RELEVANCE';
+		expect(KibbleReferenceContractSchema.safeParse(invented).success).toBe(false);
 	});
 
 	it('rejects PLP and error recipes bound to an unregistered or wrong component variant', () => {

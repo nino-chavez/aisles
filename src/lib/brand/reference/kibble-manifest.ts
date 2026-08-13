@@ -111,6 +111,9 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 		] as const,
 		plp: {
 			eyebrow: 'Catalog',
+			breadcrumbHomeLabel: 'Home',
+			sortLabel: 'Sort:',
+			loadMoreLabel: 'Load more',
 			productSingular: 'product',
 			productPlural: 'products',
 			emptyMessage: 'No products are currently available in this category.',

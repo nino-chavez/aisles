@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { KIBBLE_PLP_PAGE_SIZE, KIBBLE_PLP_SORT_OPTIONS } from './kibble-plp';
 
 const RequiredString = z.string().trim().min(1);
 const UniqueRequiredStrings = z.array(RequiredString).min(1).superRefine((values, ctx) => {
@@ -143,6 +144,27 @@ export const KibbleReferenceContractSchema = z.object({
 			acceptance: z.literal('candidate-unaccepted'),
 			implementation: z.literal('KibbleCategoryReference.svelte'),
 			variantId: z.literal('kibble.category-listing.fixed-grid'),
+			source: z.object({
+				commit: z.literal('77236d229cd8020cfc363f002080781f4376b4b5'),
+				paths: z.tuple([
+					z.literal('apps/storefront-svelte/src/routes/category/[slug]/+page.server.ts'),
+					z.literal('apps/storefront-svelte/src/routes/category/[slug]/+page.svelte'),
+					z.literal('apps/storefront-svelte/src/lib/server/catalog.ts'),
+				]),
+			}).strict(),
+			orderedAnatomy: z.tuple([
+				z.literal('breadcrumbs'),
+				z.literal('category-header'),
+				z.literal('sort-control'),
+				z.literal('product-grid'),
+				z.literal('cursor-continuation'),
+			]),
+			sortChoices: z.array(z.object({ value: RequiredString, label: RequiredString }).strict()).length(KIBBLE_PLP_SORT_OPTIONS.length),
+			defaultSort: z.literal('FEATURED'),
+			pageSize: z.literal(KIBBLE_PLP_PAGE_SIZE),
+			pagination: z.object({ strategy: z.literal('forward-cursor'), cursorParam: z.literal('after'), actionLabel: z.literal('Load more') }).strict(),
+			productCards: z.literal('noninteractive-until-pdp-contracted'),
+			modelLayoutRequest: z.literal(false),
 			invariants: UniqueRequiredStrings,
 		}).strict(),
 		error: z.object({
@@ -180,6 +202,9 @@ export const KibbleReferenceContractSchema = z.object({
 	}
 	if (new Set(contract.adapter.links.allowed).size !== contract.adapter.links.allowed.length) ctx.addIssue({ code: 'custom', message: 'Adapter links must be unique', path: ['adapter', 'links', 'allowed'] });
 	if (new Set(contract.adapter.actions.allowed).size !== contract.adapter.actions.allowed.length) ctx.addIssue({ code: 'custom', message: 'Adapter actions must be unique', path: ['adapter', 'actions', 'allowed'] });
+	if (JSON.stringify(contract.recipes.plp.sortChoices) !== JSON.stringify(KIBBLE_PLP_SORT_OPTIONS.map(({ value, label }) => ({ value, label })))) {
+		ctx.addIssue({ code: 'custom', message: 'PLP sort choices must match the canonical Kibble controls', path: ['recipes', 'plp', 'sortChoices'] });
+	}
 
 	for (const [componentIndex, component] of contract.components.entries()) {
 		for (const [variantIndex, variant] of component.variants.entries()) {
@@ -289,9 +314,9 @@ const contractInput = {
 		},
 		{
 			id: 'kibble.category-listing', implementation: 'KibbleCategoryReference.svelte',
-			variants: [variant('kibble.category-listing.fixed-grid', ['kc.category-listing.fixed-grid'], ['eyebrow', 'title', 'productCount', 'productSingular', 'productPlural', 'emptyMessage', 'products', 'productHrefs'], ['product.image'], ['product-detail'], [], [copy('eyebrow', 24, ['reference-copy']), copy('title', 64, ['merchant-policy']), copy('productSingular', 16, ['reference-copy']), copy('productPlural', 16, ['reference-copy']), copy('emptyMessage', 120, ['reference-copy']), copy('products[].name', 96, ['merchant-catalog'])])],
-			referenceOwned: ['fixed title and count header', 'four-column product grid', 'catalog-card anatomy', 'bounded empty state'],
-			aislesOwned: ['category title', 'live product order', 'live product fields', 'supported product links'],
+			variants: [variant('kibble.category-listing.fixed-grid', ['kc.category-listing.fixed-grid'], ['eyebrow', 'title', 'breadcrumbs', 'sortLabel', 'sortOptions', 'selectedSort', 'productCount', 'productSingular', 'productPlural', 'emptyMessage', 'products', 'productHrefs', 'loadMoreHref', 'loadMoreLabel'], ['product.image'], ['home', 'catalog-category'], [], [copy('eyebrow', 24, ['reference-copy']), copy('title', 64, ['merchant-policy']), copy('breadcrumbs[].label', 64, ['reference-copy', 'merchant-policy']), copy('sortLabel', 24, ['reference-copy']), copy('sortOptions[].label', 32, ['reference-copy']), copy('loadMoreLabel', 24, ['reference-copy']), copy('productSingular', 16, ['reference-copy']), copy('productPlural', 16, ['reference-copy']), copy('emptyMessage', 120, ['reference-copy']), copy('products[].name', 96, ['merchant-catalog'])])],
+			referenceOwned: ['breadcrumb anatomy', 'fixed title and count header', 'seven-choice sort control', 'four-column product grid', 'cursor continuation control', 'catalog-card anatomy', 'bounded empty state'],
+			aislesOwned: ['category title', 'trusted BigCommerce sort mapping', 'live product order', 'live product fields', 'validated cursor destination'],
 		},
 		{
 			id: 'kibble.error', implementation: 'KibbleErrorReference.svelte',
@@ -315,7 +340,22 @@ const contractInput = {
 		},
 		plp: {
 			id: 'kibble-plp-reference-v1', acceptance: 'candidate-unaccepted', implementation: 'KibbleCategoryReference.svelte', variantId: 'kibble.category-listing.fixed-grid',
-			invariants: ['This candidate is not eligible for Preserve publication until canonical breadcrumbs, sorting, cursor pagination, and load-more behavior are implemented.', 'Unsupported product routes render as non-link cards.', 'Empty-state copy comes from the pinned manifest.'],
+			source: {
+				commit: '77236d229cd8020cfc363f002080781f4376b4b5',
+				paths: [
+					'apps/storefront-svelte/src/routes/category/[slug]/+page.server.ts',
+					'apps/storefront-svelte/src/routes/category/[slug]/+page.svelte',
+					'apps/storefront-svelte/src/lib/server/catalog.ts',
+				],
+			},
+			orderedAnatomy: ['breadcrumbs', 'category-header', 'sort-control', 'product-grid', 'cursor-continuation'],
+			sortChoices: KIBBLE_PLP_SORT_OPTIONS.map(({ value, label }) => ({ value, label })),
+			defaultSort: 'FEATURED',
+			pageSize: KIBBLE_PLP_PAGE_SIZE,
+			pagination: { strategy: 'forward-cursor', cursorParam: 'after', actionLabel: 'Load more' },
+			productCards: 'noninteractive-until-pdp-contracted',
+			modelLayoutRequest: false,
+			invariants: ['Breadcrumbs render Home then the current category.', 'The category header and four-column product grid stay fixed.', 'Exactly seven trusted sort choices map to BigCommerce CategoryProductSort values.', 'Every page requests 24 products and exposes continuation only from a returned end cursor.', 'Invalid sort or cursor input fails closed before a catalog request.', 'Unsupported product routes render as non-link cards.', 'Preserve never requests a model-authored layout.', 'Empty-state copy comes from the pinned manifest.'],
 		},
 		error: {
 			id: 'kibble-error-reference-v1', acceptance: 'approved', implementation: 'KibbleErrorReference.svelte', variantId: 'kibble.error.reference-shell',

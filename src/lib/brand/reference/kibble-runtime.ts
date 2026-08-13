@@ -9,6 +9,11 @@ import type {
 	KibbleVisualTile,
 } from '$lib/components/kibble/types';
 import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
+import {
+	buildKibblePlpHref,
+	KIBBLE_PLP_SORT_OPTIONS,
+	type KibblePlpSort,
+} from './kibble-plp';
 import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
 import type { Surface } from '$lib/foundation/zones';
 
@@ -110,19 +115,40 @@ export function buildKibbleHomeReference(
 	};
 }
 
-export function materializeKibbleCategory(brand: BrandConfig, slug: string, products: Product[]) {
+export function materializeKibbleCategory(
+	brand: BrandConfig,
+	slug: string,
+	products: Product[],
+	state: {
+		sort: KibblePlpSort;
+		pageInfo: { hasNextPage: boolean; endCursor: string | null };
+	},
+) {
 	assertKibbleBrand(brand);
 	assertCategory(brand, slug);
 	const manifestCategory = KIBBLE_PRESERVE_MANIFEST.display.categories.find((item) => item.configSlug === slug);
 	if (!manifestCategory) throw new Error(`Kibble Preserve has no pinned category mapping for "${slug}".`);
+	const plp = KIBBLE_PRESERVE_MANIFEST.display.plp;
 	return {
-		eyebrow: KIBBLE_PRESERVE_MANIFEST.display.plp.eyebrow,
+		eyebrow: plp.eyebrow,
 		title: brand.categories[slug].displayName,
+		breadcrumbs: [
+			{ label: plp.breadcrumbHomeLabel, href: '/' },
+			{ label: brand.categories[slug].displayName },
+		],
+		sortLabel: plp.sortLabel,
+		sortOptions: KIBBLE_PLP_SORT_OPTIONS.map(({ value, label }) => ({ value, label })),
+		selectedSort: state.sort,
 		productCount: products.length,
-		productSingular: KIBBLE_PRESERVE_MANIFEST.display.plp.productSingular,
-		productPlural: KIBBLE_PRESERVE_MANIFEST.display.plp.productPlural,
-		emptyMessage: KIBBLE_PRESERVE_MANIFEST.display.plp.emptyMessage,
+		productSingular: plp.productSingular,
+		productPlural: plp.productPlural,
+		emptyMessage: plp.emptyMessage,
 		products,
+		loadMoreLabel: plp.loadMoreLabel,
+		loadMoreHref: state.pageInfo.hasNextPage && state.pageInfo.endCursor
+			? buildKibblePlpHref(state.sort, state.pageInfo.endCursor)
+			: null,
+		// PDP is outside the approved Kibble contract. Preserve cards remain inert.
 		productHrefs: {},
 	};
 }

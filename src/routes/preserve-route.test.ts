@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import HomePage from './+page.svelte';
+import CategoryPage from './category/[slug]/+page.svelte';
+import { _parseKibblePlpRequest } from './category/[slug]/+page.server';
 import { load as loadLayout } from './+layout.server';
 import { load as loadProduct } from './product/[slug]/+page.server';
 import { load as loadSearch } from './search/+page.server';
@@ -16,6 +18,28 @@ const product: Product = {
 };
 
 describe('Preserve route boundaries', () => {
+	it('accepts only the seven canonical sorts and bounded opaque cursors', () => {
+		expect(_parseKibblePlpRequest(new URL('https://aisles.test/category/dog-food'))).toEqual({
+			sort: 'FEATURED', after: null,
+		});
+		expect(_parseKibblePlpRequest(new URL('https://aisles.test/category/dog-food?sort=NEWEST&after=YXJyYXljb25uZWN0aW9uOjIz'))).toEqual({
+			sort: 'NEWEST', after: 'YXJyYXljb25uZWN0aW9uOjIz',
+		});
+		for (const url of [
+			'https://aisles.test/category/dog-food?sort=RELEVANCE',
+			'https://aisles.test/category/dog-food?sort=BEST_REVIEWED',
+			'https://aisles.test/category/dog-food?after=cursor%20with%20spaces',
+			'https://aisles.test/category/dog-food?after=',
+		]) {
+			try {
+				_parseKibblePlpRequest(new URL(url));
+				throw new Error('Expected invalid PLP input to fail closed.');
+			} catch (cause) {
+				expect(cause).toMatchObject({ status: 400 });
+			}
+		}
+	});
+
 	it('establishes the render mode on the server from the configured merchant', async () => {
 		const previousBrand = process.env.BRAND_ID;
 		const cookies = { get: () => undefined, set: () => undefined };
@@ -83,10 +107,45 @@ describe('Preserve route boundaries', () => {
 		expect(result.head).not.toContain('never running out');
 	});
 
-	it('keeps the home stream call inside an explicit Preserve guard', () => {
-		const source = route('+page.svelte');
-		expect(source).toContain("if (data.renderMode === 'reference-preserve') return;");
-		expect(source).toContain("fetch('/api/layout/stream'");
+	it('SSR renders the fixed Kibble category shell instead of a persona layout', () => {
+		const result = render(CategoryPage, {
+			props: {
+				data: {
+					renderMode: 'reference-preserve',
+					category: { name: 'Dog Food', slug: 'dog-food' }, products: [product], persona: 'gatherer',
+					kibbleCategory: {
+						eyebrow: 'Catalog', title: 'Dog Food',
+						breadcrumbs: [{ label: 'Home', href: '/' }, { label: 'Dog Food' }],
+						sortLabel: 'Sort:',
+						sortOptions: [
+							{ value: 'FEATURED', label: 'Featured' }, { value: 'NEWEST', label: 'Newest' },
+							{ value: 'BEST_SELLING', label: 'Best selling' }, { value: 'A_TO_Z', label: 'A to Z' },
+							{ value: 'Z_TO_A', label: 'Z to A' }, { value: 'LOWEST_PRICE', label: 'Price: low to high' },
+							{ value: 'HIGHEST_PRICE', label: 'Price: high to low' },
+						],
+						selectedSort: 'FEATURED', productCount: 1, productSingular: 'product', productPlural: 'products',
+						emptyMessage: 'No products.', products: [product], productHrefs: {},
+						loadMoreHref: '?sort=FEATURED&after=next-cursor', loadMoreLabel: 'Load more',
+					},
+				} as never,
+			},
+		});
+		expect(result.body).toContain('Actual Product');
+		expect(result.body).not.toContain('/product/actual-product');
+		expect(result.body).toContain('aria-label="Breadcrumb"');
+		expect(result.body).toContain('aria-current="page"');
+		expect(result.body.match(/<option/g)).toHaveLength(7);
+		expect(result.body).toContain('?sort=FEATURED&amp;after=next-cursor');
+		expect(result.body).toContain('Load more');
+		expect(result.body).toContain('1 product');
+		expect(result.body).not.toContain('Personalizing');
+	});
+
+	it('keeps stream calls inside an explicit legacy guard on both routes', () => {
+		for (const source of [route('+page.svelte'), route('category/[slug]/+page.svelte')]) {
+			expect(source).toContain("if (data.renderMode === 'reference-preserve') return;");
+			expect(source).toContain("fetch('/api/layout/stream'");
+		}
 	});
 
 	it('fails closed before unsupported Kibble product and search adapters run', async () => {

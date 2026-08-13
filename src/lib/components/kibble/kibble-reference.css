@@ -668,6 +668,42 @@
 	min-height: 55vh;
 }
 
+.kc-reference-breadcrumbs {
+	margin-bottom: 2rem;
+	color: var(--kc-muted-text);
+	font-size: 0.76rem;
+}
+
+.kc-reference-breadcrumbs ol {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.kc-reference-breadcrumbs li {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+}
+
+.kc-reference-breadcrumbs li:not(:last-child)::after {
+	color: var(--kc-border-strong);
+	content: '/';
+}
+
+.kc-reference-breadcrumbs a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.kc-reference-breadcrumbs a:hover,
+.kc-reference-breadcrumbs [aria-current='page'] {
+	color: var(--kc-identity);
+}
+
 .kc-reference-category__header {
 	display: flex;
 	align-items: end;
@@ -691,6 +727,72 @@
 	font-size: 0.7rem;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
+}
+
+.kc-reference-category__controls {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+}
+
+.kc-reference-category__sort {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: var(--kc-muted-text);
+	font-size: 0.78rem;
+	font-weight: 600;
+}
+
+.kc-reference-category__sort select {
+	min-height: 40px;
+	border: 1px solid var(--kc-border);
+	border-radius: var(--kc-radius-sm);
+	background: var(--kc-surface);
+	color: var(--kc-identity);
+	font: inherit;
+	padding-inline: 0.75rem 2rem;
+}
+
+.kc-reference-category__sort select:focus-visible {
+	outline: 3px solid var(--kc-action);
+	outline-offset: 2px;
+}
+
+.kc-reference-category__sort-submit {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.kc-reference-category__pagination {
+	display: flex;
+	justify-content: center;
+	margin-top: 3rem;
+}
+
+.kc-reference-category__pagination a {
+	display: inline-flex;
+	min-height: 44px;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid var(--kc-border-strong);
+	border-radius: var(--kc-radius-sm);
+	background: var(--kc-surface);
+	color: var(--kc-identity);
+	font-size: 0.82rem;
+	font-weight: 700;
+	padding-inline: 1.5rem;
+	text-decoration: none;
+}
+
+.kc-reference-category__pagination a:hover {
+	border-color: var(--kc-action);
+	color: var(--kc-action-hover);
 }
 
 .kc-reference-category__empty {
@@ -1071,6 +1173,12 @@
 		align-items: start;
 		flex-direction: column;
 		gap: 0.75rem;
+	}
+
+	.kc-reference-category__controls {
+		width: 100%;
+		align-items: start;
+		flex-direction: column;
 	}
 }
 
