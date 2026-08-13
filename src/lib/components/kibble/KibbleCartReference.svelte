@@ -4,7 +4,7 @@
 	let { availabilityMessage, policyVersion }: { availabilityMessage: string; policyVersion?: string } = $props();
 </script>
 
-<section class="kibble-reference kc-reference-route kc-reference-cart-page" data-kibble-route-shell="cart" data-kibble-route-policy={policyVersion} aria-labelledby="kibble-cart-heading">
+<div class="kibble-reference kc-reference-route kc-reference-cart-page" data-kibble-route-shell="cart" data-kibble-route-policy={policyVersion} aria-labelledby="kibble-cart-heading">
 	<div class="kc-reference-container">
 		<nav class="kc-reference-breadcrumbs" aria-label="Breadcrumb">
 			<a class="kc-reference-focus" href="/">Home</a>
@@ -20,4 +20,4 @@
 			<a href="/" class="kc-reference-button kc-reference-button--primary kc-reference-focus">Start shopping</a>
 		</div>
 	</div>
-</section>
+</div>

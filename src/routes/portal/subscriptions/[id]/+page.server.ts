@@ -11,6 +11,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 	return {
 		kibbleSubscriptions: {
 			subtype: 'detail' as const,
+			brandName: getBrand().name,
 			availabilityMessage: 'Subscription detail is unavailable. The route identifier was not used to request subscriber, charge, renewal, address, or payment data.',
 			recipeId: KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.id,
 			policyVersion: routePolicy.policy.policyVersion,

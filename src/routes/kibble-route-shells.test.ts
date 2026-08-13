@@ -80,10 +80,18 @@ describe('Kibble route-specific unavailable shells', () => {
 	});
 
 	it.each(['portal', 'account', 'detail'] as const)('renders the %s subscription subtype without subscriber data', (subtype) => {
-		const body = render(KibbleSubscriptionsReference, { props: { subtype, availabilityMessage: 'Subscriptions unavailable.' } }).body;
+		const body = render(KibbleSubscriptionsReference, { props: { subtype, brandName: 'Trusted Tenant', availabilityMessage: 'Subscriptions unavailable.' } }).body;
 		expect(body).toContain(`data-kibble-subscriptions-subtype="${subtype}"`);
 		expect(body).toContain('disabled');
+		if (subtype !== 'detail') expect(body).toContain('Trusted Tenant');
 		expect(body).not.toMatch(/active subscription|next charge|renewal date|payment ending/i);
+	});
+
+	it('contracts the trusted tenant name consumed by subscription account shells', () => {
+		const component = KIBBLE_REFERENCE_CONTRACT.components.find(({ id }) => id === 'kibble.subscriptions');
+		const variant = component?.variants.find(({ id }) => id === KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.variantId);
+		expect(variant?.dynamicPropFields).toContain('brandName');
+		expect(variant?.copyFields).toContainEqual(expect.objectContaining({ field: 'brandName', maxLength: 40 }));
 	});
 
 	it('registers pending-parity route-native recipes and no generic unavailable renderer', () => {

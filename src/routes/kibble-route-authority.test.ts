@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const brandState = vi.hoisted(() => ({ id: 'kibble' }));
 vi.mock('$lib/brand/config', () => ({
-	getBrand: vi.fn(() => ({ organizationId: 'kibble-demo-merchant', id: brandState.id })),
+	getBrand: vi.fn(() => ({ organizationId: 'kibble-demo-merchant', id: brandState.id, name: 'Kibble & Co.' })),
 }));
 
 import { load as loadAccount } from './account/+page.server';
@@ -49,9 +49,9 @@ describe('Kibble trusted route authority', () => {
 
 	it('binds subscription entry and safe detail identifiers without reading subscriber data', async () => {
 		await expect(loadSubscriptions({ url: new URL('https://aisles.test/subscriptions') } as never))
-			.resolves.toMatchObject({ kibbleSubscriptions: { subtype: 'portal', policyVersion: expect.any(String) } });
+			.resolves.toMatchObject({ kibbleSubscriptions: { subtype: 'portal', brandName: 'Kibble & Co.', policyVersion: expect.any(String) } });
 		await expect(loadSubscriptionDetail({ params: { id: 'subscription-123' }, url: new URL('https://aisles.test/portal/subscriptions/subscription-123') } as never))
-			.resolves.toMatchObject({ kibbleSubscriptions: { subtype: 'detail', policyVersion: expect.any(String) } });
+			.resolves.toMatchObject({ kibbleSubscriptions: { subtype: 'detail', brandName: 'Kibble & Co.', policyVersion: expect.any(String) } });
 		await expect(loadSubscriptionDetail({ params: { id: '../admin' }, url: new URL('https://aisles.test/portal/subscriptions/admin') } as never))
 			.rejects.toMatchObject({ status: 404 });
 	});

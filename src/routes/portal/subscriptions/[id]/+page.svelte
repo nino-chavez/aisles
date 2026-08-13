@@ -5,7 +5,7 @@
 	let { data }: { data: PageData } = $props();
 </script>
 
-<svelte:head><title>Subscription detail — Kibble &amp; Co.</title><meta name="robots" content="noindex" /></svelte:head>
+<svelte:head><title>Subscription detail — {data.kibbleSubscriptions.brandName}</title><meta name="robots" content="noindex" /></svelte:head>
 
 <div data-reference-recipe={data.kibbleSubscriptions.recipeId}>
 	<KibbleSubscriptionsReference {...data.kibbleSubscriptions} />

@@ -10,6 +10,7 @@ export const load: PageServerLoad = async ({ url }) => {
 	return {
 		kibbleSubscriptions: {
 			subtype: 'portal' as const,
+			brandName: getBrand().name,
 			availabilityMessage: 'Subscription services are not available in this reference-preserved preview. No redirect, session, or subscriber-data request was started.',
 			recipeId: KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.id,
 			policyVersion: routePolicy.policy.policyVersion,

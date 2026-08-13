@@ -25,14 +25,14 @@
 				<p class="kc-reference-footer__tagline">{tagline}</p>
 			</div>
 			{#each groups as group (group.label)}
-				<nav aria-label={group.label}>
+				<div>
 					<h2>{group.label}</h2>
 					<ul>
 						{#each group.links as link (link.href)}
 							<li><a href={link.href} class="kc-reference-focus">{link.label}</a></li>
 						{/each}
 					</ul>
-				</nav>
+				</div>
 			{/each}
 		</div>
 		<p class="kc-reference-footer__note">{footerNote}</p>

@@ -1162,6 +1162,10 @@
 	line-height: 1.7;
 }
 
+.kc-reference-zone-segment {
+	display: contents;
+}
+
 /* Route shells adapt the canonical storefront hierarchy while unavailable
  * services stay visible as disabled controls. */
 .kc-reference-sr-only {
@@ -1182,14 +1186,16 @@
 }
 
 .kc-reference-route__header {
-	padding: 1.5rem 0 2rem;
+	margin-top: 1.5rem;
+	padding: 0 0 2rem;
 	border-bottom: 1px solid var(--kc-border);
 }
 
 .kc-reference-route__header h1 {
 	margin: 0;
-	font-size: clamp(2.25rem, 5vw, 3.5rem);
-	line-height: 1.04;
+	font-size: 2.25rem;
+	letter-spacing: -0.04em;
+	line-height: 2.5rem;
 }
 
 .kc-reference-route__meta,
@@ -1206,7 +1212,7 @@
 .kc-reference-route__empty {
 	max-width: 42rem;
 	margin-inline: auto;
-	padding: clamp(4rem, 10vw, 7.5rem) 0;
+	padding: 6rem 0;
 	text-align: center;
 }
 
@@ -1232,11 +1238,18 @@
 }
 
 .kc-reference-search-page__form {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr);
-	gap: 0.75rem;
+	position: relative;
 	max-width: 42rem;
 	margin-top: 1.5rem;
+}
+
+.kc-reference-search-page__form svg {
+	position: absolute;
+	top: 50%;
+	left: 1rem;
+	color: var(--kc-muted-text);
+	pointer-events: none;
+	transform: translateY(-50%);
 }
 
 .kc-reference-search-page__form input,
@@ -1251,6 +1264,27 @@
 	padding-inline: 0.875rem;
 }
 
+.kc-reference-search-page__form input {
+	font-size: 1.125rem;
+	padding-left: 3rem;
+	padding-right: 1rem;
+}
+
+.kc-reference-search-page__results {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 1.5rem;
+	padding-block: 2.5rem;
+}
+
+@media (min-width: 768px) {
+	.kc-reference-search-page__results { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1100px) {
+	.kc-reference-search-page__results { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
 .kc-reference-search-page__form input:focus-visible {
 	outline: 3px solid var(--kc-action);
 	outline-offset: 2px;
@@ -1261,6 +1295,15 @@
 	grid-template-columns: minmax(0, 1fr);
 	gap: 2.5rem;
 	margin-top: 2rem;
+}
+
+.kc-reference-account-page__header {
+	padding-bottom: 1.5rem;
+}
+
+.kc-reference-account-page__header h1 {
+	font-size: 1.875rem;
+	line-height: 2.25rem;
 }
 
 .kc-reference-account-page__nav ul {
@@ -1304,6 +1347,12 @@
 	letter-spacing: -0.025em;
 }
 
+.kc-reference-checkout-page__card h1 {
+	font-size: 1.25rem;
+	letter-spacing: -0.04em;
+	line-height: 1.75rem;
+}
+
 .kc-reference-account-page__modes {
 	display: flex;
 	gap: 0.25rem;
@@ -1322,6 +1371,28 @@
 	border-radius: var(--kc-radius-xs);
 	background: var(--kc-muted-surface);
 	color: var(--kc-muted-text);
+}
+
+.kc-reference-account-page__alternate {
+	max-width: 28rem;
+	margin: 0.75rem 0 0;
+	color: var(--kc-muted-text);
+	font-size: 0.875rem;
+	text-align: center;
+}
+
+.kc-reference-account-page__alternate a,
+.kc-reference-account-page__catalog-link a {
+	color: var(--kc-action-hover);
+}
+
+.kc-reference-account-page__catalog-link {
+	max-width: 28rem;
+	margin: 3rem 0 0;
+	padding-top: 1.5rem;
+	border-top: 1px solid var(--kc-border);
+	color: var(--kc-muted-text);
+	font-size: 0.75rem;
 }
 
 .kc-reference-disabled-form {
@@ -1368,7 +1439,6 @@
 }
 
 .kc-reference-account-page__empty-section,
-.kc-reference-checkout-page__payment-placeholder,
 .kc-reference-subscriptions-page__detail {
 	margin-top: 1.5rem;
 	border: 1px solid var(--kc-border);
@@ -1380,17 +1450,15 @@
 
 .kc-reference-checkout-page__column,
 .kc-reference-subscriptions-page__content {
-	width: min(100% - 3rem, 42rem);
+	width: min(100% - 3rem, 32rem);
 	margin-inline: auto;
 }
 
-.kc-reference-checkout-page__card,
-.kc-reference-subscriptions-page__content {
+.kc-reference-checkout-page__card {
 	border: 1px solid var(--kc-border);
-	border-radius: var(--kc-radius-lg);
+	border-radius: var(--kc-radius-sm);
 	background: var(--kc-surface);
-	box-shadow: var(--kc-shadow-card);
-	padding: clamp(1.25rem, 4vw, 1.5rem);
+	padding: 1.5rem;
 }
 
 .kc-reference-checkout-page__card > p,
@@ -1398,6 +1466,100 @@
 	color: var(--kc-muted-text);
 	font-size: 0.875rem;
 	line-height: 1.65;
+}
+
+.kc-reference-checkout-page__plan-box {
+	display: grid;
+	gap: 0.75rem;
+	margin-top: 1.25rem;
+	border: 1px solid var(--kc-border);
+	border-radius: var(--kc-radius-sm);
+	background: var(--kc-page);
+	padding: 1rem;
+}
+
+.kc-reference-checkout-page__plan-box label {
+	display: grid;
+	gap: 0.25rem;
+	color: var(--kc-identity);
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+
+.kc-reference-checkout-page__plan-box input {
+	width: 100%;
+	min-height: 40px;
+	border: 1px solid var(--kc-border-strong);
+	border-radius: var(--kc-radius-xs);
+	background: var(--kc-surface);
+	color: var(--kc-muted-text);
+	font: inherit;
+	padding-inline: 0.75rem;
+}
+
+.kc-reference-checkout-page__plan-box label:first-child input {
+	width: 5rem;
+}
+
+.kc-reference-checkout-page__plan-box p,
+.kc-reference-checkout-page__signin-copy {
+	margin: 0;
+	color: var(--kc-muted-text);
+	font-size: 0.875rem;
+	line-height: 1.5;
+}
+
+.kc-reference-checkout-page__signin-copy {
+	margin-top: 1rem;
+}
+
+.kc-reference-checkout-page__card .kc-reference-disabled-form {
+	gap: 0.75rem;
+	max-width: none;
+	margin-top: 0.75rem;
+}
+
+.kc-reference-checkout-page__card .kc-reference-disabled-form button {
+	justify-self: start;
+}
+
+.kc-reference-checkout-page__confirmation {
+	width: min(100% - 3rem, 48rem);
+	margin-inline: auto;
+}
+
+.kc-reference-checkout-page__confirmation-body {
+	padding: 3rem 0 1.5rem;
+	text-align: center;
+}
+
+.kc-reference-checkout-page__confirmation-body h1 {
+	margin: 0;
+	font-family: var(--kc-font-display);
+	font-size: 2.25rem;
+	font-weight: 800;
+	letter-spacing: -0.04em;
+	line-height: 2.5rem;
+}
+
+.kc-reference-checkout-page__confirmation-body > p {
+	max-width: 42rem;
+	margin: 1rem auto 0;
+	color: var(--kc-muted-text);
+	line-height: 1.6;
+}
+
+.kc-reference-checkout-page__confirmation-body .kc-reference-button {
+	margin-top: 2.5rem;
+}
+
+.kc-reference-subscriptions-page__content {
+	width: min(100% - 3rem, 48rem);
+	margin-inline: auto;
+}
+
+.kc-reference-subscriptions-page__content > .kc-reference-route__text-link:first-child {
+	margin: 0 0 1rem;
 }
 
 .kc-reference-subscriptions-page__signin,
@@ -1411,12 +1573,6 @@
 	font-size: 1.05rem;
 }
 
-@media (min-width: 640px) {
-	.kc-reference-search-page__form {
-		grid-template-columns: minmax(0, 1fr) auto;
-	}
-}
-
 @media (min-width: 1024px) {
 	.kc-reference-account-page__layout {
 		grid-template-columns: 12.5rem minmax(0, 1fr);
@@ -1426,6 +1582,23 @@
 	.kc-reference-account-page__nav ul {
 		flex-direction: column;
 		overflow: visible;
+	}
+}
+
+@media (min-width: 640px) {
+	.kc-reference-route__header h1 {
+		font-size: 3rem;
+		line-height: 1;
+	}
+
+	.kc-reference-account-page__header h1 {
+		font-size: 2.25rem;
+		line-height: 2.5rem;
+	}
+
+	.kc-reference-checkout-page__confirmation-body h1 {
+		font-size: 3rem;
+		line-height: 1;
 	}
 }
 

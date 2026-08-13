@@ -760,7 +760,7 @@ const contractInput = {
 		},
 		{
 			id: 'kibble.subscriptions', implementation: 'KibbleSubscriptionsReference.svelte',
-			variants: [variant('kibble.subscriptions.reference-shell', ['kc.subscriptions.reference-shell'], ['subtype', 'availabilityMessage', 'policyVersion'], [], ['home', 'account'], [], [copy('availabilityMessage', 240, ['merchant-policy'])])],
+			variants: [variant('kibble.subscriptions.reference-shell', ['kc.subscriptions.reference-shell'], ['subtype', 'brandName', 'availabilityMessage', 'policyVersion'], [], ['home', 'account'], [], [copy('brandName', 40, ['merchant-policy']), copy('availabilityMessage', 240, ['merchant-policy'])])],
 			referenceOwned: ['portal heading hierarchy', 'sign-in form anatomy', 'subscription-detail hierarchy'],
 			aislesOwned: ['route subtype', 'disabled identity and management controls', 'safe account destination'],
 		},
