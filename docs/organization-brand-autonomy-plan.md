@@ -459,22 +459,20 @@ capability diff. It cannot grant authority above the organization maximum.
 This phase may involve `aisles-admin`, but it is not part of the first two-repo
 execution wave.
 
-## Parallel execution map
+## Execution map
 
-Work proceeds in isolated worktrees.
+Work proceeds in isolated worktrees. The status below records local execution,
+not merge, publication, deployment, migration, or human acceptance.
 
-| Slice | Repository and ownership | Dependencies |
+| Slice | Repository and ownership | Local state |
 |---|---|---|
-| A | `aisles`: policy types/compiler/tests in `src/lib/foundation` | Plan accepted |
-| B | `aisles`: README and existing documentation amendments | Plan accepted |
-| C | `bealls-aisles`: scope corrections and organization-bound config/docs | Plan accepted |
-| D | `aisles`: Kibble reference components and CSS | Slice A registry contract |
-| E | `aisles`: Kibble route and renderer integration | Slices A and D |
-| F | `aisles`: generation schema/prompt/API/cache/provenance | Slices A and E |
-| G | Both repos: deterministic and visual parity suites | Stable routes and contracts |
-
-Slices A through C form the first wave. Later slices launch only when their
-dependencies are integrated and green.
+| A | `aisles`: policy types/compiler/tests in `src/lib/foundation` | Implemented and integrated |
+| B | `aisles`: README and existing documentation amendments | Implemented and integrated |
+| C | `bealls-aisles`: scope corrections and organization-bound config/docs | Implemented on an isolated branch |
+| D | `aisles`: Kibble reference components and CSS | Implemented and integrated; source pinned to a local canonical commit |
+| E | `aisles`: Kibble route and renderer integration | Home, product listing, and errors integrated; remaining routes fail closed |
+| F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for the current contracted surfaces |
+| G | Both repos: deterministic and visual parity suites | Kibble harness implemented; real comparison and Bealls-family suites remain open |
 
 ## Compatibility and rollout
 
