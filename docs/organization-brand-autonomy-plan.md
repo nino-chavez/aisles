@@ -4,26 +4,27 @@
 
 **Date:** 2026-08-12
 
-**Applies to:** `aisles` and `bealls-aisles`
+**Applies to:** `aisles`, `bealls-aisles`, and the bounded `aisles-admin` sandbox
 **Canonical owner:** `aisles`
 
 ## Implementation checkpoint
 
-The plan is not complete. The first corrective wave is committed locally in
-isolated branches and has not been pushed or deployed.
+The plan is not complete. The corrective implementation is integrated in the
+three local main checkouts. Nothing in this execution has been pushed or
+deployed, and no database migration has been applied.
 
 | Phase | Local state on 2026-08-12 | Remaining gate |
 |---|---|---|
-| 0 — correct the record | Complete in both repositories | Merge and publish the amended claims |
+| 0 — correct the record | Integrated in Aisles and Bealls Aisles | Publish the amended claims with the code |
 | 1 — policy compiler | Implemented in Aisles; Bealls-family policies record observed legacy behavior | Production adoption beyond the Kibble slice |
 | 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
-| 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, and fallbacks implemented | Approved visual comparison |
+| 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, fallbacks, PDP dependency closure, and safe bundle projection implemented | Approved route-by-route visual comparison |
 | 4 — Kibble routes | Home, product listing, and error surfaces render the Preserve path locally; product detail is implemented for development review only | Approve product-detail visual parity and human acceptance before publication; complete search, cart, and checkout contracts |
 | 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented | Enable it only when a contracted model-backed zone is approved |
 | 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, and actual home and product-listing Preserve records implemented | Apply the migration and verify the deployed runtime |
-| 7 — executable parity | Fail-closed mobile/desktop structural and pixel harness implemented; source and candidate share pinned provenance markers | Run an approved fixed-data comparison, resolve every unmasked difference, and obtain named human approval |
-| 8 — Bealls adoption | Separate brand policy classifications implemented as `uncontracted` | Three real design contracts and route migration |
-| 9 — merchant control | Not started; deliberately outside the first execution wave | Authenticated, versioned policy editor and audit trail |
+| 7 — executable parity | A real zero-tolerance Home comparison now runs at 390, 768, and 1280 pixels. Reference colors, type, heading metrics, content geometry, and header geometry match. The gate still fails on named truth and accessibility differences. | Approve explicit masks and tolerances, then complete the named route matrix and human review |
+| 8 — Bealls adoption | Separate brand policies and versioned internal renderer contracts are integrated for Bealls, Bealls Florida, and Home Centric. All remain explicitly `uncontracted` for external-reference preservation. | Add approved external-reference contracts and visual gates before making a preservation claim |
+| 9 — merchant control | A dedicated, authenticated, read-only Autonomy Sandbox is integrated in `aisles-admin`. It simulates organization → brand → surface → zone narrowing without loading or publishing runtime policy. | Define the runtime-owned versioned read/write contract, tenant-safe storage, audit trail, and publication workflow |
 
 The current Kibble implementation is evidence that the new boundary can be
 encoded. It is not yet evidence that Aisles can preserve every route of an
@@ -463,8 +464,11 @@ Expose presets, per-surface settings, and zone exceptions after the policy is
 stable. The control surface writes versioned policies and shows the resulting
 capability diff. It cannot grant authority above the organization maximum.
 
-This phase may involve `aisles-admin`, but it is not part of the first two-repo
-execution wave.
+The first `aisles-admin` slice is deliberately a sandbox. It runs on a dedicated
+authenticated route and does not mount the legacy dashboard, Inspector, or
+workspace switcher. It does not save or publish policy. Moving it into the
+shared dashboard requires a tenant key for `generation_logs` plus the
+runtime-owned policy storage contract described above.
 
 ## Execution map
 
@@ -475,11 +479,12 @@ not merge, publication, deployment, migration, or human acceptance.
 |---|---|---|
 | A | `aisles`: policy types/compiler/tests in `src/lib/foundation` | Implemented and integrated |
 | B | `aisles`: README and existing documentation amendments | Implemented and integrated |
-| C | `bealls-aisles`: scope corrections and organization-bound config/docs | Implemented on an isolated branch |
+| C | `bealls-aisles`: scope corrections, policies, and internal renderer contracts | Implemented and integrated; external-reference state remains `uncontracted` |
 | D | `aisles`: Kibble reference components and CSS | Implemented and integrated; source pinned to a local canonical commit |
 | E | `aisles`: Kibble route and renderer integration | Home, product listing, and errors integrated; product detail implemented for development comparison but pending visual approval and unavailable in live publication; remaining routes fail closed |
 | F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for live contracted surfaces and the approval-gated product-detail review path |
-| G | Both repos: deterministic and visual parity suites | Kibble harness implemented; real comparison and Bealls-family suites remain open |
+| G | Both repos: deterministic and visual parity suites | Real Kibble Home comparison executed and correctable geometry drift resolved; approval and remaining-route comparisons stay open |
+| H | `aisles-admin`: merchant control surface | Dedicated read-only sandbox integrated; versioned runtime writes and audit storage remain unbuilt |
 
 ## Compatibility and rollout
 

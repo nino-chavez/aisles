@@ -86,20 +86,36 @@ tolerance. Supplying either tolerance through environment variables makes the
 run a non-release rehearsal; record the reason and obtain the separate approval
 required by the main gate before treating it as parity evidence.
 
-### First fixed-data result
+### Fixed-data results
 
 The runner initializes the local Cloudflare binding with an inert
 `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` value, while its
 runner-only Postgres replacement prevents any database connection. The first
-complete Home capture failed the gate at both widths. This is useful evidence,
-not a parity approval.
+complete Home capture exposed global Haven body styles, incorrect heading
+metrics, and a container measurement that targeted chrome instead of the main
+content.
 
-The measured differences included the page background and text colors, body
-font, hero heading line height and tracking, container geometry, navigation and
-link structure, and full-page height. When screenshot dimensions differ, the
-pixel comparison uses the larger canvas and counts the missing area as changed
-instead of suppressing the comparison. The run writes its local screenshots,
-diffs, and `report.json` under
+After correcting those defects, a second real run matched these reference-owned
+values at all three widths:
+
+- body background `#f3f6fc`, text `#1e2150`, and Plus Jakarta Sans;
+- H1 size/line-height/tracking of `36/36.72/-1.44px` at 390,
+  `48/48.96/-1.92px` at 768, and `60/61.2/-2.4px` at 1280;
+- content edges of `24–366`, `24–744`, and `32–1248` pixels; and
+- a 65-pixel sticky header.
+
+The strict report still fails. The candidate has three additional navigation
+landmarks, 15 fewer links, one additional unavailable-action button, and is
+647/420/178 pixels shorter at mobile/tablet/desktop. Pixel differences are
+41.221%, 38.713%, and 10.585%. These deltas come from the intentionally omitted
+subscription proof strip, unsupported PDP and commerce links, unavailable
+search/cart/account actions, bounded truthful copy, and semantic footer
+navigation. They require named human approval of masks and tolerances; they are
+not permission to restore unsupported claims.
+
+When screenshot dimensions differ, the pixel comparison uses the larger canvas
+and counts the missing area as changed instead of suppressing the comparison.
+Every run writes local screenshots, diffs, and `report.json` under
 `validation/kibble-parity-local/`.
 
 The earlier route mismatch for bundle product `3065` was a candidate-contract

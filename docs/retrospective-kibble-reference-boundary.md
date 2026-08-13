@@ -24,18 +24,31 @@ longer only a proposal. Local follow-up work now includes:
   fixed product-listing structure, trusted sorting, and cursor pagination;
 - a deterministic catalog-only product-detail implementation pinned to Kibble
   contract `1.5.0`, held at `approval_required` and development-only while its
-  visual review remains open; and
+  visual review remains open;
+- a real zero-tolerance Home comparison at 390, 768, and 1280 pixels, followed
+  by corrections that now match the reference body tokens, type, heading
+  metrics, content geometry, and header geometry;
+- separate Bealls-family internal renderer contracts that still label external
+  reference preservation as `uncontracted`;
+- a dedicated, authenticated `aisles-admin` Autonomy Sandbox that explains
+  narrowing without saving or publishing policy; and
 - reference/policy provenance in cache values, generation logs, and Observe.
 
 The corrective work has not been pushed or deployed. Its database migration has
 not been applied. Kibble product detail is implemented but not approved or live;
 Home and product-listing cards therefore remain non-links. Search, cart, and
 checkout are not contracted.
-The reference and candidate now expose matching source-owned fixture markers,
-and a fail-closed desktop/mobile comparison command exists. A real fixed-data
-parity run and named human approval are still open.
-`bealls-aisles` records each family member separately, but truthfully labels
-all three as `uncontracted`; their design contracts remain future work.
+The reference and candidate expose matching source-owned fixture markers, and
+the fail-closed comparison command has run against fixed data. The latest Home
+run still fails. Its remaining differences are named consequences of withheld
+commerce claims and actions, added navigation semantics, and shorter truthful
+copy. No masks or tolerances have been approved, and named human approval is
+still open.
+
+`bealls-aisles` records each family member separately and now binds its current
+renderer inputs to versioned internal contracts. Those records are inventory,
+not external-reference contracts. All three still report that preservation
+state as `uncontracted`.
 
 These are post-baseline corrections. They do not change what the original
 repositories could claim at the commits reviewed below.
