@@ -4,6 +4,7 @@ import {
 	aiSdkObjectOutput,
 	createZoneDecisionContract,
 	materializeTrustedZoneDecision,
+	type BoundedCopyField,
 	type TrustedZoneFieldCatalog,
 	ZoneDecisionSchemaError,
 } from './zone-decision-schema';
@@ -56,8 +57,17 @@ const catalog = (overrides: Partial<TrustedZoneFieldCatalog> = {}): TrustedZoneF
 	allowedProductIds: ['product.a', 'product.b'],
 	allowedPlacementIds: ['placement.top', 'placement.after-grid'],
 	boundedCopyFields: [
-		{ key: 'headline', maxLength: 24, sourceClasses: ['reference-copy'] },
-		{ key: 'subhead', maxLength: 48, sourceClasses: ['merchant-policy', 'computed-fact'] },
+		{
+			key: 'headline', maxLength: 24, sourceClasses: ['reference-copy'],
+			sourceBindings: [{ sourceClass: 'reference-copy', sourceId: 'reference.hero.headline', value: 'Pinned headline' }],
+		},
+		{
+			key: 'subhead', maxLength: 48, sourceClasses: ['merchant-policy', 'computed-fact'],
+			sourceBindings: [
+				{ sourceClass: 'merchant-policy', sourceId: 'merchant.shipping-policy', value: 'Free delivery over $40' },
+				{ sourceClass: 'computed-fact', sourceId: 'catalog.featured-count', value: '12' },
+			],
+		},
 	],
 	fixed: {
 		componentVariantId: 'component.hero',
@@ -147,14 +157,59 @@ describe('zone decision schema', () => {
 	it('enforces copy bounds and source classes from the trusted catalog', () => {
 		const contract = modelContract();
 		expect(contract.allowed.boundedCopyFields).toEqual([
-			{ key: 'headline', maxLength: 24, sourceClasses: ['reference-copy'] },
-			{ key: 'subhead', maxLength: 48, sourceClasses: ['merchant-policy', 'computed-fact'] },
+			{
+				key: 'headline', maxLength: 24, sourceClasses: ['reference-copy'],
+				sourceBindings: [{ sourceClass: 'reference-copy', sourceId: 'reference.hero.headline', value: 'Pinned headline' }],
+			},
+			{
+				key: 'subhead', maxLength: 48, sourceClasses: ['merchant-policy', 'computed-fact'],
+				sourceBindings: [
+					{ sourceClass: 'merchant-policy', sourceId: 'merchant.shipping-policy', value: 'Free delivery over $40' },
+					{ sourceClass: 'computed-fact', sourceId: 'catalog.featured-count', value: '12' },
+				],
+			},
 		]);
 		expect(contract.outputSchema.safeParse({ boundedCopy: { headline: 'x'.repeat(25) } }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ boundedCopy: { invented: 'Nope' } }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ boundedCopy: {} }).success).toBe(false);
 		expect(contract.outputSchema.safeParse({ boundedCopy: { headline: 'Pinned headline' } }).success).toBe(true);
 		expect(contract.outputSchema.safeParse({ productIds: ['product.a', 'product.a'] }).success).toBe(false);
+	});
+
+	it('fails closed for model bounded copy until every declared source is server-bound', () => {
+		const unbound: BoundedCopyField[] = [{ key: 'headline', maxLength: 24, sourceClasses: ['reference-copy'] }];
+		expect(() => createZoneDecisionContract(policy(), catalog({ boundedCopyFields: unbound })))
+			.toThrow('needs server-bound source values');
+		expect(() => createZoneDecisionContract(policy(), catalog({
+			boundedCopyFields: [{
+				...unbound[0],
+				sourceBindings: [{ sourceClass: 'reference-copy', sourceId: 'reference.hero.headline', value: ' ' }],
+			}],
+		}))).toThrow('empty server-bound source value');
+		expect(() => createZoneDecisionContract(policy(), catalog({
+			boundedCopyFields: [{
+				...unbound[0],
+				sourceBindings: [{ sourceClass: 'reference-copy', sourceId: '__proto__', value: 'Pinned headline' }],
+			}],
+		}))).toThrow('unsafe source identity');
+		expect(() => createZoneDecisionContract(policy(), catalog({
+			boundedCopyFields: [{
+				key: 'subhead', maxLength: 48, sourceClasses: ['merchant-policy', 'computed-fact'],
+				sourceBindings: [{ sourceClass: 'merchant-policy', sourceId: 'merchant.shipping-policy', value: 'Free delivery' }],
+			}],
+		}))).toThrow('missing a server-bound source class');
+	});
+
+	it('keeps fixed and rules contracts independent of model copy-source bindings', () => {
+		const metadataOnly: BoundedCopyField[] = [{ key: 'headline', maxLength: 24, sourceClasses: ['reference-copy'] }];
+		expect(createZoneDecisionContract(
+			policy({ decisionMode: 'fixed', capabilities: [] }),
+			catalog({ boundedCopyFields: metadataOnly }),
+		).kind).toBe('fixed');
+		expect(createZoneDecisionContract(
+			policy({ decisionMode: 'rules', capabilities: ['generate_bounded_copy'] }),
+			catalog({ boundedCopyFields: metadataOnly }),
+		).kind).toBe('rules');
 	});
 
 	it('makes rank-only output a permutation and keeps selection separate from ordering', () => {

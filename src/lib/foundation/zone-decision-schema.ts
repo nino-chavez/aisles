@@ -22,11 +22,25 @@ export const COPY_SOURCE_CLASSES = [
 
 export type CopySourceClass = (typeof COPY_SOURCE_CLASSES)[number];
 
+/** A concrete, server-owned value that a bounded-copy field may draw from. */
+export interface TrustedBoundedCopySource {
+	sourceClass: CopySourceClass;
+	/** Stable server-side identity for auditing and prompt construction. */
+	sourceId: string;
+	/** The server-owned value; model output must never supply or replace it. */
+	value: string;
+}
+
 export interface BoundedCopyField {
 	/** A field key, never a dotted object path or an unbounded prop bag. */
 	key: string;
 	maxLength: number;
 	sourceClasses: readonly CopySourceClass[];
+	/**
+	 * Concrete inputs bound by the server. Required before a model can write
+	 * this field; sourceClasses alone are descriptive metadata, not authority.
+	 */
+	sourceBindings?: readonly TrustedBoundedCopySource[];
 }
 
 /** A reference-authorized component configuration; CSS never varies independently. */
@@ -124,6 +138,7 @@ export function createZoneDecisionContract(
 	catalog: TrustedZoneFieldCatalog,
 ): ZoneDecisionContract {
 	validateCatalog(catalog);
+	validateModelBoundedCopyAuthority(policy, catalog);
 	const completeComponentVariants = eligibleCompleteVariants(catalog, policy);
 	const allowed = {
 		componentVariantIds: completeComponentVariants.map(({ componentVariantId }) => componentVariantId),
@@ -132,7 +147,13 @@ export function createZoneDecisionContract(
 		recipeIds: intersect(catalog.registeredRecipeIds, catalog.allowedRecipeIds),
 		productIds: intersect(catalog.registeredProductIds, catalog.allowedProductIds),
 		placementIds: intersect(catalog.registeredPlacementIds, catalog.allowedPlacementIds),
-		boundedCopyFields: catalog.boundedCopyFields.map((field) => ({ ...field, sourceClasses: [...field.sourceClasses] })),
+		boundedCopyFields: catalog.boundedCopyFields.map((field) => ({
+			...field,
+			sourceClasses: [...field.sourceClasses],
+			...(field.sourceBindings === undefined ? {} : {
+				sourceBindings: field.sourceBindings.map((binding) => ({ ...binding })),
+			}),
+		})),
 	};
 	validateFixed(catalog.fixed, allowed);
 	if (
@@ -325,6 +346,49 @@ function validateCatalog(catalog: TrustedZoneFieldCatalog): void {
 	}
 	if (new Set(catalog.boundedCopyFields.map(({ key }) => key)).size !== catalog.boundedCopyFields.length) {
 		throw new ZoneDecisionSchemaError('bounded copy field keys must be unique');
+	}
+}
+
+/**
+ * A model can only generate bounded copy from concrete source values which
+ * the server has named and validated. Rules and fixed decisions do not expose
+ * copy to a model, so their existing reference metadata remains valid.
+ */
+function validateModelBoundedCopyAuthority(
+	policy: EffectiveCompositionPolicy,
+	catalog: TrustedZoneFieldCatalog,
+): void {
+	if (policy.decisionMode !== 'model' || !policy.capabilities.includes('generate_bounded_copy')) return;
+	if (catalog.boundedCopyFields.length === 0) {
+		throw new ZoneDecisionSchemaError('model bounded copy needs at least one server-bound copy field');
+	}
+	for (const field of catalog.boundedCopyFields) {
+		const bindings = field.sourceBindings;
+		if (!bindings || bindings.length === 0) {
+			throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" needs server-bound source values`);
+		}
+		const coveredClasses = new Set<CopySourceClass>();
+		const identities = new Set<string>();
+		for (const binding of bindings) {
+			if (!field.sourceClasses.includes(binding.sourceClass)) {
+				throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" binds an undeclared source class`);
+			}
+			if (!isSafeIdentifier(binding.sourceId)) {
+				throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" has an unsafe source identity`);
+			}
+			if (typeof binding.value !== 'string' || binding.value.trim().length === 0) {
+				throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" has an empty server-bound source value`);
+			}
+			const identity = `${binding.sourceClass}:${binding.sourceId}`;
+			if (identities.has(identity)) {
+				throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" repeats a server-bound source identity`);
+			}
+			identities.add(identity);
+			coveredClasses.add(binding.sourceClass);
+		}
+		if (field.sourceClasses.some((sourceClass) => !coveredClasses.has(sourceClass))) {
+			throw new ZoneDecisionSchemaError(`model bounded copy field "${field.key}" is missing a server-bound source class`);
+		}
 	}
 }
 
