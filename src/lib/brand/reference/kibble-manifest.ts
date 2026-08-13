@@ -17,8 +17,7 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 			'apps/storefront-svelte/src/routes/+page.svelte',
 			'apps/storefront-svelte/src/lib/brand/home-media.json',
 			'apps/storefront-svelte/src/lib/brand/bundle-contents.json',
-			'scripts/kibble-demo/data/catalog-dataset.json',
-			'scripts/kibble-demo/data/channel1-seed-output.json',
+			KIBBLE_REFERENCE_CONTRACT.source.fixturePath,
 		] as const,
 	},
 	recipe: [
@@ -39,17 +38,17 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 	display: {
 		chrome: {
 			skipLabel: 'Skip to main content',
-			statusLabel: 'Auto-Refill',
+			statusLabel: 'Repeat-purchase catalog',
 			catalogLabel: 'Catalog navigation',
 			catalogEmptyLabel: 'Catalog unavailable',
 			searchLabel: 'Search',
 			searchPlaceholder: 'Search products',
+			searchUnavailableLabel: 'Search unavailable in this preview',
 			accountLabel: 'Account',
 			savedPicksLabel: 'Saved picks',
 			cartLabel: 'Cart',
 			cartUnavailableLabel: 'Cart unavailable',
 			browseAllLabel: 'Browse all',
-			searchAction: '/search',
 			footerTagline: 'Independent pet brands, organized for repeat-purchase routines.',
 			footerGroups: [
 				{ label: 'Food & wellness', categorySlugs: ['dog-food', 'supplements', 'treats'] },
@@ -81,7 +80,7 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 			serviceProof: [
 				{ title: 'Independent brands', body: 'Browse pet brands across food, wellness, care, gear, and bundles.' },
 				{ title: 'Clear shopping paths', body: 'Each category opens a focused shelf for the products you came to find.' },
-				{ title: 'Current catalog', body: 'Product names, prices, images, and links come from the current storefront catalog.' },
+				{ title: 'Current catalog', body: 'Product names, prices, and images come from the current storefront catalog.' },
 			],
 		},
 		featuredBundle: {
@@ -90,18 +89,14 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 			name: 'Essential Bundle',
 			category: 'Bundles',
 			image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/PLP-Images_GoodGut_Beef_1.png',
-			subscribePrice: 97,
 			oneTimePrice: 109,
-			savingsPercent: 11,
 			contents: [
 				{ brand: 'Open Farm', role: 'Premium dry food' },
 				{ brand: 'Open Farm', role: 'Wet food variety pack' },
 				{ brand: 'Finn', role: 'Dental chews' },
 			],
 			eyebrow: 'Featured bundle',
-			autoRefillLabel: 'Auto-Refill',
-			savingsLabel: 'Save',
-			ctaLabel: 'Shop the bundle',
+			ctaLabel: 'Browse bundles',
 			target: '/category/bundles',
 		},
 		categories: [

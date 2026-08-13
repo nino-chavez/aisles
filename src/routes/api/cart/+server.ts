@@ -11,6 +11,7 @@ import {
 } from '$lib/server/incentives/session';
 import { getSessionStore, persistSession, hasSession } from '$lib/signals/session';
 import { EMPTY_INCENTIVES, type IncentivesPayload } from '$lib/schema/uip';
+import { getBrand } from '$lib/brand/config';
 
 type BCCart = NonNullable<Awaited<ReturnType<typeof getCart>>>;
 
@@ -51,6 +52,9 @@ async function emitPromoSignal(
 
 /** POST /api/cart — Add item to cart, or apply/remove a promotion code. */
 export const POST: RequestHandler = async ({ request, cookies }) => {
+	if (getBrand().id === 'kibble') {
+		return json({ error: 'Cart is unavailable for this Kibble reference-preserved preview.' }, { status: 503 });
+	}
 	try {
 		const body = await request.json();
 
@@ -123,6 +127,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 /** GET /api/cart — Get current cart with UIP incentives payload. */
 export const GET: RequestHandler = async ({ cookies }) => {
+	if (getBrand().id === 'kibble') {
+		return json({ error: 'Cart is unavailable for this Kibble reference-preserved preview.' }, { status: 503 });
+	}
 	const cartId = cookies.get('bc_cart_id');
 	const appliedCodes = readAppliedCodes(cookies);
 

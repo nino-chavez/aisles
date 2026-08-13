@@ -10,6 +10,29 @@
 
 **Follow-up plan:** [`organization-brand-autonomy-plan.md`](./organization-brand-autonomy-plan.md)
 
+## Corrective execution checkpoint
+
+The retrospective's finding still stands, but the missing architecture is no
+longer only a proposal. Local follow-up work now includes:
+
+- corrected capability claims in both repositories;
+- an executable organization, brand, surface, and zone policy compiler;
+- a trusted policy-aware resolver and bounded zone-decision schema;
+- a version-pinned Kibble design contract with native chrome, components,
+  page recipes, and fallbacks;
+- Kibble Preserve rendering on home and error surfaces, with product listing
+  retained as an unaccepted contract candidate; and
+- reference/policy provenance in cache values, generation logs, and Observe.
+
+The work has not been pushed or deployed. The database migration has not been
+applied. Kibble product detail, search, cart, and checkout are not contracted.
+Desktop/mobile visual acceptance and named human approval are still open.
+`bealls-aisles` records each family member separately, but truthfully labels
+all three as `uncontracted`; their design contracts remain future work.
+
+These are post-baseline corrections. They do not change what the original
+repositories could claim at the commits reviewed below.
+
 ## Conclusion
 
 Kibble did not expose a random styling defect. It exposed a missing product

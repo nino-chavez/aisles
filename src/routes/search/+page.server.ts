@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { getProducts, customFieldsToRecord, type BCProduct } from '$lib/server/bigcommerce';
-import { redirect } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { searchProducts } from '$lib/server/search';
@@ -8,7 +8,10 @@ import { loadSessionIncentives } from '$lib/server/incentives/session';
 
 export const load: PageServerLoad = async ({ url, cookies, request, parent }) => {
 	const query = url.searchParams.get('q') || '';
-	const { devMode } = await parent();
+	const { devMode, chromeMode } = await parent();
+	if (chromeMode === 'reference') {
+		throw error(503, 'This Kibble & Co. section is not available in the reference-preserved preview.');
+	}
 
 	if (!query.trim()) {
 		throw redirect(302, '/');

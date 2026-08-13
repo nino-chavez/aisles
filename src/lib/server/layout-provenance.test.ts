@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { Layout } from '$lib/schema/layout';
 import { layoutCacheKey, parseCachedLayoutValue } from './cache';
 import {
+	buildContractedLayoutProvenance,
 	buildLegacyLayoutProvenance,
 	canonicalSerialize,
 	LayoutProvenanceSchema,
 	stableHash,
 	type BuildLegacyLayoutProvenanceInput,
 } from './layout-provenance';
+import { getContractSurfaceDecision } from '$lib/brand/composition-policy';
 
 const baseInput: BuildLegacyLayoutProvenanceInput = {
 	brand: { organizationId: 'merchant-one', id: 'brand-one' },
@@ -97,6 +99,23 @@ describe('layout provenance and cache identity', () => {
 		const provenance = build();
 		expect(layoutCacheKey(provenance)).toContain(':viewport:responsive:');
 		expect(LayoutProvenanceSchema.safeParse({ ...provenance, viewportClass: 'mobile' }).success).toBe(false);
+	});
+
+	it('builds contracted Preserve provenance only from compiled reference policy', () => {
+		const decision = getContractSurfaceDecision('kibble', 'home');
+		if (decision.mode !== 'reference-preserve') throw new Error('expected Preserve');
+		const provenance = buildContractedLayoutProvenance({
+			policy: decision.policy,
+			surface: 'home', route: '/', persona: 'gatherer',
+			rendererComponentId: 'kibble.home', rendererVariantId: 'kibble-home-reference-v1',
+			decisionSource: 'rules', promptVersion: 'no-model', schemaVersion: 'kibble-reference-1.4.0',
+			contractInput: { recipe: 'home' }, catalogInput: [{ id: 'one' }], shopperContext: { persona: 'gatherer' },
+		});
+		expect(provenance).toMatchObject({
+			reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.4.0' },
+			autonomy: { preset: 'preserve', decisionMode: 'rules', publicationMode: 'live' },
+			decisionSource: 'rules',
+		});
 	});
 
 	it('preserves a validated envelope and rejects old or corrupted cache values', () => {

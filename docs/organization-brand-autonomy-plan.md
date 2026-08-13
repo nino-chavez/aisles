@@ -1,11 +1,34 @@
 # Organization, Brand, and Composition Autonomy Plan
 
-**Status:** Accepted for staged implementation
+**Status:** In staged implementation; reference-preservation acceptance is incomplete
 
 **Date:** 2026-08-12
 
 **Applies to:** `aisles` and `bealls-aisles`
 **Canonical owner:** `aisles`
+
+## Implementation checkpoint
+
+The plan is not complete. The first corrective wave is committed locally in
+isolated branches and has not been pushed or deployed.
+
+| Phase | Local state on 2026-08-12 | Remaining gate |
+|---|---|---|
+| 0 — correct the record | Complete in both repositories | Merge and publish the amended claims |
+| 1 — policy compiler | Implemented in Aisles; Bealls-family policies record observed legacy behavior | Production adoption beyond the Kibble slice |
+| 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
+| 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, and fallbacks implemented | Approved visual comparison |
+| 4 — Kibble routes | Home and error surfaces render the Preserve path; product listing is an unaccepted candidate | Complete product listing, product detail, search, cart, and checkout contracts |
+| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented | Enable it only when a contracted model-backed zone is approved |
+| 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, and actual home Preserve records implemented | Apply the migration and verify the deployed runtime |
+| 7 — executable parity | In progress | Desktop/mobile captures, structural comparison, and named human approval |
+| 8 — Bealls adoption | Separate brand policy classifications implemented as `uncontracted` | Three real design contracts and route migration |
+| 9 — merchant control | Not started; deliberately outside the first execution wave | Authenticated, versioned policy editor and audit trail |
+
+The current Kibble implementation is evidence that the new boundary can be
+encoded. It is not yet evidence that Aisles can preserve every route of an
+external storefront. Legacy whole-page generation remains explicitly
+uncontracted rather than inheriting the Preserve claim.
 
 ## Recommendation
 
@@ -385,7 +408,9 @@ Aisles does not implement.
 
 ### Phase 4: Integrate Kibble routes
 
-Render ordered reference zones on the Kibble home and product-listing surfaces.
+Render ordered reference zones on the Kibble home surface first. Product listing
+enters Preserve only after its canonical breadcrumbs, sort controls, cursor
+pagination, and load-more behavior pass the same contract gate.
 Keep the current whole-page renderer as an explicit legacy path for brands that
 have not adopted contracts. Select the path from trusted server-side brand and
 contract data. Kibble Preserve mode server-renders its fixed shell and does not

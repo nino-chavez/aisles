@@ -42,7 +42,7 @@
 		{/if}
 	</div>
 	<div class="kc-reference-product-card__body">
-		{#if vendor}<p class="kc-reference-eyebrow kc-reference-product-card__brand">{vendor}</p>{/if}
+		{#if vendor && presentation !== 'featured-tile'}<p class="kc-reference-eyebrow kc-reference-product-card__brand">{vendor}</p>{/if}
 		<h3 class="kc-reference-product-card__name">{product.name}</h3>
 		<div class="kc-reference-product-card__pricing">
 			<span class="kc-reference-price kc-reference-product-card__current">{money(currentPrice)}</span>

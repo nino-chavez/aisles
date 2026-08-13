@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { KIBBLE_REFERENCE_CONTRACT } from './reference/kibble';
 import {
 	AISLES_COMPOSITION_POLICY,
+	assertKibblePreserveRoutePolicy,
 	getContractSurfaceDecision,
 	hasKibbleReferenceChrome,
 	surfaceForPath,
@@ -22,6 +23,20 @@ describe('Kibble composition policy registry', () => {
 		expect(decision.policy.capabilities).toEqual(['rank_products', 'select_products']);
 		expect(decision.policy.decisionMode).toBe('rules');
 		expect(decision.policy.publicationMode).toBe('live');
+		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'home')).not.toThrow();
+	});
+
+	it('fails the route gate when compiled policy narrows or changes publication', () => {
+		const decision = getContractSurfaceDecision('kibble', 'home');
+		if (decision.mode !== 'reference-preserve') throw new Error('expected Preserve');
+		expect(() => assertKibblePreserveRoutePolicy({
+			...decision.policy,
+			publicationMode: 'holdout',
+		}, 'home')).toThrow('decision envelope');
+		expect(() => assertKibblePreserveRoutePolicy({
+			...decision.policy,
+			allowedComponentVariantIds: decision.policy.allowedComponentVariantIds.slice(1),
+		}, 'home')).toThrow('component variants');
 	});
 
 	it('derives registered component and CSS variants from the contract', () => {
@@ -45,7 +60,7 @@ describe('Kibble composition policy registry', () => {
 	});
 
 	it('does not mislabel unsupported Kibble surfaces or other brands as Preserve', () => {
-		for (const surface of ['pdp', 'search', 'cart', 'checkout'] as const) {
+		for (const surface of ['plp', 'pdp', 'search', 'cart', 'checkout'] as const) {
 			expect(getContractSurfaceDecision('kibble', surface)).toEqual({
 				mode: 'legacy-generated',
 				reason: 'unsupported-surface',

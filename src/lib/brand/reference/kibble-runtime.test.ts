@@ -37,7 +37,7 @@ const product = (entityId: number, id: string): Product => ({
 describe('Kibble Preserve runtime adapter', () => {
 	it('selects Preserve only through an own trusted brand id', () => {
 		expect(selectMerchantRenderMode('kibble', 'home')).toBe('reference-preserve');
-		expect(selectMerchantRenderMode('kibble', 'plp')).toBe('reference-preserve');
+		expect(selectMerchantRenderMode('kibble', 'plp')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('haven', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('__proto__', 'home')).toBe('legacy-generated');
@@ -48,9 +48,9 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(verifyAndMaterializeBundle(bundle)).toMatchObject({
 			entityId: 3065,
 			href: '/category/bundles',
-			subscribePrice: 97,
 			oneTimePrice: 109,
 		});
+		expect(verifyAndMaterializeBundle(bundle)).not.toHaveProperty('subscribePrice');
 		expect(() => verifyAndMaterializeBundle(null)).toThrow('requires live BigCommerce product 3065');
 		expect(() => verifyAndMaterializeBundle({ ...bundle, price: 108 })).toThrow('bundle mismatch for list price');
 		expect(() => verifyAndMaterializeBundle({ ...bundle, name: 'Almost Essential' })).toThrow('bundle mismatch for name');

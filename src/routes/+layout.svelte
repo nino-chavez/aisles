@@ -27,6 +27,7 @@
 
 	// Track picks count reactively
 	$effect(() => {
+		if (data.chromeMode === 'reference') return;
 		picksCount = pickCount();
 		const handlePicksUpdate = (e: Event) => {
 			picksCount = (e as CustomEvent).detail?.count ?? pickCount();
@@ -83,6 +84,7 @@
 
 	// ─── Cart ──────────────────────────────────────────────────────
 	$effect(() => {
+		if (data.chromeMode === 'reference') return;
 		fetch('/api/cart')
 			.then((res) => res.json())
 			.then((data) => { cartCount = data.itemCount || 0; })
@@ -135,8 +137,6 @@
 					{cartCount}
 					{picksCount}
 					searchAction={data.kibbleChrome.searchAction}
-					onCartClick={openCart}
-					onPicksClick={() => picksOpen = true}
 				/>
 			{:else}
 				<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} categories={data.brand?.categories ?? {}} />
@@ -151,7 +151,9 @@
 			{/if}
 		</div>
 
-		<CartDrawer open={cartOpen} onclose={closeCart} />
-		<PicksTray open={picksOpen} onclose={() => picksOpen = false} />
+		{#if data.chromeMode !== 'reference'}
+			<CartDrawer open={cartOpen} onclose={closeCart} />
+			<PicksTray open={picksOpen} onclose={() => picksOpen = false} />
+		{/if}
 	{/if}
 </div>

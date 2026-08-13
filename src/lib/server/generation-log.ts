@@ -26,7 +26,7 @@ function estimateCost(model: string | undefined, inputTokens: number | undefined
 }
 
 export interface GenerationLogEntry {
-	type: 'layout' | 'refine';
+	type: 'layout' | 'refine' | 'preserve_render';
 	persona: string;
 	categorySlug: string;
 	cacheHit: boolean;

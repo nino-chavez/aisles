@@ -8,6 +8,10 @@ import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { loadSessionIncentives } from '$lib/server/incentives/session';
 import { loadCatalogProductByEntityId, loadHomeProducts, loadReferenceHomeProducts } from '$lib/server/catalog';
+import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
+import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
+import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
+import { logGeneration } from '$lib/server/generation-log';
 
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
 	const { devMode, renderMode } = await parent();
@@ -21,7 +25,11 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 	cookies.set('aisles_visits', String(visitCount), { path: '/', maxAge: 60 * 60 * 24 * 30 });
 
 	if (renderMode === 'reference-preserve') {
+		const preserveStartedAt = Date.now();
 		try {
+			const surfaceDecision = getContractSurfaceDecision(brand.id, 'home');
+			if (surfaceDecision.mode !== 'reference-preserve') throw new Error('Kibble home reference policy is unavailable.');
+			assertKibblePreserveRoutePolicy(surfaceDecision.policy, 'home');
 			const [referenceProducts, bundleProduct] = await Promise.all([
 				loadReferenceHomeProducts(9),
 				loadCatalogProductByEntityId(KIBBLE_PRESERVE_MANIFEST.display.featuredBundle.entityId),
@@ -32,8 +40,29 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				referenceProducts.source,
 				bundleProduct,
 			);
+			const provenance = buildContractedLayoutProvenance({
+				policy: surfaceDecision.policy,
+				surface: 'home',
+				route: '/',
+				persona: inference.primary,
+				rendererComponentId: 'kibble.home',
+				rendererVariantId: KIBBLE_REFERENCE_CONTRACT.recipes.home.id,
+				decisionSource: 'rules',
+				promptVersion: 'no-model-preserve-v1',
+				schemaVersion: `kibble-reference-${KIBBLE_REFERENCE_CONTRACT.version}`,
+				contractInput: KIBBLE_REFERENCE_CONTRACT.recipes.home,
+				catalogInput: { source: referenceProducts.source, products: referenceProducts.products, bundle: bundleProduct },
+				shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
+				scenarioId: store.getCrossSessionContext().scenarioId,
+			});
+			await logGeneration({
+				type: 'preserve_render', persona: inference.primary, categorySlug: 'home', cacheHit: false,
+				generationTimeMs: Date.now() - preserveStartedAt, productCount: referenceProducts.products.length, sessionId: cookies.get('aisles_session') || undefined,
+				provenance,
+			});
 			return {
 				renderMode,
+				provenance,
 				kibbleHome,
 				featured: [],
 				categories: Object.entries(brand.categories).map(([slug, config]) => ({
@@ -85,6 +114,7 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 
 	return {
 		renderMode,
+		provenance: null,
 		kibbleHome: null,
 		featured,
 		categories: categoryList,

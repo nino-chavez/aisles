@@ -27,7 +27,7 @@
 		copy: KibbleChromeCopy;
 		cartCount?: number;
 		picksCount?: number;
-		searchAction: string;
+		searchAction?: string;
 		accountHref?: string;
 		cartHref?: string;
 		picksHref?: string;
@@ -44,7 +44,7 @@
 
 <div class="kibble-reference kc-reference-status" aria-label={autoRefillStatus}>
 		<div class="kc-reference-container kc-reference-status__inner">
-			<span class="kc-reference-status__item kc-reference-status__item--emphasis">{autoRefillStatus}</span>
+			<span class:kc-reference-status__item--emphasis={Boolean(autoRefillState)} class="kc-reference-status__item">{autoRefillStatus}</span>
 			{#each statusItems as item (item.label)}
 				<span class="kc-reference-status__item">{item.label}</span>
 			{/each}
@@ -77,7 +77,7 @@
 			</nav>
 
 			<div class="kc-reference-header__controls">
-				{#if searchOpen}
+				{#if searchOpen && searchAction}
 					<form method="GET" action={searchAction} class="kc-reference-search" role="search">
 						<label class="sr-only" for="kibble-reference-search">{copy.searchLabel}</label>
 						<input id="kibble-reference-search" name="q" type="search" placeholder={copy.searchPlaceholder} class="kc-reference-focus" />
@@ -85,8 +85,13 @@
 							<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 						</button>
 					</form>
-				{:else}
+				{:else if searchAction}
 					<button type="button" onclick={() => (searchOpen = true)} class="kc-reference-text-control kc-reference-focus" aria-label={copy.searchLabel}>
+						<svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+						<span class="kc-reference-header__search-label" style="margin-left:0.4rem;">{copy.searchLabel}</span>
+					</button>
+				{:else}
+					<button type="button" disabled class="kc-reference-text-control" aria-label={copy.searchUnavailableLabel}>
 						<svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
 						<span class="kc-reference-header__search-label" style="margin-left:0.4rem;">{copy.searchLabel}</span>
 					</button>

@@ -11,6 +11,7 @@ export type KibbleChromeCopy = {
 	catalogEmptyLabel: string;
 	searchLabel: string;
 	searchPlaceholder: string;
+	searchUnavailableLabel: string;
 	accountLabel: string;
 	savedPicksLabel: string;
 	cartLabel: string;
@@ -65,13 +66,9 @@ export type KibbleFeaturedBundle = {
 	href: string;
 	image: string;
 	imageAlt?: string;
-	subscribePrice: number;
 	oneTimePrice: number;
-	savingsPercent: number;
 	contents: Array<{ brand: string; role: string }>;
 	eyebrow: string;
-	autoRefillLabel: string;
-	savingsLabel: string;
 	ctaLabel: string;
 };
 

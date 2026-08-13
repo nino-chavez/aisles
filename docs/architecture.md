@@ -25,12 +25,12 @@ The set V is defined literally by the Zod schema in `src/lib/schema/layout.ts`. 
 This is the invariant that makes AI-generated UI work in production rather than only in demos. It is enforced in three layers:
 
 1. **Schema as definition of V**: the Zod schema explicitly enumerates eleven valid section types, with a narrower subset for each persona, their allowed prop values, and their composition rules
-2. **Structured LLM output**: the Vercel AI SDK passes the schema to the LLM as a token-generation constraint via `generateObject` / `streamObject`, producing schema-compliant outputs by construction
+2. **Structured LLM output**: the Vercel AI SDK passes the schema through `Output.object` on `generateText` / `streamText`, producing a typed object that is validated against the declared structure
 3. **Fallback cascade**: Haiku → Sonnet → static Svelte layouts guarantee a valid S always exists, even under model failure
 
 Every other subsystem in Aisles — the inference loop, the cache, the Observe dashboard, the signal pipeline — depends on this invariant holding. See `docs/decisions/004-vocabulary-constraint-invariant.md` for the full rationale, the operational consequences (schema validation success rate as a health metric, vocabulary evolution process, cache invalidation), and the trade-off between vocabulary size and invariant strength.
 
-The invariant proves structural validity inside Aisles's current component vocabulary. It does not prove fidelity to a merchant's visual system, page recipes, or responsive behavior. The planned organization/brand boundary and zone policy model will make those constraints explicit; it is not wired into production routes today. See [the autonomy plan](organization-brand-autonomy-plan.md) and [the Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
+The invariant proves structural validity inside Aisles's current component vocabulary. It does not prove fidelity to a merchant's visual system, page recipes, or responsive behavior. The repository now has an executable organization/brand policy foundation and a contract-bound Kibble Preserve path for home and error surfaces. Product listing remains an unaccepted contract candidate. The work has not passed the complete visual, route, human-review, migration, and deployment gates required for a reference-preservation claim. See [the autonomy plan](organization-brand-autonomy-plan.md) and [the Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
 
 ---
 

@@ -9,14 +9,20 @@ import type {
 	KibbleVisualTile,
 } from '$lib/components/kibble/types';
 import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
-import { getContractSurfaceDecision } from '$lib/brand/composition-policy';
+import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
 import type { Surface } from '$lib/foundation/zones';
 
 export type MerchantRenderMode = 'reference-preserve' | 'legacy-generated';
 export type KibbleFeaturedSource = 'featured' | 'newest' | 'deterministic-catalog';
 
 export function selectMerchantRenderMode(brandId: unknown, surface: Surface | null): MerchantRenderMode {
-	return getContractSurfaceDecision(brandId, surface).mode;
+	const decision = getContractSurfaceDecision(brandId, surface);
+	if (decision.mode !== 'reference-preserve') return decision.mode;
+	if (surface !== 'home' && surface !== 'error-404' && surface !== 'error-empty') {
+		return 'legacy-generated';
+	}
+	assertKibblePreserveRoutePolicy(decision.policy, surface);
+	return decision.mode;
 }
 
 export function buildKibbleChrome(brand: BrandConfig): {
@@ -24,7 +30,7 @@ export function buildKibbleChrome(brand: BrandConfig): {
 	copy: KibbleChromeCopy;
 	statusLabel: string;
 	statusItems: [];
-	searchAction: string;
+	searchAction?: string;
 	footer: {
 		brandName: string;
 		tagline: string;
@@ -41,7 +47,6 @@ export function buildKibbleChrome(brand: BrandConfig): {
 		copy: { ...KIBBLE_PRESERVE_MANIFEST.display.chrome },
 		statusLabel: KIBBLE_PRESERVE_MANIFEST.display.chrome.statusLabel,
 		statusItems: [],
-		searchAction: KIBBLE_PRESERVE_MANIFEST.display.chrome.searchAction,
 		footer: {
 			brandName: brand.name,
 			tagline: KIBBLE_PRESERVE_MANIFEST.display.chrome.footerTagline,
@@ -151,13 +156,9 @@ export function verifyAndMaterializeBundle(product: Product | null): KibbleFeatu
 		href: expected.target,
 		image: expected.image,
 		imageAlt: product.imageAlt || expected.name,
-		subscribePrice: expected.subscribePrice,
 		oneTimePrice: expected.oneTimePrice,
-		savingsPercent: expected.savingsPercent,
 		contents: expected.contents.map((item) => ({ ...item })),
 		eyebrow: expected.eyebrow,
-		autoRefillLabel: expected.autoRefillLabel,
-		savingsLabel: expected.savingsLabel,
 		ctaLabel: expected.ctaLabel,
 	};
 }

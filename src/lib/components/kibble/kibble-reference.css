@@ -229,6 +229,7 @@
 }
 
 .kc-reference-icon-control:disabled,
+.kc-reference-text-control:disabled,
 .kc-reference-drawer__cart:disabled {
 	cursor: not-allowed;
 	opacity: 0.45;
@@ -846,7 +847,6 @@
 }
 
 .kc-reference-product-card--featured .kc-reference-product-card__body {
-	min-height: 7.5rem;
 	padding: 1rem 0 0;
 }
 
@@ -1008,10 +1008,6 @@
 }
 
 @media (min-width: 768px) {
-	.kc-reference-menu-control {
-		display: none;
-	}
-
 	.kc-reference-proof-strip {
 		grid-template-columns: repeat(4, minmax(0, 1fr));
 	}
@@ -1028,6 +1024,10 @@
 }
 
 @media (min-width: 1024px) {
+	.kc-reference-menu-control {
+		display: none;
+	}
+
 	.kc-reference-hero__inner {
 		grid-template-columns: minmax(0, 1.1fr) minmax(20rem, 0.9fr);
 	}
@@ -1049,7 +1049,7 @@
 	}
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1023px) {
 	.kc-reference-header__nav,
 	.kc-reference-header__search-label,
 	.kc-reference-header__account,

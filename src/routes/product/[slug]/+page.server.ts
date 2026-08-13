@@ -4,7 +4,10 @@ import { error } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ params, url, parent }) => {
 	const slug = params.slug;
-	const { devMode } = await parent();
+	const { devMode, chromeMode } = await parent();
+	if (chromeMode === 'reference') {
+		throw error(503, 'This Kibble & Co. section is not available in the reference-preserved preview.');
+	}
 	const persona = url.searchParams.get('intent') || 'gatherer';
 
 	// Fetch the product by its URL path

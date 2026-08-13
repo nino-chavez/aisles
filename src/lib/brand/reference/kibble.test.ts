@@ -23,8 +23,9 @@ describe('Kibble reference contract', () => {
 	it('pins the approved source revision and locked Shelf-Native artifacts', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.source).toEqual({
 			repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
-			commit: 'a5c9555b89d72e7898d6bc1c38c7157a1c415b06', applicationPath: 'apps/storefront-svelte',
+			commit: '77236d229cd8020cfc363f002080781f4376b4b5', applicationPath: 'apps/storefront-svelte',
 			brandKitPath: 'scripts/kibble-demo/data/brand/brand-kit.md', tokensPath: 'scripts/kibble-demo/data/brand/tokens.css',
+			fixturePath: 'scripts/kibble-demo/data/seed-output.json', fixtureSha256: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
 			canonicalBoundary: expect.stringContaining('pinned storefront source'),
 		});
 	});
@@ -62,6 +63,9 @@ describe('Kibble reference contract', () => {
 
 	it('separates root chrome from the home component anatomy', () => {
 		const anatomy = KIBBLE_REFERENCE_CONTRACT.recipes.home.orderedAnatomy;
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.home.acceptance).toBe('approved');
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp.acceptance).toBe('candidate-unaccepted');
+		expect(KIBBLE_REFERENCE_CONTRACT.chrome.mobileDrawerBreakpointPx).toBe(1024);
 		expect(anatomy.map(({ slot, owner }) => ({ slot, owner }))).toEqual([
 			{ slot: 'merchant-chrome', owner: 'root-layout' },
 			{ slot: 'opening-merchandising', owner: 'home-recipe' },

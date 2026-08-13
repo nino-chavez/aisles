@@ -3,8 +3,10 @@ import { resolve } from 'node:path';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import HomePage from './+page.svelte';
-import CategoryPage from './category/[slug]/+page.svelte';
 import { load as loadLayout } from './+layout.server';
+import { load as loadProduct } from './product/[slug]/+page.server';
+import { load as loadSearch } from './search/+page.server';
+import { GET as getCart, POST as postCart } from './api/cart/+server';
 import type { Product } from '$lib/types';
 
 const route = (path: string) => readFileSync(resolve(import.meta.dirname, path), 'utf8');
@@ -58,8 +60,8 @@ describe('Preserve route boundaries', () => {
 							ctas: [], proofItems: [],
 							featured: {
 								name: 'Essential Bundle', href: '/category/bundles', image: 'https://example.com/bundle.png',
-								subscribePrice: 97, oneTimePrice: 109, savingsPercent: 11, contents: [],
-								eyebrow: 'Featured bundle', autoRefillLabel: 'Auto-Refill', savingsLabel: 'Save', ctaLabel: 'Shop the bundle',
+								oneTimePrice: 109, contents: [],
+								eyebrow: 'Featured bundle', ctaLabel: 'Browse bundles',
 							},
 						},
 						products: [product], productHrefs: {}, categories: [], serviceProof: [],
@@ -76,26 +78,32 @@ describe('Preserve route boundaries', () => {
 		expect(result.head).not.toContain('never running out');
 	});
 
-	it('SSR renders the fixed Kibble category shell instead of a persona layout', () => {
-		const result = render(CategoryPage, {
-			props: {
-				data: {
-					renderMode: 'reference-preserve',
-					category: { name: 'Dog Food', slug: 'dog-food' }, products: [product], persona: 'gatherer',
-					kibbleCategory: { eyebrow: 'Catalog', title: 'Dog Food', productCount: 1, productSingular: 'product', productPlural: 'products', emptyMessage: 'No products.', products: [product], productHrefs: {} },
-				} as never,
-			},
-		});
-		expect(result.body).toContain('Actual Product');
-		expect(result.body).not.toContain('/product/actual-product');
-		expect(result.body).toContain('1 product');
-		expect(result.body).not.toContain('Personalizing');
+	it('keeps the home stream call inside an explicit Preserve guard', () => {
+		const source = route('+page.svelte');
+		expect(source).toContain("if (data.renderMode === 'reference-preserve') return;");
+		expect(source).toContain("fetch('/api/layout/stream'");
 	});
 
-	it('keeps stream calls inside an explicit legacy guard on both routes', () => {
-		for (const source of [route('+page.svelte'), route('category/[slug]/+page.svelte')]) {
-			expect(source).toContain("if (data.renderMode === 'reference-preserve') return;");
-			expect(source).toContain("fetch('/api/layout/stream'");
+	it('fails closed before unsupported Kibble product and search adapters run', async () => {
+		const parent = async () => ({ devMode: false, chromeMode: 'reference' });
+		await expect(loadProduct({ params: { slug: 'anything' }, url: new URL('https://aisles.test/product/anything'), parent } as never))
+			.rejects.toMatchObject({ status: 503 });
+		await expect(loadSearch({ url: new URL('https://aisles.test/search?q=food'), parent } as never))
+			.rejects.toMatchObject({ status: 503 });
+	});
+
+	it('fails the unsupported Kibble cart API closed', async () => {
+		const previousBrand = process.env.BRAND_ID;
+		try {
+			process.env.BRAND_ID = 'kibble';
+			const cookies = { get: () => undefined };
+			const getResponse = await getCart({ cookies } as never);
+			const postResponse = await postCart({ cookies, request: new Request('https://aisles.test/api/cart', { method: 'POST' }) } as never);
+			expect(getResponse.status).toBe(503);
+			expect(postResponse.status).toBe(503);
+		} finally {
+			if (previousBrand === undefined) delete process.env.BRAND_ID;
+			else process.env.BRAND_ID = previousBrand;
 		}
 	});
 });

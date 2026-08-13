@@ -71,15 +71,17 @@ const REGISTRY = {
 
 export const KibbleReferenceContractSchema = z.object({
 	id: z.literal('kibble-shelf-native'),
-	version: z.literal('1.3.0'),
+	version: z.literal('1.4.0'),
 	status: z.literal('approved-reference'),
-	source: z.object({
+		source: z.object({
 		repository: z.literal('bc-subscriptions'),
 		remote: z.literal('git@github.com:nino-chavez/bc-subscriptions.git'),
 		commit: z.string().regex(/^[0-9a-f]{40}$/),
 		applicationPath: RequiredString,
 		brandKitPath: RequiredString,
-		tokensPath: RequiredString,
+			tokensPath: RequiredString,
+			fixturePath: RequiredString,
+			fixtureSha256: z.string().regex(/^[0-9a-f]{64}$/),
 		canonicalBoundary: RequiredString,
 	}).strict(),
 	tokens: z.object({
@@ -108,7 +110,7 @@ export const KibbleReferenceContractSchema = z.object({
 	chrome: z.object({
 		required: z.tuple(REQUIRED_CHROME.map((entry) => z.literal(entry)) as [z.ZodLiteral<'autorefill-status-bar'>, z.ZodLiteral<'merchant-wordmark'>, z.ZodLiteral<'catalog-navigation'>, z.ZodLiteral<'search-control'>, z.ZodLiteral<'account-control'>, z.ZodLiteral<'cart-control'>, z.ZodLiteral<'mobile-drawer'>, z.ZodLiteral<'merchant-footer'>]),
 		owner: z.literal('root-layout'),
-		mobileDrawerBreakpointPx: z.literal(768),
+		mobileDrawerBreakpointPx: z.literal(1024),
 		stickyHeader: z.literal(true),
 	}).strict(),
 	adapter: z.object({
@@ -129,6 +131,7 @@ export const KibbleReferenceContractSchema = z.object({
 	recipes: z.object({
 		home: z.object({
 			id: z.literal('kibble-home-reference-v1'),
+			acceptance: z.literal('approved'),
 			implementation: z.literal('KibbleHomeReference.svelte'),
 			rootLayoutChrome: z.literal('kibble.header'),
 			rootLayoutFooter: z.literal('kibble.footer'),
@@ -137,12 +140,14 @@ export const KibbleReferenceContractSchema = z.object({
 		}).strict(),
 		plp: z.object({
 			id: z.literal('kibble-plp-reference-v1'),
+			acceptance: z.literal('candidate-unaccepted'),
 			implementation: z.literal('KibbleCategoryReference.svelte'),
 			variantId: z.literal('kibble.category-listing.fixed-grid'),
 			invariants: UniqueRequiredStrings,
 		}).strict(),
 		error: z.object({
 			id: z.literal('kibble-error-reference-v1'),
+			acceptance: z.literal('approved'),
 			implementation: z.literal('KibbleErrorReference.svelte'),
 			variantId: z.literal('kibble.error.reference-shell'),
 			invariants: UniqueRequiredStrings,
@@ -214,11 +219,12 @@ const variant = (
 ) => ({ id, cssVariantIds, dynamicPropFields, assetSlots, linkTargets, actionTargets, copyFields });
 
 const contractInput = {
-	id: 'kibble-shelf-native', version: '1.3.0', status: 'approved-reference',
+	id: 'kibble-shelf-native', version: '1.4.0', status: 'approved-reference',
 	source: {
 		repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
-		commit: 'a5c9555b89d72e7898d6bc1c38c7157a1c415b06', applicationPath: 'apps/storefront-svelte',
+		commit: '77236d229cd8020cfc363f002080781f4376b4b5', applicationPath: 'apps/storefront-svelte',
 		brandKitPath: 'scripts/kibble-demo/data/brand/brand-kit.md', tokensPath: 'scripts/kibble-demo/data/brand/tokens.css',
+		fixturePath: 'scripts/kibble-demo/data/seed-output.json', fixtureSha256: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
 		canonicalBoundary: 'The pinned storefront source and locked Shelf-Native kit govern this package. Screenshots are comparison evidence, not a replacement source of truth.',
 	},
 	tokens: {
@@ -227,7 +233,7 @@ const contractInput = {
 		geometry: { containerMaxPx: 1200, spacingBasePx: 4, radiiPx: { xs: 4, sm: 6, md: 8, lg: 12, xl: 18 }, shadows: { card: '0 1px 3px rgba(30, 33, 80, 0.07)', lifted: '0 16px 40px rgba(59, 91, 208, 0.14)', hero: '0 24px 60px rgba(30, 33, 80, 0.16)' } },
 		density: { name: 'clinical-warm', controlShape: 'squared', cardBorderPx: 1, motion: 'instrument-calm' },
 	},
-	chrome: { required: REQUIRED_CHROME, owner: 'root-layout', mobileDrawerBreakpointPx: 768, stickyHeader: true },
+	chrome: { required: REQUIRED_CHROME, owner: 'root-layout', mobileDrawerBreakpointPx: 1024, stickyHeader: true },
 	adapter: { links: { allowed: REGISTRY.linkTargets, optional: ['account', 'cart', 'saved-picks'] }, actions: { allowed: REGISTRY.actionTargets }, failClosed: true },
 	registry: REGISTRY,
 	components: [
@@ -239,8 +245,8 @@ const contractInput = {
 		},
 		{
 			id: 'kibble.hero', implementation: 'KibbleHero.svelte',
-			variants: [variant('kibble.hero.flagship-bundle', ['kc.hero.flagship-bundle'], ['eyebrow', 'headline', 'body', 'ctas', 'featured', 'proofItems'], ['featured.image'], ['catalog-category', 'featured-bundle'], [], [copy('eyebrow', 72, ['reference-copy']), copy('headline', 88, ['reference-copy']), copy('body', 360, ['reference-copy']), copy('ctas[].label', 32, ['reference-copy']), copy('proofItems[].label', 28, ['merchant-policy']), copy('proofItems[].value', 24, ['computed-fact']), copy('featured.name', 72, ['merchant-catalog']), copy('featured.eyebrow', 32, ['reference-copy']), copy('featured.autoRefillLabel', 24, ['reference-copy']), copy('featured.savingsLabel', 16, ['reference-copy']), copy('featured.ctaLabel', 32, ['reference-copy'])])],
-			referenceOwned: ['two-column composition', 'headline measure', 'flagship bundle anatomy', 'proof-strip anatomy', 'CTA treatments'],
+			variants: [variant('kibble.hero.flagship-bundle', ['kc.hero.flagship-bundle'], ['eyebrow', 'headline', 'body', 'ctas', 'featured', 'proofItems'], ['featured.image'], ['catalog-category', 'featured-bundle'], [], [copy('eyebrow', 72, ['reference-copy']), copy('headline', 88, ['reference-copy']), copy('body', 360, ['reference-copy']), copy('ctas[].label', 32, ['reference-copy']), copy('proofItems[].label', 28, ['merchant-policy']), copy('proofItems[].value', 24, ['computed-fact']), copy('featured.name', 72, ['merchant-catalog']), copy('featured.eyebrow', 32, ['reference-copy']), copy('featured.ctaLabel', 32, ['reference-copy'])])],
+			referenceOwned: ['two-column composition', 'headline measure', 'flagship bundle anatomy', 'proof-strip anatomy when substantiated facts are supplied', 'CTA treatments'],
 			aislesOwned: ['approved bounded copy', 'named CTA targets', 'featured catalog data', 'substantiated proof values'],
 		},
 		{
@@ -296,7 +302,7 @@ const contractInput = {
 	],
 	recipes: {
 		home: {
-			id: 'kibble-home-reference-v1', implementation: 'KibbleHomeReference.svelte', rootLayoutChrome: 'kibble.header', rootLayoutFooter: 'kibble.footer',
+			id: 'kibble-home-reference-v1', acceptance: 'approved', implementation: 'KibbleHomeReference.svelte', rootLayoutChrome: 'kibble.header', rootLayoutFooter: 'kibble.footer',
 			orderedAnatomy: [
 				{ slot: 'merchant-chrome', component: 'kibble.header', variantId: 'kibble.header.responsive-chrome', required: true, owner: 'root-layout' },
 				{ slot: 'opening-merchandising', component: 'kibble.hero', variantId: 'kibble.hero.flagship-bundle', required: true, owner: 'home-recipe' },
@@ -305,14 +311,14 @@ const contractInput = {
 				{ slot: 'service-proof', component: 'kibble.service-proof', variantId: 'kibble.service-proof.three-column', required: true, owner: 'home-recipe' },
 				{ slot: 'merchant-footer', component: 'kibble.footer', variantId: 'kibble.footer.four-column', required: true, owner: 'root-layout' },
 			],
-			invariants: ['Root layout renders status and merchant navigation before page content.', 'KibbleHomeReference renders hero, products, catalog entry, then service proof.', 'The hero contains one flagship bundle, not an arbitrary collage.', 'The segmented proof strip stays inside the hero text column.', 'Product imagery preserves packaging labels.', 'Category or routine copy sits below imagery.', 'Mint appears only for Auto-Refill status or the ampersand wordmark exception.'],
+			invariants: ['Root layout renders status and merchant navigation before page content.', 'KibbleHomeReference renders hero, products, catalog entry, then service proof.', 'The hero contains one flagship bundle, not an arbitrary collage.', 'When substantiated proof facts exist, the segmented proof strip stays inside the hero text column; otherwise it is omitted.', 'Product imagery preserves packaging labels.', 'Category or routine copy sits below imagery.', 'Mint appears only for substantiated Auto-Refill status or the ampersand wordmark exception.'],
 		},
 		plp: {
-			id: 'kibble-plp-reference-v1', implementation: 'KibbleCategoryReference.svelte', variantId: 'kibble.category-listing.fixed-grid',
-			invariants: ['The category header and product grid stay fixed.', 'Only ranking within the grid may vary.', 'Unsupported product routes render as non-link cards.', 'Empty-state copy comes from the pinned manifest.'],
+			id: 'kibble-plp-reference-v1', acceptance: 'candidate-unaccepted', implementation: 'KibbleCategoryReference.svelte', variantId: 'kibble.category-listing.fixed-grid',
+			invariants: ['This candidate is not eligible for Preserve publication until canonical breadcrumbs, sorting, cursor pagination, and load-more behavior are implemented.', 'Unsupported product routes render as non-link cards.', 'Empty-state copy comes from the pinned manifest.'],
 		},
 		error: {
-			id: 'kibble-error-reference-v1', implementation: 'KibbleErrorReference.svelte', variantId: 'kibble.error.reference-shell',
+			id: 'kibble-error-reference-v1', acceptance: 'approved', implementation: 'KibbleErrorReference.svelte', variantId: 'kibble.error.reference-shell',
 			invariants: ['The Kibble chrome remains visible.', 'Production copy never exposes internal adapter mismatch details.', 'The only recovery action returns home.'],
 		},
 	},

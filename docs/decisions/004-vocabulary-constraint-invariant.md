@@ -72,7 +72,7 @@ The schema is enforceable: `LayoutSchema.safeParse(output)` returns either `{suc
 
 ### Layer 2: Structured LLM Output Constrains Generation
 
-The Vercel AI SDK's `generateObject` and `streamObject` functions pass the Zod schema to the LLM as a constraint on its token generation. The model is not producing free-form text that the system then tries to parse — it is producing tokens that match the schema structure by construction.
+The current Vercel AI SDK v6 path passes the Zod schema through `Output.object` on `generateText` and `streamText`. The provider produces a structured result, and Aisles validates that result against the same schema before publication.
 
 This dramatically raises the probability that the LLM's output is V-compliant. Claude Haiku 4.5 with a well-formed schema produces valid outputs at a high rate (currently not measured; see "Operational Consequences" below). Claude Sonnet 4.6 is more capable and produces valid outputs at a higher rate.
 

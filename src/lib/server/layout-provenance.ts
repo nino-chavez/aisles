@@ -8,6 +8,7 @@ import {
 	type AutonomyCapability,
 } from '$lib/foundation/composition-policy';
 import type { Surface } from '$lib/foundation/zones';
+import type { EffectiveCompositionPolicy } from '$lib/foundation/composition-policy';
 
 export const LAYOUT_PROVENANCE_VERSION = 'layout-provenance-v1' as const;
 export const RESPONSIVE_VIEWPORT_CLASS = 'responsive' as const;
@@ -86,6 +87,62 @@ export interface BuildLegacyLayoutProvenanceInput {
 	picksContext?: unknown;
 	incentiveContext?: unknown;
 	scenarioId?: string | null;
+}
+
+export interface BuildContractedLayoutProvenanceInput {
+	policy: EffectiveCompositionPolicy;
+	surface: Surface;
+	route: string;
+	persona: string;
+	rendererComponentId: string;
+	rendererVariantId: string;
+	decisionSource: 'fixed' | 'rules' | 'merchant' | 'fallback';
+	promptVersion: string;
+	schemaVersion: string;
+	contractInput: unknown;
+	catalogInput: unknown;
+	shopperContext: unknown;
+	scenarioId?: string | null;
+}
+
+/** Truthful provenance for a server-rendered, compiled Preserve route. */
+export function buildContractedLayoutProvenance(
+	input: BuildContractedLayoutProvenanceInput,
+): LayoutProvenance {
+	const referenceId = input.policy.provenance.referenceId;
+	const referenceVersion = input.policy.provenance.referenceVersion;
+	const preset = input.policy.provenance.preset;
+	if (input.policy.provenance.kind !== 'compiled' || !referenceId || !referenceVersion || !preset) {
+		throw new Error('layout provenance: contracted rendering requires compiled reference policy');
+	}
+	const scenarioId = input.scenarioId ?? null;
+	return LayoutProvenanceSchema.parse({
+		version: LAYOUT_PROVENANCE_VERSION,
+		organizationId: input.policy.provenance.organizationId,
+		brandId: input.policy.provenance.brandId,
+		reference: { status: 'contracted', id: referenceId, version: referenceVersion },
+		policyVersion: input.policy.policyVersion,
+		surface: input.surface,
+		route: normalizeRoute(input.route),
+		persona: input.persona,
+		viewportClass: RESPONSIVE_VIEWPORT_CLASS,
+		renderer: { componentId: input.rendererComponentId, variantId: input.rendererVariantId },
+		decisionSource: input.decisionSource,
+		inputHash: stableHash({ contractInput: input.contractInput, schemaVersion: input.schemaVersion }),
+		catalogVersion: `catalog:${stableHash(input.catalogInput)}`,
+		shopperContextHash: stableHash(input.shopperContext),
+		picksHash: null,
+		incentiveHash: null,
+		autonomy: {
+			preset,
+			effectiveCapabilities: [...input.policy.capabilities],
+			decisionMode: input.policy.decisionMode,
+			publicationMode: input.policy.publicationMode,
+		},
+		promptVersion: input.promptVersion,
+		schemaVersion: input.schemaVersion,
+		synthetic: { value: scenarioId !== null, scenarioId },
+	});
 }
 
 /**
