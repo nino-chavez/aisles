@@ -71,10 +71,12 @@ describe('KibbleDevInspector', () => {
 	});
 
 	it('reports the requested signal separately from the applied persona and actual shelf change', () => {
-		expect(describeKibbleRehearsalStatus('hunter', { state: 'applied', persona: 'gatherer', changed: false }))
+		expect(describeKibbleRehearsalStatus('hunter', { state: 'applied', persona: 'gatherer', changed: false }, false))
 			.toBe('Signal hunter accepted. Server applied gatherer; shelf order unchanged.');
-		expect(describeKibbleRehearsalStatus('gatherer', { state: 'applied', persona: 'gatherer', changed: true }))
+		expect(describeKibbleRehearsalStatus('gatherer', { state: 'applied', persona: 'gatherer', changed: true }, false))
 			.toBe('Signal gatherer accepted. Server applied gatherer; shelf order changed.');
+		expect(describeKibbleRehearsalStatus('researcher', { state: 'applied', persona: 'hunter', changed: true }, true))
+			.toBe('Signal researcher queued. Waiting for the signal endpoint.');
 	});
 
 	it('offers real signal-pipeline rehearsal controls only for a synthetic scenario', () => {

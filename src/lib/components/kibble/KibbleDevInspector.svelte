@@ -24,7 +24,9 @@
 	} = $props();
 	let liveInference = $state<KibbleInspectorInference | null>(null);
 	let rehearsalPersona = $state<KibbleInspectorPersona | null>(null);
+	let rehearsalQueued = $state(false);
 	let rehearsalError = $state<string | null>(null);
+	let rehearsalTimeout: ReturnType<typeof setTimeout> | null = null;
 	const safeInspectorInference = $derived(sanitizeInspectorInference(inspector.inference));
 	const currentInference = $derived(liveInference ?? safeInspectorInference);
 	const syntheticScenario = $derived.by(() => {
@@ -50,10 +52,16 @@
 				? detail.inference
 				: detail;
 			if (!isKibbleInspectorInference(candidate)) return;
+			rehearsalQueued = false;
+			if (rehearsalTimeout) clearTimeout(rehearsalTimeout);
+			rehearsalTimeout = null;
 			liveInference = sanitizeInspectorInference(candidate);
 		};
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
-		return () => window.removeEventListener('aisles-inference-update', onInferenceUpdate);
+		return () => {
+			window.removeEventListener('aisles-inference-update', onInferenceUpdate);
+			if (rehearsalTimeout) clearTimeout(rehearsalTimeout);
+		};
 	});
 
 	const percent = (value: number) => `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
@@ -67,16 +75,24 @@
 		if (status.state === 'failed') return 'preview failed; last approved shelf retained';
 		return 'waiting for a signal';
 	};
-	const rehearsalStatus = $derived(describeKibbleRehearsalStatus(rehearsalPersona, livePreview, rehearsalError));
+	const rehearsalStatus = $derived(describeKibbleRehearsalStatus(rehearsalPersona, livePreview, rehearsalQueued, rehearsalError));
 	const sendRehearsalSignal = (signal: (typeof rehearsalSignals)[number]) => {
 		const emitter = getEmitter();
 		if (!emitter) {
 			rehearsalPersona = null;
+			rehearsalQueued = false;
 			rehearsalError = 'Signal emitter unavailable; no event was sent.';
 			return;
 		}
+		if (rehearsalTimeout) clearTimeout(rehearsalTimeout);
 		rehearsalError = null;
 		rehearsalPersona = signal.persona;
+		rehearsalQueued = true;
+		rehearsalTimeout = setTimeout(() => {
+			rehearsalQueued = false;
+			rehearsalError = `Signal ${signal.persona} was not confirmed; no new decision was applied.`;
+			rehearsalTimeout = null;
+		}, 10_000);
 		emitter.emit('nav.search', { query: signal.query });
 	};
 	const viewChangedShelf = (event: MouseEvent) => {
@@ -157,11 +173,11 @@
 			<p>Each button sends one allowed <code>nav.search</code> event through the actual signal endpoint. No model is called, and this is not a shopper control.</p>
 			<div class="kc-dev-inspector__rehearsal-actions">
 				{#each rehearsalSignals as signal}
-					<button type="button" onclick={() => sendRehearsalSignal(signal)}>Signal {signal.persona}</button>
+					<button type="button" disabled={rehearsalQueued || livePreview.state === 'updating'} onclick={() => sendRehearsalSignal(signal)}>Signal {signal.persona}</button>
 				{/each}
 			</div>
 			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite" aria-atomic="true">{rehearsalStatus}</p>
-			{#if livePreview.state === 'applied' && livePreview.changed}
+			{#if !rehearsalQueued && !rehearsalError && livePreview.state === 'applied' && livePreview.changed}
 				<a class="kc-dev-inspector__view-shelf" href="#kibble-featured-shelf" onclick={viewChangedShelf}>View changed shelf</a>
 			{/if}
 		</section>
@@ -268,6 +284,7 @@
 	.kc-dev-inspector__rehearsal-actions { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.65rem; }
 	.kc-dev-inspector a, .kc-dev-inspector button { display:inline-flex; min-height:44px; align-items:center; border:1px solid #aebee1; background:#fff; color:#1c4cab; font:inherit; font-weight:700; padding:.45rem .65rem; text-decoration:none; }
 	.kc-dev-inspector button { cursor:pointer; border-color:#78ae9f; color:#075d4c; }
+	.kc-dev-inspector button:disabled { cursor:wait; opacity:.55; }
 	.kc-dev-inspector a:hover { background:#e8eefb; }
 	.kc-dev-inspector button:hover { background:#ddf1ea; }
 	.kc-dev-inspector a:focus-visible, .kc-dev-inspector button:focus-visible, .kc-dev-inspector summary:focus-visible { outline:3px solid var(--dev-blue); outline-offset:3px; }

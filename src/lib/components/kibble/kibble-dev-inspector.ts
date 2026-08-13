@@ -72,16 +72,18 @@ export type KibbleLivePreviewStatus =
 export function describeKibbleRehearsalStatus(
 	requestedPersona: KibbleInspectorPersona | null,
 	status: KibbleLivePreviewStatus,
+	queued = false,
 	error: string | null = null,
 ): string {
 	if (error) return error;
 	if (!requestedPersona) return 'Choose a persona to send one synthetic search signal.';
+	if (queued) return `Signal ${requestedPersona} queued. Waiting for the signal endpoint.`;
 	if (status.state === 'updating') return `Signal ${requestedPersona} accepted. Server decision updating.`;
 	if (status.state === 'failed') return `Signal ${requestedPersona} accepted. Preview failed; last approved shelf retained.`;
 	if (status.state === 'applied') {
 		return `Signal ${requestedPersona} accepted. Server applied ${status.persona}; shelf order ${status.changed ? 'changed' : 'unchanged'}.`;
 	}
-	return `Signal ${requestedPersona} queued. Waiting for the signal endpoint.`;
+	return `Signal ${requestedPersona} accepted. Waiting for the server decision.`;
 }
 
 export const KIBBLE_INSPECTOR_PERSONAS: readonly KibbleInspectorPersona[] = [
