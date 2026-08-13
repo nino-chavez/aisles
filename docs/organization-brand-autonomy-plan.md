@@ -477,8 +477,11 @@ response, and include a ten-second uncertain-delivery fail-safe rather than
 letting an older response confirm the wrong control. The local transport
 normally responds first: it drops an uncertain stalled batch after four seconds
 and immediately drains any newer control. The preview has its own ten-second
-fail-closed watchdog. Receipt and preview client modules compile out of the
-production shopper bundle.
+fail-closed watchdog. The client applies a new shelf only after validating the
+complete versioned preview payload, including reference and policy identity,
+zone decisions, contracted rules provenance, data-source labeling, and score
+absence. Receipt and preview client modules compile out of the production
+shopper bundle.
 
 ### Phase 6: Version cache and provenance
 

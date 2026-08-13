@@ -64,7 +64,10 @@ The local signal transport normally restores the controls first: it aborts a
 stalled request after four seconds and does not replay that uncertain batch.
 Any newer queued control drains immediately.
 The preview request has a separate ten-second watchdog; timeout retains the
-last approved shelf and marks the preview failed. The receipt helper, inspector,
+last approved shelf and marks the preview failed. Before replacing that shelf,
+the client strictly validates the complete versioned preview payload: reference
+and policy identity, data-source label, zone decisions, contracted rules
+provenance, and the absence of protected scores. The receipt helper, inspector,
 and live-preview client are development-only lazy modules and are absent from
 the production shopper bundle.
 

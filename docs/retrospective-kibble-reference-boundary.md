@@ -71,8 +71,10 @@ ten-second uncertain-delivery fail-safe. The showcase transport normally
 restores the controls first: it drops an uncertain stalled batch after four
 seconds and immediately drains a newer control. The preview request
 independently fails closed after ten seconds and retains the approved shelf.
-These receipt and preview client modules compile out of the production shopper
-bundle. The showcase catalog and
+Before changing the shelf, the client validates the complete versioned preview:
+reference and policy identity, data-source label, zone decisions, contracted
+rules provenance, and score absence. These receipt and preview client modules
+compile out of the production shopper bundle. The showcase catalog and
 fit values are pinned synthetic fixtures. They do not change production
 authority, and the Preserve
 shell remains fixed.
