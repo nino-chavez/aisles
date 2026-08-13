@@ -26,6 +26,7 @@
 		categoryTitle,
 		categoryEyebrow,
 		zoneAdapters,
+		modelEligible = false,
 	}: {
 			hero: {
 				eyebrow: string;
@@ -50,6 +51,7 @@
 			editorial: any;
 			belowFold: any;
 		};
+		modelEligible?: boolean;
 	} = $props();
 </script>
 
@@ -70,6 +72,7 @@
 	{browseHref}
 	{subscriptionOffers}
 	zoneAdapters={zoneAdapters?.featuredRows}
+	{modelEligible}
 />
 <KibbleVisualModule
 	variant="category"

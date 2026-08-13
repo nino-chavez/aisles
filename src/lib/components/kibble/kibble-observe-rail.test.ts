@@ -29,7 +29,7 @@ describe('KibbleObserveRail', () => {
 			expect(result.body).toContain(label);
 		}
 		expect(result.body).toContain('researcher');
-		expect(result.body).toContain('Plp · Preserve shell');
+		expect(result.body).toContain('Plp · Template and rules');
 		expect(result.body).toContain(`kibble-shelf-native@${KIBBLE_REFERENCE_CONTRACT.version}`);
 		expect(result.body).toContain('/observe?session=session-one');
 		expect(result.body).toContain('https://storefront.bcsubs.app/');
@@ -47,7 +47,8 @@ describe('KibbleObserveRail', () => {
 	it('keeps the PDP AI action status mounted and disables it while a ranking runs', () => {
 		const source = readFileSync(resolve(import.meta.dirname, 'KibbleObserveRail.svelte'), 'utf8');
 		expect(source).toContain('role="status" aria-live="polite"');
-		expect(source).toContain('disabled={pdpModelAction.disabled}');
+		expect(source).toContain("surface === 'pdp' ? pdpModelAction");
+		expect(source).toContain('disabled={!modelActionReady || modelAction.disabled}');
 		expect(source).toContain("pdpModelActionStatus = 'updating'");
 	});
 
@@ -57,8 +58,23 @@ describe('KibbleObserveRail', () => {
 		expect(source).toContain("window.addEventListener('aisles-kibble-plp-model-status', onPlpModelStatus)");
 		expect(source).toContain("window.removeEventListener('aisles-kibble-plp-model-status', onPlpModelStatus)");
 		expect(source).toContain("window.dispatchEvent(new CustomEvent('aisles-kibble-plp-model-request'))");
-		expect(source).toContain('disabled={plpModelAction.disabled}');
+		expect(source).toContain("surface === 'plp' ? plpModelAction");
+		expect(source).toContain('disabled={!modelActionReady || modelAction.disabled}');
 		expect(source).toContain('plpModelActionReady = false');
 		expect(source).toContain("plpModelActionStatus = 'idle'");
+	});
+
+	it('makes bounded AI capability visible before the first model call on every approved surface', () => {
+		const rail = readFileSync(resolve(import.meta.dirname, 'KibbleObserveRail.svelte'), 'utf8');
+		const home = readFileSync(resolve(import.meta.dirname, 'KibbleFeaturedGrid.svelte'), 'utf8');
+		const plp = readFileSync(resolve(import.meta.dirname, 'KibbleCategoryReference.svelte'), 'utf8');
+		const pdp = readFileSync(resolve(import.meta.dirname, 'KibbleProductDetailReference.svelte'), 'utf8');
+
+		expect(rail).toContain("`${surfaceLabel} · AI available`");
+		expect(rail).toContain("return 'Run AI'");
+		expect(rail).toContain("window.dispatchEvent(new CustomEvent('aisles-kibble-model-request'))");
+		expect(rail).toContain("window.addEventListener('aisles-kibble-home-model-ready', onHomeModelReady)");
+		expect(rail).toContain("zone.modelEligible ? 'AI available'");
+		for (const source of [home, plp, pdp]) expect(source).toContain('data-aisles-model-eligible');
 	});
 });
