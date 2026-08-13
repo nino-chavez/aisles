@@ -1,12 +1,21 @@
 <script lang="ts">
+	import { replaceState } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import {
+		SignalConfirmationError,
+		registerConfirmedSignal,
+		type ConfirmedSignal,
+	} from '$lib/signals/confirmed-signal.dev';
+	import { getEmitter } from '$lib/signals/emitter';
+	import {
 		KIBBLE_INSPECTOR_PERSONAS,
+		describeKibbleRehearsalStatus,
 		isKibbleInspectorInference,
 		redactInspectorDebugValue,
 		sanitizeInspectorInference,
 		type KibbleDevInspectorData,
 		type KibbleInspectorInference,
+		type KibbleInspectorPersona,
 		type KibbleInspectorProductSummary,
 		type KibbleInspectorZone,
 		type KibbleLivePreviewStatus,
@@ -20,8 +29,24 @@
 		livePreview?: KibbleLivePreviewStatus;
 	} = $props();
 	let liveInference = $state<KibbleInspectorInference | null>(null);
+	let rehearsalPersona = $state<KibbleInspectorPersona | null>(null);
+	let rehearsalQueued = $state(false);
+	let rehearsalError = $state<string | null>(null);
+	let rehearsalGeneration = 0;
+	let activeConfirmation: ConfirmedSignal | null = null;
 	const safeInspectorInference = $derived(sanitizeInspectorInference(inspector.inference));
 	const currentInference = $derived(liveInference ?? safeInspectorInference);
+	const syntheticScenario = $derived.by(() => {
+		const synthetic = inspector.provenance?.synthetic;
+		return !!synthetic && typeof synthetic === 'object' && !Array.isArray(synthetic)
+			&& (synthetic as Record<string, unknown>).value === true;
+	});
+	const rehearsalSignals: ReadonlyArray<{ persona: KibbleInspectorPersona; query: string }> = [
+		{ persona: 'gatherer', query: 'cozy inspiration ideas' },
+		{ persona: 'hunter', query: 'budget sale discount' },
+		{ persona: 'researcher', query: 'compare best reviews' },
+		{ persona: 'gifter', query: 'birthday gift present' },
+	];
 
 	$effect(() => {
 		liveInference = safeInspectorInference;
@@ -37,7 +62,12 @@
 			liveInference = sanitizeInspectorInference(candidate);
 		};
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
-		return () => window.removeEventListener('aisles-inference-update', onInferenceUpdate);
+		return () => {
+			rehearsalGeneration += 1;
+			activeConfirmation?.cancel();
+			activeConfirmation = null;
+			window.removeEventListener('aisles-inference-update', onInferenceUpdate);
+		};
 	});
 
 	const percent = (value: number) => `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
@@ -50,6 +80,46 @@
 		if (status.state === 'applied') return `preview applied for ${status.persona}`;
 		if (status.state === 'failed') return 'preview failed; last approved shelf retained';
 		return 'waiting for a signal';
+	};
+	const rehearsalStatus = $derived(describeKibbleRehearsalStatus(rehearsalPersona, livePreview, rehearsalQueued, rehearsalError));
+	const rehearsalBusy = $derived(rehearsalQueued || livePreview.state === 'updating');
+	const sendRehearsalSignal = async (signal: (typeof rehearsalSignals)[number]) => {
+		const emitter = getEmitter();
+		if (!emitter) {
+			rehearsalPersona = null;
+			rehearsalQueued = false;
+			rehearsalError = 'Signal emitter unavailable; no event was sent.';
+			return;
+		}
+		activeConfirmation?.cancel();
+		const generation = ++rehearsalGeneration;
+		rehearsalError = null;
+		rehearsalPersona = signal.persona;
+		rehearsalQueued = true;
+		const attempt = registerConfirmedSignal(emitter, 'nav.search', { query: signal.query });
+		activeConfirmation = attempt;
+		try {
+			await attempt.confirmation;
+			if (generation !== rehearsalGeneration) return;
+			rehearsalQueued = false;
+		} catch (error) {
+			if (generation !== rehearsalGeneration) return;
+			rehearsalQueued = false;
+			const reason = error instanceof SignalConfirmationError
+				? error.message
+				: 'Signal confirmation failed.';
+			rehearsalError = `Signal ${signal.persona} was not confirmed. ${reason}`;
+		} finally {
+			if (activeConfirmation === attempt) activeConfirmation = null;
+		}
+	};
+	const viewChangedShelf = (event: MouseEvent) => {
+		event.preventDefault();
+		const shelf = document.getElementById('kibble-featured-shelf');
+		if (!shelf) return;
+		replaceState('#kibble-featured-shelf', {});
+		shelf.scrollIntoView({ block: 'start' });
+		shelf.focus({ preventScroll: true });
 	};
 </script>
 
@@ -92,7 +162,7 @@
 			{/if}
 		</div>
 
-		<p class="kc-dev-inspector__notice" aria-live="polite">
+		<p class="kc-dev-inspector__notice">
 			<b>Live shelf preview:</b> {previewMessage(livePreview)}. Production applies decisions on a route boundary; this live change is a development preview.
 		</p>
 	</section>
@@ -106,14 +176,34 @@
 	</section>
 
 	<section class="kc-dev-inspector__scenarios" aria-labelledby="kibble-dev-scenarios">
-		<h3 id="kibble-dev-scenarios">Deterministic demo signal</h3>
-		<p>Explicit intent adds one deterministic request signal. It does not change policy authority.</p>
+		<h3 id="kibble-dev-scenarios">Route-boundary scenario</h3>
+		<p>Explicit intent adds one deterministic request signal on navigation. It does not change policy authority.</p>
 		<nav aria-label="Intent scenarios">
 			{#each KIBBLE_INSPECTOR_PERSONAS as persona}
 				<a href={`?dev=true&intent=${persona}`}>{persona}</a>
 			{/each}
 		</nav>
 	</section>
+
+	{#if syntheticScenario}
+		<section class="kc-dev-inspector__rehearsal" aria-labelledby="kibble-dev-live-rehearsal">
+			<h3 id="kibble-dev-live-rehearsal">Live synthetic signal rehearsal</h3>
+			<p>Each button sends one allowed <code>nav.search</code> event through the actual signal endpoint. No model is called, and this is not a shopper control.</p>
+			<div class="kc-dev-inspector__rehearsal-actions">
+				{#each rehearsalSignals as signal}
+					<button
+						type="button"
+						aria-disabled={rehearsalBusy}
+						onclick={() => { if (!rehearsalBusy) void sendRehearsalSignal(signal); }}
+					>Signal {signal.persona}</button>
+				{/each}
+			</div>
+			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite" aria-atomic="true">{rehearsalStatus}</p>
+			{#if !rehearsalQueued && !rehearsalError && livePreview.state === 'applied' && livePreview.changed}
+				<a class="kc-dev-inspector__view-shelf" href="#kibble-featured-shelf" onclick={viewChangedShelf}>View changed shelf</a>
+			{/if}
+		</section>
+	{/if}
 
 	<section class="kc-dev-inspector__zones" aria-labelledby="kibble-dev-zones">
 		<div class="kc-dev-inspector__section-heading">
@@ -183,7 +273,7 @@
 <style>
 	.kc-dev-inspector { --dev-ink:#17213b; --dev-muted:#56617a; --dev-border:#cdd7ea; --dev-panel:#f6f8fd; --dev-blue:#315cc9; --dev-green:#08745d; --dev-amber:#9a6100; margin:1.25rem auto; max-width:1280px; max-height:75vh; overflow:auto; border:1px solid var(--dev-border); background:var(--dev-panel); color:var(--dev-ink); font-family:var(--kc-font-machinery, ui-monospace, SFMono-Regular, Menlo, monospace); font-size:.8rem; line-height:1.45; }
 	.kc-dev-inspector *, .kc-dev-inspector *::before, .kc-dev-inspector *::after { box-sizing:border-box; }
-	.kc-dev-inspector__header, .kc-dev-inspector__summary, .kc-dev-inspector__facts, .kc-dev-inspector__scenarios, .kc-dev-inspector__zones, .kc-dev-inspector__rules, .kc-dev-inspector__raw { padding:1rem 1.125rem; }
+	.kc-dev-inspector__header, .kc-dev-inspector__summary, .kc-dev-inspector__facts, .kc-dev-inspector__scenarios, .kc-dev-inspector__rehearsal, .kc-dev-inspector__zones, .kc-dev-inspector__rules, .kc-dev-inspector__raw { padding:1rem 1.125rem; }
 	.kc-dev-inspector__header { position:sticky; top:0; z-index:2; display:flex; align-items:start; justify-content:space-between; gap:1rem; border-bottom:1px solid var(--dev-border); background:#e8eefb; }
 	.kc-dev-inspector__eyebrow, .kc-dev-inspector h2, .kc-dev-inspector h3, .kc-dev-inspector h4, .kc-dev-inspector p { margin:0; }
 	.kc-dev-inspector__eyebrow, .kc-dev-inspector__label, .kc-dev-inspector__facts span, .kc-dev-inspector dt { color:var(--dev-muted); font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
@@ -209,12 +299,19 @@
 	.kc-dev-inspector__facts small { display:block; margin-top:.2rem; color:var(--dev-muted); font-size:.68rem; line-height:1.35; }
 	.kc-dev-inspector__facts b { margin-top:.2rem; font-size:.7rem; }
 	.kc-dev-inspector__scenarios { border-bottom:1px solid var(--dev-border); }
+	.kc-dev-inspector__rehearsal { border-bottom:1px solid var(--dev-border); background:#edf8f4; }
 	.kc-dev-inspector h3 { font-size:.78rem; }
-	.kc-dev-inspector__scenarios p { margin-top:.3rem; color:var(--dev-muted); }
+	.kc-dev-inspector__scenarios p, .kc-dev-inspector__rehearsal p { margin-top:.3rem; color:var(--dev-muted); }
 	.kc-dev-inspector__scenarios nav { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.65rem; }
-	.kc-dev-inspector a { display:inline-flex; min-height:44px; align-items:center; border:1px solid #aebee1; background:#fff; color:#1c4cab; font-weight:700; padding:.45rem .65rem; text-decoration:none; }
+	.kc-dev-inspector__rehearsal-actions { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.65rem; }
+	.kc-dev-inspector a, .kc-dev-inspector button { display:inline-flex; min-height:44px; align-items:center; border:1px solid #aebee1; background:#fff; color:#1c4cab; font:inherit; font-weight:700; padding:.45rem .65rem; text-decoration:none; }
+	.kc-dev-inspector button { cursor:pointer; border-color:#78ae9f; color:#075d4c; }
+	.kc-dev-inspector button[aria-disabled='true'] { cursor:wait; opacity:.55; }
 	.kc-dev-inspector a:hover { background:#e8eefb; }
-	.kc-dev-inspector a:focus-visible, .kc-dev-inspector summary:focus-visible { outline:3px solid var(--dev-blue); outline-offset:3px; }
+	.kc-dev-inspector button:hover { background:#ddf1ea; }
+	.kc-dev-inspector a:focus-visible, .kc-dev-inspector button:focus-visible, .kc-dev-inspector summary:focus-visible { outline:3px solid var(--dev-blue); outline-offset:3px; }
+	.kc-dev-inspector__rehearsal-status { font-weight:700; }
+	.kc-dev-inspector__view-shelf { margin-top:.55rem; }
 	.kc-dev-inspector__zones ol { display:grid; gap:.65rem; margin:.7rem 0 0; padding:0; list-style:none; }
 	.kc-dev-inspector__zone { border:1px solid var(--dev-border); background:#fff; padding:.75rem; }
 	.kc-dev-inspector__ordinal { color:var(--dev-muted); font-weight:700; }

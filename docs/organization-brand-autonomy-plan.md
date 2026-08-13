@@ -425,6 +425,28 @@ merchant-provided candidate shelf. Header, hero, category module, service proof,
 footer, component variants, CSS, and copy remain fixed by the Kibble reference
 contract. Enrichment scores stay server-side and are removed before shopper
 page data is serialized.
+
+Normal production applies that bounded decision when the Home route renders.
+For an engineer's explicit local inspection, compile-time development mode plus
+`?dev=true` may immediately preview the latest persisted-session decision at
+`POST /api/kibble/home-decision?dev=true`. The endpoint is server-authoritative:
+it accepts no persona, score, policy, candidate, or product-order input from the
+browser. It requires the active Kibble brand, the trusted Home
+`reference-preserve` policy, and a valid scoped `aisles_session`; otherwise it
+fails closed with `404` for an unavailable surface or `409` for a missing or
+unknown session. Its no-store response is versioned and carries sanitized
+inference, the score-free zone trace, a runner data-source override when set,
+and contracted `rules` provenance for the current scenario. It does not create
+or mutate a session, call a model, generate a layout, read or write the
+layout-decision cache, write telemetry, or write a database. It does read the
+existing scoped session from the in-memory session cache or Redis when
+configured.
+
+The local synthetic rehearsal buttons are development inspector controls, not
+shopper controls. They emit real allowed `nav.search` events through
+`/api/signals`, then request that server-derived preview. They use the showcase's
+pinned synthetic catalog and fit fixture; they do not create a production
+decision authority or change the fixed Preserve shell.
 Keep the current whole-page renderer as an explicit legacy path for brands that
 have not adopted contracts. Select the path from trusted server-side brand and
 contract data. Kibble Preserve mode server-renders its fixed shell and does not
@@ -443,11 +465,23 @@ source-class labels alone are not authority.
 The first executable contracted decision is deliberately the smaller rules case:
 Kibble Home can rank and select products, while every other Home zone remains
 fixed. A development-only inspector shows the inference, policy, permitted
-capabilities, input and output order, and zero model calls. It requires an
-explicit `?dev=true` request and is removed from production builds. A separate
-local showcase supplies a pinned catalog and clearly labeled synthetic fit
-scores; it blanks production data and model credentials and marks its
-provenance synthetic.
+capabilities, input and output order, and zero model calls. Its live preview
+requires both compile-time development mode and an explicit `?dev=true` request;
+the route then re-derives the persisted-session decision server-side rather than
+accepting browser-controlled decision data. A separate local showcase supplies
+a pinned catalog and clearly labeled synthetic fit scores; its rehearsal buttons
+send real `nav.search` signals through `/api/signals`, are not shopper controls,
+and mark the resulting preview provenance synthetic. Development receipts bind
+each control to its exact client sequence, validate the complete inference
+response, and include a ten-second uncertain-delivery fail-safe rather than
+letting an older response confirm the wrong control. The local transport
+normally responds first: it drops an uncertain stalled batch after four seconds
+and immediately drains any newer control. The preview has its own ten-second
+fail-closed watchdog. The client applies a new shelf only after validating the
+complete versioned preview payload, including reference and policy identity,
+zone decisions, contracted rules provenance, data-source labeling, and score
+absence. Receipt and preview client modules compile out of the production
+shopper bundle.
 
 ### Phase 6: Version cache and provenance
 

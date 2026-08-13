@@ -67,7 +67,24 @@ export interface KibbleDevInspectorData {
 
 export type KibbleLivePreviewStatus =
 	| { state: 'waiting' | 'updating' | 'failed' }
-	| { state: 'applied'; persona: KibbleInspectorPersona };
+	| { state: 'applied'; persona: KibbleInspectorPersona; changed: boolean };
+
+export function describeKibbleRehearsalStatus(
+	requestedPersona: KibbleInspectorPersona | null,
+	status: KibbleLivePreviewStatus,
+	queued = false,
+	error: string | null = null,
+): string {
+	if (error) return error;
+	if (!requestedPersona) return 'Choose a persona to send one synthetic search signal.';
+	if (queued) return `Signal ${requestedPersona} queued. Waiting for the signal endpoint.`;
+	if (status.state === 'updating') return `Signal ${requestedPersona} accepted. Server decision updating.`;
+	if (status.state === 'failed') return `Signal ${requestedPersona} accepted. Preview failed; last approved shelf retained.`;
+	if (status.state === 'applied') {
+		return `Signal ${requestedPersona} accepted. Server applied ${status.persona}; shelf order ${status.changed ? 'changed' : 'unchanged'}.`;
+	}
+	return `Signal ${requestedPersona} accepted. Waiting for the server decision.`;
+}
 
 export const KIBBLE_INSPECTOR_PERSONAS: readonly KibbleInspectorPersona[] = [
 	'gatherer',
@@ -84,13 +101,16 @@ const bearerToken = /\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi;
 /** Keep inference mechanics visible without echoing shopper-controlled values. */
 export function sanitizeInspectorInference<T extends KibbleInspectorInference>(inference: T): T {
 	return {
-		...structuredClone(inference),
+		...inference,
+		probabilities: { ...inference.probabilities },
+		modifiers: { ...inference.modifiers },
 		shift: {
 			...inference.shift,
 			trigger: inference.shift.trigger ? '[request detail withheld]' : null,
 		},
 		ruleMatches: inference.ruleMatches.map((rule) => ({
-			...structuredClone(rule),
+			...rule,
+			adjustment: { ...rule.adjustment },
 			reason: 'Matched; raw request detail withheld.',
 		})),
 	} as T;

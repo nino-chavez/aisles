@@ -9,7 +9,11 @@
  * Phase 3+: scroll depth, dwell time, cart actions, etc.
  */
 
+import { dev } from '$app/environment';
 import type { SignalEventType, SignalSource } from './types';
+import { parseConfirmedSignalBatch } from './client-inference-contract';
+
+export const DEV_SIGNAL_REQUEST_TIMEOUT_MS = 4_000;
 
 interface EmittedEvent {
 	type: SignalEventType;
@@ -39,6 +43,7 @@ export class SignalEmitter {
 	private sequence = 0;
 	private flushTimer: ReturnType<typeof setInterval> | null = null;
 	private flushing = false;
+	private destroyed = false;
 
 	constructor() {
 		// Flush buffered events every 5 seconds
@@ -67,37 +72,104 @@ export class SignalEmitter {
 
 		// Immediate flush for high-priority events
 		if (HIGH_PRIORITY.includes(type)) {
-			this.flush();
+			void this.flush();
 		}
+
+		return event.sequence;
 	}
 
 	async flush() {
-		if (this.buffer.length === 0 || this.flushing) return;
+		if (this.destroyed || this.buffer.length === 0 || this.flushing) return;
 
 		this.flushing = true;
 		const events = [...this.buffer];
 		this.buffer = [];
 
+		let retryLater = false;
+		const requestController = dev ? new AbortController() : null;
+		const requestTimeout = requestController
+			? setTimeout(() => requestController.abort(), DEV_SIGNAL_REQUEST_TIMEOUT_MS)
+			: null;
 		try {
 			const res = await fetch('/api/signals', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ events }),
+				signal: requestController?.signal,
 			});
+			if (requestController?.signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
-			if (res.ok) {
-				const data = await res.json();
-				if (data.inference) {
-					window.dispatchEvent(new CustomEvent('aisles-inference-update', {
-						detail: data.inference,
+			if (!res.ok) {
+				if (dev) {
+					const sequences = events.map(({ sequence }) => sequence);
+					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+						detail: { emitter: this, sequences, report: { status: 'http', code: res.status } },
 					}));
 				}
+				return;
+			}
+
+			let body: unknown;
+			try {
+				body = await res.json();
+			} catch {
+				if (dev) {
+					const sequences = events.map(({ sequence }) => sequence);
+					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+						detail: { emitter: this, sequences, report: { status: 'invalid-response' } },
+					}));
+				}
+				return;
+			}
+			if (requestController?.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+			const data = parseConfirmedSignalBatch(body, events.length);
+			if (!data) {
+				if (dev) {
+					const sequences = events.map(({ sequence }) => sequence);
+					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+						detail: { emitter: this, sequences, report: { status: 'invalid-response' } },
+					}));
+				}
+				return;
+			}
+			if (!data.inference) {
+				if (dev) {
+					const sequences = events.map(({ sequence }) => sequence);
+					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+						detail: { emitter: this, sequences, report: { status: 'no-session' } },
+					}));
+				}
+				return;
+			}
+			window.dispatchEvent(new CustomEvent('aisles-inference-update', {
+				detail: data.inference,
+			}));
+			if (dev) {
+				const sequences = events.map(({ sequence }) => sequence);
+				window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+					detail: { emitter: this, sequences, report: { status: 'confirmed', inference: data.inference } },
+				}));
 			}
 		} catch {
-			// Re-buffer on failure — prepend so order is preserved
-			this.buffer = [...events, ...this.buffer];
+			if (dev) {
+				// A cancelled or failed development request has uncertain delivery.
+				// Do not replay it and later contradict the inspector's failure state.
+				const sequences = events.map(({ sequence }) => sequence);
+				window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
+					detail: { emitter: this, sequences, report: { status: 'network' } },
+				}));
+			} else {
+				// Production preserves the established best-effort retry behavior.
+				this.buffer = [...events, ...this.buffer];
+				retryLater = true;
+			}
 		} finally {
+			if (requestTimeout) clearTimeout(requestTimeout);
 			this.flushing = false;
+			// A high-priority event may arrive while another batch is in flight.
+			// Drain it immediately after a completed request instead of waiting for
+			// the five-second interval. Network failures retain the original retry.
+			if (!this.destroyed && !retryLater && this.buffer.length > 0) void this.flush();
 		}
 	}
 
@@ -106,7 +178,8 @@ export class SignalEmitter {
 			clearInterval(this.flushTimer);
 			this.flushTimer = null;
 		}
-		this.flush(); // Final flush
+		void this.flush(); // Final flush
+		this.destroyed = true;
 	}
 
 	/**

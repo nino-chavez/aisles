@@ -3,8 +3,10 @@ import { render } from 'svelte/server';
 import KibbleDevInspector from './KibbleDevInspector.svelte';
 import {
 	redactInspectorDebugValue,
+	describeKibbleRehearsalStatus,
 	sanitizeInspectorInference,
 	type KibbleDevInspectorData,
+	type KibbleInspectorInference,
 } from './kibble-dev-inspector';
 
 const inspector: KibbleDevInspectorData = {
@@ -40,20 +42,25 @@ describe('KibbleDevInspector', () => {
 	});
 
 	it('withholds shopper-controlled inference details and secrets embedded in strings', () => {
-		const sanitized = sanitizeInspectorInference({
+		const unsafeInference: KibbleInspectorInference = {
 			...inspector.inference,
 			shift: { detected: true, from: 'hunter', trigger: 'search person@example.com' },
 			ruleMatches: [{
 				ruleName: 'search', reason: 'https://example.com/?access_token=sekret', weight: 1,
 				adjustment: { researcher: 1 },
 			}],
-		});
+		};
+		const sanitized = sanitizeInspectorInference(unsafeInference);
 		expect(sanitized.shift.trigger).toBe('[request detail withheld]');
 		expect(sanitized.ruleMatches[0].reason).toBe('Matched; raw request detail withheld.');
 		expect(JSON.stringify(redactInspectorDebugValue({
 			reason: 'https://example.com/?access_token=sekret',
 			trigger: 'search person@example.com',
 		}))).toBe('{"reason":"https://example.com/?access_token=[redacted]","trigger":"search [redacted-email]"}');
+		expect(sanitized).not.toBe(unsafeInference);
+		expect(sanitized.probabilities).not.toBe(unsafeInference.probabilities);
+		expect(sanitized.modifiers).not.toBe(unsafeInference.modifiers);
+		expect(sanitized.ruleMatches[0].adjustment).not.toBe(unsafeInference.ruleMatches[0].adjustment);
 	});
 
 	it('labels policy publication as distinct from deployment status', () => {
@@ -63,9 +70,37 @@ describe('KibbleDevInspector', () => {
 	});
 
 	it('labels the development-only shelf preview and its applied status', () => {
-		const result = render(KibbleDevInspector, { props: { inspector, livePreview: { state: 'applied', persona: 'hunter' } } });
+		const result = render(KibbleDevInspector, { props: { inspector, livePreview: { state: 'applied', persona: 'hunter', changed: true } } });
 		expect(result.body).toContain('preview applied for hunter');
 		expect(result.body).toContain('Production applies decisions on a route boundary; this live change is a development preview.');
-		expect(result.body).toContain('aria-live="polite"');
+		expect(result.body).not.toContain('View changed shelf');
+	});
+
+	it('reports the requested signal separately from the applied persona and actual shelf change', () => {
+		expect(describeKibbleRehearsalStatus('hunter', { state: 'applied', persona: 'gatherer', changed: false }, false))
+			.toBe('Signal hunter accepted. Server applied gatherer; shelf order unchanged.');
+		expect(describeKibbleRehearsalStatus('gatherer', { state: 'applied', persona: 'gatherer', changed: true }, false))
+			.toBe('Signal gatherer accepted. Server applied gatherer; shelf order changed.');
+		expect(describeKibbleRehearsalStatus('researcher', { state: 'applied', persona: 'hunter', changed: true }, true))
+			.toBe('Signal researcher queued. Waiting for the signal endpoint.');
+	});
+
+	it('offers real signal-pipeline rehearsal controls only for a synthetic scenario', () => {
+		const synthetic = {
+			...inspector,
+			provenance: { synthetic: { value: true, scenarioId: 'local-showcase' } },
+		};
+		const result = render(KibbleDevInspector, { props: { inspector: synthetic } });
+		expect(result.body).toContain('Live synthetic signal rehearsal');
+		expect(result.body).toContain('actual signal endpoint');
+		for (const persona of ['gatherer', 'hunter', 'researcher', 'gifter']) {
+			expect(result.body).toContain(`Signal ${persona}`);
+		}
+		expect(result.body).not.toContain('Reset session view');
+		expect(result.body).toContain('Choose a persona to send one synthetic search signal.');
+		expect(result.body).toContain('aria-atomic="true"');
+		expect(result.body).toContain('aria-disabled="false"');
+		expect(result.body).not.toMatch(/<button[^>]*\sdisabled(?:=|\s|>)/);
+		expect(render(KibbleDevInspector, { props: { inspector } }).body).not.toContain('Live synthetic signal rehearsal');
 	});
 });
