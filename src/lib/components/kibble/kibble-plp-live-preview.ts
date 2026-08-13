@@ -6,10 +6,11 @@ const CONTENT_KEYS = new Set(['component', 'props']);
 const PROP_KEYS = new Set(['columns', 'products', 'imageRatio', 'showDescription', 'showSpecs', 'showQuickAdd']);
 const PRODUCT_REF_KEYS = new Set(['productId', 'role']);
 const HEX_64 = /^[0-9a-f]{64}$/;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export type KibblePlpLivePreviewExpectation = {
 	routePath: '/category/dog-food'; sort: 'FEATURED'; cursor: null; policyVersion: string;
-	reference: { id: string; version: string }; prefixIds: readonly string[]; tailIds: readonly string[];
+	reference: { id: string; version: string }; prefixIds: readonly string[]; tailIds: readonly string[]; expectedInputSha256: string;
 };
 export type KibblePlpLivePreview = { products: KibbleProduct[]; zoneAdapter: KibbleZoneAdapterBinding };
 
@@ -22,6 +23,8 @@ export function listenForKibblePlpLivePreview(input: {
 	const onRequest = async () => {
 		if (controller) return; // one paid dispatch at a time; a repeated click cannot replace it.
 		const next = new AbortController(); controller = next; input.onStatus('updating');
+		let timedOut = false;
+		const timeout = window.setTimeout(() => { timedOut = true; next.abort(); }, REQUEST_TIMEOUT_MS);
 		try {
 			const response = await fetch('/api/kibble/plp-product-ranking-decision?observe=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'model' }), signal: next.signal });
 			if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
@@ -29,9 +32,12 @@ export function listenForKibblePlpLivePreview(input: {
 			if (!preview || !active || next.signal.aborted) throw new Error('Preview response rejected');
 			input.onApplied(preview); input.onStatus('applied');
 		} catch (error) {
-			if (!active || next.signal.aborted) return;
+			if (!active || (next.signal.aborted && !timedOut)) return;
 			console.warn('Kibble PLP live preview was rejected; retaining the server-rendered catalog order.', error); input.onStatus('failed');
-		} finally { if (controller === next) controller = null; }
+		} finally {
+			window.clearTimeout(timeout);
+			if (controller === next) controller = null;
+		}
 	};
 	window.addEventListener('aisles-kibble-plp-model-request', onRequest);
 	return () => { active = false; controller?.abort(); window.removeEventListener('aisles-kibble-plp-model-request', onRequest); };
@@ -46,7 +52,7 @@ export function validateKibblePlpLivePreview(value: unknown, expected: KibblePlp
 	const rankedPrefixIds = value.rankedPrefixIds as string[];
 	const tailIds = value.tailIds as string[];
 	const modelCallCount = value.modelCallCount as number;
-	if (!isAdapter(value.zoneAdapter, rankedPrefixIds, tailIds, modelCallCount)) return null;
+	if (!isAdapter(value.zoneAdapter, expected.expectedInputSha256, rankedPrefixIds, tailIds, modelCallCount)) return null;
 	const allOriginal = [...expected.prefixIds, ...expected.tailIds];
 	if (!sameIds(products.map(({ entityId }) => String(entityId)), allOriginal)) return null;
 	const byId = new Map(products.map((product) => [String(product.entityId), product]));
@@ -54,10 +60,10 @@ export function validateKibblePlpLivePreview(value: unknown, expected: KibblePlp
 	return reordered.some((product) => product === undefined) ? null : { products: reordered as KibbleProduct[], zoneAdapter: value.zoneAdapter };
 }
 
-function isAdapter(value: unknown, rankedPrefixIds: readonly string[], tailIds: readonly string[], modelCallCount: number): value is KibbleZoneAdapterBinding {
+function isAdapter(value: unknown, expectedInputSha256: string, rankedPrefixIds: readonly string[], tailIds: readonly string[], modelCallCount: number): value is KibbleZoneAdapterBinding {
 	if (!isRecord(value) || !hasOnlyKeys(value, ADAPTER_KEYS) || value.instanceId !== 'plp.product-ranking' || value.sharedStatus !== 'live' || value.sharedContentKind !== 'content'
 		|| value.decisionMode !== 'model' || value.modelCallCount !== modelCallCount || value.adapterId !== 'kibble.zone.plp.product-ranking' || value.componentVariantId !== 'kibble.category-listing.ranked-prefix'
-		|| typeof value.inputSha256 !== 'string' || !HEX_64.test(value.inputSha256)) return false;
+		|| typeof value.inputSha256 !== 'string' || !HEX_64.test(value.inputSha256) || value.inputSha256 !== expectedInputSha256) return false;
 	if (!isRecord(value.content) || !hasOnlyKeys(value.content, CONTENT_KEYS) || value.content.component !== 'product-grid' || !isRecord(value.content.props) || !hasOnlyKeys(value.content.props, PROP_KEYS)) return false;
 	const props = value.content.props;
 	if (props.columns !== 4 || props.imageRatio !== 'square' || props.showDescription !== false || props.showSpecs !== false || props.showQuickAdd !== false || !Array.isArray(props.products) || props.products.length !== rankedPrefixIds.length) return false;

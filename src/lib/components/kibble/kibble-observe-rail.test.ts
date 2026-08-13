@@ -58,5 +58,7 @@ describe('KibbleObserveRail', () => {
 		expect(source).toContain("window.removeEventListener('aisles-kibble-plp-model-status', onPlpModelStatus)");
 		expect(source).toContain("window.dispatchEvent(new CustomEvent('aisles-kibble-plp-model-request'))");
 		expect(source).toContain('disabled={plpModelAction.disabled}');
+		expect(source).toContain('plpModelActionReady = false');
+		expect(source).toContain("plpModelActionStatus = 'idle'");
 	});
 });

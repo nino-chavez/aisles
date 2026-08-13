@@ -205,8 +205,8 @@ const kibble: BrandCompositionPolicy = {
  * Prospect-controlled autonomy temperature for the public observability demo.
  * It is a separate, versioned policy: normal Kibble page loads continue to use
  * Preserve, while an explicit server-trusted demo action may ask a model to
- * rank the fixed Home shelf or one explicitly approved PDP related rail, and
- * nothing else.
+ * rank the fixed Home shelf, one explicitly approved PDP related rail, or the
+ * exact FEATURED, cursor-null first-eight prefix on `/category/dog-food`.
  */
 const kibbleObserveAssist: BrandCompositionPolicy = {
 	...kibble,

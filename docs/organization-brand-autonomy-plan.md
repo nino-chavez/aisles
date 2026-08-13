@@ -24,7 +24,7 @@ No database migration has been applied.
 | 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
 | 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, fallbacks, classified route dependencies, and the final cold-review accessibility repairs are implemented. The contract records the exact 28 zone families and 36 expanded Bealls identities: 11 content-backed Kibble-native adapters and 25 Trusted Hidden terminals. | Approved route-by-route visual comparison |
 | 4 — Kibble routes | Home, product listing, product detail, search, and error surfaces render Preserve. Product detail is live as a catalog-display-only route, and product cards link to it. Cart, account, subscriptions, and the three canonical checkout phase routes render source-native unavailable shells rather than functional commerce; bare `/checkout` remains the source 404. Home applies bounded signal-informed product ranking without changing its reference shell. | Complete route-by-route human visual review; do not treat the PDP or unavailable shells as functional commerce |
-| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented. Home has a live opt-in `rank_products` model action; the exact-route PDP related-products action is also live. | Add another model-capable surface only after its merchant-owned zone contract is approved; retain route-by-route visual and operational gates |
+| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented. Home and the exact-route PDP related-products action are live. The PLP action is local/pending release: only `/category/dog-food?sort=FEATURED` with a null cursor may permute its first 3–8 IDs; its tail is immutable. | Release and verify the PLP action; retain route-by-route visual and operational gates |
 | 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, actual Home and product-listing Preserve records, and a Home decision trace implemented | Apply the migration and verify the deployed runtime |
 | 7 — executable parity | The local Kibble harness covers 15 named routes at 390, 768, and 1280 pixels. It checks pinned provenance, dependency classifications, structure, and screenshots. The latest zero-tolerance run leaves all 15 routes and all 45 viewport cells open: 12,313,565 of 66,597,260 comparable pixels differ (18.4896%), with no masks. Mechanical evidence is not an approval. The Bealls internal regression harness covers its 90 brand/route/viewport cells. | Obtain named route-by-route human visual approval; no masks or tolerances are approved by this record |
 | 8 — Bealls adoption | Separate brand policies and versioned internal renderer contracts are integrated for Bealls, Bealls Florida, and Home Centric. The final clean internal run at `6b7faee` mechanically passed all 90 cells per side with exact active-brand and zone coverage, zero model requests, and no provider/database traffic. Its unmasked comparison still has 62 changed cells and 27,989,468 changed pixels. All brands remain explicitly `uncontracted` for external-reference preservation. | Obtain named human review of the internal visual deltas; add approved external-reference contracts and visual gates before making a preservation claim |
@@ -465,6 +465,13 @@ same Redis budget before any provider call, and can return only one exact
 permutation of those related IDs. Adjacent slugs and browser-supplied route,
 candidate, or product facts have no authority. The fixed PDP, heading, copy,
 prices, links, actions, component, and CSS do not change.
+
+The PLP action is local and pending release, not live evidence. It permits
+Observe only on `/category/dog-food?sort=FEATURED` with a null cursor and an
+enabled demo flag. The server reloads the category and may permute only the
+first three through eight IDs. Every remaining ID is the immutable tail;
+category, sort, cursor, load-more href, cards, copy, prices, links, layout,
+and CSS stay fixed.
 
 The behavior simulator is an explicit Home signal-lab control, not a commerce
 control. It emits named typed event sequences—category views, product views,

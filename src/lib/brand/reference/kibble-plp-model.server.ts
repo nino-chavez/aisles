@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
@@ -8,12 +7,18 @@ import { SHOPPER_ROUTE_MANIFEST_DIGEST, SHOPPER_ROUTE_MANIFEST_VERSION } from '$
 import type { TrustedZoneFieldCatalog } from '$lib/foundation/zone-decision-schema';
 import { executeZoneDecision, type TrustedBoundZoneCatalog, type TrustedZoneExecutionIdentity, type ZoneModelRunner } from '$lib/server/zone-decision-executor';
 import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
+import {
+	hashKibblePlpCandidateCatalog,
+	hashKibblePlpRankingInput,
+	KIBBLE_PLP_RANKING_ROUTE,
+	type KibblePlpRankableCandidate,
+} from './kibble-plp-ranking-boundary.server';
 
 export const KIBBLE_PLP_MODEL_PROMPT_VERSION = 'kibble-plp-first-eight-rank-v1';
 export const KIBBLE_PLP_MODEL_SCHEMA_VERSION = 'kibble-plp-first-eight-zone-decision-v1';
-const ROUTE_PATH = '/category/dog-food' as const;
+const ROUTE_PATH = KIBBLE_PLP_RANKING_ROUTE;
 
-export type KibblePlpCandidate = { entityId: number; name: string; category: string; price: number };
+export type KibblePlpCandidate = KibblePlpRankableCandidate;
 
 /**
  * The only PLP model boundary. The tail is carried as provenance, never passed
@@ -28,6 +33,7 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 	if (new Set(input.prefix.map(({ entityId }) => entityId)).size !== input.prefix.length) throw new Error('Kibble PLP ranking received duplicate prefix identities.');
 	const prefixIds = input.prefix.map(({ entityId }) => String(entityId));
 	const tailIds = input.tail.map(({ entityId }) => String(entityId));
+	const productCatalogVersion = hashKibblePlpCandidateCatalog([...input.prefix, ...input.tail]);
 	if (new Set([...prefixIds, ...tailIds]).size !== prefixIds.length + tailIds.length) throw new Error('Kibble PLP page contains duplicate catalog identities.');
 	const policy = getTrustedKibbleObservePlpProductRankingZonePolicy({ origin: 'aisles', familyId: 'plp.product-ranking', instanceId: 'plp.product-ranking', routePath: ROUTE_PATH });
 	const identity: TrustedZoneExecutionIdentity = {
@@ -35,7 +41,7 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 		referenceVersion: KIBBLE_REFERENCE_CONTRACT.version, policyVersion: policy.policyVersion,
 		routeSource: 'pathname', routePath: ROUTE_PATH, surface: 'plp', routeManifestVersion: SHOPPER_ROUTE_MANIFEST_VERSION,
 		routeManifestDigest: SHOPPER_ROUTE_MANIFEST_DIGEST, zoneOrigin: 'aisles', familyId: 'plp.product-ranking', instanceId: 'plp.product-ranking',
-		productCatalogId: 'kibble-preserve-catalog', productCatalogVersion: KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256,
+		productCatalogId: 'kibble-live-category-candidates', productCatalogVersion,
 		allowedDecisionModes: policy.provenance.zoneBinding?.allowedDecisionModes ?? [],
 	};
 	if (identity.allowedDecisionModes.length === 0) throw new Error('Kibble observe PLP policy lacks an attested zone binding.');
@@ -81,6 +87,7 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 	if (!sameExactSet(rankedPrefixIds, prefixIds)) throw new Error('Kibble PLP model output was not an exact approved prefix permutation.');
 	return {
 		policy, execution, prefixIds, tailIds, rankedPrefixIds, modelId, modelCallCount, prompt,
+		productCatalogId: identity.productCatalogId, productCatalogVersion: identity.productCatalogVersion,
 		...(inputTokens === undefined ? {} : { inputTokens }), ...(outputTokens === undefined ? {} : { outputTokens }),
 		zoneAdapter: {
 			instanceId: 'plp.product-ranking', sharedStatus: 'live' as const, sharedContentKind: 'content' as const, decisionMode: 'model' as const,
@@ -112,10 +119,6 @@ export function buildKibblePlpModelPrompt(inference: PersonaInference, products:
 }
 
 /** Stable provenance binding for the server-owned page state, never model output. */
-export function hashKibblePlpRankingInput(prefixIds: readonly string[], tailIds: readonly string[]) {
-	return createHash('sha256').update(JSON.stringify({ routePath: ROUTE_PATH, sort: 'FEATURED', cursor: null, prefixIds, tailIds })).digest('hex');
-}
-
 function productGridContent(productIds: readonly string[]) { return { component: 'product-grid' as const, props: { columns: 4 as const, products: productIds.map((productId) => ({ productId, role: 'standard' as const })), imageRatio: 'square' as const, showDescription: false as const, showSpecs: false as const, showQuickAdd: false as const } }; }
 function isString(value: unknown): value is string { return typeof value === 'string'; }
 function sameExactSet(actual: readonly string[], expected: readonly string[]) { return actual.length === expected.length && new Set(actual).size === actual.length && actual.every((id) => expected.includes(id)); }

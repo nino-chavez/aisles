@@ -151,6 +151,10 @@
 
 	afterNavigate(({ to }) => {
 		if (to?.url.hash === '#kibble-signal-lab') expanded = false;
+		// A same-route sort/cursor navigation replaces the PLP listener. Do not
+		// let its prior readiness or terminal status govern the new page data.
+		plpModelActionReady = false;
+		plpModelActionStatus = 'idle';
 		void tick().then(scanZones);
 	});
 

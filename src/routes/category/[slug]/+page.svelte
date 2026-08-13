@@ -45,7 +45,7 @@
 		void import('$lib/components/kibble/kibble-plp-live-preview').then(({ listenForKibblePlpLivePreview }) => {
 			if (!active) return;
 			cleanup = listenForKibblePlpLivePreview({
-				expectation: { routePath: decision.routePath, sort: decision.sort, cursor: decision.cursor, policyVersion: decision.policyVersion, reference: { id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version }, prefixIds: decision.prefixIds, tailIds: decision.tailIds },
+				expectation: { routePath: decision.routePath, sort: decision.sort, cursor: decision.cursor, policyVersion: decision.policyVersion, reference: { id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version }, prefixIds: decision.prefixIds, tailIds: decision.tailIds, expectedInputSha256: decision.expectedInputSha256 },
 				products,
 				onApplied: (preview) => {
 					previewProducts = preview.products as KibblePlpData['products'];

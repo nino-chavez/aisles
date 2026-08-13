@@ -42,8 +42,8 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			policy: result.policy, surface: 'plp', route: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE, persona: inference.primary,
 			rendererComponentId: 'kibble.category-listing', rendererVariantId: KIBBLE_REFERENCE_CONTRACT.recipes.plp.id,
 			decisionSource: 'model', promptVersion: KIBBLE_PLP_MODEL_PROMPT_VERSION, schemaVersion: KIBBLE_PLP_MODEL_SCHEMA_VERSION,
-			contractInput: { zone: result.policy.provenance.zoneBinding, rankedPrefixIds: result.rankedPrefixIds, prefixIds: result.prefixIds, tailIds: result.tailIds, modelCallCount: result.modelCallCount },
-			catalogInput: { source: 'server-reloaded-category-page', routePath: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE, sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, cursor: null, prefix, tail },
+			contractInput: { zone: result.policy.provenance.zoneBinding, productCatalogId: result.productCatalogId, productCatalogVersion: result.productCatalogVersion, rankedPrefixIds: result.rankedPrefixIds, prefixIds: result.prefixIds, tailIds: result.tailIds, modelCallCount: result.modelCallCount },
+			catalogInput: { source: 'server-reloaded-category-page', productCatalogId: result.productCatalogId, productCatalogVersion: result.productCatalogVersion, routePath: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE, sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, cursor: null, prefix, tail },
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities }, scenarioId,
 		});
 		await logGeneration({ type: 'preserve_render', persona: inference.primary, categorySlug: 'dog-food', cacheHit: false, generationTimeMs: Date.now() - startedAt, productCount: page.products.length, inputTokens: result.inputTokens, outputTokens: result.outputTokens, model: `anthropic/${result.modelId}`, sessionId, provenance });

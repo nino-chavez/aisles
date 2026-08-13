@@ -112,7 +112,8 @@ const unionIds = [...new Set([...BEALLS_ZONE_SNAPSHOT.zones.map(({ zoneId }) => 
 
 /**
  * Narrow first live-model boundary: the public Kibble observability demo may
- * rank the already approved Home shelf or the one approved PDP related rail.
+ * rank the already approved Home shelf, the one approved PDP related rail, or
+ * the exact FEATURED, cursor-null first-eight prefix on `/category/dog-food`.
  * The policy and field catalog still have to authorize the exact brand,
  * route, instance and product set.
  */

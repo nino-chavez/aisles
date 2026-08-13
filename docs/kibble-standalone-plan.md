@@ -1,10 +1,9 @@
 # Kibble on Aisles — standalone plan
 
-**Status:** implementation and contract integration are present locally. This
-record does not claim a current deployment, applied migration, or live
-database/provider verification. The standalone Supabase plan, enrichment work,
-Kibble signal rules, labeled scenarios, and protected Observe design still need
-their release evidence re-established before they are described as live. Weight
+**Status:** Home and the approved PDP model action have live evidence. The PLP
+first-eight ranking boundary is local and pending release; it has no deployment,
+provider, or live-runtime claim. No database migration has been applied.
+Reference-preservation visual parity and named human approval remain open. Weight
 fitting waits for real labeled shopper sessions by design.
 **Audience:** whoever picks this up next, including a future session with no memory of today.
 

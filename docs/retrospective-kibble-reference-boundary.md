@@ -62,6 +62,10 @@ provider budget, and permutation validation. The only PDP Assist action is the
 `pdp.related` rail on `/product/puppy-starter-kit`; it can reorder only the
 three-to-four server-reloaded related candidates. Both keep the
 reference-owned shell unchanged.
+The PLP first-eight ranking action is local and pending release, not live
+evidence. It is restricted to `/category/dog-food?sort=FEATURED` with a null
+cursor: the server reloads the category, a model may return one exact
+three-to-eight-item prefix permutation, and the remaining tail stays immutable.
 Normal production applies that decision at the Home route boundary. The public
 demo begins only with an explicit `?observe=true` request, then keeps a
 lightweight observability rail active across shopper navigation for four hours.

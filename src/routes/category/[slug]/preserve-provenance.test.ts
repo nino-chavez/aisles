@@ -2,11 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '$lib/types';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 
+const state = vi.hoisted(() => ({ enabled: 'false' }));
 const mocks = vi.hoisted(() => ({
 	logGeneration: vi.fn(async () => {}),
 	createStoreFromRequest: vi.fn(),
 	loadReferenceCategoryProducts: vi.fn(),
 }));
+
+vi.mock('$env/dynamic/private', () => ({ env: new Proxy({}, { get: (_target, key) => key === 'KIBBLE_DEMO_AI_ENABLED' ? state.enabled : undefined }) }));
 
 const shelfProduct: Product = {
 	id: 'dog-food-one', entityId: 4001, name: 'Dog Food One', price: 29,
@@ -41,6 +44,7 @@ describe('Kibble Preserve PLP publication', () => {
 
 	beforeEach(() => {
 		process.env.BRAND_ID = 'kibble';
+		state.enabled = 'false';
 		mocks.logGeneration.mockClear();
 		mocks.createStoreFromRequest.mockReset().mockResolvedValue({
 			visitCount: 1,
@@ -112,6 +116,24 @@ describe('Kibble Preserve PLP publication', () => {
 				kibbleErrorPolicy: { policies: [{ surface: 'error-empty' }] },
 			},
 		});
+	});
+
+	it('exposes the PLP model action only for the enabled exact FEATURED first page', async () => {
+		const products = Array.from({ length: 10 }, (_, index) => ({ ...shelfProduct, id: `food-${index + 1}`, entityId: index + 1 }));
+		mocks.loadReferenceCategoryProducts.mockResolvedValueOnce({ categoryName: 'Dog Food', products, pageInfo: { hasNextPage: false, endCursor: null } });
+		const args = (url: string) => ({ params: { slug: 'dog-food' }, url: new URL(url), request: new Request(url), cookies: { get: (name: string) => name === 'aisles_observe_demo' ? '1' : undefined, set: () => undefined }, parent: async () => ({ devMode: false, renderMode: 'reference-preserve' }) } as never);
+		const disabled = await load(args('https://aisles.test/category/dog-food?observe=true'));
+		if (!disabled) throw new Error('Expected disabled PLP data.');
+		expect(disabled.kibbleCategory?.productRanking).toBeNull();
+		state.enabled = 'true';
+		mocks.loadReferenceCategoryProducts.mockResolvedValueOnce({ categoryName: 'Dog Food', products, pageInfo: { hasNextPage: false, endCursor: null } });
+		const enabled = await load(args('https://aisles.test/category/dog-food?observe=true'));
+		if (!enabled) throw new Error('Expected enabled PLP data.');
+		expect(enabled.kibbleCategory?.productRanking).toMatchObject({ eligible: true, sort: 'FEATURED', cursor: null, prefixIds: ['1', '2', '3', '4', '5', '6', '7', '8'], tailIds: ['9', '10'] });
+		mocks.loadReferenceCategoryProducts.mockResolvedValueOnce({ categoryName: 'Dog Food', products, pageInfo: { hasNextPage: true, endCursor: 'cursor' } });
+		const adjacent = await load(args('https://aisles.test/category/dog-food?observe=true&sort=NEWEST&after=cursor'));
+		if (!adjacent) throw new Error('Expected adjacent PLP data.');
+		expect(adjacent.kibbleCategory?.productRanking).toBeNull();
 	});
 
 	it('binds a real error-404 terminal for a valid route whose category is missing', async () => {
