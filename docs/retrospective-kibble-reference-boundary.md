@@ -62,10 +62,20 @@ provider budget, and permutation validation. The only PDP Assist action is the
 `pdp.related` rail on `/product/puppy-starter-kit`; it can reorder only the
 three-to-four server-reloaded related candidates. Both keep the
 reference-owned shell unchanged.
-The PLP first-eight ranking action is local and pending release, not live
-evidence. It is restricted to `/category/dog-food?sort=FEATURED` with a null
-cursor: the server reloads the category, a model may return one exact
-three-to-eight-item prefix permutation, and the remaining tail stays immutable.
+The PLP first-eight ranking action had one bounded production smoke on merge
+`571e203`, not visual-parity acceptance. At
+`/category/dog-food?sort=FEATURED&observe=true` against contract/reference
+`1.8.0`, its baseline was 10 products, 5 Template zones, and 0 AI calls. One
+action returned Rustic Stew, Goodbowl, Harvest Chicken Hearty Stew, Epic Blend
+Salmon, RawMix Great Plains, GoodGut Wild-Caught Salmon, Harvest Chicken Air
+Dried, Salmon & Cod; tail positions 9 GoodGut Harvest Chicken and 10 GoodGut
+Grass-Fed Beef stayed fixed. The rail showed 4 Template / 0 Rules / 1 AI and
+the grid reported `plp.product-ranking` authority `model`, one call, `live`,
+adapter `kibble.zone.plp.product-ranking`, and variant
+`kibble.category-listing.ranked-prefix`. `observe=false` removed the rail/action
+and its POST endpoint returned `404 Not found`. The boundary remains restricted
+to the exact FEATURED, null-cursor route; it is not cart or subscription
+capability evidence.
 Normal production applies that decision at the Home route boundary. The public
 demo begins only with an explicit `?observe=true` request, then keeps a
 lightweight observability rail active across shopper navigation for four hours.

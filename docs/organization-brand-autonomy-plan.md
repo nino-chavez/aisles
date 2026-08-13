@@ -15,7 +15,10 @@ Cloudflare Pages deployment `1691752f-db95-402c-be7c-8d2ae9c1945b`, and was
 verified live on 2026-08-13. The PDP model action is merged at `4efa5ded`,
 deployed as Cloudflare Pages deployment
 `3a748556-2243-4f51-b6da-63f01701278f`, and was verified live on 2026-08-13.
-No database migration has been applied.
+The bounded PLP action is included in production merge `571e203` and had one
+verified production smoke on 2026-08-13 at
+`/category/dog-food?sort=FEATURED&observe=true`, against contract/reference
+`1.8.0`. No database migration has been applied.
 
 | Phase | Verified state on 2026-08-13 | Remaining gate |
 |---|---|---|
@@ -24,7 +27,7 @@ No database migration has been applied.
 | 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
 | 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, fallbacks, classified route dependencies, and the final cold-review accessibility repairs are implemented. The contract records the exact 28 zone families and 36 expanded Bealls identities: 11 content-backed Kibble-native adapters and 25 Trusted Hidden terminals. | Approved route-by-route visual comparison |
 | 4 — Kibble routes | Home, product listing, product detail, search, and error surfaces render Preserve. Product detail is live as a catalog-display-only route, and product cards link to it. Cart, account, subscriptions, and the three canonical checkout phase routes render source-native unavailable shells rather than functional commerce; bare `/checkout` remains the source 404. Home applies bounded signal-informed product ranking without changing its reference shell. | Complete route-by-route human visual review; do not treat the PDP or unavailable shells as functional commerce |
-| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented. Home and the exact-route PDP related-products action are live. The PLP action is local/pending release: only `/category/dog-food?sort=FEATURED` with a null cursor may permute its first 3–8 IDs; its tail is immutable. | Release and verify the PLP action; retain route-by-route visual and operational gates |
+| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented. Home and the exact-route PDP related-products action are live. The PLP action has one production smoke on merge `571e203`: only `/category/dog-food?sort=FEATURED` with a null cursor may permute its first 3–8 IDs; its tail is immutable. | Obtain broader operational and route-by-route visual evidence |
 | 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, actual Home and product-listing Preserve records, and a Home decision trace implemented | Apply the migration and verify the deployed runtime |
 | 7 — executable parity | The local Kibble harness covers 15 named routes at 390, 768, and 1280 pixels. It checks pinned provenance, dependency classifications, structure, and screenshots. The latest zero-tolerance run leaves all 15 routes and all 45 viewport cells open: 12,313,565 of 66,597,260 comparable pixels differ (18.4896%), with no masks. Mechanical evidence is not an approval. The Bealls internal regression harness covers its 90 brand/route/viewport cells. | Obtain named route-by-route human visual approval; no masks or tolerances are approved by this record |
 | 8 — Bealls adoption | Separate brand policies and versioned internal renderer contracts are integrated for Bealls, Bealls Florida, and Home Centric. The final clean internal run at `6b7faee` mechanically passed all 90 cells per side with exact active-brand and zone coverage, zero model requests, and no provider/database traffic. Its unmasked comparison still has 62 changed cells and 27,989,468 changed pixels. All brands remain explicitly `uncontracted` for external-reference preservation. | Obtain named human review of the internal visual deltas; add approved external-reference contracts and visual gates before making a preservation claim |
@@ -466,12 +469,23 @@ permutation of those related IDs. Adjacent slugs and browser-supplied route,
 candidate, or product facts have no authority. The fixed PDP, heading, copy,
 prices, links, actions, component, and CSS do not change.
 
-The PLP action is local and pending release, not live evidence. It permits
-Observe only on `/category/dog-food?sort=FEATURED` with a null cursor and an
-enabled demo flag. The server reloads the category and may permute only the
-first three through eight IDs. Every remaining ID is the immutable tail;
-category, sort, cursor, load-more href, cards, copy, prices, links, layout,
-and CSS stay fixed.
+The PLP action had one production smoke on merge `571e203`, not visual-parity
+acceptance. At `/category/dog-food?sort=FEATURED&observe=true` against
+contract/reference `1.8.0`, the baseline had ten products, five Template zones,
+and zero AI calls. One action returned this first-eight order: Rustic Stew,
+Goodbowl, Harvest Chicken Hearty Stew, Epic Blend Salmon, RawMix Great Plains,
+GoodGut Wild-Caught Salmon, Harvest Chicken Air Dried, Salmon & Cod. Tail
+positions 9 GoodGut Harvest Chicken and 10 GoodGut Grass-Fed Beef were
+unchanged. The rail showed 4 Template / 0 Rules / 1 AI, and the grid boundary
+reported `plp.product-ranking` as `model`, one model call, `live`, adapter
+`kibble.zone.plp.product-ranking`, and variant
+`kibble.category-listing.ranked-prefix`. With `observe=false`, the rail/action
+were absent and `POST /api/kibble/plp-product-ranking-decision?observe=false`
+returned `404 Not found`. The action remains limited to the enabled exact route:
+the server reloads the category and may permute only the first three through
+eight IDs. Every remaining ID is immutable; category, sort, cursor, load-more
+href, cards, copy, prices, links, layout, and CSS stay fixed. This smoke does
+not establish cart or subscription capability.
 
 The behavior simulator is an explicit Home signal-lab control, not a commerce
 control. It emits named typed event sequences—category views, product views,
@@ -583,7 +597,7 @@ evidence. It does not imply a database migration or human visual acceptance.
 | F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for live contracted surfaces, including fixed product-detail provenance |
 | G | Both repos: deterministic and visual parity suites | Kibble's 15-route × 3-viewport harness and Bealls's 90-cell internal regression harness are implemented and code-reviewed; both strict visual comparisons and named human approval remain open |
 | H | `aisles-admin`: merchant control surface | Dedicated read-only sandbox integrated; versioned runtime writes and audit storage remain unbuilt |
-| I | `aisles`: Kibble decision proof | Home rules ranking plus the opt-in Home and exact-route PDP model rankings are deployed and live-verified. The isolated local showcase remains provider-free. |
+| I | `aisles`: Kibble decision proof | Home rules ranking and opt-in Home/PDP model rankings are deployed and live-verified. PLP has one bounded production smoke on merge `571e203`, not visual-parity acceptance or cart/subscription proof. The isolated local showcase remains provider-free. |
 
 ## Compatibility and rollout
 
