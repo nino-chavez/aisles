@@ -42,6 +42,15 @@ export interface SessionOutcome {
 	scenarioId: string | null;
 }
 
+function probabilitiesJson(value: PersonaProbabilities) {
+	return {
+		gatherer: value.gatherer,
+		hunter: value.hunter,
+		researcher: value.researcher,
+		gifter: value.gifter,
+	};
+}
+
 /**
  * Assign a ground-truth label to a finalized session. Used by the LR fitting
  * pipeline to filter high-confidence labeled sessions.
@@ -156,9 +165,9 @@ export async function recordOutcome(outcome: SessionOutcome): Promise<void> {
 			label_source, label_persona, synthetic, scenario_id
 		) VALUES (
 			${brandId}, ${outcome.sessionId}, ${outcome.endedAt.toISOString()}, ${outcome.durationMs},
-			${outcome.primaryFinal}, ${JSON.stringify(outcome.probabilitiesFinal)}::jsonb,
+			${outcome.primaryFinal}, ${sql.json(probabilitiesJson(outcome.probabilitiesFinal))},
 			${outcome.entropyFinal}, ${outcome.certaintyFinal},
-			${JSON.stringify(outcome.priorAtStart)}::jsonb,
+			${sql.json(probabilitiesJson(outcome.priorAtStart))},
 			${outcome.converted}, ${outcome.cartAddCount}, ${outcome.cartRemovalCount},
 			${outcome.productViewCount}, ${outcome.categoryViewCount},
 			${outcome.refineMessageCount}, ${outcome.backNavCount},

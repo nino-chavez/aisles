@@ -71,7 +71,7 @@ export async function logGeneration(entry: GenerationLogEntry): Promise<void> {
 			${provenance.inputHash}, ${provenance.catalogVersion},
 			${provenance.shopperContextHash}, ${provenance.picksHash},
 			${provenance.incentiveHash}, ${provenance.autonomy.preset},
-			${JSON.stringify(provenance.autonomy.effectiveCapabilities)}::jsonb,
+			${sql.json(provenance.autonomy.effectiveCapabilities)},
 			${provenance.autonomy.decisionMode}, ${provenance.autonomy.publicationMode},
 			${provenance.schemaVersion}
 		)
