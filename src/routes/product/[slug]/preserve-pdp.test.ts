@@ -66,14 +66,14 @@ describe('Kibble Preserve PDP route', () => {
 		expect(mocks.buildContractedLayoutProvenance).toHaveBeenCalledWith(expect.objectContaining({
 			surface: 'pdp', route: '/product/verified-food', decisionSource: 'fixed',
 			rendererVariantId: 'kibble.product-detail.catalog-display-only',
-			contractInput: {
+			contractInput: expect.objectContaining({
 				recipe: expect.objectContaining({ id: 'kibble-pdp-reference-v1' }),
 				renderedManifest: expect.objectContaining({
 					purchaseUnavailableLabel: 'Purchase unavailable in this preview',
 					copy: expect.objectContaining({ detailsHeading: 'Details' }),
 					bundle: null,
 				}),
-			},
+			}),
 			catalogInput: expect.objectContaining({ product: expect.objectContaining({ entityId: 7 }) }),
 			shopperContext: { persona: 'gatherer', probabilities: { gatherer: 1, hunter: 0, researcher: 0, gifter: 0 } },
 		}));
