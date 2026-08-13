@@ -96,7 +96,7 @@ export interface BuildContractedLayoutProvenanceInput {
 	persona: string;
 	rendererComponentId: string;
 	rendererVariantId: string;
-	decisionSource: 'fixed' | 'rules' | 'merchant' | 'fallback';
+	decisionSource: 'fixed' | 'rules' | 'model' | 'merchant' | 'fallback';
 	promptVersion: string;
 	schemaVersion: string;
 	contractInput: unknown;

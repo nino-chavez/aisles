@@ -391,10 +391,25 @@ describe('identity-bound zone decision executor', () => {
 		expect(runModel).not.toHaveBeenCalled();
 	});
 
-	it('preserves the fact that no current zone has live model publication approval', async () => {
+	it('blocks live model publication on a zone without explicit approval', async () => {
+		const heroIdentity = identityForZone('home.hero');
 		const runModel = vi.fn(async () => ({ productIds }));
 		const result = await executeZoneDecision({
-			policy: policy({ capabilities: ['select_products'], publicationMode: 'live' }),
+			policy: policy({ capabilities: ['select_products'], publicationMode: 'live' }, heroIdentity),
+			catalog: catalog({ identity: heroIdentity }), fallback: fallback({ identity: heroIdentity }), runModel,
+		});
+		expect(result).toMatchObject({ status: 'fallback', reason: 'live_model_not_approved', provenance: { liveModelApproved: false } });
+		expect(runModel).not.toHaveBeenCalled();
+	});
+
+	it('does not widen the Kibble-specific approval to another organization or brand', async () => {
+		const runModel = vi.fn(async ({ outputSchema }) => {
+			expect(outputSchema.safeParse({ rankedProductIds: [...productIds].reverse() }).success).toBe(true);
+			expect(outputSchema.safeParse({ rankedProductIds: [...productIds].reverse(), copy: 'forbidden' }).success).toBe(false);
+			return { rankedProductIds: [...productIds].reverse() };
+		});
+		const result = await executeZoneDecision({
+			policy: policy({ capabilities: ['rank_products'], publicationMode: 'live' }),
 			catalog: catalog(), fallback: fallback(), runModel,
 		});
 		expect(result).toMatchObject({ status: 'fallback', reason: 'live_model_not_approved', provenance: { liveModelApproved: false } });
@@ -403,6 +418,8 @@ describe('identity-bound zone decision executor', () => {
 
 	it('keeps the full live-model authority graph immutable before execution', async () => {
 		const heroEntry = ZONE_CATALOG['home.hero'];
+		const rankedEntry = ZONE_CATALOG['home.featured-row'];
+		const rankedApproval = rankedEntry.liveModelApprovals[0];
 		const heroDefinition = heroEntry.definitions[0];
 		const aislesFacts = heroEntry.implementation.aisles;
 		const fallbackMap = heroEntry.fallbackByAislesBrand;
@@ -418,15 +435,19 @@ describe('identity-bound zone decision executor', () => {
 		expect(Object.isFrozen(heroEntry.implementation)).toBe(true);
 		expect(Object.isFrozen(aislesFacts)).toBe(true);
 		expect(Object.isFrozen(fallbackMap)).toBe(true);
-		expect(Reflect.set(ZONE_CATALOG, 'home.hero', { ...heroEntry, liveModelApproved: true })).toBe(false);
-		expect(Reflect.set(heroEntry, 'liveModelApproved', true)).toBe(false);
+		expect(Object.isFrozen(rankedEntry.liveModelApprovals)).toBe(true);
+		expect(Object.isFrozen(rankedApproval)).toBe(true);
+		expect(Reflect.set(ZONE_CATALOG, 'home.hero', { ...heroEntry, liveModelApprovals: [{ organizationId: 'attacker', brandId: 'attacker', referenceId: 'attacker', referenceVersion: '1', routePath: '/', instanceId: 'home.hero' }] })).toBe(false);
+		expect(Reflect.set(heroEntry, 'liveModelApprovals', [{ organizationId: 'attacker', brandId: 'attacker', referenceId: 'attacker', referenceVersion: '1', routePath: '/', instanceId: 'home.hero' }])).toBe(false);
+		expect(Reflect.set(rankedApproval, 'brandId', 'attacker')).toBe(false);
 		expect(Reflect.set(heroEntry.implementation, 'aisles', { ...aislesFacts, routeRendered: true })).toBe(false);
 		expect(Reflect.set(aislesFacts, 'routeRendered', true)).toBe(false);
 		expect(Reflect.set(heroEntry.definitions, '0', { ...heroDefinition, engineComposable: false })).toBe(false);
 		expect(Reflect.set(heroDefinition, 'engineComposable', false)).toBe(false);
 		expect(Reflect.set(fallbackMap, fallbackBrand, originalFallback === 'content' ? 'hidden' : 'content')).toBe(false);
 		expect(ZONE_CATALOG['home.hero']).toBe(heroEntry);
-		expect(heroEntry.liveModelApproved).toBe(false);
+		expect(heroEntry.liveModelApprovals).toEqual([]);
+		expect(rankedApproval).toMatchObject({ organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.7.0', routePath: '/', instanceId: 'home.featured-row.1' });
 		expect(aislesFacts.routeRendered).toBe(false);
 		expect(heroEntry.definitions[0]).toBe(heroDefinition);
 		expect(heroDefinition.engineComposable).toBe(true);

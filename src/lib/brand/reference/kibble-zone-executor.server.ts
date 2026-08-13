@@ -1,5 +1,8 @@
 import { createHash } from 'node:crypto';
-import { getTrustedKibbleZonePolicy } from '$lib/brand/composition-policy';
+import {
+	getTrustedKibbleObserveHomeZonePolicy,
+	getTrustedKibbleZonePolicy,
+} from '$lib/brand/composition-policy';
 import { getBrand } from '$lib/brand/config';
 import {
 	SHOPPER_ROUTE_MANIFEST_DIGEST,
@@ -13,6 +16,7 @@ import {
 	executeZoneDecision,
 	type TrustedBoundZoneCatalog,
 	type TrustedZoneExecutionIdentity,
+	type ZoneModelRunner,
 	type ZoneDecisionExecution,
 } from '$lib/server/zone-decision-executor';
 import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
@@ -85,15 +89,7 @@ export async function executeKibbleHomeZoneAdapters(input: {
 	categoryTitle: string;
 	serviceProof: Array<{ title: string; body: string }>;
 }) {
-	if (input.products.length < 3) throw new Error('Kibble Home needs at least three products to bind its three ranked shelf instances.');
-	const segmentSize = Math.ceil(input.products.length / 3);
-	const segments = [
-		input.products.slice(0, segmentSize),
-		input.products.slice(segmentSize, segmentSize * 2),
-		input.products.slice(segmentSize * 2),
-	];
-	if (segments.some((segment) => segment.length === 0)) throw new Error('Kibble Home ranked shelf instances must all consume a non-empty product segment.');
-	const [hero, ...featuredRows] = await Promise.all([
+	const [hero, featuredRows] = await Promise.all([
 		executeKibbleZoneTerminal(terminalById('home.hero'), '/', {
 			component: 'editorial-header',
 			props: {
@@ -102,14 +98,7 @@ export async function executeKibbleHomeZoneAdapters(input: {
 				body: input.hero.body,
 			},
 		}),
-		...segments.map((segment, index) => executeKibbleZoneTerminal(terminalById(`home.featured-row.${index + 1}`), '/', {
-			component: 'product-grid',
-			props: {
-				columns: 4,
-				products: segment.map(({ entityId }) => ({ productId: String(entityId), role: 'standard' })),
-				imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false,
-			},
-		})),
+		executeKibbleHomeFeaturedZoneAdapters(input.products),
 	]);
 	const [editorial, belowFold] = await Promise.all([
 		executeKibbleZoneTerminal(terminalById('home.editorial-strip'), '/', {
@@ -126,10 +115,103 @@ export async function executeKibbleHomeZoneAdapters(input: {
 	]);
 	return {
 		hero: kibbleNativeAdapterBinding(hero),
-		featuredRows: featuredRows.map(kibbleNativeAdapterBinding),
+		featuredRows,
 		editorial: kibbleNativeAdapterBinding(editorial),
 		belowFold: kibbleNativeAdapterBinding(belowFold),
 	};
+}
+
+/** Bind the deterministic Home shelf order to the exact three rendered zones. */
+export async function executeKibbleHomeFeaturedZoneAdapters(
+	products: Array<{ entityId: number }>,
+) {
+	if (products.length < 3) throw new Error('Kibble Home needs at least three products to bind its three ranked shelf instances.');
+	const segmentSize = Math.ceil(products.length / 3);
+	const segments = [
+		products.slice(0, segmentSize),
+		products.slice(segmentSize, segmentSize * 2),
+		products.slice(segmentSize * 2),
+	];
+	if (segments.some((segment) => segment.length === 0)) throw new Error('Kibble Home ranked shelf instances must all consume a non-empty product segment.');
+	return Promise.all(segments.map(async (segment, index) => kibbleNativeAdapterBinding(
+		await executeKibbleZoneTerminal(terminalById(`home.featured-row.${index + 1}`), '/', productGridContent(
+			segment.map(({ entityId }) => String(entityId)),
+		)),
+	)));
+}
+
+/**
+ * One explicit live-model boundary for the prospect demo. The model receives
+ * only the strict rank_products schema and the eight server-approved product
+ * IDs. The fixed Kibble component and every product field remain server-owned.
+ */
+export async function executeKibbleHomeModelShelf(input: {
+	products: Array<{ entityId: number }>;
+	runModel: ZoneModelRunner;
+}) {
+	if (input.products.length < 1 || input.products.length > 8) {
+		throw new Error('Kibble Home model ranking requires one to eight approved shelf products.');
+	}
+	const terminal = terminalById('home.featured-row.1');
+	if (!terminal.adapterId || !terminal.componentVariantId) {
+		throw new Error('Kibble Home model terminal lacks a native adapter binding.');
+	}
+	const policy = getTrustedKibbleObserveHomeZonePolicy({
+		origin: terminal.origin,
+		familyId: 'home.featured-row',
+		instanceId: terminal.instanceId,
+		routePath: '/',
+	});
+	const allowedDecisionModes = policy.provenance.zoneBinding?.allowedDecisionModes;
+	if (!allowedDecisionModes) throw new Error('Kibble observe Home policy lacks an attested zone binding.');
+	const identity = executionIdentity(terminal, policy.policyVersion, '/', allowedDecisionModes);
+	const productIds = input.products.map(({ entityId }) => String(entityId));
+	if (new Set(productIds).size !== productIds.length) {
+		throw new Error('Kibble Home model ranking received duplicate product identities.');
+	}
+	const fields = fieldsFor(terminal, policy.allowedComponentVariantIds, productIds);
+	const baseline = productGridContent(productIds);
+	const catalog: TrustedBoundZoneCatalog = {
+		identity,
+		fields,
+		products: {
+			organizationId: ORGANIZATION_ID,
+			brandId: 'kibble',
+			referenceId: KIBBLE_REFERENCE_CONTRACT.id,
+			referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
+			catalogId: CATALOG_ID,
+			catalogVersion: CATALOG_VERSION,
+			productIds,
+		},
+		materialize: ({ decision }) => {
+			const raw = decision?.envelope.rawModelContent;
+			const ranked = raw && typeof raw === 'object'
+				? (raw as Record<string, unknown>).rankedProductIds
+				: null;
+			return productGridContent(Array.isArray(ranked) ? ranked.filter(isString) : productIds);
+		},
+	};
+	const execution = await executeZoneDecision({
+		policy,
+		catalog,
+		fallback: { identity, kind: 'content', content: baseline },
+		runModel: input.runModel,
+	});
+	if (execution.status !== 'live' || execution.decisionMode !== 'model' || execution.render.kind !== 'content') {
+		throw new Error(`Kibble Home model ranking did not publish: ${execution.status === 'fallback' ? execution.reason : execution.status}.`);
+	}
+	const adapter = kibbleNativeAdapterBinding({ terminal, execution, adapter: {
+		adapterId: terminal.adapterId,
+		componentVariantId: terminal.componentVariantId,
+		inputSha256: hashAdapterInput(terminal, execution.render.content),
+		content: execution.render.content,
+	} });
+	const raw = execution.decision?.envelope.rawModelContent;
+	const rankedValue = raw && typeof raw === 'object'
+		? (raw as Record<string, unknown>).rankedProductIds
+		: null;
+	const rankedProductIds: string[] = Array.isArray(rankedValue) ? rankedValue.filter(isString) : [];
+	return { policy, execution, adapter, rankedProductIds };
 }
 
 export async function executeKibblePlpZoneAdapter(input: { routePath: string; eyebrow: string; title: string; productCount: number }): Promise<ReturnType<typeof kibbleNativeAdapterBinding>> {
@@ -345,6 +427,24 @@ function collectProductIds(value: unknown): string[] {
 	};
 	visit(value);
 	return [...result];
+}
+
+function productGridContent(productIds: readonly string[]) {
+	return {
+		component: 'product-grid' as const,
+		props: {
+			columns: 4 as const,
+			products: productIds.map((productId) => ({ productId, role: 'standard' as const })),
+			imageRatio: 'square' as const,
+			showDescription: false as const,
+			showSpecs: false as const,
+			showQuickAdd: false as const,
+		},
+	};
+}
+
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
 }
 
 function hashAdapterInput(terminal: KibbleZoneTerminal, content: unknown): string {

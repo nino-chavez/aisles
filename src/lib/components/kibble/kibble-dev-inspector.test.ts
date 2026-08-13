@@ -14,6 +14,7 @@ const inspector: KibbleDevInspectorData = {
 	reference: { id: 'kibble-preserve-home-v1', version: '2026-08-12' },
 	surface: 'home', preset: 'preserve', policyVersion: 'kibble-policy-v1', publicationMode: 'approval_required',
 	dataSourceLabel: 'local catalog fixture',
+	availableModelDecision: { policyVersion: 'kibble-observe-model-v1', zoneId: 'home.featured-row', capabilities: ['rank_products'], publicationMode: 'live' },
 	inference: {
 		primary: 'researcher', probabilities: { gatherer: 0.15, hunter: 0.2, researcher: 0.55, gifter: 0.1 }, confidence: 0.35,
 		dominantSource: 'request', signalCount: 2, modifiers: { priceSensitivity: 0.2, urgency: 0.1, familiarityWithStore: 0.3 },
@@ -85,7 +86,7 @@ describe('KibbleDevInspector', () => {
 	it('labels the public demo shelf preview and its applied status', () => {
 		const result = render(KibbleDevInspector, { props: { inspector, livePreview: { state: 'applied', persona: 'hunter', changed: true } } });
 		expect(result.body).toContain('preview applied for hunter');
-		expect(result.body).toContain('Signals may reorder the approved product shelf; the Kibble template remains fixed.');
+		expect(result.body).toContain('Signals update deterministic rules first. The explicit AI control may reorder the same approved shelf; the Kibble template remains fixed.');
 		expect(result.body).not.toContain('View changed shelf');
 	});
 
@@ -119,6 +120,8 @@ describe('KibbleDevInspector', () => {
 			expect(result.body).toContain(behavior);
 		}
 		expect(result.body).toContain('Start a fresh shopper');
+		expect(result.body).toContain('Run bounded AI ranking');
+		expect(result.body).toContain('It may only return the product order. Copy, layout, prices, links, and actions stay template-owned.');
 		expect(result.body).toContain('Choose a customer behavior to simulate.');
 		expect(result.body).toContain('aria-atomic="true"');
 		expect(result.body).toContain('aria-disabled="false"');

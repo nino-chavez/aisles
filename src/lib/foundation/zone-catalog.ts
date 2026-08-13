@@ -50,8 +50,17 @@ export interface ZoneCatalogEntry {
 	/** Per-brand behavior pinned to the Bealls fallback registry source snapshot. */
 	fallbackByBeallsBrand: Readonly<Record<string, ZoneFallbackStatus>> | null;
 	autonomyEligibility: AutonomyEligibility;
-	/** The generic seam exists, but no Aisles zone is approved as a live model runtime. */
-	liveModelApproved: false;
+	/** Explicit runtime approval. Engine composability alone never grants a live model call. */
+	liveModelApprovals: readonly LiveModelApproval[];
+}
+
+export interface LiveModelApproval {
+	organizationId: string;
+	brandId: string;
+	referenceId: string;
+	referenceVersion: string;
+	routePath: string;
+	instanceId: string;
 }
 
 export interface SurfaceRouteMapping {
@@ -101,6 +110,22 @@ function fallbackByBrand(zoneId: ZoneId): Readonly<Record<string, ZoneFallbackSt
 
 const unionIds = [...new Set([...BEALLS_ZONE_SNAPSHOT.zones.map(({ zoneId }) => zoneId), ...Object.keys(ZONES)])];
 
+/**
+ * Narrow first live-model boundary: the public Kibble observability demo may
+ * rank the already approved Home shelf. The policy and field catalog still
+ * have to authorize the exact brand, route, instance and product set.
+ */
+export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApproval[]>> = freezeAuthorityGraph({
+	'home.featured-row': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.7.0',
+		routePath: '/',
+		instanceId: 'home.featured-row.1',
+	}],
+});
+
 export const ZONE_CATALOG_VERSION = '2026-08-13.3';
 export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = freezeAuthorityGraph(Object.fromEntries(unionIds.map((zoneId) => {
 	const isAisles = Object.prototype.hasOwnProperty.call(ZONES, zoneId);
@@ -138,7 +163,7 @@ export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = freezeAu
 		autonomyEligibility: !isAisles
 			? 'not-applicable'
 			: ZONES[aislesZoneId].engineComposable ? 'policy-eligible' : 'fixed-only',
-		liveModelApproved: false,
+		liveModelApprovals: LIVE_MODEL_APPROVALS[zoneId] ?? [],
 	} satisfies ZoneCatalogEntry];
 })));
 

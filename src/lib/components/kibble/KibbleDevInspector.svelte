@@ -97,6 +97,12 @@
 		rehearsalError,
 	));
 	const rehearsalBusy = $derived(rehearsalQueued || livePreview.state === 'updating');
+	const modelDecision = $derived(inspector.availableModelDecision ?? null);
+	const modelDecisionApplied = $derived(inspector.zones.some((zone) => zone.authority === 'model' && (zone.modelCallStatus?.calls ?? 0) > 0));
+	const runBoundedModelDecision = () => {
+		if (rehearsalBusy || !modelDecision) return;
+		window.dispatchEvent(new CustomEvent('aisles-kibble-model-request'));
+	};
 	const sendSyntheticBehavior = async (behavior: KibbleSyntheticBehavior) => {
 		const emitter = getEmitter();
 		if (!emitter) {
@@ -201,7 +207,7 @@
 		</div>
 
 		<p class="kc-dev-inspector__notice">
-			<b>Current demo session:</b> {previewMessage(livePreview)}. Signals may reorder the approved product shelf; the Kibble template remains fixed.
+			<b>Current demo session:</b> {previewMessage(livePreview)}. Signals update deterministic rules first. The explicit AI control may reorder the same approved shelf; the Kibble template remains fixed.
 		</p>
 	</section>
 
@@ -258,6 +264,22 @@
 				</div>
 			{/if}
 			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite" aria-atomic="true">{rehearsalStatus}</p>
+			{#if modelDecision}
+				<div class="kc-dev-inspector__model-demo">
+					<div>
+						<h4>Bounded AI shelf ranking</h4>
+						<p id="kibble-model-decision-help">Send the current sanitized inference and a bounded set of approved catalog facts—ID, name, category, price, and persona fit—to the configured model. It may only return the product order. Copy, layout, prices, links, and actions stay template-owned. A provider fallback can make a second call.</p>
+					</div>
+					<button
+						type="button"
+						aria-disabled={rehearsalBusy}
+						aria-describedby="kibble-model-decision-help"
+						onclick={runBoundedModelDecision}
+					>
+						{livePreview.state === 'updating' ? 'Decision running…' : modelDecisionApplied ? 'Run AI ranking again' : 'Run bounded AI ranking'}
+					</button>
+				</div>
+			{/if}
 			{#if !rehearsalQueued && !rehearsalError && livePreview.state === 'applied' && livePreview.changed}
 				<a class="kc-dev-inspector__view-shelf" href="#kibble-featured-shelf" onclick={viewChangedShelf}>View changed shelf</a>
 			{/if}
@@ -385,6 +407,10 @@
 	.kc-dev-inspector__signal-trace { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; margin-top:.65rem; }
 	.kc-dev-inspector__signal-trace > span { color:var(--dev-muted); font-size:.65rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 	.kc-dev-inspector__rehearsal-status { font-weight:700; }
+	.kc-dev-inspector__model-demo { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-top:.8rem; border:1px solid #d3a466; background:#fff9ef; padding:.75rem; }
+	.kc-dev-inspector__model-demo h4 { color:#704800; }
+	.kc-dev-inspector__model-demo p { max-width:52rem; }
+	.kc-dev-inspector__model-demo button { flex:none; border-color:#d3a466; color:#704800; }
 	.kc-dev-inspector__view-shelf { margin-top:.55rem; }
 	.kc-dev-inspector__zones ol { display:grid; gap:.65rem; margin:.7rem 0 0; padding:0; list-style:none; }
 	.kc-dev-inspector__zone { border:1px solid var(--dev-border); background:#fff; padding:.75rem; }
@@ -410,5 +436,5 @@
 	.kc-dev-inspector th, .kc-dev-inspector td { border-bottom:1px solid var(--dev-border); padding:.45rem; vertical-align:top; }
 	.kc-dev-inspector th { color:var(--dev-muted); font-size:.64rem; text-transform:uppercase; }
 	@media (max-width: 960px) { .kc-dev-inspector__rehearsal-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
-	@media (max-width: 760px) { .kc-dev-inspector { margin-inline:.75rem; } .kc-dev-inspector__probabilities, .kc-dev-inspector__facts, .kc-dev-inspector dl, .kc-dev-inspector__rehearsal-actions { grid-template-columns:1fr; } .kc-dev-inspector__header, .kc-dev-inspector__inference-heading, .kc-dev-inspector__zone-header, .kc-dev-inspector__section-heading { align-items:flex-start; flex-wrap:wrap; } .kc-dev-inspector__header { position:static; } .kc-dev-inspector__header-controls { width:100%; justify-content:flex-start; } .kc-dev-inspector__behavior { min-height:0 !important; } }
+	@media (max-width: 760px) { .kc-dev-inspector { margin-inline:.75rem; } .kc-dev-inspector__probabilities, .kc-dev-inspector__facts, .kc-dev-inspector dl, .kc-dev-inspector__rehearsal-actions { grid-template-columns:1fr; } .kc-dev-inspector__header, .kc-dev-inspector__inference-heading, .kc-dev-inspector__zone-header, .kc-dev-inspector__section-heading, .kc-dev-inspector__model-demo { align-items:flex-start; flex-wrap:wrap; } .kc-dev-inspector__model-demo button { width:100%; justify-content:center; } .kc-dev-inspector__header { position:static; } .kc-dev-inspector__header-controls { width:100%; justify-content:flex-start; } .kc-dev-inspector__behavior { min-height:0 !important; } }
 </style>

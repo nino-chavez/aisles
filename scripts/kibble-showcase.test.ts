@@ -99,6 +99,7 @@ describe('Kibble local showcase', () => {
 			KV_REST_API_TOKEN: 'real-token',
 			DATABASE_URL: 'postgres://real',
 			ANTHROPIC_API_KEY: 'real-model-key',
+			KIBBLE_DEMO_AI_ENABLED: 'true',
 			BIGCOMMERCE_ACCESS_TOKEN: 'real-management-token',
 			NODE_OPTIONS: '--trace-warnings',
 		}, '/tmp/catalog.json', '/tmp/interceptor.cjs');
@@ -108,6 +109,7 @@ describe('Kibble local showcase', () => {
 			KV_REST_API_TOKEN: '',
 			DATABASE_URL: '',
 			ANTHROPIC_API_KEY: '',
+			KIBBLE_DEMO_AI_ENABLED: '',
 			BIGCOMMERCE_ACCESS_TOKEN: '',
 			KIBBLE_SHOWCASE_SCENARIO_ID,
 			KIBBLE_SHOWCASE_DATA_SOURCE,

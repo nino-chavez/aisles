@@ -8,7 +8,11 @@ import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { loadSessionIncentives } from '$lib/server/incentives/session';
 import { loadCatalogProductByEntityId, loadHomeProducts, loadReferenceHomeProducts } from '$lib/server/catalog';
-import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
+import {
+	assertKibblePreserveRoutePolicy,
+	getContractSurfaceDecision,
+	getKibbleObserveHomeModelPolicyDescriptor,
+} from '$lib/brand/composition-policy';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
@@ -96,6 +100,9 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 			const kibbleHomeInspector = inspectorRequested
 				? {
 					...homeDecision.inspector,
+					...(privateEnv.KIBBLE_DEMO_AI_ENABLED === 'true'
+						? { availableModelDecision: getKibbleObserveHomeModelPolicyDescriptor() }
+						: {}),
 					inference: shopperInference,
 					dataSourceLabel: privateEnv.KIBBLE_SHOWCASE_DATA_SOURCE || homeDecision.inspector.dataSourceLabel,
 					provenance,

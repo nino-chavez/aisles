@@ -6,7 +6,7 @@
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
 	import { KibbleHomeReference } from '$lib/components/kibble';
 	import type { KibbleDevInspectorData, KibbleLivePreviewStatus } from '$lib/components/kibble/kibble-dev-inspector';
-	import type { KibbleProduct } from '$lib/components/kibble/types';
+	import type { KibbleProduct, KibbleZoneAdapterBinding } from '$lib/components/kibble/types';
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 	import { KIBBLE_PARITY_FIXED_DATA_IDENTITY } from '$lib/brand/reference/kibble-parity';
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
@@ -18,11 +18,16 @@
 	let overridePersona = $state<string | null>(null);
 	let DevInspector = $state<Component<{ inspector: KibbleDevInspectorData; livePreview?: KibbleLivePreviewStatus; sessionId?: string | null; hideHref?: string }> | null>(null);
 	let previewProducts = $state<KibbleProduct[] | null>(null);
+	let previewFeaturedZoneAdapters = $state<KibbleZoneAdapterBinding[] | null>(null);
 	let previewInspector = $state<KibbleDevInspectorData | null>(null);
 	let livePreviewStatus = $state<KibbleLivePreviewStatus>({ state: 'waiting' });
 	let signalLabOpen = $state(false);
 	let currentPersona = $derived(overridePersona ?? data.persona ?? 'gatherer');
 	let inspectorHideHref = $derived(data.observeEnableHref ?? '/?observe=true');
+	let activeHomeZoneAdapters = $derived(data.kibbleHome ? {
+		...data.kibbleHome.zoneAdapters,
+		...(previewFeaturedZoneAdapters ? { featuredRows: previewFeaturedZoneAdapters } : {}),
+	} : undefined);
 
 	onMount(() => {
 		const syncSignalLab = () => { signalLabOpen = window.location.hash === '#kibble-signal-lab'; };
@@ -43,6 +48,7 @@
 	$effect(() => {
 		data;
 		previewProducts = null;
+		previewFeaturedZoneAdapters = null;
 		previewInspector = null;
 		livePreviewStatus = { state: 'waiting' };
 	});
@@ -64,6 +70,7 @@
 				getCurrentProductIds: () => (previewProducts ?? data.kibbleHome?.products ?? []).map(({ id }) => id),
 				onApplied: (preview) => {
 					previewProducts = preview.products;
+					previewFeaturedZoneAdapters = preview.featuredZoneAdapters ?? null;
 					previewInspector = preview.inspector;
 				},
 				onStatus: (status) => { livePreviewStatus = status; },
@@ -203,7 +210,7 @@
 			browseHref={data.kibbleHome.browseHref}
 			categoryTitle={data.kibbleHome.categoryTitle}
 			categoryEyebrow={data.kibbleHome.categoryEyebrow}
-			zoneAdapters={data.kibbleHome.zoneAdapters}
+			zoneAdapters={activeHomeZoneAdapters}
 		/>
 	</div>
 {:else}

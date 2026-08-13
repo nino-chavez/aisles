@@ -45,6 +45,14 @@ Absent from this launcher:
 
 The fixture interceptor, no-op Postgres replacement, and enrichment alias are selected only by `scripts/kibble-showcase-vite.config.ts`. Normal `npm run dev`, `npm run build`, `npm run preview`, and Wrangler do not use them.
 
+The isolated launcher also forces `KIBBLE_DEMO_AI_ENABLED` off. The deployed
+prospect demo can expose a separate **Run bounded AI ranking** control when that
+server flag is enabled. That action is not automatic: it reserves a Redis-backed
+budget and sends sanitized inference plus bounded, approved product facts: ID,
+name, category, price, and persona fit. The response can contain only an exact
+permutation of those product IDs. The model cannot change page structure,
+component variants, copy, prices, links, CSS, or commerce actions.
+
 The launcher blanks the app's production database, Redis, model, incentive, and Observe credentials before it starts Vite. It stamps the run with scenario ID `kibble-local-showcase`, so contracted provenance reports the catalog and scores as synthetic. The inspector and response header both display `Synthetic demo enrichment — not merchant data`.
 
 The Kibble launcher is available on every reference-owned shopper route in both
@@ -93,8 +101,8 @@ response. Its response is a preview-only, versioned decision record with the
 trusted reference and policy identity, sanitized inference, the score-free
 zone trace, runner data-source label, and contracted provenance.
 
-The preview does not generate a layout, call a model, write a database, mutate
-the session, write telemetry, or read or write the layout-decision cache. It
+The automatic preview does not generate a layout or call a model. It does not
+write a database, mutate the session, or read or write the layout-decision cache. It
 does read the existing scoped session from the in-memory session cache or
 Redis when configured. Preserve keeps the Kibble shell fixed. Allowed signals
 can only rank and select products from the approved shelf. The local catalog
