@@ -80,6 +80,8 @@ describe('KibbleDevInspector', () => {
 		for (const persona of ['gatherer', 'hunter', 'researcher', 'gifter']) {
 			expect(result.body).toContain(`Signal ${persona}`);
 		}
+		expect(result.body).not.toContain('Reset session view');
+		expect(result.body).toContain('Decision: waiting for a signal.');
 		expect(render(KibbleDevInspector, { props: { inspector } }).body).not.toContain('Live synthetic signal rehearsal');
 	});
 });

@@ -8,6 +8,16 @@ import {
 
 const PERSONAS = new Set<KibbleInspectorPersona>(['gatherer', 'hunter', 'researcher', 'gifter']);
 const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'reference', 'policyVersion', 'persona', 'products', 'inspector']);
+const PRODUCT_KEYS = new Set(['id', 'entityId', 'name', 'price', 'salePrice', 'image', 'imageAlt', 'description', 'specs', 'tags', 'category']);
+const INSPECTOR_KEYS = new Set(['reference', 'surface', 'preset', 'policyVersion', 'publicationMode', 'inference', 'dataSourceLabel', 'zones', 'provenance']);
+const ZONE_KEYS = new Set(['id', 'label', 'authority', 'componentVariant', 'capabilities', 'decisionSummary', 'changed', 'inputProducts', 'outputProducts', 'modelCallStatus', 'decision']);
+const INFERENCE_KEYS = new Set(['primary', 'probabilities', 'confidence', 'entropy', 'certainty', 'dominantSource', 'signalCount', 'lastUpdated', 'modifiers', 'shift', 'ruleMatches']);
+const MODIFIER_KEYS = new Set(['priceSensitivity', 'urgency', 'familiarityWithStore']);
+const SHIFT_KEYS = new Set(['detected', 'from', 'trigger']);
+const RULE_KEYS = new Set(['ruleName', 'reason', 'weight', 'adjustment']);
+const ADJUSTMENT_KEYS = new Set([...PERSONAS, ...MODIFIER_KEYS]);
+const PRODUCT_SUMMARY_KEYS = new Set(['id', 'name', 'variant']);
+const MODEL_STATUS_KEYS = new Set(['calls', 'authorized']);
 
 export type KibbleLivePreviewExpectation = {
 	reference: { id: string; version: string };
@@ -130,7 +140,7 @@ function isPersona(value: unknown): value is KibbleInspectorPersona {
 }
 
 function isKibbleProduct(value: unknown): value is KibbleProduct {
-	if (!isRecord(value)) return false;
+	if (!isRecord(value) || !hasOnlyKeys(value, PRODUCT_KEYS)) return false;
 	const requiredStrings = ['id', 'name', 'image', 'imageAlt', 'description', 'category'];
 	if (!requiredStrings.every((key) => typeof value[key] === 'string')) return false;
 	if (typeof value.entityId !== 'number' || typeof value.price !== 'number') return false;
@@ -140,7 +150,7 @@ function isKibbleProduct(value: unknown): value is KibbleProduct {
 }
 
 function isInspector(value: unknown, expected: KibbleLivePreviewExpectation, persona: KibbleInspectorPersona): value is KibbleDevInspectorData {
-	if (!isRecord(value)) return false;
+	if (!isRecord(value) || !hasOnlyKeys(value, INSPECTOR_KEYS)) return false;
 	const inference = value.inference;
 	if (!isInference(inference)) return false;
 	if (!matchesReference(value.reference, expected.reference)
@@ -156,12 +166,13 @@ function isInspector(value: unknown, expected: KibbleLivePreviewExpectation, per
 }
 
 function isZone(value: unknown): value is KibbleInspectorZone {
-	if (!isRecord(value)) return false;
+	if (!isRecord(value) || !hasOnlyKeys(value, ZONE_KEYS)) return false;
 	if (typeof value.id !== 'string' || typeof value.label !== 'string' || typeof value.componentVariant !== 'string'
 		|| typeof value.decisionSummary !== 'string' || typeof value.changed !== 'boolean') return false;
 	if (value.authority !== 'fixed' && value.authority !== 'rules' && value.authority !== 'model') return false;
 	if (!Array.isArray(value.capabilities) || !value.capabilities.every((capability) => typeof capability === 'string')) return false;
-	if ('modelCallStatus' in value && (!isRecord(value.modelCallStatus) || typeof value.modelCallStatus.calls !== 'number' || typeof value.modelCallStatus.authorized !== 'boolean')) return false;
+	if ('modelCallStatus' in value && (!isRecord(value.modelCallStatus) || !hasOnlyKeys(value.modelCallStatus, MODEL_STATUS_KEYS)
+		|| typeof value.modelCallStatus.calls !== 'number' || typeof value.modelCallStatus.authorized !== 'boolean')) return false;
 	if ('inputProducts' in value && !isProductSummaryList(value.inputProducts)) return false;
 	if ('outputProducts' in value && !isProductSummaryList(value.outputProducts)) return false;
 	if ('decision' in value && !isRecord(value.decision)) return false;
@@ -169,10 +180,13 @@ function isZone(value: unknown): value is KibbleInspectorZone {
 }
 
 function isInference(value: unknown): value is { primary: KibbleInspectorPersona } {
-	if (!isRecord(value) || !isPersona(value.primary) || typeof value.dominantSource !== 'string'
+	if (!isRecord(value) || !hasOnlyKeys(value, INFERENCE_KEYS) || !isPersona(value.primary) || typeof value.dominantSource !== 'string'
 		|| !isFiniteNumber(value.confidence) || !isFiniteNumber(value.signalCount)
 		|| !isProbabilityRecord(value.probabilities) || !isModifiers(value.modifiers) || !isShift(value.shift)
 		|| !Array.isArray(value.ruleMatches)) return false;
+	if ('entropy' in value && !isFiniteNumber(value.entropy)) return false;
+	if ('certainty' in value && !isFiniteNumber(value.certainty)) return false;
+	if ('lastUpdated' in value && !isFiniteNumber(value.lastUpdated)) return false;
 	return value.ruleMatches.every(isRuleMatch);
 }
 
@@ -182,22 +196,23 @@ function isProbabilityRecord(value: unknown) {
 }
 
 function isModifiers(value: unknown) {
-	return isRecord(value) && ['priceSensitivity', 'urgency', 'familiarityWithStore'].every((key) => isFiniteNumber(value[key]));
+	return isRecord(value) && hasOnlyKeys(value, MODIFIER_KEYS)
+		&& [...MODIFIER_KEYS].every((key) => isFiniteNumber(value[key]));
 }
 
 function isShift(value: unknown) {
-	return isRecord(value) && typeof value.detected === 'boolean'
+	return isRecord(value) && hasOnlyKeys(value, SHIFT_KEYS) && typeof value.detected === 'boolean'
 		&& (value.from === null || isPersona(value.from)) && (value.trigger === null || typeof value.trigger === 'string');
 }
 
 function isRuleMatch(value: unknown) {
-	return isRecord(value) && typeof value.ruleName === 'string' && typeof value.reason === 'string'
-		&& isFiniteNumber(value.weight) && isRecord(value.adjustment)
+	return isRecord(value) && hasOnlyKeys(value, RULE_KEYS) && typeof value.ruleName === 'string' && typeof value.reason === 'string'
+		&& isFiniteNumber(value.weight) && isRecord(value.adjustment) && hasOnlyKeys(value.adjustment, ADJUSTMENT_KEYS)
 		&& Object.values(value.adjustment).every(isFiniteNumber);
 }
 
 function isProductSummaryList(value: unknown) {
-	return Array.isArray(value) && value.every((product) => isRecord(product) && typeof product.id === 'string'
+	return Array.isArray(value) && value.every((product) => isRecord(product) && hasOnlyKeys(product, PRODUCT_SUMMARY_KEYS) && typeof product.id === 'string'
 		&& typeof product.name === 'string' && (!('variant' in product) || typeof product.variant === 'string'));
 }
 

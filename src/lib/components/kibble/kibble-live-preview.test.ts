@@ -35,6 +35,15 @@ describe('validateKibbleLivePreview', () => {
 		expect(validateKibbleLivePreview({ ...response(), products: [product, { ...product, name: 'Duplicate' }] }, expectation).ok).toBe(false);
 	});
 
+	it('rejects undeclared product, inspector, and zone authority fields', () => {
+		expect(validateKibbleLivePreview({ ...response(), products: [{ ...product, preferredPersona: 'hunter' }] }, expectation).ok).toBe(false);
+		expect(validateKibbleLivePreview({ ...response(), inspector: { ...inspector, policyOverride: 'explore' } }, expectation).ok).toBe(false);
+		expect(validateKibbleLivePreview({
+			...response(),
+			inspector: { ...inspector, zones: [{ ...inspector.zones[0], allowedCapabilities: ['replace_css'] }] },
+		}, expectation).ok).toBe(false);
+	});
+
 	it('retains the prior approved shelf and trace on failure', () => {
 		const current = { products: [{ ...product, id: 'approved' }], inspector: { ...inspector, policyVersion: 'approved-policy' } };
 		expect(applyKibbleLivePreview(current, { ...response(), version: 'wrong' }, expectation)).toBe(current);

@@ -146,9 +146,8 @@
 				{#each rehearsalSignals as signal}
 					<button type="button" onclick={() => sendRehearsalSignal(signal)}>Signal {signal.persona}</button>
 				{/each}
-				<a href="?dev=true">Reset session view</a>
 			</div>
-			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite">{rehearsalMessage}</p>
+			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite">{rehearsalMessage} Decision: {previewMessage(livePreview)}.</p>
 		</section>
 	{/if}
 
