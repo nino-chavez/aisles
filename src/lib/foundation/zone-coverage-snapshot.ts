@@ -6,6 +6,8 @@
  * it never requires a sibling repository.
  */
 
+import { freezeAuthorityGraph } from './authority-immutability';
+
 export type SnapshotFact = 'yes' | 'partial' | 'no';
 
 export interface ZoneImplementationFacts {
@@ -101,7 +103,7 @@ function beallsFallbackByBrand(zoneId: string): BeallsSnapshotZone['fallbackByBr
 	])) as BeallsSnapshotZone['fallbackByBrand'];
 }
 
-export const BEALLS_ZONE_SNAPSHOT = {
+export const BEALLS_ZONE_SNAPSHOT = freezeAuthorityGraph({
 	manifestVersion: 1,
 	source: {
 		repository: 'bealls-aisles',
@@ -227,4 +229,4 @@ export const BEALLS_ZONE_SNAPSHOT = {
 			note: 'Development/reference route with an explicit policy surface and no zone family.',
 		},
 	],
-} as const;
+} as const);
