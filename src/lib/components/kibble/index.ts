@@ -5,6 +5,7 @@ export { default as KibbleCategoryReference } from './KibbleCategoryReference.sv
 export { default as KibbleHeader } from './KibbleHeader.svelte';
 export { default as KibbleHero } from './KibbleHero.svelte';
 export { default as KibbleHomeReference } from './KibbleHomeReference.svelte';
+export { default as KibbleDevInspector } from './KibbleDevInspector.svelte';
 export { default as KibbleMobileNavigation } from './KibbleMobileNavigation.svelte';
 export { default as KibbleProductCard } from './KibbleProductCard.svelte';
 export { default as KibbleProductDetailReference } from './KibbleProductDetailReference.svelte';
@@ -31,3 +32,11 @@ export type {
 	KibbleStatusItem,
 	KibbleVisualTile,
 } from './types';
+export type {
+	KibbleDevInspectorData,
+	KibbleInspectorAuthority,
+	KibbleInspectorInference,
+	KibbleInspectorPersona,
+	KibbleInspectorProductSummary,
+	KibbleInspectorZone,
+} from './kibble-dev-inspector';
