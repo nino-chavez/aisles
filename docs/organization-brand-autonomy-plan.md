@@ -10,9 +10,10 @@
 ## Implementation checkpoint
 
 The plan is not complete. The corrective implementation is integrated on the
-local project branches. The Home model action is pushed, deployed, and live.
-The PDP model action is implemented locally and still needs review and deploy.
-No database migration has been applied.
+project branches. The Home model action is merged at `426045a6`, deployed as
+Cloudflare Pages deployment `1691752f-db95-402c-be7c-8d2ae9c1945b`, and was
+verified live on 2026-08-13. The PDP model action is implemented locally and
+still needs deploy. No database migration has been applied.
 
 | Phase | Local state on 2026-08-13 | Remaining gate |
 |---|---|---|
@@ -557,8 +558,9 @@ runtime-owned policy storage contract described above.
 
 ## Execution map
 
-Work proceeds in isolated worktrees. The status below records local execution,
-not merge, publication, deployment, migration, or human acceptance.
+Work proceeds in isolated worktrees. The status below records implementation
+state. A row names merge or deployment only when this plan also pins that
+evidence. It does not imply a database migration or human visual acceptance.
 
 | Slice | Repository and ownership | Local state |
 |---|---|---|
