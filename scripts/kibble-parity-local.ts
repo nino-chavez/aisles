@@ -7,7 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 export const KIBBLE_PARITY_CONTRACT_ID = 'kibble-shelf-native';
-export const KIBBLE_PARITY_CONTRACT_VERSION = '1.4.0';
+export const KIBBLE_PARITY_CONTRACT_VERSION = '1.5.0';
 export const KIBBLE_PARITY_FIXED_DATA_IDENTITY = '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49';
 export const KIBBLE_PARITY_DEFAULT_TOLERANCES = {
 	header: 0, nav: 0, main: 0, footer: 0, h1: 0, h2: 0, h3: 0,
