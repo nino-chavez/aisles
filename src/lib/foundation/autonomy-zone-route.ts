@@ -2,9 +2,9 @@
 
 import type { Surface } from './zones';
 
-export const SHOPPER_ROUTE_MANIFEST_VERSION = '2026-08-13.2';
+export const SHOPPER_ROUTE_MANIFEST_VERSION = '2026-08-13.3';
 /** SHA-256 of JSON.stringify(SHOPPER_ROUTE_MANIFEST_DEFINITION). */
-export const SHOPPER_ROUTE_MANIFEST_DIGEST = 'sha256:f2745eb59e7ccc870938ed44b8e32951a4e616ca87a1c03615bb30af7eb8d6b7';
+export const SHOPPER_ROUTE_MANIFEST_DIGEST = 'sha256:932ded9111cb77e8c4b7808aaaa7dfc110718129e01480de0b546c1b6c610fd7';
 
 export interface TrustedRouteSurface {
 	/** Exact input pathname retained for decision provenance. */
@@ -51,7 +51,6 @@ const SHOPPER_STATIC_ROUTES = Object.freeze([
 	{ path: '/checkout/prepaid', surface: 'checkout' },
 	{ path: '/checkout/confirmation', surface: 'checkout' },
 	{ path: '/store-locator', surface: 'locator' },
-	{ path: '/locator', surface: 'locator' },
 ] as const satisfies readonly StaticRoute[]);
 
 const SHOPPER_DYNAMIC_ROUTES = Object.freeze([

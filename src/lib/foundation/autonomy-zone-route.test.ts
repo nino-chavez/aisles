@@ -13,8 +13,8 @@ import {
 } from './autonomy-zone-route';
 
 const REVIEWED_ROUTE_MANIFEST_RELEASE = {
-	version: '2026-08-13.2',
-	digest: 'sha256:f2745eb59e7ccc870938ed44b8e32951a4e616ca87a1c03615bb30af7eb8d6b7',
+	version: '2026-08-13.3',
+	digest: 'sha256:932ded9111cb77e8c4b7808aaaa7dfc110718129e01480de0b546c1b6c610fd7',
 } as const;
 
 describe('trusted shopper route normalization', () => {
@@ -41,7 +41,6 @@ describe('trusted shopper route normalization', () => {
 		['/subscriptions', 'account'],
 		['/portal/subscriptions/123', 'account'],
 		['/store-locator', 'locator'],
-		['/locator', 'locator'],
 	] as const)('normalizes %s to %s while retaining the exact path', (routePath, surface) => {
 		expect(normalizeTrustedShopperRoute(routePath)).toEqual({ routePath, surface, routeManifestVersion: SHOPPER_ROUTE_MANIFEST_VERSION, routeManifestDigest: SHOPPER_ROUTE_MANIFEST_DIGEST });
 	});
@@ -91,6 +90,7 @@ describe('trusted shopper route normalization', () => {
 		'/subscriptions/123',
 		'/checkout/admin',
 		'/account/admin',
+		'/locator',
 		'/locator/private',
 		'/account//orders',
 		'/account/../admin',
