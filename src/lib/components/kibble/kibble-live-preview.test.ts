@@ -36,7 +36,11 @@ const inspector: KibbleDevInspectorData = {
 const response = () => ({ version: 'kibble-live-home-preview-v1', previewOnly: true, reference: expectation.reference, policyVersion: expectation.policyVersion, persona: 'hunter', products: [product], inspector });
 
 describe('validateKibbleLivePreview', () => {
-	afterEach(() => vi.unstubAllGlobals());
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
 
 	it('accepts a complete, pinned preview response', () => {
 		const result = validateKibbleLivePreview(response(), expectation);
@@ -143,5 +147,28 @@ describe('validateKibbleLivePreview', () => {
 		cleanup();
 		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it('fails closed and re-enables the inspector path when a preview request stalls', async () => {
+		vi.useFakeTimers();
+		const eventTarget = new EventTarget();
+		vi.stubGlobal('window', eventTarget);
+		vi.stubGlobal('fetch', vi.fn((_input: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+			init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+		})));
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const statuses: KibbleLivePreviewStatus[] = [];
+		const cleanup = listenForKibbleLivePreview({
+			expectation,
+			getCurrentProductIds: () => ['food-b'],
+			onApplied: vi.fn(),
+			onStatus: (status) => statuses.push(status),
+		});
+
+		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
+		expect(statuses).toEqual([{ state: 'updating' }]);
+		await vi.advanceTimersByTimeAsync(10_000);
+		expect(statuses).toEqual([{ state: 'updating' }, { state: 'failed' }]);
+		cleanup();
 	});
 });

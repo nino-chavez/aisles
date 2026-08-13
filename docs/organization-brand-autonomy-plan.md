@@ -471,7 +471,10 @@ the route then re-derives the persisted-session decision server-side rather than
 accepting browser-controlled decision data. A separate local showcase supplies
 a pinned catalog and clearly labeled synthetic fit scores; its rehearsal buttons
 send real `nav.search` signals through `/api/signals`, are not shopper controls,
-and mark the resulting preview provenance synthetic.
+and mark the resulting preview provenance synthetic. Development receipts bind
+each control to its exact client sequence, validate the complete inference
+response, and fail with uncertain-delivery copy after ten seconds rather than
+letting an older response confirm the wrong control.
 
 ### Phase 6: Version cache and provenance
 

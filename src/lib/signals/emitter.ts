@@ -9,7 +9,12 @@
  * Phase 3+: scroll depth, dwell time, cart actions, etc.
  */
 
-import { PERSONAS, type PersonaInference, type SignalEventType, type SignalSource } from './types';
+import { dev } from '$app/environment';
+import type { SignalEventType, SignalSource } from './types';
+import { parseConfirmedSignalBatch } from './client-inference-contract';
+
+export const DEV_SIGNAL_REQUEST_TIMEOUT_MS = 8_000;
+const DEV_SIGNAL_RETRY_DELAY_MS = 250;
 
 interface EmittedEvent {
 	type: SignalEventType;
@@ -23,16 +28,6 @@ interface EmittedEvent {
 	timestamp: number;
 	sequence: number;
 }
-
-export interface SignalReceipt {
-	sequence: number;
-	inference: PersonaInference;
-}
-
-type PendingReceipt = {
-	resolve: (receipt: SignalReceipt) => void;
-	reject: (error: Error) => void;
-};
 
 const HIGH_PRIORITY: SignalEventType[] = [
 	'commerce.add_to_cart',
@@ -48,39 +43,15 @@ export class SignalEmitter {
 	private buffer: EmittedEvent[] = [];
 	private sequence = 0;
 	private flushTimer: ReturnType<typeof setInterval> | null = null;
-	private flushPromise: Promise<void> | null = null;
-	private pendingReceipts = new Map<number, PendingReceipt>();
+	private flushing = false;
+	private destroyed = false;
 
 	constructor() {
 		// Flush buffered events every 5 seconds
-		this.flushTimer = setInterval(() => void this.flush(), 5000);
+		this.flushTimer = setInterval(() => this.flush(), 5000);
 	}
 
 	emit(type: SignalEventType, data: Record<string, unknown> = {}) {
-		this.enqueue(type, data);
-
-		// Immediate flush for high-priority events
-		if (HIGH_PRIORITY.includes(type)) {
-			void this.flush();
-		}
-	}
-
-	/**
-	 * Emit one signal and resolve only when the batch containing that exact
-	 * client sequence receives a scoped inference response. This is intended
-	 * for development/operator controls that must not treat an unrelated global
-	 * inference event as confirmation of their own action.
-	 */
-	emitConfirmed(type: SignalEventType, data: Record<string, unknown> = {}): Promise<SignalReceipt> {
-		const event = this.enqueue(type, data);
-		const receipt = new Promise<SignalReceipt>((resolve, reject) => {
-			this.pendingReceipts.set(event.sequence, { resolve, reject });
-		});
-		void this.flush();
-		return receipt;
-	}
-
-	private enqueue(type: SignalEventType, data: Record<string, unknown>): EmittedEvent {
 		if (type === 'subscription.due_proximity' || type === 'subscription.tenure') {
 			throw new Error(`${type} is provider-derived and must be sent to /api/signals as an external event`);
 		}
@@ -99,90 +70,87 @@ export class SignalEmitter {
 		};
 
 		this.buffer.push(event);
-		return event;
+
+		// Immediate flush for high-priority events
+		if (HIGH_PRIORITY.includes(type)) {
+			void this.flush();
+		}
+
+		return event.sequence;
 	}
 
-	flush(): Promise<void> {
-		if (this.flushPromise) return this.flushPromise;
-		if (this.buffer.length === 0) return Promise.resolve();
+	async flush() {
+		if (this.destroyed || this.buffer.length === 0 || this.flushing) return;
 
-		this.flushPromise = this.drainBuffer().finally(() => {
-			this.flushPromise = null;
-		});
-		return this.flushPromise;
-	}
+		this.flushing = true;
+		const events = [...this.buffer];
+		this.buffer = [];
 
-	private async drainBuffer(): Promise<void> {
-		while (this.buffer.length > 0) {
-			const events = [...this.buffer];
-			this.buffer = [];
+		let retryLater = false;
+		const requestController = dev ? new AbortController() : null;
+		const requestTimeout = requestController
+			? setTimeout(() => requestController.abort(), DEV_SIGNAL_REQUEST_TIMEOUT_MS)
+			: null;
+		try {
+			const res = await fetch('/api/signals', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ events }),
+				signal: requestController?.signal,
+			});
 
-			let res: Response;
-			try {
-				res = await fetch('/api/signals', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ events }),
-				});
-			} catch {
-				// A failed request may still have reached the server. Do not retry
-				// explicitly confirmed events and later report a contradictory result.
-				const ordinaryEvents = events.filter((event) => !this.pendingReceipts.has(event.sequence));
-				this.rejectReceipts(events, 'Signal confirmation failed; preview was not requested.');
-				this.buffer = [...ordinaryEvents, ...this.buffer];
+			if (!res.ok) {
+				this.reportDevelopmentBatch(events, { status: 'http', code: res.status });
 				return;
 			}
 
-			if (!res.ok) {
-				this.rejectReceipts(events, `Signal endpoint rejected the event batch (${res.status}).`);
-				continue;
-			}
-
-			let data: unknown;
+			let body: unknown;
 			try {
-				data = await res.json();
+				body = await res.json();
 			} catch {
-				this.rejectReceipts(events, 'Signal response could not be confirmed; preview was not requested.');
-				continue;
+				this.reportDevelopmentBatch(events, { status: 'invalid-response' });
+				return;
 			}
-
-			if (!isRecord(data) || data.received !== events.length) {
-				this.rejectReceipts(events, 'Signal response did not confirm the complete event batch; preview was not requested.');
-				continue;
+			const data = parseConfirmedSignalBatch(body, events.length);
+			if (!data) {
+				this.reportDevelopmentBatch(events, { status: 'invalid-response' });
+				return;
 			}
-
-			if (data.inference === null) {
-				this.rejectReceipts(events, 'Signal endpoint returned no scoped inference; preview was not requested.');
-				continue;
+			if (!data.inference) {
+				this.reportDevelopmentBatch(events, { status: 'no-session' });
+				return;
 			}
-			if (!isPersonaInference(data.inference)) {
-				this.rejectReceipts(events, 'Signal response contained invalid inference; preview was not requested.');
-				continue;
-			}
-
 			window.dispatchEvent(new CustomEvent('aisles-inference-update', {
 				detail: data.inference,
 			}));
-			this.resolveReceipts(events, data.inference);
+			this.reportDevelopmentBatch(events, { status: 'confirmed', inference: data.inference });
+		} catch {
+			// Re-buffer on failure — prepend so order is preserved
+			this.buffer = [...events, ...this.buffer];
+			retryLater = true;
+			if (dev && !this.destroyed) setTimeout(() => void this.flush(), DEV_SIGNAL_RETRY_DELAY_MS);
+		} finally {
+			if (requestTimeout) clearTimeout(requestTimeout);
+			this.flushing = false;
+			// A high-priority event may arrive while another batch is in flight.
+			// Drain it immediately after a completed request instead of waiting for
+			// the five-second interval. Network failures retain the original retry.
+			if (!this.destroyed && !retryLater && this.buffer.length > 0) void this.flush();
 		}
 	}
 
-	private resolveReceipts(events: readonly EmittedEvent[], inference: PersonaInference) {
-		for (const event of events) {
-			const pending = this.pendingReceipts.get(event.sequence);
-			if (!pending) continue;
-			this.pendingReceipts.delete(event.sequence);
-			pending.resolve({ sequence: event.sequence, inference });
-		}
-	}
-
-	private rejectReceipts(events: readonly EmittedEvent[], message: string) {
-		for (const event of events) {
-			const pending = this.pendingReceipts.get(event.sequence);
-			if (!pending) continue;
-			this.pendingReceipts.delete(event.sequence);
-			pending.reject(new Error(message));
-		}
+	private reportDevelopmentBatch(
+		events: readonly EmittedEvent[],
+		report:
+			| { status: 'confirmed'; inference: import('./types').PersonaInference }
+			| { status: 'http'; code: number }
+			| { status: 'invalid-response' | 'no-session' },
+	): void {
+		if (!dev) return;
+		const sequences = events.map(({ sequence }) => sequence);
+		void import('./confirmed-signal.dev').then(({ reportConfirmedSignalBatch }) => {
+			reportConfirmedSignalBatch(this, sequences, report);
+		});
 	}
 
 	destroy() {
@@ -191,6 +159,7 @@ export class SignalEmitter {
 			this.flushTimer = null;
 		}
 		void this.flush(); // Final flush
+		this.destroyed = true;
 	}
 
 	/**
@@ -271,35 +240,4 @@ function getViewport(): 'mobile' | 'tablet' | 'desktop' {
 	if (w < 768) return 'mobile';
 	if (w < 1024) return 'tablet';
 	return 'desktop';
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function isFiniteNumber(value: unknown): value is number {
-	return typeof value === 'number' && Number.isFinite(value);
-}
-
-function isPersonaInference(value: unknown): value is PersonaInference {
-	if (!isRecord(value) || typeof value.primary !== 'string' || !PERSONAS.includes(value.primary as PersonaInference['primary'])) return false;
-	const probabilities = value.probabilities;
-	if (!isRecord(probabilities) || !PERSONAS.every((persona) => isFiniteNumber(probabilities[persona]))) return false;
-	if (!isFiniteNumber(value.confidence) || !isFiniteNumber(value.entropy) || !isFiniteNumber(value.certainty)) return false;
-	if (!isRecord(value.modifiers)
-		|| !isFiniteNumber(value.modifiers.priceSensitivity)
-		|| !isFiniteNumber(value.modifiers.urgency)
-		|| !isFiniteNumber(value.modifiers.familiarityWithStore)) return false;
-	if (!isRecord(value.shift)
-		|| typeof value.shift.detected !== 'boolean'
-		|| !(value.shift.from === null || (typeof value.shift.from === 'string' && PERSONAS.includes(value.shift.from as PersonaInference['primary'])))
-		|| !(value.shift.trigger === null || typeof value.shift.trigger === 'string')) return false;
-	if (!Number.isInteger(value.signalCount) || (value.signalCount as number) < 0 || !isFiniteNumber(value.lastUpdated)) return false;
-	if (!['request', 'navigation', 'interaction', 'commerce', 'refinement', 'external'].includes(value.dominantSource as string)) return false;
-	if (!Array.isArray(value.ruleMatches) || !value.ruleMatches.every((match) => {
-		if (!isRecord(match) || typeof match.ruleName !== 'string' || typeof match.reason !== 'string' || !isFiniteNumber(match.weight)) return false;
-		if (!isRecord(match.adjustment)) return false;
-		return Object.values(match.adjustment).every(isFiniteNumber);
-	})) return false;
-	return true;
 }

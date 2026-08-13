@@ -65,7 +65,10 @@ session from the in-memory session cache or Redis when configured.
 
 The local synthetic rehearsal buttons are inspector controls, not shopper
 controls. They emit allowed `nav.search` signals through `/api/signals`, then
-request the server preview. The showcase catalog and fit values are pinned
+request the server preview. Each development receipt is correlated to the exact
+client sequence and strictly validates the returned inference; a ten-second
+stall restores the controls while labeling delivery uncertain. The showcase
+catalog and fit values are pinned
 synthetic fixtures. They do not change production authority, and the Preserve
 shell remains fixed.
 The reference and candidate expose matching source-owned fixture markers, and

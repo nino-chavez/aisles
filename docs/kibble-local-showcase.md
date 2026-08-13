@@ -49,7 +49,11 @@ Shopper page data never includes persona-fit scores.
 
 The synthetic rehearsal buttons appear only for this synthetic local scenario.
 They are not shopper controls. Each button emits one allowed `nav.search`
-signal through the normal `/api/signals` endpoint. After that signal persists,
+signal through the normal client emitter and `/api/signals` endpoint. The
+development receipt is bound to that event's exact client sequence, so an
+older in-flight inference cannot confirm a newer button. A stalled confirmation
+returns the controls after ten seconds and says delivery is uncertain. After a
+validated signal persists,
 the inspector immediately asks `POST /api/kibble/home-decision?dev=true` for a
 server-derived shelf preview. The endpoint accepts no decision inputs from the
 browser. It reads the existing `aisles_session`, derives inference, loads the

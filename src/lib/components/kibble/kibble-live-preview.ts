@@ -34,6 +34,7 @@ const HOME_ZONES = [
 ] as const;
 const HEX_16 = /^[0-9a-f]{16}$/;
 const CATALOG_HASH = /^catalog:[0-9a-f]{16}$/;
+export const KIBBLE_LIVE_PREVIEW_TIMEOUT_MS = 10_000;
 
 export type KibbleLivePreviewExpectation = {
 	reference: { id: string; version: string };
@@ -79,6 +80,11 @@ export function listenForKibbleLivePreview({
 		controller?.abort();
 		const requestController = new AbortController();
 		controller = requestController;
+		let timedOut = false;
+		const timeout = setTimeout(() => {
+			timedOut = true;
+			requestController.abort();
+		}, KIBBLE_LIVE_PREVIEW_TIMEOUT_MS);
 		onStatus({ state: 'updating' });
 
 		try {
@@ -96,10 +102,12 @@ export function listenForKibbleLivePreview({
 			onApplied(validation.preview);
 			onStatus({ state: 'applied', persona: validation.preview.persona, changed });
 		} catch (error) {
-			if (!active || requestController.signal.aborted || requestGeneration !== generation) return;
+			if (!active || requestGeneration !== generation) return;
+			if (requestController.signal.aborted && !timedOut) return;
 			console.warn('Kibble live preview was rejected; retaining the approved shelf.', error);
 			onStatus({ state: 'failed' });
 		} finally {
+			clearTimeout(timeout);
 			if (controller === requestController) controller = null;
 		}
 	};

@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import {
+		SignalConfirmationError,
+		registerConfirmedSignal,
+		type ConfirmedSignal,
+	} from '$lib/signals/confirmed-signal.dev';
 	import { getEmitter } from '$lib/signals/emitter';
 	import {
 		KIBBLE_INSPECTOR_PERSONAS,
@@ -27,6 +32,7 @@
 	let rehearsalQueued = $state(false);
 	let rehearsalError = $state<string | null>(null);
 	let rehearsalGeneration = 0;
+	let activeConfirmation: ConfirmedSignal | null = null;
 	const safeInspectorInference = $derived(sanitizeInspectorInference(inspector.inference));
 	const currentInference = $derived(liveInference ?? safeInspectorInference);
 	const syntheticScenario = $derived.by(() => {
@@ -57,6 +63,8 @@
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
 		return () => {
 			rehearsalGeneration += 1;
+			activeConfirmation?.cancel();
+			activeConfirmation = null;
 			window.removeEventListener('aisles-inference-update', onInferenceUpdate);
 		};
 	});
@@ -81,19 +89,26 @@
 			rehearsalError = 'Signal emitter unavailable; no event was sent.';
 			return;
 		}
+		activeConfirmation?.cancel();
 		const generation = ++rehearsalGeneration;
 		rehearsalError = null;
 		rehearsalPersona = signal.persona;
 		rehearsalQueued = true;
+		const attempt = registerConfirmedSignal(emitter, 'nav.search', { query: signal.query });
+		activeConfirmation = attempt;
 		try {
-			await emitter.emitConfirmed('nav.search', { query: signal.query });
+			await attempt.confirmation;
 			if (generation !== rehearsalGeneration) return;
 			rehearsalQueued = false;
 		} catch (error) {
 			if (generation !== rehearsalGeneration) return;
 			rehearsalQueued = false;
-			const reason = error instanceof Error ? error.message : 'Signal confirmation failed.';
+			const reason = error instanceof SignalConfirmationError
+				? error.message
+				: 'Signal confirmation failed.';
 			rehearsalError = `Signal ${signal.persona} was not confirmed. ${reason}`;
+		} finally {
+			if (activeConfirmation === attempt) activeConfirmation = null;
 		}
 	};
 	const viewChangedShelf = (event: MouseEvent) => {
