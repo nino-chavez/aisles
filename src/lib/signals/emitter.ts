@@ -14,6 +14,16 @@ import type { SignalEventType, SignalSource } from './types';
 import { parseConfirmedSignalBatch } from './client-inference-contract';
 
 export const DEV_SIGNAL_REQUEST_TIMEOUT_MS = 4_000;
+let demoConfirmationReportingEnabled = false;
+
+/** Enable exact signal receipts while the opt-in public demo inspector is mounted. */
+export function setDemoSignalConfirmationReporting(enabled: boolean) {
+	demoConfirmationReportingEnabled = enabled;
+}
+
+export function shouldReportSignalConfirmation(isDevelopment = dev) {
+	return isDevelopment || demoConfirmationReportingEnabled;
+}
 
 interface EmittedEvent {
 	type: SignalEventType;
@@ -86,7 +96,8 @@ export class SignalEmitter {
 		this.buffer = [];
 
 		let retryLater = false;
-		const requestController = dev ? new AbortController() : null;
+		const reportConfirmation = shouldReportSignalConfirmation();
+		const requestController = reportConfirmation ? new AbortController() : null;
 		const requestTimeout = requestController
 			? setTimeout(() => requestController.abort(), DEV_SIGNAL_REQUEST_TIMEOUT_MS)
 			: null;
@@ -100,7 +111,7 @@ export class SignalEmitter {
 			if (requestController?.signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
 			if (!res.ok) {
-				if (dev) {
+				if (reportConfirmation) {
 					const sequences = events.map(({ sequence }) => sequence);
 					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
 						detail: { emitter: this, sequences, report: { status: 'http', code: res.status } },
@@ -113,7 +124,7 @@ export class SignalEmitter {
 			try {
 				body = await res.json();
 			} catch {
-				if (dev) {
+				if (reportConfirmation) {
 					const sequences = events.map(({ sequence }) => sequence);
 					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
 						detail: { emitter: this, sequences, report: { status: 'invalid-response' } },
@@ -124,7 +135,7 @@ export class SignalEmitter {
 			if (requestController?.signal.aborted) throw new DOMException('Aborted', 'AbortError');
 			const data = parseConfirmedSignalBatch(body, events.length);
 			if (!data) {
-				if (dev) {
+				if (reportConfirmation) {
 					const sequences = events.map(({ sequence }) => sequence);
 					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
 						detail: { emitter: this, sequences, report: { status: 'invalid-response' } },
@@ -133,7 +144,7 @@ export class SignalEmitter {
 				return;
 			}
 			if (!data.inference) {
-				if (dev) {
+				if (reportConfirmation) {
 					const sequences = events.map(({ sequence }) => sequence);
 					window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
 						detail: { emitter: this, sequences, report: { status: 'no-session' } },
@@ -144,15 +155,15 @@ export class SignalEmitter {
 			window.dispatchEvent(new CustomEvent('aisles-inference-update', {
 				detail: data.inference,
 			}));
-			if (dev) {
+			if (reportConfirmation) {
 				const sequences = events.map(({ sequence }) => sequence);
 				window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {
 					detail: { emitter: this, sequences, report: { status: 'confirmed', inference: data.inference } },
 				}));
 			}
 		} catch {
-			if (dev) {
-				// A cancelled or failed development request has uncertain delivery.
+			if (reportConfirmation) {
+				// A cancelled or failed demo request has uncertain delivery.
 				// Do not replay it and later contradict the inspector's failure state.
 				const sequences = events.map(({ sequence }) => sequence);
 				window.dispatchEvent(new CustomEvent('aisles-dev-signal-batch-result', {

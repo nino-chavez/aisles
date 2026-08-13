@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SignalEmitter } from './emitter';
+import { setDemoSignalConfirmationReporting, shouldReportSignalConfirmation, SignalEmitter } from './emitter';
 import { infer } from './inference';
 import { SignalStore } from './store';
 
@@ -31,6 +31,7 @@ function installWindow() {
 let emitter: SignalEmitter | null = null;
 
 afterEach(() => {
+	setDemoSignalConfirmationReporting(false);
 	emitter?.destroy();
 	emitter = null;
 	vi.unstubAllGlobals();
@@ -38,6 +39,12 @@ afterEach(() => {
 });
 
 describe('SignalEmitter response boundary', () => {
+	it('reports exact confirmations in production only while the demo inspector enables them', () => {
+		expect(shouldReportSignalConfirmation(false)).toBe(false);
+		setDemoSignalConfirmationReporting(true);
+		expect(shouldReportSignalConfirmation(false)).toBe(true);
+	});
+
 	it('immediately drains a high-priority event that arrived during an older request', async () => {
 		installWindow();
 		const first = deferred<Response>();
