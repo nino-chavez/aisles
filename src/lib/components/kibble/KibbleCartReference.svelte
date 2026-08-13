@@ -1,10 +1,10 @@
 <script lang="ts">
 	import './kibble-reference.css';
 
-	let { availabilityMessage }: { availabilityMessage: string } = $props();
+	let { availabilityMessage, policyVersion }: { availabilityMessage: string; policyVersion?: string } = $props();
 </script>
 
-<section class="kibble-reference kc-reference-route kc-reference-cart-page" data-kibble-route-shell="cart" aria-labelledby="kibble-cart-heading">
+<section class="kibble-reference kc-reference-route kc-reference-cart-page" data-kibble-route-shell="cart" data-kibble-route-policy={policyVersion} aria-labelledby="kibble-cart-heading">
 	<div class="kc-reference-container">
 		<nav class="kc-reference-breadcrumbs" aria-label="Breadcrumb">
 			<a class="kc-reference-focus" href="/">Home</a>

@@ -231,7 +231,7 @@ async function main(): Promise<void> {
 			const comparisonPage = await browser.newPage();
 			try {
 				const [reference, candidate] = await Promise.all([
-					capture(referencePage, config.referenceUrl, config.expected, 'reference', referenceProvenanceMode),
+					capture(referencePage, config.referenceUrl, config.referenceExpected, 'reference', referenceProvenanceMode),
 					capture(candidatePage, config.candidateUrl, config.expected, 'candidate'),
 				]);
 				await Promise.all([
@@ -243,7 +243,7 @@ async function main(): Promise<void> {
 				if (pixels.diffPngBase64) await writeFile(join(outputDirectory, `${viewport.name}.diff.png`), Buffer.from(pixels.diffPngBase64, 'base64'));
 
 				const problems = [
-					...compareParityMetadata(config.expected, reference.metadata, 'reference'),
+					...compareParityMetadata(config.referenceExpected, reference.metadata, 'reference'),
 					...compareParityMetadata(config.expected, candidate.metadata, 'candidate'),
 					...compareStructuralMetrics(reference.metrics, candidate.metrics, config.structuralTolerances),
 					...compareStyleMetrics(reference.styles, candidate.styles),
@@ -264,7 +264,7 @@ async function main(): Promise<void> {
 		generatedAt: new Date().toISOString(),
 		referenceUrl: config.referenceUrl,
 		candidateUrl: config.candidateUrl,
-		expected: config.expected,
+		expected: { reference: config.referenceExpected, candidate: config.expected },
 		masks: config.masks,
 		maxPixelDifferenceRatio: config.maxPixelDifferenceRatio,
 		structuralTolerances: config.structuralTolerances,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	auditClassifiedDependencyClosure,
 	deriveLocalParityPaths,
 	findWorkspaceRoot,
 	KIBBLE_PARITY_ADAPTED_SOURCE_FILES,
@@ -8,6 +9,7 @@ import {
 	readLocalParityRoutes,
 	verifyPinnedAdaptedSourceDigests,
 	verifyPinnedPdpSourceDigests,
+	verifyPinnedSourceCommit,
 } from './kibble-parity-local';
 
 describe('Kibble local visual parity runner', () => {
@@ -21,9 +23,35 @@ describe('Kibble local visual parity runner', () => {
 			{ id: 'pdp', referencePath: '/products/p', candidatePath: '/product/p?dev=true' },
 		]);
 		expect(KIBBLE_PARITY_DEFAULT_ROUTES.map(({ id }) => id)).toEqual([
-			'home', 'plp', 'pdp-review', 'search', 'cart', 'account', 'subscriptions',
-			'checkout-gift', 'checkout-prepaid', 'checkout-confirmation', 'error-404',
+			'home', 'plp', 'pdp-review', 'search', 'error-empty', 'cart', 'account', 'subscriptions',
+			'account-subscriptions', 'subscription-detail', 'checkout', 'checkout-gift', 'checkout-prepaid',
+			'checkout-confirmation', 'error-404',
 		]);
+	});
+
+	it('rejects an unclassified local import and an unreachable adapted file', () => {
+		const applicationPath = 'apps/storefront-svelte';
+		const root = `${applicationPath}/src/routes/search/+page.svelte`;
+		const adapted = `${applicationPath}/src/lib/components/SearchInput.svelte`;
+		const orphan = `${applicationPath}/src/lib/components/Orphan.svelte`;
+		const closure = {
+			roots: [root],
+			adapted: [{ path: root }, { path: adapted }, { path: orphan }],
+			excluded: [{ module: '$lib/components/ProductCard.svelte' }],
+			external: [{ module: './$types' }],
+		};
+		const audit = auditClassifiedDependencyClosure(closure, {
+			[root]: "import SearchInput from '$lib/components/SearchInput.svelte'; import ProductCard from '$lib/components/ProductCard.svelte'; import type { PageData } from './$types'; import Bad from '$lib/components/Bad.svelte';",
+			[adapted]: '',
+			[orphan]: '',
+		}, applicationPath);
+		expect(audit.unclassified).toEqual([`${root}:$lib/components/Bad.svelte`]);
+		expect(audit.unreachable).toEqual([orphan]);
+	});
+
+	it('requires the checked-out canonical source to be the pinned commit', () => {
+		expect(() => verifyPinnedSourceCommit('ef122b8e17b9eb0b327c9d42491c44a61577ead4')).not.toThrow();
+		expect(() => verifyPinnedSourceCommit('0'.repeat(40))).toThrow(/source commit mismatch/);
 	});
 
 	it('fails closed for an invalid matrix', () => {

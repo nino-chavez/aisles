@@ -30,11 +30,9 @@ export function selectMerchantRenderMode(
 	surface: Surface | null,
 	options: { allowPendingReview?: boolean } = {},
 ): MerchantRenderMode {
+	if (surface === null) return 'legacy-generated';
 	const decision = getContractSurfaceDecision(brandId, surface);
 	if (decision.mode !== 'reference-preserve') return decision.mode;
-	if (surface !== 'home' && surface !== 'plp' && surface !== 'pdp' && surface !== 'search' && surface !== 'cart' && surface !== 'checkout' && surface !== 'error-404' && surface !== 'error-empty') {
-		return 'legacy-generated';
-	}
 	assertKibblePreserveRoutePolicy(decision.policy, surface);
 	if (surface === 'pdp' && !isPdpPublicationApproved(decision.policy.publicationMode)) {
 		return options.allowPendingReview === true ? 'reference-review' : 'reference-unavailable';

@@ -1,15 +1,19 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
+import { getBrand } from '$lib/brand/config';
+import { getTrustedKibbleRoutePolicy } from '$lib/brand/composition-policy';
 
-export const load: PageServerLoad = async ({ params, parent }) => {
-	const { chromeMode } = await parent();
-	if (chromeMode !== 'reference' || !params.id) throw error(404, 'Not found');
+export const load: PageServerLoad = async ({ params, url }) => {
+	if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(params.id ?? '')) throw error(404, 'Not found');
+	const routePolicy = getTrustedKibbleRoutePolicy(getBrand().id, url.pathname);
+	if (!routePolicy || routePolicy.surface !== 'account') throw error(404, 'Not found');
 	return {
 		kibbleSubscriptions: {
 			subtype: 'detail' as const,
 			availabilityMessage: 'Subscription detail is unavailable. The route identifier was not used to request subscriber, charge, renewal, address, or payment data.',
 			recipeId: KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.id,
+			policyVersion: routePolicy.policy.policyVersion,
 		},
 	};
 };

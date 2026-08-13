@@ -2,10 +2,10 @@
 	import './kibble-reference.css';
 
 	type SubscriptionSubtype = 'portal' | 'account' | 'detail';
-	let { subtype, availabilityMessage }: { subtype: SubscriptionSubtype; availabilityMessage: string } = $props();
+	let { subtype, availabilityMessage, policyVersion }: { subtype: SubscriptionSubtype; availabilityMessage: string; policyVersion?: string } = $props();
 </script>
 
-<section class="kibble-reference kc-reference-route kc-reference-subscriptions-page" data-kibble-route-shell="subscriptions" data-kibble-subscriptions-subtype={subtype} aria-labelledby="kibble-subscriptions-heading">
+<section class="kibble-reference kc-reference-route kc-reference-subscriptions-page" data-kibble-route-shell="subscriptions" data-kibble-route-policy={policyVersion} data-kibble-subscriptions-subtype={subtype} aria-labelledby="kibble-subscriptions-heading">
 	<div class="kc-reference-subscriptions-page__content" data-kibble-backend-state="unavailable">
 		<h1 id="kibble-subscriptions-heading">{subtype === 'detail' ? 'Subscription detail' : 'Your subscriptions'}</h1>
 		<p>{availabilityMessage}</p>

@@ -7,6 +7,11 @@ import {
 	type EffectiveCompositionPolicy,
 	type OrganizationCompositionPolicy,
 } from '$lib/foundation/composition-policy';
+import {
+	normalizeTrustedShopperRoute,
+	tryNormalizeTrustedShopperRoute,
+	type TrustedRouteSurface,
+} from '$lib/foundation/autonomy-zone-route';
 import type { Surface } from '$lib/foundation/zones';
 
 const KIBBLE_ORGANIZATION_ID = 'kibble-demo-merchant';
@@ -59,6 +64,17 @@ const cartComponentVariantIds = [
 const checkoutComponentVariantIds = [
 	'kibble.header.responsive-chrome',
 	KIBBLE_REFERENCE_CONTRACT.recipes.checkout.variantId,
+	'kibble.footer.four-column',
+] as const;
+const accountComponentVariantIds = [
+	'kibble.header.responsive-chrome',
+	KIBBLE_REFERENCE_CONTRACT.recipes.account.variantId,
+	KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.variantId,
+	'kibble.footer.four-column',
+] as const;
+const locatorComponentVariantIds = [
+	'kibble.header.responsive-chrome',
+	KIBBLE_REFERENCE_CONTRACT.recipes.error.variantId,
 	'kibble.footer.four-column',
 ] as const;
 
@@ -130,6 +146,16 @@ const kibble: BrandCompositionPolicy = {
 			allowedComponentVariantIds: checkoutComponentVariantIds,
 			allowedCssVariantIds: cssFor(checkoutComponentVariantIds), allowedCopyVariantIds: [],
 		},
+		account: {
+			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
+			allowedComponentVariantIds: accountComponentVariantIds,
+			allowedCssVariantIds: cssFor(accountComponentVariantIds), allowedCopyVariantIds: [],
+		},
+		locator: {
+			preset: 'preserve', capabilities: [], decisionMode: 'fixed', publicationMode: 'live',
+			allowedComponentVariantIds: locatorComponentVariantIds,
+			allowedCssVariantIds: cssFor(locatorComponentVariantIds), allowedCopyVariantIds: [],
+		},
 		'error-404': {
 			preset: 'preserve',
 			capabilities: [],
@@ -185,6 +211,8 @@ const REQUIRED_PRESERVE_POLICY = {
 	search: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: searchComponentVariantIds, cssVariantIds: cssFor(searchComponentVariantIds) },
 	cart: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: cartComponentVariantIds, cssVariantIds: cssFor(cartComponentVariantIds) },
 	checkout: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: checkoutComponentVariantIds, cssVariantIds: cssFor(checkoutComponentVariantIds) },
+	account: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: accountComponentVariantIds, cssVariantIds: cssFor(accountComponentVariantIds) },
+	locator: { decisionMode: 'fixed', publicationMode: 'live', capabilities: [], componentVariantIds: locatorComponentVariantIds, cssVariantIds: cssFor(locatorComponentVariantIds) },
 	'error-404': {
 		decisionMode: 'fixed',
 		publicationMode: 'live',
@@ -229,7 +257,7 @@ export function getContractSurfaceDecision(
  */
 export function assertKibblePreserveRoutePolicy(
 	policy: EffectiveCompositionPolicy,
-	surface: 'home' | 'plp' | 'pdp' | 'search' | 'cart' | 'checkout' | 'error-404' | 'error-empty',
+	surface: Surface,
 ): void {
 	const required = REQUIRED_PRESERVE_POLICY[surface];
 	const identityMatches =
@@ -252,6 +280,30 @@ export function assertKibblePreserveRoutePolicy(
 	}
 }
 
+export type TrustedKibbleRoutePolicy = TrustedRouteSurface & {
+	policy: EffectiveCompositionPolicy;
+};
+
+/**
+ * Resolve a Kibble shopper pathname through the shared trusted route table and
+ * the shared composition-policy compiler. Non-Kibble brands return null;
+ * unsafe, operator, development, or unknown paths fail closed in the shared
+ * normalizer instead of acquiring storefront authority from page chrome.
+ */
+export function getTrustedKibbleRoutePolicy(
+	brandId: unknown,
+	routePath: unknown,
+): TrustedKibbleRoutePolicy | null {
+	if (brandId !== 'kibble') return null;
+	const normalized = normalizeTrustedShopperRoute(routePath);
+	const decision = getContractSurfaceDecision(brandId, normalized.surface);
+	if (decision.mode !== 'reference-preserve') {
+		throw new Error(`Kibble Preserve has no trusted policy for ${normalized.routePath}.`);
+	}
+	assertKibblePreserveRoutePolicy(decision.policy, normalized.surface);
+	return { ...normalized, policy: decision.policy };
+}
+
 function assertExactSet(actual: readonly string[], expected: readonly string[], label: string): void {
 	if (actual.length !== expected.length || actual.some((value) => !expected.includes(value))) {
 		throw new Error(`Kibble Preserve ${label} do not match the approved route contract.`);
@@ -259,13 +311,7 @@ function assertExactSet(actual: readonly string[], expected: readonly string[], 
 }
 
 export function surfaceForPath(pathname: string): Surface | null {
-	if (pathname === '/') return 'home';
-	if (/^\/category\/[^/]+\/?$/.test(pathname)) return 'plp';
-	if (/^\/product\/[^/]+\/?$/.test(pathname)) return 'pdp';
-	if (pathname === '/search') return 'search';
-	if (pathname === '/cart') return 'cart';
-	if (pathname === '/checkout') return 'checkout';
-	return null;
+	return tryNormalizeTrustedShopperRoute(pathname)?.surface ?? null;
 }
 
 export function hasKibbleReferenceChrome(brandId: unknown): boolean {

@@ -47,7 +47,7 @@ describe('Kibble reference contract', () => {
 	it('pins the approved source revision and locked Shelf-Native artifacts', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.source).toEqual({
 			repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
-			commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', applicationPath: 'apps/storefront-svelte',
+			commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', referenceContractVersion: '1.5.0', applicationPath: 'apps/storefront-svelte',
 			brandKitPath: 'scripts/kibble-demo/data/brand/brand-kit.md', tokensPath: 'scripts/kibble-demo/data/brand/tokens.css',
 			fixturePath: 'scripts/kibble-demo/data/seed-output.json', fixtureSha256: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
 			canonicalBoundary: expect.stringContaining('pinned storefront source'),
@@ -56,6 +56,7 @@ describe('Kibble reference contract', () => {
 
 	it.each([
 		['source commit', ['source', 'commit']],
+		['source contract version', ['source', 'referenceContractVersion']],
 		['semantic action token', ['tokens', 'colors', 'action']],
 		['full component variants', ['components', 0, 'variants']],
 		['home recipe anatomy', ['recipes', 'home', 'orderedAnatomy']],

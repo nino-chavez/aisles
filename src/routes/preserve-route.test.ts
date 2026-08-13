@@ -51,6 +51,15 @@ describe('Preserve route boundaries', () => {
 			if (!kibble) throw new Error('Expected the Kibble root layout server load to return data.');
 			expect(kibble.renderMode).toBe('reference-preserve');
 			expect(kibble.chromeMode).toBe('reference');
+			expect(kibble.routeAudience).toBe('shopper');
+			expect(kibble.kibbleRoutePolicy).toMatchObject({ routePath: '/', surface: 'home' });
+			expect(kibble.kibbleProvenance).toMatchObject({
+				referenceId: KIBBLE_REFERENCE_CONTRACT.id,
+				referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
+				fixtureSha256: KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256,
+				routePath: '/',
+				surface: 'home',
+			});
 			expect(kibble.kibbleChrome?.navItems[0]).toEqual({ label: 'Dog Food', href: '/category/dog-food' });
 			expect(kibble.kibbleChrome?.statusItems).toEqual([]);
 			expect(kibble.kibbleErrorPolicy).toMatchObject({
@@ -71,6 +80,19 @@ describe('Preserve route boundaries', () => {
 			if (!pdp) throw new Error('Expected the contracted Kibble PDP layout to return data.');
 			expect(pdp.renderMode).toBe('reference-review');
 			expect(pdp.chromeMode).toBe('reference');
+
+			const account = await loadLayout({ url: new URL('https://aisles.test/account/subscriptions'), cookies } as never);
+			if (!account) throw new Error('Expected the Kibble account layout to return data.');
+			expect(account.kibbleRoutePolicy).toMatchObject({ routePath: '/account/subscriptions', surface: 'account' });
+
+			for (const path of ['/observe', '/style-guide']) {
+				const isolated = await loadLayout({ url: new URL(`https://aisles.test${path}`), cookies } as never);
+				if (!isolated) throw new Error(`Expected ${path} layout data.`);
+				expect(isolated.chromeMode).toBe('isolated');
+				expect(isolated.kibbleChrome).toBeNull();
+				expect(isolated.kibbleProvenance).toBeNull();
+				expect(isolated.routeAudience).toBe(path === '/observe' ? 'operator' : 'development');
+			}
 		} finally {
 			if (previousBrand === undefined) delete process.env.BRAND_ID;
 			else process.env.BRAND_ID = previousBrand;
@@ -178,9 +200,16 @@ describe('Preserve route boundaries', () => {
 	});
 
 	it('renders search as a fixed Kibble unavailable state without requesting the catalog', async () => {
-		const parent = async () => ({ devMode: false, chromeMode: 'reference', renderMode: 'reference-preserve' });
-		await expect(loadSearch({ url: new URL('https://aisles.test/search?q=food'), parent } as never))
-			.resolves.toMatchObject({ renderMode: 'reference-preserve', kibbleSearch: { query: 'food', availabilityMessage: expect.stringContaining('No result request') } });
+		const previousBrand = process.env.BRAND_ID;
+		try {
+			process.env.BRAND_ID = 'kibble';
+			const parent = async () => ({ devMode: false, chromeMode: 'reference', renderMode: 'reference-preserve' });
+			await expect(loadSearch({ url: new URL('https://aisles.test/search?q=food'), parent } as never))
+				.resolves.toMatchObject({ renderMode: 'reference-preserve', kibbleSearch: { query: 'food', availabilityMessage: expect.stringContaining('No result request') } });
+		} finally {
+			if (previousBrand === undefined) delete process.env.BRAND_ID;
+			else process.env.BRAND_ID = previousBrand;
+		}
 	});
 
 	it('fails the unsupported Kibble cart API closed', async () => {

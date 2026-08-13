@@ -4,6 +4,7 @@ import {
 	AISLES_COMPOSITION_POLICY,
 	assertKibblePreserveRoutePolicy,
 	getContractSurfaceDecision,
+	getTrustedKibbleRoutePolicy,
 	hasKibbleReferenceChrome,
 	surfaceForPath,
 } from './composition-policy';
@@ -91,18 +92,43 @@ describe('Kibble composition policy registry', () => {
 		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'pdp')).not.toThrow();
 	});
 
-	it('binds search, cart, and checkout to their fixed route-native Kibble shells', () => {
-		for (const surface of ['search', 'cart', 'checkout'] as const) {
+	it('binds search, cart, checkout, account, and locator to fixed route-native Kibble policy', () => {
+		for (const surface of ['search', 'cart', 'checkout', 'account', 'locator'] as const) {
 			const decision = getContractSurfaceDecision('kibble', surface);
 			expect(decision.mode).toBe('reference-preserve');
 			if (decision.mode !== 'reference-preserve') throw new Error('expected Preserve');
 			expect(decision.policy.capabilities).toEqual([]);
 			expect(decision.policy.decisionMode).toBe('fixed');
 			expect(decision.policy.publicationMode).toBe('live');
-			expect(decision.policy.allowedComponentVariantIds).toContain(KIBBLE_REFERENCE_CONTRACT.recipes[surface].variantId);
+			if (surface === 'account') {
+				expect(decision.policy.allowedComponentVariantIds).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.account.variantId);
+				expect(decision.policy.allowedComponentVariantIds).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.variantId);
+			} else if (surface === 'locator') {
+				expect(decision.policy.allowedComponentVariantIds).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.error.variantId);
+			} else {
+				expect(decision.policy.allowedComponentVariantIds).toContain(KIBBLE_REFERENCE_CONTRACT.recipes[surface].variantId);
+			}
 			expect(decision.policy.allowedComponentVariantIds).not.toContain('kibble.unavailable.reference-shell');
 			expect(() => assertKibblePreserveRoutePolicy(decision.policy, surface)).not.toThrow();
 		}
+	});
+
+	it.each([
+		['/account', 'account'],
+		['/account/subscriptions', 'account'],
+		['/subscriptions', 'account'],
+		['/portal/subscriptions/sub-1', 'account'],
+		['/checkout/gift', 'checkout'],
+		['/store-locator', 'locator'],
+	] as const)('compiles %s only after the shared route normalizer derives %s', (routePath, surface) => {
+		const trusted = getTrustedKibbleRoutePolicy('kibble', routePath);
+		expect(trusted).toMatchObject({ routePath, surface, policy: { provenance: { surface } } });
+	});
+
+	it('does not grant Kibble shopper policy to an operator or development route', () => {
+		expect(() => getTrustedKibbleRoutePolicy('kibble', '/observe')).toThrow('Unknown or unsafe shopper route');
+		expect(() => getTrustedKibbleRoutePolicy('kibble', '/style-guide')).toThrow('Unknown or unsafe shopper route');
+		expect(getTrustedKibbleRoutePolicy('haven', '/account')).toBeNull();
 	});
 
 	it('does not mislabel other brands as Preserve', () => {
@@ -117,6 +143,8 @@ describe('Kibble composition policy registry', () => {
 		expect(getContractSurfaceDecision({ id: 'kibble' }, 'home').mode).toBe('legacy-generated');
 		expect(surfaceForPath('/constructor')).toBeNull();
 		expect(surfaceForPath('/category/dog-food')).toBe('plp');
+		expect(surfaceForPath('/account/subscriptions')).toBe('account');
+		expect(surfaceForPath('/checkout/gift')).toBe('checkout');
 		expect(hasKibbleReferenceChrome('__proto__')).toBe(false);
 		expect(hasKibbleReferenceChrome('kibble')).toBe(true);
 	});

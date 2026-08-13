@@ -27,8 +27,10 @@ const categories = Object.entries(fixture.categories).map(([name, entityId]) => 
 }));
 
 function imageFor(product) {
-	const hue = (product.bc_product_id * 37) % 360;
-	return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="800" height="800" fill="hsl(${hue} 38% 87%)"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="hsl(${hue} 30% 25%)" font-family="Arial" font-size="32">${product.name.replace(/[<&>]/g, '')}</text></svg>`)}`;
+	// Server-side catalog validation requires an HTTPS asset identity. The
+	// browser parity harness deterministically fulfills every external image,
+	// so this reserved host is never contacted.
+	return `https://fixture.kibble.invalid/products/${product.bc_product_id}.svg`;
 }
 
 function productNode(product) {

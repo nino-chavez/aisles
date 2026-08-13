@@ -5,16 +5,21 @@ import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { searchProducts } from '$lib/server/search';
 import { loadSessionIncentives } from '$lib/server/incentives/session';
+import { getBrand } from '$lib/brand/config';
+import { getTrustedKibbleRoutePolicy } from '$lib/brand/composition-policy';
 
 export const load: PageServerLoad = async ({ url, cookies, request, parent }) => {
 	const query = url.searchParams.get('q') || '';
-	const { devMode, chromeMode, renderMode } = await parent();
-	if (chromeMode === 'reference') {
+	const { devMode, renderMode } = await parent();
+	const routePolicy = getTrustedKibbleRoutePolicy(getBrand().id, url.pathname);
+	if (routePolicy) {
+		if (routePolicy.surface !== 'search') throw new Error('Kibble search route resolved to the wrong policy surface.');
 		return {
 			renderMode,
 			kibbleSearch: {
 				query: query.slice(0, 160),
 				availabilityMessage: 'Catalog search is not connected in this reference-preserved preview. No result request was started.',
+				policyVersion: routePolicy.policy.policyVersion,
 			},
 		};
 	}

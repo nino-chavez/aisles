@@ -50,6 +50,7 @@ describe('official Kibble parity GraphQL fixture', () => {
 		const response = interceptor.responseFor(query(operation), { path: '/openfarm-goodgut-grass-fed-beef-dog-kibble/' });
 		expect(response.site.route.node).toMatchObject({ __typename: 'Product', entityId: 3023, sku: 'KC_OPENFARM_GOODGUT_GRASS_FED_BEEF_DOG_KIBB' });
 		expect(response.site.route.node.images.edges).toHaveLength(1);
+		expect(response.site.route.node.defaultImage.url).toBe('https://fixture.kibble.invalid/products/3023.svg');
 		expect(response.site.route.node.inventory).toEqual({ isInStock: true });
 		expect(response.site.route.node.productOptions).toEqual({ edges: [] });
 	});

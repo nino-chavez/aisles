@@ -10,6 +10,7 @@ import {
 	type BuildLegacyLayoutProvenanceInput,
 } from './layout-provenance';
 import { getContractSurfaceDecision } from '$lib/brand/composition-policy';
+import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 
 const baseInput: BuildLegacyLayoutProvenanceInput = {
 	brand: { organizationId: 'merchant-one', id: 'brand-one' },
@@ -124,11 +125,11 @@ describe('layout provenance and cache identity', () => {
 			policy: decision.policy,
 			surface: 'home', route: '/', persona: 'gatherer',
 			rendererComponentId: 'kibble.home', rendererVariantId: 'kibble-home-reference-v1',
-			decisionSource: 'rules', promptVersion: 'no-model', schemaVersion: 'kibble-reference-1.5.0',
+			decisionSource: 'rules', promptVersion: 'no-model', schemaVersion: `kibble-reference-${KIBBLE_REFERENCE_CONTRACT.version}`,
 			contractInput: { recipe: 'home' }, catalogInput: [{ id: 'one' }], shopperContext: { persona: 'gatherer' },
 		});
 		expect(provenance).toMatchObject({
-			reference: { status: 'contracted', id: 'kibble-shelf-native', version: '1.5.0' },
+			reference: { status: 'contracted', id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version },
 			autonomy: { preset: 'preserve', decisionMode: 'rules', publicationMode: 'live' },
 			decisionSource: 'rules',
 		});

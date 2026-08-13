@@ -7,6 +7,10 @@ import KibbleCartReference from '$lib/components/kibble/KibbleCartReference.svel
 import KibbleAccountReference from '$lib/components/kibble/KibbleAccountReference.svelte';
 import KibbleCheckoutReference from '$lib/components/kibble/KibbleCheckoutReference.svelte';
 import KibbleSubscriptionsReference from '$lib/components/kibble/KibbleSubscriptionsReference.svelte';
+import SearchPage from './search/+page.svelte';
+import CartPage from './cart/+page.svelte';
+import CheckoutPage from './checkout/+page.svelte';
+import AccountPage from './account/+page.svelte';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 
 const route = (path: string) => readFileSync(resolve(import.meta.dirname, path), 'utf8');
@@ -81,10 +85,55 @@ describe('Kibble route-specific unavailable shells', () => {
 		}
 	});
 
+	it('SSR selects only route-native Kibble DOM when trusted Preserve data is present', () => {
+		const search = render(SearchPage, { props: { data: {
+			renderMode: 'reference-preserve', query: 'LEGACY QUERY', results: [{ name: 'LEGACY PRODUCT' }],
+			kibbleSearch: { query: 'goodgut', availabilityMessage: 'Search unavailable.', policyVersion: 'trusted-policy' },
+		} as never } }).body;
+		expect(search).toContain('data-kibble-route-shell="search"');
+		expect(search).toContain('data-kibble-route-policy="trusted-policy"');
+		expect(search).not.toContain('LEGACY PRODUCT');
+
+		const cart = render(CartPage, { props: { data: {
+			renderMode: 'reference-preserve',
+			kibbleCart: { availabilityMessage: 'Cart unavailable.', policyVersion: 'trusted-policy' },
+		} as never } }).body;
+		expect(cart).toContain('data-kibble-route-shell="cart"');
+		expect(cart).not.toContain('mx-auto max-w-3xl');
+
+		const checkout = render(CheckoutPage, { props: { data: {
+			renderMode: 'reference-preserve',
+			kibbleCheckout: { subtype: 'checkout', availabilityMessage: 'Checkout unavailable.', policyVersion: 'trusted-policy' },
+		} as never } }).body;
+		expect(checkout).toContain('data-kibble-route-shell="checkout"');
+		expect(checkout).not.toContain('Loading checkout');
+		expect(checkout).not.toContain('Checkout — Haven');
+
+		const account = render(AccountPage, { props: { data: {
+			kibbleAccount: { subtype: 'login', brandName: 'Kibble & Co.', availabilityMessage: 'Account unavailable.', recipeId: 'kibble-account-reference-v1', policyVersion: 'trusted-policy' },
+		} as never } }).body;
+		expect(account).toContain('data-kibble-route-shell="account"');
+		expect(account).not.toContain('Account is unavailable.');
+	});
+
 	it('keeps every unavailable deep-route server free of backend calls', () => {
 		for (const path of ['account/[...path]/+page.server.ts', 'checkout/[subtype]/+page.server.ts', 'subscriptions/+page.server.ts', 'portal/subscriptions/[id]/+page.server.ts']) {
 			const source = route(path);
 			expect(source).not.toMatch(/\bfetch\s*\(|\$lib\/server\/|createApiClient|checkoutKitLoader/);
 		}
+	});
+
+	it('keeps operator and development routes outside shopper chrome and marks every Kibble shopper page at the root', () => {
+		const server = route('+layout.server.ts');
+		const layout = route('+layout.svelte');
+		expect(server).toContain("pathname.startsWith('/observe/')");
+		expect(server).toContain("pathname.startsWith('/style-guide/')");
+		expect(server).toContain('tryNormalizeTrustedShopperRoute');
+		expect(layout).toContain("data.routeAudience !== 'shopper'");
+		for (const marker of ['data-reference-id', 'data-reference-contract-version', 'data-reference-fixture-sha256', 'data-reference-provenance-source', 'data-reference-route', 'data-reference-surface']) {
+			expect(layout).toContain(marker);
+		}
+		expect(route('compare/+page.server.ts')).toContain("getBrand().id === 'kibble'");
+		expect(route('style-guide/+page.server.ts')).toContain("getBrand().id === 'kibble'");
 	});
 });

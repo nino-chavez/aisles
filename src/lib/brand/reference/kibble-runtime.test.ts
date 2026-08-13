@@ -47,6 +47,8 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(selectMerchantRenderMode('kibble', 'plp')).toBe('reference-preserve');
 		expect(selectMerchantRenderMode('kibble', 'pdp')).toBe('reference-unavailable');
 		expect(selectMerchantRenderMode('kibble', 'pdp', { allowPendingReview: true })).toBe('reference-review');
+		expect(selectMerchantRenderMode('kibble', 'account')).toBe('reference-preserve');
+		expect(selectMerchantRenderMode('kibble', 'locator')).toBe('reference-preserve');
 		expect(isKibblePdpPublished()).toBe(false);
 		expect(selectMerchantRenderMode('haven', 'home')).toBe('legacy-generated');
 		expect(selectMerchantRenderMode('__proto__', 'home')).toBe('legacy-generated');

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { access, mkdir, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, posix, resolve } from 'node:path';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +9,7 @@ import { KIBBLE_REFERENCE_CONTRACT } from '../src/lib/brand/reference/kibble';
 
 export const KIBBLE_PARITY_CONTRACT_ID = KIBBLE_REFERENCE_CONTRACT.id;
 export const KIBBLE_PARITY_CONTRACT_VERSION = KIBBLE_REFERENCE_CONTRACT.version;
+export const KIBBLE_PARITY_REFERENCE_CONTRACT_VERSION = KIBBLE_REFERENCE_CONTRACT.source.referenceContractVersion;
 export const KIBBLE_PARITY_FIXED_DATA_IDENTITY = KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256;
 export const KIBBLE_PARITY_PDP_SOURCE_FILES = KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.adapted;
 const KIBBLE_PARITY_SOURCE_GROUPS = [
@@ -18,6 +19,13 @@ const KIBBLE_PARITY_SOURCE_GROUPS = [
 	KIBBLE_REFERENCE_CONTRACT.recipes.account.source.dependencyClosure.adapted,
 	KIBBLE_REFERENCE_CONTRACT.recipes.checkout.source.dependencyClosure.adapted,
 	KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.source.dependencyClosure.adapted,
+] as const;
+const KIBBLE_PARITY_CLASSIFIED_CLOSURES = [
+	KIBBLE_REFERENCE_CONTRACT.recipes.search.source.dependencyClosure,
+	KIBBLE_REFERENCE_CONTRACT.recipes.cart.source.dependencyClosure,
+	KIBBLE_REFERENCE_CONTRACT.recipes.account.source.dependencyClosure,
+	KIBBLE_REFERENCE_CONTRACT.recipes.checkout.source.dependencyClosure,
+	KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.source.dependencyClosure,
 ] as const;
 export const KIBBLE_PARITY_ADAPTED_SOURCE_FILES = [...new Map(
 	KIBBLE_PARITY_SOURCE_GROUPS.flatMap((group) => [...group]).map((file) => [file.path, file]),
@@ -34,9 +42,13 @@ export const KIBBLE_PARITY_DEFAULT_ROUTES: LocalParityRoute[] = [
 	{ id: 'plp', referencePath: '/category/dog-food', candidatePath: '/category/dog-food' },
 	{ id: 'pdp-review', referencePath: '/products/openfarm-goodgut-grass-fed-beef-dog-kibble', candidatePath: '/product/openfarm-goodgut-grass-fed-beef-dog-kibble?dev=true' },
 	{ id: 'search', referencePath: '/search?q=goodgut', candidatePath: '/search?q=goodgut' },
+	{ id: 'error-empty', referencePath: '/search?q=no-fixture-match', candidatePath: '/search?q=no-fixture-match' },
 	{ id: 'cart', referencePath: '/cart', candidatePath: '/cart' },
 	{ id: 'account', referencePath: '/account/login', candidatePath: '/account/login' },
 	{ id: 'subscriptions', referencePath: '/subscriptions', candidatePath: '/subscriptions' },
+	{ id: 'account-subscriptions', referencePath: '/account/subscriptions', candidatePath: '/account/subscriptions' },
+	{ id: 'subscription-detail', referencePath: '/portal/subscriptions/subscription-123', candidatePath: '/portal/subscriptions/subscription-123' },
+	{ id: 'checkout', referencePath: '/checkout', candidatePath: '/checkout' },
 	{ id: 'checkout-gift', referencePath: '/checkout/gift', candidatePath: '/checkout/gift' },
 	{ id: 'checkout-prepaid', referencePath: '/checkout/prepaid', candidatePath: '/checkout/prepaid' },
 	{ id: 'checkout-confirmation', referencePath: '/checkout/confirmation', candidatePath: '/checkout/confirmation' },
@@ -87,12 +99,19 @@ export function readLocalParityRoutes(value: string | undefined): LocalParityRou
 }
 
 export function verifyPinnedFixture(fixturePath: string, referenceRoot: string): void {
+	verifyPinnedSourceCommit(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: referenceRoot, encoding: 'utf8' }).trim());
 	const digest = createHash('sha256').update(readFileSync(fixturePath)).digest('hex');
 	if (digest !== KIBBLE_PARITY_FIXED_DATA_IDENTITY) throw new Error(`Pinned Kibble fixture SHA mismatch: expected ${KIBBLE_PARITY_FIXED_DATA_IDENTITY}, received ${digest}.`);
 	verifyPinnedAdaptedSourceFiles(referenceRoot);
 	const source = readFileSync(resolve(referenceRoot, 'src/lib/brand/kibble-shelf-reference.ts'), 'utf8');
-	for (const marker of [KIBBLE_PARITY_CONTRACT_ID, KIBBLE_PARITY_CONTRACT_VERSION, KIBBLE_PARITY_FIXED_DATA_IDENTITY]) {
+	for (const marker of [KIBBLE_PARITY_CONTRACT_ID, KIBBLE_PARITY_REFERENCE_CONTRACT_VERSION, KIBBLE_PARITY_FIXED_DATA_IDENTITY]) {
 		if (!source.includes(marker)) throw new Error(`Canonical reference provenance does not contain ${marker}.`);
+	}
+}
+
+export function verifyPinnedSourceCommit(received: string): void {
+	if (received !== KIBBLE_REFERENCE_CONTRACT.source.commit) {
+		throw new Error(`Pinned Kibble source commit mismatch: expected ${KIBBLE_REFERENCE_CONTRACT.source.commit}, received ${received || 'missing'}.`);
 	}
 }
 
@@ -111,6 +130,101 @@ export function verifyPinnedAdaptedSourceFiles(referenceRoot: string): void {
 		return [path, digest];
 	}));
 	verifyPinnedAdaptedSourceDigests(digests);
+	verifyClassifiedDependencyClosures(referenceRoot);
+}
+
+type ClassifiedDependencyClosure = {
+	roots: readonly string[];
+	adapted: readonly { path: string }[];
+	excluded: readonly { module: string }[];
+	external: readonly { module: string }[];
+};
+
+export function auditClassifiedDependencyClosure(
+	closure: ClassifiedDependencyClosure,
+	sourceByPath: Readonly<Record<string, string>>,
+	applicationPath = KIBBLE_REFERENCE_CONTRACT.source.applicationPath,
+): { unclassified: string[]; unreachable: string[] } {
+	const adapted = new Set(closure.adapted.map(({ path }) => path));
+	const excluded = new Set(closure.excluded.map(({ module }) => module));
+	const external = new Set(closure.external.map(({ module }) => module));
+	const adjacency = new Map<string, string[]>();
+	const unclassified: string[] = [];
+
+	for (const root of closure.roots) {
+		if (!adapted.has(root) && !excluded.has(root)) unclassified.push(`root:${root}`);
+	}
+	for (const { path } of closure.adapted) {
+		const source = sourceByPath[path];
+		if (typeof source !== 'string') {
+			unclassified.push(`missing-source:${path}`);
+			continue;
+		}
+		const children: string[] = [];
+		for (const specifier of importSpecifiers(source)) {
+			if (external.has(specifier) || excluded.has(specifier)) continue;
+			const resolved = resolveAdaptedImport(path, specifier, adapted, applicationPath);
+			if (!resolved) {
+				unclassified.push(`${path}:${specifier}`);
+				continue;
+			}
+			children.push(resolved);
+		}
+		adjacency.set(path, children);
+	}
+
+	const reached = new Set<string>();
+	const pending = closure.roots.filter((root) => adapted.has(root));
+	while (pending.length > 0) {
+		const path = pending.pop()!;
+		if (reached.has(path)) continue;
+		reached.add(path);
+		for (const child of adjacency.get(path) ?? []) pending.push(child);
+	}
+	const unreachable = [...adapted].filter((path) => !reached.has(path));
+	return { unclassified, unreachable };
+}
+
+export function verifyClassifiedDependencyClosures(referenceRoot: string): void {
+	const applicationPrefix = `${KIBBLE_REFERENCE_CONTRACT.source.applicationPath}/`;
+	for (const closure of KIBBLE_PARITY_CLASSIFIED_CLOSURES) {
+		const sourceByPath = Object.fromEntries(closure.adapted.map(({ path }) => {
+			if (!path.startsWith(applicationPrefix)) throw new Error(`Classified dependency path is outside the pinned application: ${path}.`);
+			return [path, readFileSync(resolve(referenceRoot, path.slice(applicationPrefix.length)), 'utf8')];
+		}));
+		const audit = auditClassifiedDependencyClosure(closure, sourceByPath);
+		if (audit.unclassified.length > 0 || audit.unreachable.length > 0) {
+			throw new Error(`Pinned Kibble dependency closure is incomplete: unclassified=${audit.unclassified.join(',') || 'none'}; unreachable=${audit.unreachable.join(',') || 'none'}.`);
+		}
+	}
+}
+
+function importSpecifiers(source: string): string[] {
+	const specifiers = new Set<string>();
+	for (const pattern of [
+		/\bfrom\s+['"]([^'"]+)['"]/g,
+		/\bimport\s+['"]([^'"]+)['"]/g,
+		/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+	]) {
+		for (const match of source.matchAll(pattern)) specifiers.add(match[1]);
+	}
+	return [...specifiers];
+}
+
+function resolveAdaptedImport(
+	fromPath: string,
+	specifier: string,
+	adapted: ReadonlySet<string>,
+	applicationPath: string,
+): string | null {
+	let base: string;
+	if (specifier.startsWith('$lib/')) base = `${applicationPath}/src/lib/${specifier.slice('$lib/'.length)}`;
+	else if (specifier.startsWith('.')) base = posix.normalize(posix.join(posix.dirname(fromPath), specifier));
+	else return null;
+	for (const candidate of [base, `${base}.ts`, `${base}.svelte`, `${base}.json`, `${base}/index.ts`]) {
+		if (adapted.has(candidate)) return candidate;
+	}
+	return null;
 }
 
 export function verifyPinnedPdpSourceDigests(digests: Readonly<Record<string, string>>): void {
@@ -219,6 +333,7 @@ async function main(): Promise<void> {
 				KIBBLE_PARITY_CANDIDATE_URL: candidateUrl,
 				KIBBLE_PARITY_CONTRACT_ID,
 				KIBBLE_PARITY_CONTRACT_VERSION,
+				KIBBLE_PARITY_REFERENCE_CONTRACT_VERSION,
 				KIBBLE_PARITY_FIXED_DATA_IDENTITY,
 				KIBBLE_PARITY_MASKS: '[]',
 				KIBBLE_PARITY_MAX_PIXEL_DIFFERENCE_RATIO: process.env.KIBBLE_PARITY_MAX_PIXEL_DIFFERENCE_RATIO ?? '0',

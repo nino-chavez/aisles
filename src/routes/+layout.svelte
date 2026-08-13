@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '../app.css';
 	import { afterNavigate } from '$app/navigation';
-	import { page } from '$app/stores';
 	import Nav from '$lib/components/Nav.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import CartDrawer from '$lib/components/CartDrawer.svelte';
@@ -43,9 +42,6 @@
 		document.body.classList.toggle(className, data.chromeMode === 'reference');
 		return () => document.body.classList.remove(className);
 	});
-
-	// Observe dashboard uses its own chrome-less shell
-	let isObserve = $derived($page.url.pathname.startsWith('/observe'));
 
 	// ─── Signal Emitter (client-side singleton) ────────────────────
 	$effect(() => {
@@ -131,10 +127,19 @@
 </svelte:head>
 
 <div style={themeStyle}>
-	{#if isObserve}
+	{#if data.routeAudience !== 'shopper'}
 		{@render children()}
 	{:else}
-		<div class="flex min-h-screen flex-col">
+		<div
+			class="flex min-h-screen flex-col"
+			data-reference-id={data.chromeMode === 'reference' ? data.kibbleProvenance?.referenceId : undefined}
+			data-reference-contract-version={data.chromeMode === 'reference' ? data.kibbleProvenance?.referenceVersion : undefined}
+			data-reference-fixture={data.chromeMode === 'reference' ? data.kibbleProvenance?.fixturePath : undefined}
+			data-reference-fixture-sha256={data.chromeMode === 'reference' ? data.kibbleProvenance?.fixtureSha256 : undefined}
+			data-reference-provenance-source={data.chromeMode === 'reference' ? data.kibbleProvenance?.provenanceSource : undefined}
+			data-reference-route={data.chromeMode === 'reference' ? data.kibbleProvenance?.routePath : undefined}
+			data-reference-surface={data.chromeMode === 'reference' ? data.kibbleProvenance?.surface : undefined}
+		>
 			{#if data.chromeMode === 'reference' && data.kibbleChrome}
 				<KibbleHeader
 					{brandName}

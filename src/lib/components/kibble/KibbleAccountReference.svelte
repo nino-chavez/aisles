@@ -7,10 +7,12 @@
 		subtype,
 		brandName,
 		availabilityMessage,
+		policyVersion,
 	}: {
 		subtype: AccountSubtype;
 		brandName: string;
 		availabilityMessage: string;
+		policyVersion?: string;
 	} = $props();
 
 	const sections = [
@@ -30,7 +32,7 @@
 	});
 </script>
 
-<section class="kibble-reference kc-reference-route kc-reference-account-page" data-kibble-route-shell="account" data-kibble-account-subtype={subtype} data-kibble-tenant={brandName} aria-labelledby="kibble-account-heading">
+<section class="kibble-reference kc-reference-route kc-reference-account-page" data-kibble-route-shell="account" data-kibble-route-policy={policyVersion} data-kibble-account-subtype={subtype} data-kibble-tenant={brandName} aria-labelledby="kibble-account-heading">
 	<div class="kc-reference-container">
 		<nav class="kc-reference-breadcrumbs" aria-label="Breadcrumb">
 			<a class="kc-reference-focus" href="/">Home</a>

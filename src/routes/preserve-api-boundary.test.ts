@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
+const brandState = vi.hoisted(() => ({ id: 'kibble' }));
 vi.mock('$lib/brand/config', () => ({
-	getBrand: vi.fn(() => ({ organizationId: 'kibble-demo-merchant', id: 'kibble' })),
+	getBrand: vi.fn(() => ({ organizationId: 'kibble-demo-merchant', id: brandState.id })),
 }));
 
 import { POST as layoutPost } from './api/layout/+server';
@@ -31,8 +32,11 @@ describe('Kibble Preserve API authority boundary', () => {
 	});
 
 	it('renders checkout as a Kibble-native unavailable state before the generic shell mounts', async () => {
-		await expect(checkoutLoad({ parent: async () => ({ chromeMode: 'reference' }) } as never))
+		brandState.id = 'kibble';
+		await expect(checkoutLoad({ url: new URL('https://aisles.test/checkout'), parent: async () => ({ renderMode: 'reference-preserve' }) } as never))
 			.resolves.toMatchObject({ kibbleCheckout: { subtype: 'checkout', availabilityMessage: expect.stringContaining('No checkout service') } });
-		expect(await checkoutLoad({ parent: async () => ({ chromeMode: 'legacy' }) } as never)).toEqual({});
+		brandState.id = 'haven';
+		expect(await checkoutLoad({ url: new URL('https://aisles.test/checkout'), parent: async () => ({ renderMode: 'legacy-generated' }) } as never)).toEqual({ renderMode: 'legacy-generated' });
+		brandState.id = 'kibble';
 	});
 });

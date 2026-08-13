@@ -9,6 +9,7 @@ import {
 	readKibbleParityConfig,
 	type StructuralMetrics,
 } from './kibble-parity';
+import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
 
 const metrics: StructuralMetrics = {
 	header: 1, nav: 1, main: 1, footer: 1, h1: 1, h2: 3, h3: 15,
@@ -19,7 +20,8 @@ const environment = {
 	KIBBLE_PARITY_REFERENCE_URL: 'http://reference.test/',
 	KIBBLE_PARITY_CANDIDATE_URL: 'http://candidate.test/',
 	KIBBLE_PARITY_CONTRACT_ID: 'kibble-shelf-native',
-	KIBBLE_PARITY_CONTRACT_VERSION: '1.5.0',
+	KIBBLE_PARITY_REFERENCE_CONTRACT_VERSION: KIBBLE_REFERENCE_CONTRACT.source.referenceContractVersion,
+	KIBBLE_PARITY_CONTRACT_VERSION: KIBBLE_REFERENCE_CONTRACT.version,
 	KIBBLE_PARITY_FIXED_DATA_IDENTITY,
 	KIBBLE_PARITY_MASKS: '[]',
 	KIBBLE_PARITY_MAX_PIXEL_DIFFERENCE_RATIO: '0.025',
@@ -36,9 +38,12 @@ describe('Kibble visual parity configuration', () => {
 
 	it('requires explicit URLs, identity, masks, and tolerances', () => {
 		const config = readKibbleParityConfig(environment);
+		expect(config.referenceExpected.contractVersion).toBe(KIBBLE_REFERENCE_CONTRACT.source.referenceContractVersion);
+		expect(config.expected.contractVersion).toBe(KIBBLE_REFERENCE_CONTRACT.version);
 		expect(config.expected.fixedDataIdentity).toBe(KIBBLE_PARITY_FIXED_DATA_IDENTITY);
 		expect(config.masks).toEqual([]);
 		expect(() => readKibbleParityConfig({ ...environment, KIBBLE_PARITY_MASKS: undefined })).toThrow(/KIBBLE_PARITY_MASKS is required/);
+		expect(() => readKibbleParityConfig({ ...environment, KIBBLE_PARITY_REFERENCE_CONTRACT_VERSION: undefined })).toThrow(/KIBBLE_PARITY_REFERENCE_CONTRACT_VERSION is required/);
 		expect(() => readKibbleParityConfig({ ...environment, KIBBLE_PARITY_STRUCTURE_TOLERANCES: '{"header":0}' })).toThrow(/nav must be a non-negative/);
 	});
 

@@ -80,6 +80,7 @@ export type StructuralTolerances = Record<StructuralMetricKey, number>;
 export type KibbleParityConfig = {
 	referenceUrl: string;
 	candidateUrl: string;
+	referenceExpected: ParityMetadata;
 	expected: ParityMetadata;
 	masks: ParityMask[];
 	maxPixelDifferenceRatio: number;
@@ -175,6 +176,11 @@ export function readKibbleParityConfig(
 	return {
 		referenceUrl: parseUrl(required(environment, 'KIBBLE_PARITY_REFERENCE_URL'), 'KIBBLE_PARITY_REFERENCE_URL'),
 		candidateUrl: parseUrl(required(environment, 'KIBBLE_PARITY_CANDIDATE_URL'), 'KIBBLE_PARITY_CANDIDATE_URL'),
+		referenceExpected: {
+			contractId: required(environment, 'KIBBLE_PARITY_CONTRACT_ID'),
+			contractVersion: required(environment, 'KIBBLE_PARITY_REFERENCE_CONTRACT_VERSION'),
+			fixedDataIdentity: required(environment, 'KIBBLE_PARITY_FIXED_DATA_IDENTITY'),
+		},
 		expected: {
 			contractId: required(environment, 'KIBBLE_PARITY_CONTRACT_ID'),
 			contractVersion: required(environment, 'KIBBLE_PARITY_CONTRACT_VERSION'),

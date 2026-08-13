@@ -4,15 +4,17 @@
 	let {
 		query = '',
 		availabilityMessage,
+		policyVersion,
 	}: {
 		query?: string;
 		availabilityMessage: string;
+		policyVersion?: string;
 	} = $props();
 
 	const title = $derived(query ? `Results for "${query}"` : 'Search');
 </script>
 
-<section class="kibble-reference kc-reference-route kc-reference-search-page" data-kibble-route-shell="search" aria-labelledby="kibble-search-heading">
+<section class="kibble-reference kc-reference-route kc-reference-search-page" data-kibble-route-shell="search" data-kibble-route-policy={policyVersion} aria-labelledby="kibble-search-heading">
 	<div class="kc-reference-container">
 		<nav class="kc-reference-breadcrumbs" aria-label="Breadcrumb">
 			<a class="kc-reference-focus" href="/">Home</a>
