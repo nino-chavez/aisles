@@ -1,10 +1,10 @@
 <script lang="ts">
 	import './kibble-reference.css';
 
-	type CheckoutSubtype = 'checkout' | 'gift' | 'prepaid' | 'confirmation';
-	let { subtype, availabilityMessage, policyVersion }: { subtype: CheckoutSubtype; availabilityMessage: string; policyVersion?: string } = $props();
+type CheckoutSubtype = 'gift' | 'prepaid' | 'confirmation';
+let { subtype, availabilityMessage, policyVersion }: { subtype: CheckoutSubtype; availabilityMessage: string; policyVersion?: string } = $props();
 
-	const heading = $derived(subtype === 'gift' ? 'Give as a gift' : subtype === 'prepaid' ? 'Pay upfront' : subtype === 'confirmation' ? 'Order confirmation' : 'Checkout');
+const heading = $derived(subtype === 'gift' ? 'Give as a gift' : subtype === 'prepaid' ? 'Pay upfront' : 'Order confirmation');
 </script>
 
 <div class="kibble-reference kc-reference-route kc-reference-checkout-page" data-kibble-route-shell="checkout" data-kibble-route-policy={policyVersion} data-kibble-checkout-subtype={subtype} aria-labelledby="kibble-checkout-heading">
