@@ -12,14 +12,35 @@ const UniqueStrings = z.array(RequiredString).superRefine((values, ctx) => {
 });
 const HexColor = z.string().regex(/^#[0-9a-f]{6}$/i);
 
-export const KIBBLE_PDP_CANONICAL_SOURCE_FILES = [
+export const KIBBLE_PDP_ADAPTED_SOURCE_FILES = [
 	{ path: 'apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts', sha256: '61546d7a03e180c02dba320ea10b95c5d590f616ae60ce85adcb31292070ef68' },
 	{ path: 'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte', sha256: '2037eca5a6b2e98b30e9d901ef97616a7347356566d98906ef777948351e3646' },
 	{ path: 'apps/storefront-svelte/src/lib/components/Breadcrumbs.svelte', sha256: '89bee94fca474e2c587a1fc12ab912fade83804e9bb27eeca7c4a557d06d43ac' },
 	{ path: 'apps/storefront-svelte/src/lib/components/ProductGallery.svelte', sha256: 'f83501005792e00a7d3b540f65ebfa8ea85eeb2c0bf8e9209f2e9ce346073c76' },
 	{ path: 'apps/storefront-svelte/src/lib/components/VariantPicker.svelte', sha256: '2723d808e0441834b42e9d44cc7c03d407181e9d7b65452b91dad719ce5836d3' },
 	{ path: 'apps/storefront-svelte/src/lib/components/RelatedProducts.svelte', sha256: '285616781af47263191a96452f75fe678044c59877c82e3a010c7a694f57133f' },
+	{ path: 'apps/storefront-svelte/src/lib/components/ProductCard.svelte', sha256: '738d4ee911fa6b852672d2067ec45dcc4e0365756c5572108e91bd4a5828d38d' },
 	{ path: 'apps/storefront-svelte/src/lib/brand/bundle-contents.json', sha256: '84eeb73ac2d81e2b796b530c876ab334ec6d613e74ff59e7ecffb6f20086bcdd' },
+	{ path: 'apps/storefront-svelte/src/lib/brand/kibble-shelf-reference.ts', sha256: '0559e879e7f5b26b0a52a3d1a9f6af8b04b657661b9ff3c6914efc073523bad2' },
+	{ path: 'apps/storefront-svelte/src/lib/server/bigcommerce.ts', sha256: '8d4810e67c328ee5b9ed46f0ed0a2c19bb6586f7516679b4f8813661c87e6015' },
+	{ path: 'apps/storefront-svelte/src/lib/types/catalog.ts', sha256: '0bd280034b8f2cdfc0c647d0744f115987a4fc6a1209da36217be6b65173ad03' },
+] as const;
+
+export const KIBBLE_PDP_EXCLUDED_DEPENDENCIES = [
+	{ module: '$lib/subscriptions/SubscriptionWidget.svelte', reason: 'Aisles does not implement the canonical subscription selector or subscribe-to-cart flow.' },
+	{ module: '$lib/subscriptions/api-client', reason: 'Aisles does not call the subscription API from its catalog-display-only PDP.' },
+	{ module: '$lib/subscriptions/eligible-products.json', reason: 'Aisles excludes Auto-Refill eligibility, subscribe pricing, and savings claims from related-product cards.' },
+	{ module: '$lib/server/cart', reason: 'Aisles does not create or mutate a cart from the review-only PDP.' },
+	{ module: '$lib/server/cart-intents', reason: 'Aisles does not persist subscription intents from the review-only PDP.' },
+	{ module: 'products/[slug]/+page.server.ts#actions.addToCart', reason: 'Aisles replaces canonical purchase actions with the merchant-approved purchase-unavailable state.' },
+] as const;
+
+export const KIBBLE_PDP_EXTERNAL_DEPENDENCIES = [
+	{ module: '@sveltejs/kit', classification: 'framework-runtime' },
+	{ module: '$app/stores', classification: 'framework-runtime' },
+	{ module: '$env/dynamic/public', classification: 'framework-runtime' },
+	{ module: '$env/dynamic/private', classification: 'framework-runtime' },
+	{ module: './$types', classification: 'generated-types' },
 ] as const;
 
 export const KIBBLE_PDP_BUNDLE_PROJECTION_SHA256 = '3dcf34363dbf9c9eacc1667773b1b8506ccbb801a8152154cade748eef424710' as const;
@@ -210,18 +231,17 @@ export const KibbleReferenceContractSchema = z.object({
 			variantId: z.literal('kibble.product-detail.catalog-display-only'),
 			source: z.object({
 				commit: z.literal('ef122b8e17b9eb0b327c9d42491c44a61577ead4'),
-				files: z.tuple([
-					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[0].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[0].sha256) }).strict(),
-					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[1].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[1].sha256) }).strict(),
-					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[2].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[2].sha256) }).strict(),
-					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[3].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[3].sha256) }).strict(),
-					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[4].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[4].sha256) }).strict(),
-					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[5].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[5].sha256) }).strict(),
-					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[6].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[6].sha256) }).strict(),
-				]),
+				dependencyClosure: z.object({
+					scope: z.literal('canonical-pdp-import-closure-at-pinned-commit'),
+					traversalRule: z.literal('Traverse adapted imports recursively; excluded roots terminate traversal; framework and generated imports are external.'),
+					adapted: z.array(z.object({ path: RequiredString, sha256: z.string().regex(/^[0-9a-f]{64}$/) }).strict()).length(KIBBLE_PDP_ADAPTED_SOURCE_FILES.length),
+					excluded: z.array(z.object({ module: RequiredString, reason: RequiredString }).strict()).length(KIBBLE_PDP_EXCLUDED_DEPENDENCIES.length),
+					external: z.array(z.object({ module: RequiredString, classification: z.enum(['framework-runtime', 'generated-types']) }).strict()).length(KIBBLE_PDP_EXTERNAL_DEPENDENCIES.length),
+					exclusionInvariant: z.literal('Excluded commerce and subscription dependencies must not be imported, invoked, or represented as claims in the Aisles catalog-display-only PDP.'),
+				}).strict(),
 			}).strict(),
 			bundleProjection: z.object({
-				sourcePath: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[6].path),
+				sourcePath: z.literal('apps/storefront-svelte/src/lib/brand/bundle-contents.json'),
 				serialization: z.literal('canonical-json-v1'),
 				bundleCount: z.literal(8),
 				sha256: z.literal(KIBBLE_PDP_BUNDLE_PROJECTION_SHA256),
@@ -318,9 +338,27 @@ export const KibbleReferenceContractSchema = z.object({
 	if (contract.recipes.pdp.source.commit !== contract.source.commit) {
 		ctx.addIssue({ code: 'custom', message: 'PDP source commit must match the canonical Kibble source commit', path: ['recipes', 'pdp', 'source', 'commit'] });
 	}
-	const pdpSourcePaths = contract.recipes.pdp.source.files.map(({ path }) => path);
+	const dependencyClosure = contract.recipes.pdp.source.dependencyClosure;
+	if (JSON.stringify(dependencyClosure.adapted) !== JSON.stringify(KIBBLE_PDP_ADAPTED_SOURCE_FILES)) {
+		ctx.addIssue({ code: 'custom', message: 'PDP adapted dependency closure must match the pinned canonical import closure', path: ['recipes', 'pdp', 'source', 'dependencyClosure', 'adapted'] });
+	}
+	if (JSON.stringify(dependencyClosure.excluded) !== JSON.stringify(KIBBLE_PDP_EXCLUDED_DEPENDENCIES)) {
+		ctx.addIssue({ code: 'custom', message: 'PDP excluded dependency closure must retain every approved module and reason', path: ['recipes', 'pdp', 'source', 'dependencyClosure', 'excluded'] });
+	}
+	if (JSON.stringify(dependencyClosure.external) !== JSON.stringify(KIBBLE_PDP_EXTERNAL_DEPENDENCIES)) {
+		ctx.addIssue({ code: 'custom', message: 'PDP external dependency closure must retain every framework and generated import', path: ['recipes', 'pdp', 'source', 'dependencyClosure', 'external'] });
+	}
+	const pdpSourcePaths = dependencyClosure.adapted.map(({ path }) => path);
 	if (new Set(pdpSourcePaths).size !== pdpSourcePaths.length) {
-		ctx.addIssue({ code: 'custom', message: 'PDP source file paths must be unique', path: ['recipes', 'pdp', 'source', 'files'] });
+		ctx.addIssue({ code: 'custom', message: 'PDP adapted source file paths must be unique', path: ['recipes', 'pdp', 'source', 'dependencyClosure', 'adapted'] });
+	}
+	const classifiedDependencies = [
+		...pdpSourcePaths,
+		...dependencyClosure.excluded.map(({ module }) => module),
+		...dependencyClosure.external.map(({ module }) => module),
+	];
+	if (new Set(classifiedDependencies).size !== classifiedDependencies.length) {
+		ctx.addIssue({ code: 'custom', message: 'Each PDP dependency must have exactly one classification', path: ['recipes', 'pdp', 'source', 'dependencyClosure'] });
 	}
 	if (!pdpSourcePaths.includes(contract.recipes.pdp.bundleProjection.sourcePath)) {
 		ctx.addIssue({ code: 'custom', message: 'PDP bundle projection must name a pinned canonical source file', path: ['recipes', 'pdp', 'bundleProjection', 'sourcePath'] });
@@ -485,8 +523,18 @@ const contractInput = {
 		},
 		pdp: {
 			id: 'kibble-pdp-reference-v1', acceptance: 'implemented-pending-visual-approval', implementation: 'KibbleProductDetailReference.svelte', variantId: 'kibble.product-detail.catalog-display-only',
-			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', files: KIBBLE_PDP_CANONICAL_SOURCE_FILES },
-			bundleProjection: { sourcePath: KIBBLE_PDP_CANONICAL_SOURCE_FILES[6].path, serialization: 'canonical-json-v1', bundleCount: 8, sha256: KIBBLE_PDP_BUNDLE_PROJECTION_SHA256 },
+			source: {
+				commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4',
+				dependencyClosure: {
+					scope: 'canonical-pdp-import-closure-at-pinned-commit',
+					traversalRule: 'Traverse adapted imports recursively; excluded roots terminate traversal; framework and generated imports are external.',
+					adapted: KIBBLE_PDP_ADAPTED_SOURCE_FILES,
+					excluded: KIBBLE_PDP_EXCLUDED_DEPENDENCIES,
+					external: KIBBLE_PDP_EXTERNAL_DEPENDENCIES,
+					exclusionInvariant: 'Excluded commerce and subscription dependencies must not be imported, invoked, or represented as claims in the Aisles catalog-display-only PDP.',
+				},
+			},
+			bundleProjection: { sourcePath: 'apps/storefront-svelte/src/lib/brand/bundle-contents.json', serialization: 'canonical-json-v1', bundleCount: 8, sha256: KIBBLE_PDP_BUNDLE_PROJECTION_SHA256 },
 			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-bundle-contents', 'catalog-options', 'merchant-approved-purchase-unavailable', 'description-and-specifications', 'related-products'],
 			allowedCatalogFields: ['name', 'sku', 'description', 'images', 'options', 'price', 'salePrice', 'currencyCode', 'inventory', 'category', 'breadcrumbs', 'relatedProducts', 'customFields'],
 			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'merchant-approved-purchase-unavailable', forbidden: ['add-to-cart', 'cart', 'checkout', 'subscription', 'auto-refill-pricing', 'savings-claim', 'model-layout', 'generic-picks'] },

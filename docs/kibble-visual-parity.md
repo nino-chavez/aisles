@@ -62,9 +62,11 @@ local deterministic data URLs, and the pixel gate still compares their rendered
 positions and dimensions.
 
 Before either endpoint starts, the runner hashes the canonical seed fixture and
-all seven product-detail source artifacts, then checks those values against the
-pinned contract. The gate then checks the rendered markers before it captures
-screenshots. Evidence is written to `validation/kibble-parity-local/`.
+every product-detail dependency classified as adapted, then checks those values
+against the pinned contract. The dependency closure also classifies intentionally
+excluded commerce dependencies and framework or generated imports. The gate then
+checks the rendered markers before it captures screenshots. Evidence is written
+to `validation/kibble-parity-local/`.
 
 Home is the current default. A later integration can add routes without changing
 the server mechanism:

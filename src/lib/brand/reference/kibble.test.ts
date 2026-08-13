@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	KIBBLE_PDP_BUNDLE_PROJECTION_SHA256,
-	KIBBLE_PDP_CANONICAL_SOURCE_FILES,
+	KIBBLE_PDP_ADAPTED_SOURCE_FILES,
+	KIBBLE_PDP_EXCLUDED_DEPENDENCIES,
+	KIBBLE_PDP_EXTERNAL_DEPENDENCIES,
 	KIBBLE_REFERENCE_CONTRACT,
 	KibbleReferenceContractSchema,
 } from './kibble';
@@ -198,7 +200,42 @@ describe('Kibble reference contract', () => {
 			publication: { mode: 'approval-required', reviewAvailability: 'development-build-only', productLinks: 'disabled-until-approved' },
 			modelLayoutRequest: false,
 		});
-		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.files).toEqual(KIBBLE_PDP_CANONICAL_SOURCE_FILES);
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure).toEqual({
+			scope: 'canonical-pdp-import-closure-at-pinned-commit',
+			traversalRule: 'Traverse adapted imports recursively; excluded roots terminate traversal; framework and generated imports are external.',
+			adapted: KIBBLE_PDP_ADAPTED_SOURCE_FILES,
+			excluded: KIBBLE_PDP_EXCLUDED_DEPENDENCIES,
+			external: KIBBLE_PDP_EXTERNAL_DEPENDENCIES,
+			exclusionInvariant: 'Excluded commerce and subscription dependencies must not be imported, invoked, or represented as claims in the Aisles catalog-display-only PDP.',
+		});
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.adapted).toEqual([
+			{ path: 'apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts', sha256: '61546d7a03e180c02dba320ea10b95c5d590f616ae60ce85adcb31292070ef68' },
+			{ path: 'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte', sha256: '2037eca5a6b2e98b30e9d901ef97616a7347356566d98906ef777948351e3646' },
+			{ path: 'apps/storefront-svelte/src/lib/components/Breadcrumbs.svelte', sha256: '89bee94fca474e2c587a1fc12ab912fade83804e9bb27eeca7c4a557d06d43ac' },
+			{ path: 'apps/storefront-svelte/src/lib/components/ProductGallery.svelte', sha256: 'f83501005792e00a7d3b540f65ebfa8ea85eeb2c0bf8e9209f2e9ce346073c76' },
+			{ path: 'apps/storefront-svelte/src/lib/components/VariantPicker.svelte', sha256: '2723d808e0441834b42e9d44cc7c03d407181e9d7b65452b91dad719ce5836d3' },
+			{ path: 'apps/storefront-svelte/src/lib/components/RelatedProducts.svelte', sha256: '285616781af47263191a96452f75fe678044c59877c82e3a010c7a694f57133f' },
+			{ path: 'apps/storefront-svelte/src/lib/components/ProductCard.svelte', sha256: '738d4ee911fa6b852672d2067ec45dcc4e0365756c5572108e91bd4a5828d38d' },
+			{ path: 'apps/storefront-svelte/src/lib/brand/bundle-contents.json', sha256: '84eeb73ac2d81e2b796b530c876ab334ec6d613e74ff59e7ecffb6f20086bcdd' },
+			{ path: 'apps/storefront-svelte/src/lib/brand/kibble-shelf-reference.ts', sha256: '0559e879e7f5b26b0a52a3d1a9f6af8b04b657661b9ff3c6914efc073523bad2' },
+			{ path: 'apps/storefront-svelte/src/lib/server/bigcommerce.ts', sha256: '8d4810e67c328ee5b9ed46f0ed0a2c19bb6586f7516679b4f8813661c87e6015' },
+			{ path: 'apps/storefront-svelte/src/lib/types/catalog.ts', sha256: '0bd280034b8f2cdfc0c647d0744f115987a4fc6a1209da36217be6b65173ad03' },
+		]);
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.excluded).toEqual([
+			{ module: '$lib/subscriptions/SubscriptionWidget.svelte', reason: 'Aisles does not implement the canonical subscription selector or subscribe-to-cart flow.' },
+			{ module: '$lib/subscriptions/api-client', reason: 'Aisles does not call the subscription API from its catalog-display-only PDP.' },
+			{ module: '$lib/subscriptions/eligible-products.json', reason: 'Aisles excludes Auto-Refill eligibility, subscribe pricing, and savings claims from related-product cards.' },
+			{ module: '$lib/server/cart', reason: 'Aisles does not create or mutate a cart from the review-only PDP.' },
+			{ module: '$lib/server/cart-intents', reason: 'Aisles does not persist subscription intents from the review-only PDP.' },
+			{ module: 'products/[slug]/+page.server.ts#actions.addToCart', reason: 'Aisles replaces canonical purchase actions with the merchant-approved purchase-unavailable state.' },
+		]);
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.external).toEqual([
+			{ module: '@sveltejs/kit', classification: 'framework-runtime' },
+			{ module: '$app/stores', classification: 'framework-runtime' },
+			{ module: '$env/dynamic/public', classification: 'framework-runtime' },
+			{ module: '$env/dynamic/private', classification: 'framework-runtime' },
+			{ module: './$types', classification: 'generated-types' },
+		]);
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.bundleProjection).toEqual({
 			sourcePath: 'apps/storefront-svelte/src/lib/brand/bundle-contents.json',
 			serialization: 'canonical-json-v1',
@@ -216,7 +253,7 @@ describe('Kibble reference contract', () => {
 
 	it('rejects PDP source, projection, and cross-contract provenance tampering', () => {
 		const badSourceHash = cloneContract();
-		(badSourceHash.recipes.pdp.source.files[0] as { sha256: string }).sha256 = '0'.repeat(64);
+		(badSourceHash.recipes.pdp.source.dependencyClosure.adapted[0] as { sha256: string }).sha256 = '0'.repeat(64);
 		expect(KibbleReferenceContractSchema.safeParse(badSourceHash).success).toBe(false);
 
 		const badProjectionHash = cloneContract();
@@ -230,6 +267,28 @@ describe('Kibble reference contract', () => {
 		const uncontractedSourceField = cloneContract();
 		(uncontractedSourceField.recipes.pdp.source as unknown as Record<string, unknown>).unverified = true;
 		expect(KibbleReferenceContractSchema.safeParse(uncontractedSourceField).success).toBe(false);
+	});
+
+	it('requires every expected dependency classification and exclusion label', () => {
+		const missingProductCard = cloneContract();
+		missingProductCard.recipes.pdp.source.dependencyClosure.adapted.splice(6, 1);
+		expect(KibbleReferenceContractSchema.safeParse(missingProductCard).success).toBe(false);
+
+		const missingSubscriptionExclusion = cloneContract();
+		missingSubscriptionExclusion.recipes.pdp.source.dependencyClosure.excluded.splice(0, 1);
+		expect(KibbleReferenceContractSchema.safeParse(missingSubscriptionExclusion).success).toBe(false);
+
+		const relabeledExclusion = cloneContract();
+		(relabeledExclusion.recipes.pdp.source.dependencyClosure.excluded[0] as { reason: string }).reason = 'Generic exclusion';
+		expect(KibbleReferenceContractSchema.safeParse(relabeledExclusion).success).toBe(false);
+
+		const missingFrameworkClassification = cloneContract();
+		missingFrameworkClassification.recipes.pdp.source.dependencyClosure.external.splice(0, 1);
+		expect(KibbleReferenceContractSchema.safeParse(missingFrameworkClassification).success).toBe(false);
+
+		const weakenedInvariant = cloneContract();
+		(weakenedInvariant.recipes.pdp.source.dependencyClosure as { exclusionInvariant: string }).exclusionInvariant = 'Excluded for now.';
+		expect(KibbleReferenceContractSchema.safeParse(weakenedInvariant).success).toBe(false);
 	});
 
 	it('rejects reordered or invented PLP sort controls', () => {

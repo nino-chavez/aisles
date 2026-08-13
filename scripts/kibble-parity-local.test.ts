@@ -29,7 +29,7 @@ describe('Kibble local visual parity runner', () => {
 		});
 	});
 
-	it('requires every locally rendered PDP source file to match its canonical SHA', () => {
+	it('requires every adapted PDP dependency to match its canonical SHA', () => {
 		const exact = Object.fromEntries(KIBBLE_PARITY_PDP_SOURCE_FILES.map(({ path, sha256 }) => [path, sha256]));
 		expect(() => verifyPinnedPdpSourceDigests(exact)).not.toThrow();
 

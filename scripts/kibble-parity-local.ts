@@ -10,7 +10,7 @@ import { KIBBLE_REFERENCE_CONTRACT } from '../src/lib/brand/reference/kibble';
 export const KIBBLE_PARITY_CONTRACT_ID = KIBBLE_REFERENCE_CONTRACT.id;
 export const KIBBLE_PARITY_CONTRACT_VERSION = KIBBLE_REFERENCE_CONTRACT.version;
 export const KIBBLE_PARITY_FIXED_DATA_IDENTITY = KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256;
-export const KIBBLE_PARITY_PDP_SOURCE_FILES = KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.files;
+export const KIBBLE_PARITY_PDP_SOURCE_FILES = KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.adapted;
 export const KIBBLE_PARITY_DEFAULT_TOLERANCES = {
 	header: 0, nav: 0, main: 0, footer: 0, h1: 0, h2: 0, h3: 0,
 	section: 0, image: 0, link: 0, button: 0, pageHeight: 0,
