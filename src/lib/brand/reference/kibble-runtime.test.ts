@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { getBrandById } from '$lib/brand/config';
 import type { Product } from '$lib/types';
-import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
-import { KIBBLE_PDP_BOUNDS, KIBBLE_REFERENCE_CONTRACT } from './kibble';
+import {
+	assertKibblePdpBundleProjection,
+	KIBBLE_PDP_BUNDLE_PROJECTION_VERIFIED_SHA256,
+	KIBBLE_PRESERVE_MANIFEST,
+} from './kibble-manifest';
+import { KIBBLE_PDP_BOUNDS, KIBBLE_PDP_BUNDLE_PROJECTION_SHA256, KIBBLE_REFERENCE_CONTRACT } from './kibble';
 import {
 	buildKibbleHomeReference,
 	isKibblePdpPublished,
@@ -118,5 +122,21 @@ describe('Kibble Preserve runtime adapter', () => {
 			expect(item.contents.length).toBeLessThanOrEqual(KIBBLE_PDP_BOUNDS.arrays.bundleContents);
 			for (const content of item.contents) expect(Object.keys(content).sort()).toEqual(['brand', 'image', 'role', 'title']);
 		}
+	});
+
+	it('pins the safe eight-bundle projection and rejects copied-data tampering', () => {
+		expect(KIBBLE_PDP_BUNDLE_PROJECTION_VERIFIED_SHA256).toBe(KIBBLE_PDP_BUNDLE_PROJECTION_SHA256);
+		expect(assertKibblePdpBundleProjection(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles))
+			.toBe(KIBBLE_PDP_BUNDLE_PROJECTION_SHA256);
+		const reordered = Object.fromEntries(Object.entries(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles).reverse());
+		expect(assertKibblePdpBundleProjection(reordered)).toBe(KIBBLE_PDP_BUNDLE_PROJECTION_SHA256);
+
+		const changedCopy = structuredClone(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles);
+		(changedCopy['essential-bundle-kns4'].contents[0] as { role: string }).role = 'Tampered role';
+		expect(() => assertKibblePdpBundleProjection(changedCopy)).toThrow(/SHA mismatch/);
+
+		const missingBundle = structuredClone(KIBBLE_PRESERVE_MANIFEST.display.pdp.bundles) as Record<string, unknown>;
+		delete missingBundle['gift-bundle'];
+		expect(() => assertKibblePdpBundleProjection(missingBundle)).toThrow(/exactly 8 bundles/);
 	});
 });

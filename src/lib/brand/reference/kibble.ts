@@ -12,6 +12,18 @@ const UniqueStrings = z.array(RequiredString).superRefine((values, ctx) => {
 });
 const HexColor = z.string().regex(/^#[0-9a-f]{6}$/i);
 
+export const KIBBLE_PDP_CANONICAL_SOURCE_FILES = [
+	{ path: 'apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts', sha256: '61546d7a03e180c02dba320ea10b95c5d590f616ae60ce85adcb31292070ef68' },
+	{ path: 'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte', sha256: '2037eca5a6b2e98b30e9d901ef97616a7347356566d98906ef777948351e3646' },
+	{ path: 'apps/storefront-svelte/src/lib/components/Breadcrumbs.svelte', sha256: '89bee94fca474e2c587a1fc12ab912fade83804e9bb27eeca7c4a557d06d43ac' },
+	{ path: 'apps/storefront-svelte/src/lib/components/ProductGallery.svelte', sha256: 'f83501005792e00a7d3b540f65ebfa8ea85eeb2c0bf8e9209f2e9ce346073c76' },
+	{ path: 'apps/storefront-svelte/src/lib/components/VariantPicker.svelte', sha256: '2723d808e0441834b42e9d44cc7c03d407181e9d7b65452b91dad719ce5836d3' },
+	{ path: 'apps/storefront-svelte/src/lib/components/RelatedProducts.svelte', sha256: '285616781af47263191a96452f75fe678044c59877c82e3a010c7a694f57133f' },
+	{ path: 'apps/storefront-svelte/src/lib/brand/bundle-contents.json', sha256: '84eeb73ac2d81e2b796b530c876ab334ec6d613e74ff59e7ecffb6f20086bcdd' },
+] as const;
+
+export const KIBBLE_PDP_BUNDLE_PROJECTION_SHA256 = '3dcf34363dbf9c9eacc1667773b1b8506ccbb801a8152154cade748eef424710' as const;
+
 export const KIBBLE_PDP_BOUNDS = {
 	arrays: {
 		breadcrumbs: 3,
@@ -198,13 +210,21 @@ export const KibbleReferenceContractSchema = z.object({
 			variantId: z.literal('kibble.product-detail.catalog-display-only'),
 			source: z.object({
 				commit: z.literal('ef122b8e17b9eb0b327c9d42491c44a61577ead4'),
-				paths: z.tuple([
-					z.literal('apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts'),
-					z.literal('apps/storefront-svelte/src/routes/products/[slug]/+page.svelte'),
-					z.literal('apps/storefront-svelte/src/lib/components/ProductGallery.svelte'),
-					z.literal('apps/storefront-svelte/src/lib/components/RelatedProducts.svelte'),
-					z.literal('apps/storefront-svelte/src/lib/brand/bundle-contents.json'),
+				files: z.tuple([
+					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[0].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[0].sha256) }).strict(),
+					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[1].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[1].sha256) }).strict(),
+					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[2].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[2].sha256) }).strict(),
+					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[3].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[3].sha256) }).strict(),
+					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[4].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[4].sha256) }).strict(),
+					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[5].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[5].sha256) }).strict(),
+					z.object({ path: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[6].path), sha256: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[6].sha256) }).strict(),
 				]),
+			}).strict(),
+			bundleProjection: z.object({
+				sourcePath: z.literal(KIBBLE_PDP_CANONICAL_SOURCE_FILES[6].path),
+				serialization: z.literal('canonical-json-v1'),
+				bundleCount: z.literal(8),
+				sha256: z.literal(KIBBLE_PDP_BUNDLE_PROJECTION_SHA256),
 			}).strict(),
 			orderedAnatomy: z.tuple([
 				z.literal('breadcrumbs'), z.literal('media-gallery'), z.literal('product-identity'),
@@ -294,6 +314,16 @@ export const KibbleReferenceContractSchema = z.object({
 	if (new Set(contract.adapter.actions.allowed).size !== contract.adapter.actions.allowed.length) ctx.addIssue({ code: 'custom', message: 'Adapter actions must be unique', path: ['adapter', 'actions', 'allowed'] });
 	if (JSON.stringify(contract.recipes.plp.sortChoices) !== JSON.stringify(KIBBLE_PLP_SORT_OPTIONS.map(({ value, label }) => ({ value, label })))) {
 		ctx.addIssue({ code: 'custom', message: 'PLP sort choices must match the canonical Kibble controls', path: ['recipes', 'plp', 'sortChoices'] });
+	}
+	if (contract.recipes.pdp.source.commit !== contract.source.commit) {
+		ctx.addIssue({ code: 'custom', message: 'PDP source commit must match the canonical Kibble source commit', path: ['recipes', 'pdp', 'source', 'commit'] });
+	}
+	const pdpSourcePaths = contract.recipes.pdp.source.files.map(({ path }) => path);
+	if (new Set(pdpSourcePaths).size !== pdpSourcePaths.length) {
+		ctx.addIssue({ code: 'custom', message: 'PDP source file paths must be unique', path: ['recipes', 'pdp', 'source', 'files'] });
+	}
+	if (!pdpSourcePaths.includes(contract.recipes.pdp.bundleProjection.sourcePath)) {
+		ctx.addIssue({ code: 'custom', message: 'PDP bundle projection must name a pinned canonical source file', path: ['recipes', 'pdp', 'bundleProjection', 'sourcePath'] });
 	}
 
 	for (const [componentIndex, component] of contract.components.entries()) {
@@ -455,7 +485,8 @@ const contractInput = {
 		},
 		pdp: {
 			id: 'kibble-pdp-reference-v1', acceptance: 'implemented-pending-visual-approval', implementation: 'KibbleProductDetailReference.svelte', variantId: 'kibble.product-detail.catalog-display-only',
-			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', paths: ['apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts', 'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte', 'apps/storefront-svelte/src/lib/components/ProductGallery.svelte', 'apps/storefront-svelte/src/lib/components/RelatedProducts.svelte', 'apps/storefront-svelte/src/lib/brand/bundle-contents.json'] },
+			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', files: KIBBLE_PDP_CANONICAL_SOURCE_FILES },
+			bundleProjection: { sourcePath: KIBBLE_PDP_CANONICAL_SOURCE_FILES[6].path, serialization: 'canonical-json-v1', bundleCount: 8, sha256: KIBBLE_PDP_BUNDLE_PROJECTION_SHA256 },
 			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-bundle-contents', 'catalog-options', 'merchant-approved-purchase-unavailable', 'description-and-specifications', 'related-products'],
 			allowedCatalogFields: ['name', 'sku', 'description', 'images', 'options', 'price', 'salePrice', 'currencyCode', 'inventory', 'category', 'breadcrumbs', 'relatedProducts', 'customFields'],
 			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'merchant-approved-purchase-unavailable', forbidden: ['add-to-cart', 'cart', 'checkout', 'subscription', 'auto-refill-pricing', 'savings-claim', 'model-layout', 'generic-picks'] },

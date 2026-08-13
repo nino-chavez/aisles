@@ -5,10 +5,12 @@ import { dirname, resolve } from 'node:path';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { KIBBLE_REFERENCE_CONTRACT } from '../src/lib/brand/reference/kibble';
 
-export const KIBBLE_PARITY_CONTRACT_ID = 'kibble-shelf-native';
-export const KIBBLE_PARITY_CONTRACT_VERSION = '1.5.0';
-export const KIBBLE_PARITY_FIXED_DATA_IDENTITY = '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49';
+export const KIBBLE_PARITY_CONTRACT_ID = KIBBLE_REFERENCE_CONTRACT.id;
+export const KIBBLE_PARITY_CONTRACT_VERSION = KIBBLE_REFERENCE_CONTRACT.version;
+export const KIBBLE_PARITY_FIXED_DATA_IDENTITY = KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256;
+export const KIBBLE_PARITY_PDP_SOURCE_FILES = KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.files;
 export const KIBBLE_PARITY_DEFAULT_TOLERANCES = {
 	header: 0, nav: 0, main: 0, footer: 0, h1: 0, h2: 0, h3: 0,
 	section: 0, image: 0, link: 0, button: 0, pageHeight: 0,
@@ -59,9 +61,32 @@ export function readLocalParityRoutes(value: string | undefined): LocalParityRou
 export function verifyPinnedFixture(fixturePath: string, referenceRoot: string): void {
 	const digest = createHash('sha256').update(readFileSync(fixturePath)).digest('hex');
 	if (digest !== KIBBLE_PARITY_FIXED_DATA_IDENTITY) throw new Error(`Pinned Kibble fixture SHA mismatch: expected ${KIBBLE_PARITY_FIXED_DATA_IDENTITY}, received ${digest}.`);
+	verifyPinnedPdpSourceFiles(referenceRoot);
 	const source = readFileSync(resolve(referenceRoot, 'src/lib/brand/kibble-shelf-reference.ts'), 'utf8');
 	for (const marker of [KIBBLE_PARITY_CONTRACT_ID, KIBBLE_PARITY_CONTRACT_VERSION, KIBBLE_PARITY_FIXED_DATA_IDENTITY]) {
 		if (!source.includes(marker)) throw new Error(`Canonical reference provenance does not contain ${marker}.`);
+	}
+}
+
+export function verifyPinnedPdpSourceFiles(referenceRoot: string): void {
+	const applicationPrefix = `${KIBBLE_REFERENCE_CONTRACT.source.applicationPath}/`;
+	const digests = Object.fromEntries(KIBBLE_PARITY_PDP_SOURCE_FILES.map(({ path }) => {
+		if (!path.startsWith(applicationPrefix)) {
+			throw new Error(`Pinned Kibble PDP source path is outside ${KIBBLE_REFERENCE_CONTRACT.source.applicationPath}: ${path}.`);
+		}
+		const relativePath = path.slice(applicationPrefix.length);
+		const digest = createHash('sha256').update(readFileSync(resolve(referenceRoot, relativePath))).digest('hex');
+		return [path, digest];
+	}));
+	verifyPinnedPdpSourceDigests(digests);
+}
+
+export function verifyPinnedPdpSourceDigests(digests: Readonly<Record<string, string>>): void {
+	for (const { path, sha256 } of KIBBLE_PARITY_PDP_SOURCE_FILES) {
+		const received = digests[path];
+		if (received !== sha256) {
+			throw new Error(`Pinned Kibble PDP source SHA mismatch for ${path}: expected ${sha256}, received ${received ?? 'missing'}.`);
+		}
 	}
 }
 

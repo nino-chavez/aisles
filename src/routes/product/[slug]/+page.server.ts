@@ -72,6 +72,9 @@ async function loadKibblePreservePdp({
 	};
 
 	try {
+		if (slug.length > KIBBLE_PDP_BOUNDS.strings.routeId || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+			throw error(404, 'Product not found');
+		}
 		const decision = getContractSurfaceDecision(getBrand().id, 'pdp');
 		if (decision.mode !== 'reference-preserve') throw new Error('Kibble PDP policy is unavailable.');
 		assertKibblePreserveRoutePolicy(decision.policy, 'pdp');
@@ -82,7 +85,6 @@ async function loadKibblePreservePdp({
 			throw new Error('Kibble PDP publication is not approved.');
 		}
 
-		if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) throw error(404, 'Product not found');
 		const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: slug });
 		const inference = infer(store.toInferenceContext());
 		cookies.set('aisles_persona', inference.primary, { path: '/', maxAge: 60 * 60 * 24 * 30 });

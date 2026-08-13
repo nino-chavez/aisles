@@ -18,7 +18,7 @@ isolated branches and has not been pushed or deployed.
 | 1 — policy compiler | Implemented in Aisles; Bealls-family policies record observed legacy behavior | Production adoption beyond the Kibble slice |
 | 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
 | 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, and fallbacks implemented | Approved visual comparison |
-| 4 — Kibble routes | Home, product listing, and error surfaces render the Preserve path locally | Complete product detail, search, cart, and checkout contracts; approve visual parity |
+| 4 — Kibble routes | Home, product listing, and error surfaces render the Preserve path locally; product detail is implemented for development review only | Approve product-detail visual parity and human acceptance before publication; complete search, cart, and checkout contracts |
 | 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented | Enable it only when a contracted model-backed zone is approved |
 | 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, and actual home and product-listing Preserve records implemented | Apply the migration and verify the deployed runtime |
 | 7 — executable parity | Fail-closed mobile/desktop structural and pixel harness implemented; source and candidate share pinned provenance markers | Run an approved fixed-data comparison, resolve every unmasked difference, and obtain named human approval |

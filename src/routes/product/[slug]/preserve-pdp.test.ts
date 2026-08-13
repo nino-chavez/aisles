@@ -16,6 +16,7 @@ vi.mock('$lib/server/layout-provenance', () => ({ buildContractedLayoutProvenanc
 vi.mock('$lib/server/generation-log', () => ({ logGeneration: mocks.logGeneration }));
 
 import { load } from './+page.server';
+import { KIBBLE_PDP_BOUNDS } from '$lib/brand/reference/kibble';
 
 const detail = {
 	entityId: 7, name: 'Verified Food', sku: 'DOG-7', path: '/verified-food/', description: '<p>Catalog description</p>',
@@ -124,6 +125,15 @@ describe('Kibble Preserve PDP route', () => {
 		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce(null);
 		await expect(load(preserveEvent('missing') as never)).rejects.toMatchObject({ status: 404 });
 		await expect(load(preserveEvent('../cart') as never)).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('rejects an over-bound request slug before session or catalog work', async () => {
+		const slug = `a${'b'.repeat(KIBBLE_PDP_BOUNDS.strings.routeId)}`;
+		expect(slug).toHaveLength(KIBBLE_PDP_BOUNDS.strings.routeId + 1);
+		await expect(load(preserveEvent(slug) as never)).rejects.toMatchObject({ status: 404 });
+		expect(mocks.createStoreFromRequest).not.toHaveBeenCalled();
+		expect(mocks.getKibbleProductDetailByPath).not.toHaveBeenCalled();
+		expect(mocks.logGeneration).not.toHaveBeenCalled();
 	});
 
 	it.each([

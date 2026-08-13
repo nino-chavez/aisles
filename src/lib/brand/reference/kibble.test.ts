@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { KIBBLE_REFERENCE_CONTRACT, KibbleReferenceContractSchema } from './kibble';
+import {
+	KIBBLE_PDP_BUNDLE_PROJECTION_SHA256,
+	KIBBLE_PDP_CANONICAL_SOURCE_FILES,
+	KIBBLE_REFERENCE_CONTRACT,
+	KibbleReferenceContractSchema,
+} from './kibble';
 import { KIBBLE_PLP_GRAPHQL_SORT } from './kibble-plp';
 
 type MutableContract = ReturnType<typeof structuredClone<typeof KIBBLE_REFERENCE_CONTRACT>>;
@@ -193,7 +198,13 @@ describe('Kibble reference contract', () => {
 			publication: { mode: 'approval-required', reviewAvailability: 'development-build-only', productLinks: 'disabled-until-approved' },
 			modelLayoutRequest: false,
 		});
-		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.paths).toContain('apps/storefront-svelte/src/lib/brand/bundle-contents.json');
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.files).toEqual(KIBBLE_PDP_CANONICAL_SOURCE_FILES);
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.bundleProjection).toEqual({
+			sourcePath: 'apps/storefront-svelte/src/lib/brand/bundle-contents.json',
+			serialization: 'canonical-json-v1',
+			bundleCount: 8,
+			sha256: KIBBLE_PDP_BUNDLE_PROJECTION_SHA256,
+		});
 		expect(new Set([
 			KIBBLE_REFERENCE_CONTRACT.source.commit,
 			KIBBLE_REFERENCE_CONTRACT.recipes.plp.source.commit,
@@ -201,6 +212,24 @@ describe('Kibble reference contract', () => {
 		])).toEqual(new Set(['ef122b8e17b9eb0b327c9d42491c44a61577ead4']));
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('add-to-cart');
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('subscription');
+	});
+
+	it('rejects PDP source, projection, and cross-contract provenance tampering', () => {
+		const badSourceHash = cloneContract();
+		(badSourceHash.recipes.pdp.source.files[0] as { sha256: string }).sha256 = '0'.repeat(64);
+		expect(KibbleReferenceContractSchema.safeParse(badSourceHash).success).toBe(false);
+
+		const badProjectionHash = cloneContract();
+		(badProjectionHash.recipes.pdp.bundleProjection as { sha256: string }).sha256 = 'f'.repeat(64);
+		expect(KibbleReferenceContractSchema.safeParse(badProjectionHash).success).toBe(false);
+
+		const mismatchedCanonicalCommit = cloneContract();
+		(mismatchedCanonicalCommit.source as { commit: string }).commit = 'a'.repeat(40);
+		expect(KibbleReferenceContractSchema.safeParse(mismatchedCanonicalCommit).success).toBe(false);
+
+		const uncontractedSourceField = cloneContract();
+		(uncontractedSourceField.recipes.pdp.source as unknown as Record<string, unknown>).unverified = true;
+		expect(KibbleReferenceContractSchema.safeParse(uncontractedSourceField).success).toBe(false);
 	});
 
 	it('rejects reordered or invented PLP sort controls', () => {
