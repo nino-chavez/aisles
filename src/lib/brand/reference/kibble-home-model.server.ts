@@ -1,4 +1,5 @@
 import { generateText, Output } from 'ai';
+import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
 import { model, withModelFallback } from '$lib/server/model';
 import type { KibbleHomeCandidateProduct } from './kibble-home-decision';
@@ -27,6 +28,7 @@ export async function rankKibbleHomeWithModel(input: {
 	products: KibbleHomeCandidateProduct[];
 }): Promise<KibbleHomeModelResult> {
 	const prompt = buildKibbleHomeModelPrompt(input.inference, input.products);
+	const providerOutputSchema = buildKibbleHomeProviderOutputSchema(input.products);
 	let modelCallCount = 0;
 	let servedModelId = '';
 	let inputTokens: number | undefined;
@@ -38,14 +40,20 @@ export async function rankKibbleHomeWithModel(input: {
 				modelCallCount += 1;
 				return generateText({
 					model: model(modelId),
-					output: Output.object({ schema: outputSchema }),
+					// Anthropic structured output rejects maxItems, which the
+					// reusable zone schema uses for its server-side bound. This
+					// provider hint retains the exact product enum and strict object
+					// shape without unsupported array keywords. The stricter derived
+					// zone schema validates the response immediately below and again
+					// inside executeZoneDecision before publication.
+					output: Output.object({ schema: providerOutputSchema }),
 					prompt,
 				});
 			});
 			servedModelId = generated.modelId;
 			inputTokens = generated.result.usage?.inputTokens;
 			outputTokens = generated.result.usage?.outputTokens;
-			return generated.result.output;
+			return outputSchema.parse(generated.result.output);
 		},
 	});
 	if (!servedModelId || modelCallCount < 1) throw new Error('Kibble Home model runner returned no provider evidence.');
@@ -66,6 +74,20 @@ export async function rankKibbleHomeWithModel(input: {
 		...(outputTokens === undefined ? {} : { outputTokens }),
 		prompt,
 	};
+}
+
+export function buildKibbleHomeProviderOutputSchema(
+	products: readonly Pick<KibbleHomeCandidateProduct, 'entityId'>[],
+) {
+	const productIds = products.map(({ entityId }) => String(entityId));
+	const first = productIds[0];
+	if (!first || productIds.length > 8 || new Set(productIds).size !== productIds.length) {
+		throw new Error('Kibble Home provider schema requires one to eight unique approved product IDs.');
+	}
+	const ids: [string, ...string[]] = [first, ...productIds.slice(1)];
+	return z.object({
+		rankedProductIds: z.array(z.enum(ids)),
+	}).strict();
 }
 
 export function buildKibbleHomeModelPrompt(

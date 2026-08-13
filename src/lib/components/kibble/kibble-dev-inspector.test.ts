@@ -5,6 +5,7 @@ import {
 	redactInspectorDebugValue,
 	describeKibbleRehearsalStatus,
 	describeKibbleBehaviorStatus,
+	describeKibbleModelDecisionStatus,
 	sanitizeInspectorInference,
 	type KibbleDevInspectorData,
 	type KibbleInspectorInference,
@@ -106,6 +107,15 @@ describe('KibbleDevInspector', () => {
 			.toBe('Compare products carefully: sending 7 synthetic signals through the storefront pipeline.');
 		expect(describeKibbleBehaviorStatus(behavior, { state: 'applied', persona: 'researcher', changed: true }))
 			.toBe('Compare products carefully: 7 synthetic signals accepted. Server inferred researcher; shelf order changed.');
+	});
+
+	it('keeps an explicit bounded-AI failure visible when no behavior control is active', () => {
+		expect(describeKibbleModelDecisionStatus({ state: 'updating' }))
+			.toBe('Bounded AI ranking is running.');
+		expect(describeKibbleModelDecisionStatus({ state: 'failed' }))
+			.toBe('Bounded AI ranking failed; the last approved shelf was retained.');
+		expect(describeKibbleModelDecisionStatus({ state: 'applied', persona: 'hunter', changed: false }))
+			.toBe('Bounded AI ranking applied for hunter; shelf order was unchanged.');
 	});
 
 	it('offers real behavior simulations only for a synthetic scenario', () => {
