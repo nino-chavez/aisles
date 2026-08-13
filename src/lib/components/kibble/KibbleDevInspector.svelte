@@ -3,19 +3,26 @@
 	import { onMount } from 'svelte';
 	import {
 		SignalConfirmationError,
+		registerConfirmedDeferredSignalBatch,
 		registerConfirmedSignal,
 		type ConfirmedSignal,
+		type ConfirmedSignalBatch,
 	} from '$lib/signals/confirmed-signal.dev';
 	import { getEmitter } from '$lib/signals/emitter';
+	import { buildObserveSessionHref } from '$lib/signals/observe-session-link';
+	import {
+		KIBBLE_SYNTHETIC_BEHAVIORS,
+		summarizeBehaviorSignalTypes,
+		type KibbleSyntheticBehavior,
+	} from './kibble-synthetic-behaviors.dev';
 	import {
 		KIBBLE_INSPECTOR_PERSONAS,
-		describeKibbleRehearsalStatus,
+		describeKibbleBehaviorStatus,
 		isKibbleInspectorInference,
 		redactInspectorDebugValue,
 		sanitizeInspectorInference,
 		type KibbleDevInspectorData,
 		type KibbleInspectorInference,
-		type KibbleInspectorPersona,
 		type KibbleInspectorProductSummary,
 		type KibbleInspectorZone,
 		type KibbleLivePreviewStatus,
@@ -24,30 +31,30 @@
 	let {
 		inspector,
 		livePreview = { state: 'waiting' },
+		sessionId = null,
+		hideHref = '?dev=false',
 	}: {
 		inspector: KibbleDevInspectorData;
 		livePreview?: KibbleLivePreviewStatus;
+		sessionId?: string | null;
+		hideHref?: string;
 	} = $props();
 	let liveInference = $state<KibbleInspectorInference | null>(null);
-	let rehearsalPersona = $state<KibbleInspectorPersona | null>(null);
+	let activeBehavior = $state<KibbleSyntheticBehavior | null>(null);
 	let rehearsalQueued = $state(false);
 	let rehearsalError = $state<string | null>(null);
+	let inspectorExpanded = $state(true);
+	let resetBusy = $state(false);
 	let rehearsalGeneration = 0;
-	let activeConfirmation: ConfirmedSignal | null = null;
+	let activeConfirmation: ConfirmedSignal | ConfirmedSignalBatch | null = null;
 	const safeInspectorInference = $derived(sanitizeInspectorInference(inspector.inference));
 	const currentInference = $derived(liveInference ?? safeInspectorInference);
+	const observeHref = $derived(buildObserveSessionHref(sessionId));
 	const syntheticScenario = $derived.by(() => {
 		const synthetic = inspector.provenance?.synthetic;
 		return !!synthetic && typeof synthetic === 'object' && !Array.isArray(synthetic)
 			&& (synthetic as Record<string, unknown>).value === true;
 	});
-	const rehearsalSignals: ReadonlyArray<{ persona: KibbleInspectorPersona; query: string }> = [
-		{ persona: 'gatherer', query: 'cozy inspiration ideas' },
-		{ persona: 'hunter', query: 'budget sale discount' },
-		{ persona: 'researcher', query: 'compare best reviews' },
-		{ persona: 'gifter', query: 'birthday gift present' },
-	];
-
 	$effect(() => {
 		liveInference = safeInspectorInference;
 	});
@@ -81,12 +88,17 @@
 		if (status.state === 'failed') return 'preview failed; last approved shelf retained';
 		return 'waiting for a signal';
 	};
-	const rehearsalStatus = $derived(describeKibbleRehearsalStatus(rehearsalPersona, livePreview, rehearsalQueued, rehearsalError));
+	const rehearsalStatus = $derived(describeKibbleBehaviorStatus(
+		activeBehavior ? { label: activeBehavior.label, eventCount: activeBehavior.events.length } : null,
+		livePreview,
+		rehearsalQueued,
+		rehearsalError,
+	));
 	const rehearsalBusy = $derived(rehearsalQueued || livePreview.state === 'updating');
-	const sendRehearsalSignal = async (signal: (typeof rehearsalSignals)[number]) => {
+	const sendSyntheticBehavior = async (behavior: KibbleSyntheticBehavior) => {
 		const emitter = getEmitter();
 		if (!emitter) {
-			rehearsalPersona = null;
+			activeBehavior = null;
 			rehearsalQueued = false;
 			rehearsalError = 'Signal emitter unavailable; no event was sent.';
 			return;
@@ -94,9 +106,11 @@
 		activeConfirmation?.cancel();
 		const generation = ++rehearsalGeneration;
 		rehearsalError = null;
-		rehearsalPersona = signal.persona;
+		activeBehavior = behavior;
 		rehearsalQueued = true;
-		const attempt = registerConfirmedSignal(emitter, 'nav.search', { query: signal.query });
+		const attempt = behavior.delivery === 'immediate'
+			? registerConfirmedSignal(emitter, behavior.events[0].type, behavior.events[0].data)
+			: registerConfirmedDeferredSignalBatch(emitter, behavior.events);
 		activeConfirmation = attempt;
 		try {
 			await attempt.confirmation;
@@ -108,9 +122,21 @@
 			const reason = error instanceof SignalConfirmationError
 				? error.message
 				: 'Signal confirmation failed.';
-			rehearsalError = `Signal ${signal.persona} was not confirmed. ${reason}`;
+			rehearsalError = `${behavior.label} was not confirmed. ${reason}`;
 		} finally {
 			if (activeConfirmation === attempt) activeConfirmation = null;
+		}
+	};
+	const resetSyntheticShopper = async () => {
+		if (resetBusy || rehearsalBusy) return;
+		resetBusy = true;
+		try {
+			const response = await fetch('/api/session/reset', { method: 'POST' });
+			if (!response.ok) throw new Error(`Session reset returned ${response.status}.`);
+			window.location.assign('/?dev=true');
+		} catch (error) {
+			resetBusy = false;
+			rehearsalError = error instanceof Error ? error.message : 'Synthetic shopper reset failed.';
 		}
 	};
 	const viewChangedShelf = (event: MouseEvent) => {
@@ -123,14 +149,25 @@
 	};
 </script>
 
-<aside class="kc-dev-inspector" aria-labelledby="kibble-dev-inspector-title">
+<aside class:kc-dev-inspector--collapsed={!inspectorExpanded} class="kc-dev-inspector" aria-labelledby="kibble-dev-inspector-title">
 	<header class="kc-dev-inspector__header">
 		<div>
 			<p class="kc-dev-inspector__eyebrow">Local development only</p>
 			<h2 id="kibble-dev-inspector-title">Dev Mode — Kibble decision inspector</h2>
 		</div>
-		<p class="kc-dev-inspector__surface">{inspector.surface}</p>
+		<div class="kc-dev-inspector__header-controls">
+			<p class="kc-dev-inspector__surface">{inspector.surface}</p>
+			{#if observeHref}
+				<a href={observeHref} target="_blank" rel="noopener">Open this session in Observe <span aria-hidden="true">↗</span></a>
+			{/if}
+			<button type="button" aria-expanded={inspectorExpanded} aria-controls="kibble-dev-inspector-body" onclick={() => { inspectorExpanded = !inspectorExpanded; }}>
+				{inspectorExpanded ? 'Collapse' : 'Expand'}
+			</button>
+			<a href={hideHref}>Hide inspector</a>
+		</div>
 	</header>
+
+	<div id="kibble-dev-inspector-body" class="kc-dev-inspector__body" hidden={!inspectorExpanded}>
 
 	<section class="kc-dev-inspector__summary" aria-label="Inference summary">
 		<div class="kc-dev-inspector__inference-heading">
@@ -152,8 +189,7 @@
 		</div>
 
 		<div class="kc-dev-inspector__metrics">
-			<span><b>{currentInference.signalCount}</b> signals</span>
-			<span><b>{currentInference.ruleMatches.length}</b> rules</span>
+			<span><b>{currentInference.ruleMatches.length}</b> evidence rules matched</span>
 			<span>price {percent(currentInference.modifiers.priceSensitivity)}</span>
 			<span>urgency {percent(currentInference.modifiers.urgency)}</span>
 			<span>familiarity {percent(currentInference.modifiers.familiarityWithStore)}</span>
@@ -176,8 +212,8 @@
 	</section>
 
 	<section class="kc-dev-inspector__scenarios" aria-labelledby="kibble-dev-scenarios">
-		<h3 id="kibble-dev-scenarios">Route-boundary scenario</h3>
-		<p>Explicit intent adds one deterministic request signal on navigation. It does not change policy authority.</p>
+		<h3 id="kibble-dev-scenarios">Starting-state shortcuts</h3>
+		<p>Reload with one deterministic request hint, then use the behavior simulator below. These shortcuts do not change policy authority.</p>
 		<nav aria-label="Intent scenarios">
 			{#each KIBBLE_INSPECTOR_PERSONAS as persona}
 				<a href={`?dev=true&intent=${persona}`}>{persona}</a>
@@ -187,17 +223,38 @@
 
 	{#if syntheticScenario}
 		<section class="kc-dev-inspector__rehearsal" aria-labelledby="kibble-dev-live-rehearsal">
-			<h3 id="kibble-dev-live-rehearsal">Live synthetic signal rehearsal</h3>
-			<p>Each button sends one allowed <code>nav.search</code> event through the actual signal endpoint. No model is called, and this is not a shopper control.</p>
+			<div class="kc-dev-inspector__section-heading">
+				<div>
+					<h3 id="kibble-dev-live-rehearsal">Customer behavior simulator</h3>
+					<p>Each control emits the listed storefront events through the actual signal endpoint. Watch inference above, personalization on the shelf, and the full event stream in Observe.</p>
+				</div>
+				<button type="button" aria-disabled={resetBusy || rehearsalBusy} onclick={() => { if (!resetBusy && !rehearsalBusy) void resetSyntheticShopper(); }}>
+					{resetBusy ? 'Resetting…' : 'Start a fresh shopper'}
+				</button>
+			</div>
 			<div class="kc-dev-inspector__rehearsal-actions">
-				{#each rehearsalSignals as signal}
+				{#each KIBBLE_SYNTHETIC_BEHAVIORS as behavior (behavior.id)}
 					<button
 						type="button"
+						class:kc-dev-inspector__behavior--active={activeBehavior?.id === behavior.id}
+						class="kc-dev-inspector__behavior"
 						aria-disabled={rehearsalBusy}
-						onclick={() => { if (!rehearsalBusy) void sendRehearsalSignal(signal); }}
-					>Signal {signal.persona}</button>
+						onclick={() => { if (!rehearsalBusy) void sendSyntheticBehavior(behavior); }}
+					>
+						<strong>{behavior.label}</strong>
+						<span>{behavior.description}</span>
+						<code>{behavior.signalSummary}</code>
+					</button>
 				{/each}
 			</div>
+			{#if activeBehavior}
+				<div class="kc-dev-inspector__signal-trace" aria-label="Last simulated signal types">
+					<span>sent</span>
+					{#each summarizeBehaviorSignalTypes(activeBehavior.events) as signalType}
+						<code>{signalType}</code>
+					{/each}
+				</div>
+			{/if}
 			<p class="kc-dev-inspector__rehearsal-status" aria-live="polite" aria-atomic="true">{rehearsalStatus}</p>
 			{#if !rehearsalQueued && !rehearsalError && livePreview.state === 'applied' && livePreview.changed}
 				<a class="kc-dev-inspector__view-shelf" href="#kibble-featured-shelf" onclick={viewChangedShelf}>View changed shelf</a>
@@ -268,17 +325,22 @@
 		<summary>Raw provenance and decision JSON</summary>
 		<pre>{raw({ provenance: inspector.provenance ?? {}, inference: currentInference, zones: inspector.zones.map(({ decision, ...zone }) => ({ ...zone, decision })) })}</pre>
 	</details>
+	</div>
 </aside>
 
 <style>
 	.kc-dev-inspector { --dev-ink:#17213b; --dev-muted:#56617a; --dev-border:#cdd7ea; --dev-panel:#f6f8fd; --dev-blue:#315cc9; --dev-green:#08745d; --dev-amber:#9a6100; margin:1.25rem auto; max-width:1280px; max-height:75vh; overflow:auto; border:1px solid var(--dev-border); background:var(--dev-panel); color:var(--dev-ink); font-family:var(--kc-font-machinery, ui-monospace, SFMono-Regular, Menlo, monospace); font-size:.8rem; line-height:1.45; }
+	.kc-dev-inspector--collapsed { overflow:visible; }
 	.kc-dev-inspector *, .kc-dev-inspector *::before, .kc-dev-inspector *::after { box-sizing:border-box; }
+	.kc-dev-inspector__body[hidden] { display:none; }
 	.kc-dev-inspector__header, .kc-dev-inspector__summary, .kc-dev-inspector__facts, .kc-dev-inspector__scenarios, .kc-dev-inspector__rehearsal, .kc-dev-inspector__zones, .kc-dev-inspector__rules, .kc-dev-inspector__raw { padding:1rem 1.125rem; }
 	.kc-dev-inspector__header { position:sticky; top:0; z-index:2; display:flex; align-items:start; justify-content:space-between; gap:1rem; border-bottom:1px solid var(--dev-border); background:#e8eefb; }
+	.kc-dev-inspector--collapsed .kc-dev-inspector__header { border-bottom:0; }
+	.kc-dev-inspector__header-controls { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:.4rem; }
 	.kc-dev-inspector__eyebrow, .kc-dev-inspector h2, .kc-dev-inspector h3, .kc-dev-inspector h4, .kc-dev-inspector p { margin:0; }
 	.kc-dev-inspector__eyebrow, .kc-dev-inspector__label, .kc-dev-inspector__facts span, .kc-dev-inspector dt { color:var(--dev-muted); font-size:.7rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
 	.kc-dev-inspector h2 { margin-top:.2rem; font-size:.95rem; letter-spacing:-.02em; }
-	.kc-dev-inspector__surface { color:var(--dev-blue); font-weight:700; }
+	.kc-dev-inspector__surface { margin-right:.3rem !important; color:var(--dev-blue); font-weight:700; }
 	.kc-dev-inspector__summary { border-bottom:1px solid var(--dev-border); background:#fff; }
 	.kc-dev-inspector__inference-heading, .kc-dev-inspector__section-heading, .kc-dev-inspector__zone-header { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
 	.kc-dev-inspector__persona { margin-top:.1rem !important; font-size:1.15rem; font-weight:800; }
@@ -303,13 +365,20 @@
 	.kc-dev-inspector h3 { font-size:.78rem; }
 	.kc-dev-inspector__scenarios p, .kc-dev-inspector__rehearsal p { margin-top:.3rem; color:var(--dev-muted); }
 	.kc-dev-inspector__scenarios nav { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.65rem; }
-	.kc-dev-inspector__rehearsal-actions { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.65rem; }
+	.kc-dev-inspector__rehearsal-actions { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:.55rem; margin-top:.75rem; }
 	.kc-dev-inspector a, .kc-dev-inspector button { display:inline-flex; min-height:44px; align-items:center; border:1px solid #aebee1; background:#fff; color:#1c4cab; font:inherit; font-weight:700; padding:.45rem .65rem; text-decoration:none; }
 	.kc-dev-inspector button { cursor:pointer; border-color:#78ae9f; color:#075d4c; }
 	.kc-dev-inspector button[aria-disabled='true'] { cursor:wait; opacity:.55; }
 	.kc-dev-inspector a:hover { background:#e8eefb; }
-	.kc-dev-inspector button:hover { background:#ddf1ea; }
+	.kc-dev-inspector button:not([aria-disabled='true']):hover { background:#ddf1ea; }
 	.kc-dev-inspector a:focus-visible, .kc-dev-inspector button:focus-visible, .kc-dev-inspector summary:focus-visible { outline:3px solid var(--dev-blue); outline-offset:3px; }
+	.kc-dev-inspector__behavior { min-height:9rem !important; flex-direction:column; align-items:flex-start !important; justify-content:flex-start; gap:.35rem; text-align:left; }
+	.kc-dev-inspector__behavior strong { color:var(--dev-ink); font-size:.76rem; }
+	.kc-dev-inspector__behavior span { color:var(--dev-muted); font-weight:500; }
+	.kc-dev-inspector__behavior code, .kc-dev-inspector__signal-trace code { border:1px solid #c7d7d1; background:#f7fffc; color:#075d4c; padding:.18rem .3rem; font:inherit; font-size:.66rem; }
+	.kc-dev-inspector__behavior--active { border-color:var(--dev-green) !important; box-shadow:inset 0 0 0 1px var(--dev-green); background:#f7fffc !important; }
+	.kc-dev-inspector__signal-trace { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem; margin-top:.65rem; }
+	.kc-dev-inspector__signal-trace > span { color:var(--dev-muted); font-size:.65rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 	.kc-dev-inspector__rehearsal-status { font-weight:700; }
 	.kc-dev-inspector__view-shelf { margin-top:.55rem; }
 	.kc-dev-inspector__zones ol { display:grid; gap:.65rem; margin:.7rem 0 0; padding:0; list-style:none; }
@@ -335,5 +404,6 @@
 	.kc-dev-inspector table { width:100%; border-collapse:collapse; text-align:left; }
 	.kc-dev-inspector th, .kc-dev-inspector td { border-bottom:1px solid var(--dev-border); padding:.45rem; vertical-align:top; }
 	.kc-dev-inspector th { color:var(--dev-muted); font-size:.64rem; text-transform:uppercase; }
-	@media (max-width: 760px) { .kc-dev-inspector { margin-inline:.75rem; } .kc-dev-inspector__probabilities, .kc-dev-inspector__facts, .kc-dev-inspector dl { grid-template-columns:repeat(2, minmax(0, 1fr)); } .kc-dev-inspector__header, .kc-dev-inspector__inference-heading, .kc-dev-inspector__zone-header { align-items:flex-start; flex-wrap:wrap; } }
+	@media (max-width: 960px) { .kc-dev-inspector__rehearsal-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+	@media (max-width: 760px) { .kc-dev-inspector { margin-inline:.75rem; } .kc-dev-inspector__probabilities, .kc-dev-inspector__facts, .kc-dev-inspector dl, .kc-dev-inspector__rehearsal-actions { grid-template-columns:1fr; } .kc-dev-inspector__header, .kc-dev-inspector__inference-heading, .kc-dev-inspector__zone-header, .kc-dev-inspector__section-heading { align-items:flex-start; flex-wrap:wrap; } .kc-dev-inspector__header-controls { width:100%; justify-content:flex-start; } .kc-dev-inspector__behavior { min-height:0 !important; } }
 </style>

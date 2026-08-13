@@ -442,11 +442,14 @@ layout-decision cache, write telemetry, or write a database. It does read the
 existing scoped session from the in-memory session cache or Redis when
 configured.
 
-The local synthetic rehearsal buttons are development inspector controls, not
-shopper controls. They emit real allowed `nav.search` events through
-`/api/signals`, then request that server-derived preview. They use the showcase's
-pinned synthetic catalog and fit fixture; they do not create a production
-decision authority or change the fixed Preserve shell.
+The local behavior simulator is a development inspector control, not a shopper
+control. It emits named typed event sequences—category views, product views,
+returns, dwell, and search—through `/api/signals`, then requests that
+server-derived preview. Its header can collapse the panel, hide it, or open
+Observe pinned to the same scoped session. A local-only launcher makes the
+inspector discoverable without requiring query-parameter knowledge. The
+simulator uses the showcase's pinned synthetic catalog and fit fixture; it does
+not create production decision authority or change the fixed Preserve shell.
 Keep the current whole-page renderer as an explicit legacy path for brands that
 have not adopted contracts. Select the path from trusted server-side brand and
 contract data. Kibble Preserve mode server-renders its fixed shell and does not
@@ -469,9 +472,9 @@ capabilities, input and output order, and zero model calls. Its live preview
 requires both compile-time development mode and an explicit `?dev=true` request;
 the route then re-derives the persisted-session decision server-side rather than
 accepting browser-controlled decision data. A separate local showcase supplies
-a pinned catalog and clearly labeled synthetic fit scores; its rehearsal buttons
-send real `nav.search` signals through `/api/signals`, are not shopper controls,
-and mark the resulting preview provenance synthetic. Development receipts bind
+a pinned catalog and clearly labeled synthetic fit scores; its behavior controls
+send real typed storefront events through `/api/signals`, are not shopper
+controls, and mark the resulting preview provenance synthetic. Development receipts bind
 each control to its exact client sequence, validate the complete inference
 response, and include a ten-second uncertain-delivery fail-safe rather than
 letting an older response confirm the wrong control. The local transport

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { dev } from '$app/environment';
+	import { page } from '$app/stores';
 	import type { Component } from 'svelte';
 	import type { PageData } from './$types';
 	import type { Layout } from '$lib/schema/layout';
@@ -16,16 +17,31 @@
 	let aiLayout = $state<Layout | null>(null);
 	let aiError = $state<string | null>(null);
 	let overridePersona = $state<string | null>(null);
-	let DevInspector = $state<Component<{ inspector: KibbleDevInspectorData; livePreview?: KibbleLivePreviewStatus }> | null>(null);
+	let DevInspector = $state<Component<{ inspector: KibbleDevInspectorData; livePreview?: KibbleLivePreviewStatus; sessionId?: string | null; hideHref?: string }> | null>(null);
+	let DevInspectorLauncher = $state<Component<{ href: string }> | null>(null);
 	let previewProducts = $state<KibbleProduct[] | null>(null);
 	let previewInspector = $state<KibbleDevInspectorData | null>(null);
 	let livePreviewStatus = $state<KibbleLivePreviewStatus>({ state: 'waiting' });
 	let currentPersona = $derived(overridePersona ?? data.persona ?? 'gatherer');
+	const devModeHref = (enabled: boolean) => {
+		const next = new URL($page.url);
+		next.searchParams.set('dev', enabled ? 'true' : 'false');
+		return `${next.pathname}${next.search}${next.hash}`;
+	};
+	let inspectorShowHref = $derived(devModeHref(true));
+	let inspectorHideHref = $derived(devModeHref(false));
 
 	$effect(() => {
 		if (!dev || !data.kibbleHomeInspector || DevInspector) return;
 		void import('$lib/components/kibble/KibbleDevInspector.svelte').then(({ default: component }) => {
 			DevInspector = component;
+		});
+	});
+
+	$effect(() => {
+		if (!dev || data.renderMode !== 'reference-preserve' || data.kibbleHomeInspector || DevInspectorLauncher) return;
+		void import('$lib/components/kibble/KibbleDevInspectorLauncher.svelte').then(({ default: component }) => {
+			DevInspectorLauncher = component;
 		});
 	});
 
@@ -171,7 +187,14 @@
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleHome}
 	{#if data.kibbleHomeInspector && DevInspector}
-		<DevInspector inspector={previewInspector ?? data.kibbleHomeInspector} livePreview={livePreviewStatus} />
+		<DevInspector
+			inspector={previewInspector ?? data.kibbleHomeInspector}
+			livePreview={livePreviewStatus}
+			sessionId={data.sessionId}
+			hideHref={inspectorHideHref}
+		/>
+	{:else if dev && DevInspectorLauncher}
+		<DevInspectorLauncher href={inspectorShowHref} />
 	{/if}
 	<div
 		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}

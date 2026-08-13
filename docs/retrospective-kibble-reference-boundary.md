@@ -63,10 +63,12 @@ model, generate a layout, mutate the session, read or write the layout-decision
 cache, write telemetry, or write a database. It does read the existing scoped
 session from the in-memory session cache or Redis when configured.
 
-The local synthetic rehearsal buttons are inspector controls, not shopper
-controls. They emit allowed `nav.search` signals through `/api/signals`, then
-request the server preview. Each development receipt is correlated to the exact
-client sequence and strictly validates the returned inference. It has a
+The local behavior simulator is an inspector control, not a shopper control. It
+emits recognizable typed event sequences through `/api/signals`, then requests
+the server preview. The inspector is discoverable from a local-only storefront
+control, can collapse or hide, and opens Observe pinned to the same session.
+Each development receipt is correlated to the exact client sequence and strictly
+validates the returned inference. It has a
 ten-second uncertain-delivery fail-safe. The showcase transport normally
 restores the controls first: it drops an uncertain stalled batch after four
 seconds and immediately drains a newer control. The preview request

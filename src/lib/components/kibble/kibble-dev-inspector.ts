@@ -86,6 +86,24 @@ export function describeKibbleRehearsalStatus(
 	return `Signal ${requestedPersona} accepted. Waiting for the server decision.`;
 }
 
+export function describeKibbleBehaviorStatus(
+	behavior: { label: string; eventCount: number } | null,
+	status: KibbleLivePreviewStatus,
+	queued = false,
+	error: string | null = null,
+): string {
+	if (error) return error;
+	if (!behavior) return 'Choose a customer behavior to simulate.';
+	const signalLabel = `${behavior.eventCount} synthetic signal${behavior.eventCount === 1 ? '' : 's'}`;
+	if (queued) return `${behavior.label}: sending ${signalLabel} through the storefront pipeline.`;
+	if (status.state === 'updating') return `${behavior.label}: ${signalLabel} accepted. Server decision updating.`;
+	if (status.state === 'failed') return `${behavior.label}: ${signalLabel} accepted. Preview failed; last approved shelf retained.`;
+	if (status.state === 'applied') {
+		return `${behavior.label}: ${signalLabel} accepted. Server inferred ${status.persona}; shelf order ${status.changed ? 'changed' : 'unchanged'}.`;
+	}
+	return `${behavior.label}: ${signalLabel} accepted. Waiting for the server decision.`;
+}
+
 export const KIBBLE_INSPECTOR_PERSONAS: readonly KibbleInspectorPersona[] = [
 	'gatherer',
 	'hunter',

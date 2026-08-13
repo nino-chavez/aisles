@@ -17,6 +17,7 @@ import {
 	isExpectedShowcaseExit,
 	readShowcaseHost,
 	readShowcasePort,
+	showcaseRootUrl,
 	showcaseUrl,
 } from './kibble-showcase';
 
@@ -87,6 +88,7 @@ describe('Kibble local showcase', () => {
 		expect(() => readShowcasePort('5174.5')).toThrow(/whole-number/);
 		expect(readShowcaseHost(undefined)).toBe('127.0.0.1');
 		expect(() => readShowcaseHost('0.0.0.0')).toThrow(/localhost/);
+		expect(showcaseRootUrl('127.0.0.1', 5174)).toBe('http://127.0.0.1:5174/');
 		expect(showcaseUrl('127.0.0.1', 5174, 'hunter')).toBe('http://127.0.0.1:5174/?dev=true&intent=hunter');
 	});
 

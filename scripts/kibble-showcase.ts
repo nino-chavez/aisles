@@ -32,6 +32,11 @@ export function showcaseUrl(host: string, port: number, persona: string): string
 	return `http://${formattedHost}:${port}/?dev=true&intent=${persona}`;
 }
 
+export function showcaseRootUrl(host: string, port: number): string {
+	const formattedHost = host.includes(':') ? `[${host}]` : host;
+	return `http://${formattedHost}:${port}/`;
+}
+
 export function isExpectedShowcaseExit(code: number | null, signal: NodeJS.Signals | null): boolean {
 	return code === 0 || code === 130 || code === 143 || signal === 'SIGINT' || signal === 'SIGTERM';
 }
@@ -97,8 +102,11 @@ async function main(): Promise<void> {
 	await Promise.all([access(fixturePath), access(referenceRoot), access(interceptor)]);
 	verifyPinnedFixture(fixturePath, referenceRoot);
 
+	const rootUrl = showcaseRootUrl(host, port);
 	const urls = ['gatherer', 'hunter', 'researcher', 'gifter'].map((persona) => showcaseUrl(host, port, persona));
 	console.log(`Kibble local showcase\nData source: ${KIBBLE_SHOWCASE_DATA_SOURCE}\nPinned catalog: ${fixturePath}\n`);
+	console.log(rootUrl);
+	console.log('Use “Show decision inspector” on the storefront. Optional starting-state shortcuts:');
 	for (const url of urls) console.log(url);
 	console.log('\nStop with Ctrl-C.');
 

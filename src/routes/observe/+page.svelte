@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import type { SignalEvent, PersonaInference, SignalSource } from '$lib/signals/types';
+	import { observeSessionIdFromUrl } from '$lib/signals/observe-session-link';
 
 	// ─── Types ─────────────────────────────────────────────────────
 	interface GenerationLog {
@@ -95,11 +97,12 @@
 	// ─── State ─────────────────────────────────────────────────────
 	const POLL_INTERVAL = 2000;
 
+	const linkedSessionId = observeSessionIdFromUrl($page.url);
 	let sessions = $state<Array<{ id: string; scenarioId: string | null; scenarioLabel: string | null }>>([]);
-	let selectedSessionId = $state<string | null>(null);
+	let selectedSessionId = $state<string | null>(linkedSessionId);
 	let sessionData = $state<SessionData | null>(null);
 	let logs = $state<GenerationLog[]>([]);
-	let watchLatest = $state(true);
+	let watchLatest = $state(!linkedSessionId);
 	let enrichmentOpen = $state(false);
 	let enrichmentProducts = $state<EnrichedProductRow[]>([]);
 	let enrichmentCategory = $state<string | null>(null);
@@ -293,10 +296,17 @@
 					class="rounded border border-neutral-700 bg-neutral-800 px-3 py-1.5 font-mono text-[11px] text-neutral-300 outline-none focus:border-neutral-500"
 				>
 					<option value={null}>Select session...</option>
+					{#if selectedSessionId && !sessions.some((session) => session.id === selectedSessionId)}
+						<option value={selectedSessionId}>PINNED · {truncateId(selectedSessionId)}</option>
+					{/if}
 					{#each sessions as session}
 						<option value={session.id}>{session.scenarioLabel ? `SYNTHETIC · ${session.scenarioLabel}` : truncateId(session.id)}</option>
 					{/each}
 				</select>
+
+				{#if linkedSessionId && selectedSessionId === linkedSessionId && !watchLatest}
+					<span class="rounded bg-blue-950 px-2 py-1 font-mono text-[10px] font-semibold tracking-wide text-blue-300">PINNED FROM INSPECTOR</span>
+				{/if}
 
 				<label class="flex items-center gap-2 text-[12px] text-neutral-400">
 					<input

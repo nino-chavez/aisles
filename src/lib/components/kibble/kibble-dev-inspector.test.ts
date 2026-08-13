@@ -4,6 +4,7 @@ import KibbleDevInspector from './KibbleDevInspector.svelte';
 import {
 	redactInspectorDebugValue,
 	describeKibbleRehearsalStatus,
+	describeKibbleBehaviorStatus,
 	sanitizeInspectorInference,
 	type KibbleDevInspectorData,
 	type KibbleInspectorInference,
@@ -32,6 +33,17 @@ describe('KibbleDevInspector', () => {
 		for (const label of ['Dev Mode — Kibble decision inspector', 'Local development only', 'Fixed', 'Rules', 'Model']) expect(result.body).toContain(label);
 		for (const persona of ['gatherer', 'hunter', 'researcher', 'gifter']) expect(result.body).toContain(`?dev=true&amp;intent=${persona}`);
 		expect(result.body).toContain('0 model calls · Not authorized in Preserve');
+		expect(result.body).toContain('aria-expanded="true"');
+		expect(result.body).toContain('Collapse');
+		expect(result.body).toContain('Hide inspector');
+	});
+
+	it('deep-links Observe to the exact simulated shopper in a new tab', () => {
+		const result = render(KibbleDevInspector, { props: { inspector, sessionId: 'synthetic:kibble local' } });
+		expect(result.body).toContain('href="/observe?session=synthetic%3Akibble+local"');
+		expect(result.body).toContain('target="_blank"');
+		expect(result.body).toContain('rel="noopener"');
+		expect(render(KibbleDevInspector, { props: { inspector, sessionId: ' invalid' } }).body).not.toContain('Open this session in Observe');
 	});
 
 	it('does not make shopper commerce claims and redacts raw private fields', () => {
@@ -85,22 +97,31 @@ describe('KibbleDevInspector', () => {
 			.toBe('Signal researcher queued. Waiting for the signal endpoint.');
 	});
 
-	it('offers real signal-pipeline rehearsal controls only for a synthetic scenario', () => {
+	it('explains behavior input, inferred result, and personalization outcome separately', () => {
+		const behavior = { label: 'Compare products carefully', eventCount: 7 };
+		expect(describeKibbleBehaviorStatus(null, { state: 'waiting' })).toBe('Choose a customer behavior to simulate.');
+		expect(describeKibbleBehaviorStatus(behavior, { state: 'waiting' }, true))
+			.toBe('Compare products carefully: sending 7 synthetic signals through the storefront pipeline.');
+		expect(describeKibbleBehaviorStatus(behavior, { state: 'applied', persona: 'researcher', changed: true }))
+			.toBe('Compare products carefully: 7 synthetic signals accepted. Server inferred researcher; shelf order changed.');
+	});
+
+	it('offers real behavior simulations only for a synthetic scenario', () => {
 		const synthetic = {
 			...inspector,
 			provenance: { synthetic: { value: true, scenarioId: 'local-showcase' } },
 		};
 		const result = render(KibbleDevInspector, { props: { inspector: synthetic } });
-		expect(result.body).toContain('Live synthetic signal rehearsal');
+		expect(result.body).toContain('Customer behavior simulator');
 		expect(result.body).toContain('actual signal endpoint');
-		for (const persona of ['gatherer', 'hunter', 'researcher', 'gifter']) {
-			expect(result.body).toContain(`Signal ${persona}`);
+		for (const behavior of ['Browse several departments', 'Compare products carefully', 'Search for a deal', 'Shop for a birthday gift']) {
+			expect(result.body).toContain(behavior);
 		}
-		expect(result.body).not.toContain('Reset session view');
-		expect(result.body).toContain('Choose a persona to send one synthetic search signal.');
+		expect(result.body).toContain('Start a fresh shopper');
+		expect(result.body).toContain('Choose a customer behavior to simulate.');
 		expect(result.body).toContain('aria-atomic="true"');
 		expect(result.body).toContain('aria-disabled="false"');
 		expect(result.body).not.toMatch(/<button[^>]*\sdisabled(?:=|\s|>)/);
-		expect(render(KibbleDevInspector, { props: { inspector } }).body).not.toContain('Live synthetic signal rehearsal');
+		expect(render(KibbleDevInspector, { props: { inspector } }).body).not.toContain('Customer behavior simulator');
 	});
 });

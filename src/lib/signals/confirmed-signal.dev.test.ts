@@ -4,6 +4,7 @@ import { infer } from './inference';
 import { SignalStore } from './store';
 import {
 	registerConfirmedSignal,
+	registerConfirmedDeferredSignalBatch,
 	reportConfirmedSignalBatch,
 	SignalConfirmationError,
 } from './confirmed-signal.dev';
@@ -49,6 +50,41 @@ describe('development signal receipts', () => {
 
 		reportConfirmedSignalBatch(emitter, [second.sequence], { status: 'confirmed', inference: actualInference() });
 		await expect(second.confirmation).resolves.toMatchObject({ primary: 'hunter' });
+	});
+
+	it('confirms a deferred multi-event behavior through one emitter request', async () => {
+		installWindow();
+		const store = new SignalStore('confirmed-behavior');
+		store.setBrandId('kibble');
+		for (const category of ['dog-food', 'treats-chews', 'walk-gear']) {
+			store.emit('nav.category_view', 'navigation', { category });
+		}
+		const inference = infer(store.toInferenceContext());
+		const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ received: 3, inference }), { status: 200 }));
+		vi.stubGlobal('fetch', fetchMock);
+		emitter = new SignalEmitter();
+		const attempt = registerConfirmedDeferredSignalBatch(emitter, [
+			{ type: 'nav.category_view', data: { category: 'dog-food' } },
+			{ type: 'nav.category_view', data: { category: 'treats-chews' } },
+			{ type: 'nav.category_view', data: { category: 'walk-gear' } },
+		]);
+
+		await expect(attempt.confirmation).resolves.toMatchObject({ primary: 'gatherer' });
+		expect(attempt.sequences).toEqual([0, 1, 2]);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).events).toHaveLength(3);
+	});
+
+	it('rejects an auto-flushing signal before creating a partial batch', () => {
+		installWindow();
+		vi.stubGlobal('fetch', vi.fn());
+		const currentEmitter = new SignalEmitter();
+		emitter = currentEmitter;
+		expect(() => registerConfirmedDeferredSignalBatch(currentEmitter, [
+			{ type: 'nav.category_view', data: { category: 'dog-food' } },
+			{ type: 'nav.search', data: { query: 'gift' } },
+		])).toThrow('nav.search auto-flushes');
+		expect(fetch).not.toHaveBeenCalled();
 	});
 
 	it('times out without claiming the signal was rejected or unapplied', async () => {

@@ -6,14 +6,16 @@ Start the local showcase:
 npm run dev:kibble-showcase
 ```
 
-Synthetic demo enrichment — not merchant data. The launcher prints the same links and uses port `5174` by default:
+Synthetic demo enrichment — not merchant data. The launcher prints the storefront URL and uses port `5174` by default:
 
 ```text
-http://127.0.0.1:5174/?dev=true&intent=gatherer
-http://127.0.0.1:5174/?dev=true&intent=hunter
-http://127.0.0.1:5174/?dev=true&intent=researcher
-http://127.0.0.1:5174/?dev=true&intent=gifter
+http://127.0.0.1:5174/
 ```
+
+Use **Show decision inspector** on the storefront. No query parameter knowledge
+is required. The inspector header can collapse or expand the panel, hide it,
+or open the exact simulated shopper session in Observe in a new tab. Observe
+starts pinned to that session instead of silently switching to the newest one.
 
 Set `KIBBLE_SHOWCASE_PORT` to another non-privileged port if `5174` is occupied. The launcher accepts only `localhost`, `127.0.0.1`, or `::1` for `KIBBLE_SHOWCASE_HOST`.
 Every local response also carries a URL-encoded `x-kibble-showcase-enrichment-source` header. Its decoded value is `Synthetic demo enrichment — not merchant data`.
@@ -43,16 +45,23 @@ The fixture interceptor, no-op Postgres replacement, and enrichment alias are se
 
 The launcher blanks the app's production database, Redis, model, incentive, and Observe credentials before it starts Vite. It stamps the run with scenario ID `kibble-local-showcase`, so contracted provenance reports the catalog and scores as synthetic. The inspector and response header both display `Synthetic demo enrichment — not merchant data`.
 
-The inspector requires compile-time development mode and `?dev=true` on the
-current request. A previously stored site-wide dev cookie cannot reopen it.
-Shopper page data never includes persona-fit scores.
+The inspector still requires compile-time development mode and `?dev=true` on
+the current request, but the local-only launcher adds that parameter. A
+previously stored site-wide dev cookie cannot reopen it. Shopper page data never
+includes persona-fit scores.
 
-The synthetic rehearsal buttons appear only for this synthetic local scenario.
-They are not shopper controls. Each button emits one allowed `nav.search`
-signal through the normal client emitter and `/api/signals` endpoint. The
-development receipt is bound to that event's exact client sequence, so an
-older in-flight inference cannot confirm a newer button. The receipt has a
-ten-second fail-safe and always describes an unconfirmed delivery as uncertain.
+The behavior simulator appears only for this synthetic local scenario. Its
+controls are not shopper controls. They model recognizable actions—browsing
+departments, comparing products, searching for a deal, or shopping for a
+gift—and emit the listed typed storefront events through the normal client
+emitter and `/api/signals` endpoint. Multi-event behaviors travel as one batch.
+The inspector shows the event types, updated inference, fired rules, and shelf
+result. **Start a fresh shopper** clears the local session so scenarios do not
+silently inherit earlier evidence.
+
+Every development receipt is bound to the exact emitted sequence, so an older
+in-flight inference cannot confirm a newer control. The receipt has a ten-second
+fail-safe and always describes an unconfirmed delivery as uncertain.
 After a validated signal persists,
 the inspector immediately asks `POST /api/kibble/home-decision?dev=true` for a
 server-derived shelf preview. The endpoint accepts no decision inputs from the

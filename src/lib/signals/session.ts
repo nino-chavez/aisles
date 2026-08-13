@@ -239,16 +239,24 @@ export async function hasSession(sessionId: string): Promise<boolean> {
 export async function findSessionStore(sessionId: string, { fresh = false } = {}): Promise<SignalStore | null> {
 	const scope = activeScope();
 	const cacheKey = scopedSessionKey(scope, sessionId);
-	if (!fresh) {
-		const cached = sessions.get(cacheKey);
-		if (cached && storeMatchesScope(cached.store, scope)) {
-			cached.lastAccessed = Date.now();
-			return cached.store;
-		}
+	const cached = sessions.get(cacheKey);
+	const validCached = cached && storeMatchesScope(cached.store, scope) ? cached : null;
+	if (!fresh && validCached) {
+		validCached.lastAccessed = Date.now();
+		return validCached.store;
 	}
 
 	const r = await getRedis();
-	if (!r) return null;
+	if (!r) {
+		// A fresh read prefers Redis when it exists, but the local showcase is
+		// deliberately memory-only. Return only the same scope-checked cache
+		// entry; never manufacture a session for an unknown ID.
+		if (validCached) {
+			validCached.lastAccessed = Date.now();
+			return validCached.store;
+		}
+		return null;
+	}
 
 	try {
 		const snapshot = await r.get<SessionSnapshot>(scopedSessionKey(scope, sessionId));

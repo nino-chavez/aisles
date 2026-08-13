@@ -24,6 +24,17 @@ export type ConfirmedSignal = {
 	cancel: () => void;
 };
 
+export type ConfirmedSignalBatch = {
+	sequences: readonly number[];
+	confirmation: Promise<PersonaInference>;
+	cancel: () => void;
+};
+
+export interface DeferredSignalInput {
+	type: SignalEventType;
+	data?: Record<string, unknown>;
+}
+
 export type SignalBatchReport =
 	| { status: 'confirmed'; inference: PersonaInference }
 	| { status: 'http'; code: number }
@@ -39,6 +50,15 @@ type PendingConfirmation = {
 
 const pendingByEmitter = new WeakMap<SignalEmitter, Map<number, PendingConfirmation>>();
 const listeningTargets = new WeakSet<EventTarget>();
+const IMMEDIATE_SIGNAL_TYPES = new Set<SignalEventType>([
+	'commerce.add_to_cart',
+	'subscription.cadence_selected',
+	'subscription.skip',
+	'subscription.swap',
+	'subscription.pause',
+	'refine.message',
+	'nav.search',
+]);
 
 /**
  * Development-only exact-sequence receipt. The shared SignalEmitter remains
@@ -52,13 +72,54 @@ export function registerConfirmedSignal(
 	timeoutMs = SIGNAL_CONFIRMATION_TIMEOUT_MS,
 ): ConfirmedSignal {
 	ensureBatchListener();
+	const sequence = emitter.emit(type, data);
+	return registerSequenceConfirmation(emitter, sequence, timeoutMs);
+}
+
+/**
+ * Queue a synthetic multi-event behavior as one normal emitter batch. Only
+ * deferred signal types are accepted so no early auto-flush can split the
+ * behavior before every exact-sequence receipt has been registered.
+ */
+export function registerConfirmedDeferredSignalBatch(
+	emitter: SignalEmitter,
+	events: readonly DeferredSignalInput[],
+	timeoutMs = SIGNAL_CONFIRMATION_TIMEOUT_MS,
+): ConfirmedSignalBatch {
+	if (events.length === 0 || events.length > 20) {
+		throw new Error('A confirmed development behavior requires 1 through 20 signals.');
+	}
+	for (const event of events) {
+		if (IMMEDIATE_SIGNAL_TYPES.has(event.type)) {
+			throw new Error(`${event.type} auto-flushes and cannot enter a deferred development batch.`);
+		}
+	}
+
+	ensureBatchListener();
+	const attempts = events.map((event) => {
+		const sequence = emitter.emit(event.type, event.data ?? {});
+		return registerSequenceConfirmation(emitter, sequence, timeoutMs);
+	});
+	void emitter.flush();
+
+	return {
+		sequences: attempts.map(({ sequence }) => sequence),
+		confirmation: Promise.all(attempts.map(({ confirmation }) => confirmation)).then((inferences) => inferences.at(-1)!),
+		cancel: () => attempts.forEach(({ cancel }) => cancel()),
+	};
+}
+
+function registerSequenceConfirmation(
+	emitter: SignalEmitter,
+	sequence: number,
+	timeoutMs: number,
+): ConfirmedSignal {
 	let resolve!: (inference: PersonaInference) => void;
 	let reject!: (error: SignalConfirmationError) => void;
 	const confirmation = new Promise<PersonaInference>((resolvePromise, rejectPromise) => {
 		resolve = resolvePromise;
 		reject = rejectPromise;
 	});
-	const sequence = emitter.emit(type, data);
 	const pending = confirmationsFor(emitter);
 	const timer = setTimeout(() => {
 		if (!pending.delete(sequence)) return;
