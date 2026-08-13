@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { Output } from 'ai';
 import type { PersonaInference } from '$lib/signals/types';
-import { buildKibbleHomeModelPrompt } from './kibble-home-model.server';
+import {
+	buildKibbleHomeModelPrompt,
+	buildKibbleHomeProviderOutputSchema,
+} from './kibble-home-model.server';
 
 const inference: PersonaInference = {
 	primary: 'researcher',
@@ -25,5 +29,20 @@ describe('bounded Kibble Home model prompt', () => {
 		for (const forbidden of ['raw shopper search', 'Private catalog description', 'private-tag', 'withheld', 'https://example.com/a.jpg']) {
 			expect(prompt).not.toContain(forbidden);
 		}
+	});
+
+	it('gives the provider an exact product enum without Anthropic-unsupported array bounds', async () => {
+		const schema = buildKibbleHomeProviderOutputSchema([
+			{ entityId: 3023 },
+			{ entityId: 3024 },
+			{ entityId: 3025 },
+		]);
+		expect(schema.safeParse({ rankedProductIds: ['3025', '3023', '3024'] }).success).toBe(true);
+		expect(schema.safeParse({ rankedProductIds: ['3025', 'outside-catalog'] }).success).toBe(false);
+		expect(schema.safeParse({ rankedProductIds: ['3025'], copy: 'model-authored' }).success).toBe(false);
+		const responseFormat = await Output.object({ schema }).responseFormat;
+		expect(JSON.stringify(responseFormat)).not.toContain('maxItems');
+		expect(JSON.stringify(responseFormat)).toContain('"enum":["3023","3024","3025"]');
+		expect(() => buildKibbleHomeProviderOutputSchema([])).toThrow(/one to eight unique/);
 	});
 });

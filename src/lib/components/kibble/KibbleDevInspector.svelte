@@ -18,6 +18,7 @@
 	import {
 		KIBBLE_INSPECTOR_PERSONAS,
 		describeKibbleBehaviorStatus,
+		describeKibbleModelDecisionStatus,
 		isKibbleInspectorInference,
 		redactInspectorDebugValue,
 		sanitizeInspectorInference,
@@ -45,6 +46,7 @@
 	let rehearsalError = $state<string | null>(null);
 	let inspectorExpanded = $state(true);
 	let resetBusy = $state(false);
+	let modelDecisionRequested = $state(false);
 	let rehearsalGeneration = 0;
 	let activeConfirmation: ConfirmedSignal | ConfirmedSignalBatch | null = null;
 	const safeInspectorInference = $derived(sanitizeInspectorInference(inspector.inference));
@@ -90,20 +92,24 @@
 		if (status.state === 'failed') return 'preview failed; last approved shelf retained';
 		return 'waiting for a signal';
 	};
-	const rehearsalStatus = $derived(describeKibbleBehaviorStatus(
-		activeBehavior ? { label: activeBehavior.label, eventCount: activeBehavior.events.length } : null,
-		livePreview,
-		rehearsalQueued,
-		rehearsalError,
-	));
+	const rehearsalStatus = $derived(modelDecisionRequested
+		? describeKibbleModelDecisionStatus(livePreview)
+		: describeKibbleBehaviorStatus(
+			activeBehavior ? { label: activeBehavior.label, eventCount: activeBehavior.events.length } : null,
+			livePreview,
+			rehearsalQueued,
+			rehearsalError,
+		));
 	const rehearsalBusy = $derived(rehearsalQueued || livePreview.state === 'updating');
 	const modelDecision = $derived(inspector.availableModelDecision ?? null);
 	const modelDecisionApplied = $derived(inspector.zones.some((zone) => zone.authority === 'model' && (zone.modelCallStatus?.calls ?? 0) > 0));
 	const runBoundedModelDecision = () => {
 		if (rehearsalBusy || !modelDecision) return;
+		modelDecisionRequested = true;
 		window.dispatchEvent(new CustomEvent('aisles-kibble-model-request'));
 	};
 	const sendSyntheticBehavior = async (behavior: KibbleSyntheticBehavior) => {
+		modelDecisionRequested = false;
 		const emitter = getEmitter();
 		if (!emitter) {
 			activeBehavior = null;
@@ -137,6 +143,7 @@
 	};
 	const resetSyntheticShopper = async () => {
 		if (resetBusy || rehearsalBusy) return;
+		modelDecisionRequested = false;
 		resetBusy = true;
 		try {
 			const response = await fetch('/api/session/reset', { method: 'POST' });

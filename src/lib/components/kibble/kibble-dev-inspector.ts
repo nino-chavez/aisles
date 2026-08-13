@@ -110,6 +110,15 @@ export function describeKibbleBehaviorStatus(
 	return `${behavior.label}: ${signalLabel} accepted. Waiting for the server decision.`;
 }
 
+export function describeKibbleModelDecisionStatus(status: KibbleLivePreviewStatus): string {
+	if (status.state === 'updating') return 'Bounded AI ranking is running.';
+	if (status.state === 'failed') return 'Bounded AI ranking failed; the last approved shelf was retained.';
+	if (status.state === 'applied') {
+		return `Bounded AI ranking applied for ${status.persona}; shelf order ${status.changed ? 'changed' : 'was unchanged'}.`;
+	}
+	return 'Bounded AI ranking is ready.';
+}
+
 export const KIBBLE_INSPECTOR_PERSONAS: readonly KibbleInspectorPersona[] = [
 	'gatherer',
 	'hunter',
