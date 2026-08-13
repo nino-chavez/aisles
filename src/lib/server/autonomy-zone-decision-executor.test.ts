@@ -10,7 +10,7 @@ import {
 	type OrganizationCompositionPolicy,
 } from '$lib/foundation/composition-policy';
 import { SHOPPER_ROUTE_MANIFEST_DIGEST, SHOPPER_ROUTE_MANIFEST_VERSION } from '$lib/foundation/autonomy-zone-route';
-import { findTrustedZoneIdentity, TRUSTED_ZONE_IDENTITIES, type TrustedZoneIdentityDefinition } from '$lib/foundation/zone-catalog';
+import { findTrustedZoneIdentity, TRUSTED_ZONE_IDENTITIES, ZONE_CATALOG, type TrustedZoneIdentityDefinition } from '$lib/foundation/zone-catalog';
 import type { TrustedZoneFieldCatalog } from '$lib/foundation/zone-decision-schema';
 import { ZONE_IDS, ZONES, type ZoneId } from '$lib/foundation/zones';
 import { SectionSchema } from '$lib/schema/layout';
@@ -401,9 +401,56 @@ describe('identity-bound zone decision executor', () => {
 		expect(runModel).not.toHaveBeenCalled();
 	});
 
+	it('keeps the full live-model authority graph immutable before execution', async () => {
+		const heroEntry = ZONE_CATALOG['home.hero'];
+		const heroDefinition = heroEntry.definitions[0];
+		const aislesFacts = heroEntry.implementation.aisles;
+		const fallbackMap = heroEntry.fallbackByAislesBrand;
+		if (!heroDefinition || !aislesFacts || !fallbackMap) throw new Error('home.hero authority fixture is incomplete');
+		const fallbackBrand = Object.keys(fallbackMap)[0];
+		if (!fallbackBrand) throw new Error('home.hero fallback authority fixture is empty');
+		const originalFallback = fallbackMap[fallbackBrand];
+
+		expect(Object.isFrozen(ZONE_CATALOG)).toBe(true);
+		expect(Object.isFrozen(heroEntry)).toBe(true);
+		expect(Object.isFrozen(heroEntry.definitions)).toBe(true);
+		expect(Object.isFrozen(heroDefinition)).toBe(true);
+		expect(Object.isFrozen(heroEntry.implementation)).toBe(true);
+		expect(Object.isFrozen(aislesFacts)).toBe(true);
+		expect(Object.isFrozen(fallbackMap)).toBe(true);
+		expect(Reflect.set(ZONE_CATALOG, 'home.hero', { ...heroEntry, liveModelApproved: true })).toBe(false);
+		expect(Reflect.set(heroEntry, 'liveModelApproved', true)).toBe(false);
+		expect(Reflect.set(heroEntry.implementation, 'aisles', { ...aislesFacts, routeRendered: true })).toBe(false);
+		expect(Reflect.set(aislesFacts, 'routeRendered', true)).toBe(false);
+		expect(Reflect.set(heroEntry.definitions, '0', { ...heroDefinition, engineComposable: false })).toBe(false);
+		expect(Reflect.set(heroDefinition, 'engineComposable', false)).toBe(false);
+		expect(Reflect.set(fallbackMap, fallbackBrand, originalFallback === 'content' ? 'hidden' : 'content')).toBe(false);
+		expect(ZONE_CATALOG['home.hero']).toBe(heroEntry);
+		expect(heroEntry.liveModelApproved).toBe(false);
+		expect(aislesFacts.routeRendered).toBe(false);
+		expect(heroEntry.definitions[0]).toBe(heroDefinition);
+		expect(heroDefinition.engineComposable).toBe(true);
+		expect(fallbackMap[fallbackBrand]).toBe(originalFallback);
+
+		const heroIdentity = identityForZone('home.hero');
+		const runModel = vi.fn(async () => ({ productIds }));
+		const result = await executeZoneDecision({
+			policy: policy({ capabilities: ['select_products'], publicationMode: 'live' }, heroIdentity),
+			catalog: catalog({ identity: heroIdentity }),
+			fallback: { identity: heroIdentity, kind: 'hidden' },
+			runModel,
+		});
+		expect(result).toMatchObject({ status: 'fallback', reason: 'live_model_not_approved', provenance: { liveModelApproved: false } });
+		expect(runModel).not.toHaveBeenCalled();
+	});
+
 	it('blocks rules/model on an engine-disabled zone before runners', async () => {
 		const plpIdentity = { ...identity, routePath: '/category/dog-food', surface: 'plp' as const, familyId: 'plp.below-grid', instanceId: 'plp.below-grid' };
 		const runRules = vi.fn();
+		expect(Object.isFrozen(ZONES)).toBe(true);
+		expect(Object.isFrozen(ZONES['plp.below-grid'])).toBe(true);
+		expect(Reflect.set(ZONES['plp.below-grid'], 'engineComposable', true)).toBe(false);
+		expect(Reflect.set(ZONES, 'plp.below-grid', { ...ZONES['plp.below-grid'], engineComposable: true })).toBe(false);
 		const result = await executeZoneDecision({ policy: policy({ decisionMode: 'rules', capabilities: ['select_products'] }, plpIdentity), catalog: catalog({ identity: plpIdentity }), fallback: { identity: plpIdentity, kind: 'hidden' }, runRules });
 		expect(result).toMatchObject({ status: 'fallback', reason: 'fixed_only_zone' });
 		expect(runRules).not.toHaveBeenCalled();

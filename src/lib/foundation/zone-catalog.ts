@@ -1,6 +1,7 @@
 /** Versioned union inventory for Aisles and the pinned Bealls Aisles snapshot. */
 
 import { BRAND_IDS } from '$lib/brand/config';
+import { freezeAuthorityGraph } from './authority-immutability';
 import { getFallback } from './fallbacks';
 import { BEALLS_ZONE_SNAPSHOT, type ZoneImplementationFacts } from './zone-coverage-snapshot';
 import { ZONES, type Multiplicity, type ZoneId } from './zones';
@@ -101,7 +102,7 @@ function fallbackByBrand(zoneId: ZoneId): Readonly<Record<string, ZoneFallbackSt
 const unionIds = [...new Set([...BEALLS_ZONE_SNAPSHOT.zones.map(({ zoneId }) => zoneId), ...Object.keys(ZONES)])];
 
 export const ZONE_CATALOG_VERSION = '2026-08-13.3';
-export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = Object.fromEntries(unionIds.map((zoneId) => {
+export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = freezeAuthorityGraph(Object.fromEntries(unionIds.map((zoneId) => {
 	const isAisles = Object.prototype.hasOwnProperty.call(ZONES, zoneId);
 	const aislesZoneId = zoneId as ZoneId;
 	const bealls = beallsDefinitions[zoneId];
@@ -139,9 +140,9 @@ export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = Object.f
 			: ZONES[aislesZoneId].engineComposable ? 'policy-eligible' : 'fixed-only',
 		liveModelApproved: false,
 	} satisfies ZoneCatalogEntry];
-}));
+})));
 
-export const ZONE_CATALOG_IDS = Object.keys(ZONE_CATALOG);
+export const ZONE_CATALOG_IDS: readonly string[] = Object.freeze(Object.keys(ZONE_CATALOG));
 
 const aislesPolicySurfaceByBrand = Object.fromEntries(BRAND_IDS.map((brandId) => [brandId, 'plp']));
 export const SURFACE_ROUTE_MAPPINGS: readonly SurfaceRouteMapping[] = [

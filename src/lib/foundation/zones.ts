@@ -18,6 +18,8 @@
  * per-zone comments below for what changed and why.
  */
 
+import { freezeAuthorityGraph } from './authority-immutability';
+
 export type Surface =
 	| 'home'
 	| 'plp'
@@ -53,7 +55,7 @@ export interface ZoneMetadata {
 	adminAuthorable: boolean;
 }
 
-export const ZONES = {
+export const ZONES = freezeAuthorityGraph({
 	// Home — wide latitude, AI composes most zones
 	'home.hero': { surface: 'home', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	// maxIndex 3, not bealls' 6 — Aisles' home page composes 1-8 sections
@@ -96,12 +98,12 @@ export const ZONES = {
 	// land on a dead end (404, or any surface with zero results to show).
 	'error-404.rescue': { surface: 'error-404', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	'error-empty.rescue': { surface: 'error-empty', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
-} as const satisfies Record<string, ZoneMetadata>;
+} as const satisfies Record<string, ZoneMetadata>);
 
 /** Family-level zone ID (e.g., `home.featured-row`, not `home.featured-row.1`). */
 export type ZoneId = keyof typeof ZONES;
 
-export const ZONE_IDS = Object.keys(ZONES) as ZoneId[];
+export const ZONE_IDS: readonly ZoneId[] = Object.freeze(Object.keys(ZONES) as ZoneId[]);
 
 // ─── Instance ID helpers ───────────────────────────────────────────
 

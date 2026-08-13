@@ -89,6 +89,8 @@ describe('portable zone catalog coverage', () => {
 
 	it('keeps every external exact identity behind the trusted Hidden boundary', () => {
 		const external = TRUSTED_ZONE_IDENTITIES.filter(({ origin }) => origin === 'bealls-aisles');
+		expect(Object.isFrozen(TRUSTED_ZONE_IDENTITIES)).toBe(true);
+		expect(TRUSTED_ZONE_IDENTITIES.every(Object.isFrozen)).toBe(true);
 		expect(new Set(external.map(({ familyId }) => familyId)).size).toBe(28);
 		expect(external).toHaveLength(36);
 		expect(new Set(external.map(({ instanceId }) => instanceId)).size).toBe(36);

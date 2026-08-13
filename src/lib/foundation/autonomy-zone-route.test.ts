@@ -27,6 +27,36 @@ describe('trusted shopper route normalization', () => {
 		expect(digest).toBe(REVIEWED_ROUTE_MANIFEST_RELEASE.digest);
 	});
 
+	it('keeps every reviewed route rule and provenance stamp immutable at runtime', () => {
+		const staticRule = TRUSTED_SHOPPER_ROUTE_MANIFEST.static[0];
+		const dynamicRule = TRUSTED_SHOPPER_ROUTE_MANIFEST.dynamic[0];
+		expect(Object.isFrozen(TRUSTED_SHOPPER_ROUTE_MANIFEST)).toBe(true);
+		expect(Object.isFrozen(SHOPPER_ROUTE_MANIFEST_DEFINITION)).toBe(true);
+		expect(Object.isFrozen(TRUSTED_SHOPPER_ROUTE_MANIFEST.static)).toBe(true);
+		expect(Object.isFrozen(TRUSTED_SHOPPER_ROUTE_MANIFEST.dynamic)).toBe(true);
+		expect(TRUSTED_SHOPPER_ROUTE_MANIFEST.static.every(Object.isFrozen)).toBe(true);
+		expect(TRUSTED_SHOPPER_ROUTE_MANIFEST.dynamic.every(Object.isFrozen)).toBe(true);
+
+		expect(Reflect.set(staticRule, 'path', '/locator')).toBe(false);
+		expect(Reflect.set(dynamicRule, 'prefix', '/locator/')).toBe(false);
+		expect(Reflect.set(TRUSTED_SHOPPER_ROUTE_MANIFEST.static, '0', { path: '/locator', surface: 'home' })).toBe(false);
+		expect(Reflect.set(SHOPPER_ROUTE_MANIFEST_DEFINITION, 'static', [])).toBe(false);
+		expect(Reflect.set(TRUSTED_SHOPPER_ROUTE_MANIFEST, 'version', 'forged')).toBe(false);
+		expect(Reflect.set(TRUSTED_SHOPPER_ROUTE_MANIFEST, 'digest', 'sha256:forged')).toBe(false);
+
+		expect(normalizeTrustedShopperRoute('/')).toEqual({
+			routePath: '/', surface: 'home',
+			routeManifestVersion: REVIEWED_ROUTE_MANIFEST_RELEASE.version,
+			routeManifestDigest: REVIEWED_ROUTE_MANIFEST_RELEASE.digest,
+		});
+		expect(normalizeTrustedShopperRoute('/category/dog-food')).toMatchObject({
+			routePath: '/category/dog-food', surface: 'plp',
+			routeManifestVersion: REVIEWED_ROUTE_MANIFEST_RELEASE.version,
+			routeManifestDigest: REVIEWED_ROUTE_MANIFEST_RELEASE.digest,
+		});
+		expect(tryNormalizeTrustedShopperRoute('/locator')).toBeNull();
+	});
+
 	it.each([
 		['/', 'home'],
 		['/category/dog-food', 'plp'],

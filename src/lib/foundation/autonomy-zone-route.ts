@@ -1,6 +1,7 @@
 /** Trusted, versioned shopper-route normalization for policy and zone execution. */
 
 import type { Surface } from './zones';
+import { freezeAuthorityGraph } from './authority-immutability';
 
 export const SHOPPER_ROUTE_MANIFEST_VERSION = '2026-08-13.3';
 /** SHA-256 of JSON.stringify(SHOPPER_ROUTE_MANIFEST_DEFINITION). */
@@ -33,7 +34,7 @@ type StaticRoute = Readonly<{ path: string; surface: Surface }>;
  * authority here: every accepted path is either an exact static route or a
  * single bounded dynamic segment.
  */
-const SHOPPER_STATIC_ROUTES = Object.freeze([
+const SHOPPER_STATIC_ROUTES = freezeAuthorityGraph([
 	{ path: '/', surface: 'home' },
 	{ path: '/search', surface: 'search' },
 	{ path: '/cart', surface: 'cart' },
@@ -53,18 +54,18 @@ const SHOPPER_STATIC_ROUTES = Object.freeze([
 	{ path: '/store-locator', surface: 'locator' },
 ] as const satisfies readonly StaticRoute[]);
 
-const SHOPPER_DYNAMIC_ROUTES = Object.freeze([
+const SHOPPER_DYNAMIC_ROUTES = freezeAuthorityGraph([
 	{ prefix: '/category/', surface: 'plp', segment: 'slug' },
 	{ prefix: '/product/', surface: 'pdp', segment: 'slug' },
 	{ prefix: '/portal/subscriptions/', surface: 'account', segment: 'id' },
 ] as const);
 
-export const SHOPPER_ROUTE_MANIFEST_DEFINITION = Object.freeze({
+export const SHOPPER_ROUTE_MANIFEST_DEFINITION = freezeAuthorityGraph({
 	static: SHOPPER_STATIC_ROUTES,
 	dynamic: SHOPPER_DYNAMIC_ROUTES,
 });
 
-export const TRUSTED_SHOPPER_ROUTE_MANIFEST = Object.freeze({
+export const TRUSTED_SHOPPER_ROUTE_MANIFEST = freezeAuthorityGraph({
 	version: SHOPPER_ROUTE_MANIFEST_VERSION,
 	digest: SHOPPER_ROUTE_MANIFEST_DIGEST,
 	...SHOPPER_ROUTE_MANIFEST_DEFINITION,
