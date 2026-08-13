@@ -109,7 +109,7 @@ describe('Kibble Preserve runtime adapter', () => {
 
 	it('records every bounded copy divergence and withholds operational claims', () => {
 		expect(KIBBLE_PRESERVE_MANIFEST.copyProvenance.approvedBoundedDivergences.map(({ field }) => field)).toEqual([
-			'home.hero.eyebrow', 'home.hero.headline', 'home.hero.body', 'home.serviceProof', 'pdp.purchaseUnavailable',
+			'home.hero.eyebrow', 'home.hero.headline', 'home.hero.body', 'home.serviceProof', 'error.notFoundHeadline', 'pdp.purchaseUnavailable',
 		]);
 		expect(KIBBLE_PRESERVE_MANIFEST.withheldSourceClaims).toContain('engine health');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('$30M');

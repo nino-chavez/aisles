@@ -7,6 +7,9 @@
 	let chromeMode = $derived($page.data.chromeMode);
 	let status = $derived($page.status);
 	let errorMessage = $derived($page.error?.message ?? 'This page is temporarily unavailable.');
+	let errorHeadline = $derived(status === 404
+		? KIBBLE_PRESERVE_MANIFEST.display.error.notFoundHeadline
+		: KIBBLE_PRESERVE_MANIFEST.display.error.headline);
 	let errorPolicyAttribute = $derived(
 		($page.data.kibbleErrorPolicy ?? errorPayload($page.error)?.kibbleErrorPolicy)?.policies
 			.map((policy: { surface: string; policyVersion: string }) => `${policy.surface}:${policy.policyVersion}`)
@@ -36,7 +39,14 @@
 		data-reference-contract-version={$page.data.kibbleErrorPolicy?.referenceVersion ?? errorPayload($page.error)?.kibbleErrorPolicy?.referenceVersion}
 		data-reference-policy={errorPolicyAttribute}
 	>
-		<KibbleErrorReference {status} message={errorMessage} {zoneAdapter} {...KIBBLE_PRESERVE_MANIFEST.display.error} />
+		<KibbleErrorReference
+			{status}
+			message={errorMessage}
+			{zoneAdapter}
+			eyebrow={KIBBLE_PRESERVE_MANIFEST.display.error.eyebrow}
+			headline={errorHeadline}
+			returnLabel={KIBBLE_PRESERVE_MANIFEST.display.error.returnLabel}
+		/>
 	</div>
 {:else}
 	<section class="mx-auto max-w-3xl px-6 py-24 text-center">

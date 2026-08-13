@@ -6,6 +6,7 @@ import {
 	findWorkspaceRoot,
 	KIBBLE_PARITY_ADAPTED_SOURCE_FILES,
 	KIBBLE_PARITY_CLASSIFIED_CLOSURES,
+	KIBBLE_PARITY_DELIBERATE_APPROVAL_ITEMS,
 	KIBBLE_PARITY_DEFAULT_ROUTES,
 	KIBBLE_PARITY_PDP_SOURCE_FILES,
 	readLocalParityRoutes,
@@ -29,6 +30,15 @@ describe('Kibble local visual parity runner', () => {
 			'account-subscriptions', 'subscription-detail', 'checkout', 'checkout-gift', 'checkout-prepaid',
 			'checkout-confirmation', 'error-404',
 		]);
+	});
+
+	it('classifies every deliberate route difference without masking or accepting it', () => {
+		expect(KIBBLE_PARITY_DELIBERATE_APPROVAL_ITEMS.map(({ routeId }) => routeId))
+			.toEqual(KIBBLE_PARITY_DEFAULT_ROUTES.map(({ id }) => id));
+		for (const item of KIBBLE_PARITY_DELIBERATE_APPROVAL_ITEMS) {
+			expect(item.reason).toContain('Named human approval');
+			expect(item.reason).toContain('not masked or accepted');
+		}
 	});
 
 	it('rejects an unclassified local import and an unreachable adapted file', () => {

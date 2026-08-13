@@ -179,7 +179,9 @@ export async function executeKibbleErrorZoneAdapter(input: { surface: 'error-404
 		component: 'editorial-header',
 		props: {
 			eyebrow: `${KIBBLE_PRESERVE_MANIFEST.display.error.eyebrow} · ${input.status}`,
-			headline: KIBBLE_PRESERVE_MANIFEST.display.error.headline,
+			headline: input.surface === 'error-404'
+				? KIBBLE_PRESERVE_MANIFEST.display.error.notFoundHeadline
+				: KIBBLE_PRESERVE_MANIFEST.display.error.headline,
 			body: input.message,
 		},
 	}));

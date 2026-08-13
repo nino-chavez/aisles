@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import './kibble-reference.css';
 	import KibbleMobileNavigation from './KibbleMobileNavigation.svelte';
 	import type { KibbleAutoRefillState, KibbleChromeCopy, KibbleNavItem, KibbleStatusItem } from './types';
@@ -37,7 +38,27 @@
 
 	let drawerOpen = $state(false);
 	let searchOpen = $state(false);
+	let searchTrigger = $state<HTMLButtonElement>();
+	let searchInput = $state<HTMLInputElement>();
 	const autoRefillStatus = $derived(autoRefillState ? `${statusLabel} · ${autoRefillState}` : statusLabel);
+
+	async function openSearch(): Promise<void> {
+		searchOpen = true;
+		await tick();
+		searchInput?.focus();
+	}
+
+	async function closeSearch(): Promise<void> {
+		searchOpen = false;
+		await tick();
+		searchTrigger?.focus();
+	}
+
+	function handleSearchKeydown(event: KeyboardEvent): void {
+		if (event.key !== 'Escape') return;
+		event.preventDefault();
+		void closeSearch();
+	}
 </script>
 
 <a href="#kibble-main" class="kibble-reference kc-reference-skip-link kc-reference-focus">{copy.skipLabel}</a>
@@ -80,13 +101,13 @@
 				{#if searchOpen && searchAction}
 					<form method="GET" action={searchAction} class="kc-reference-search" role="search">
 						<label class="sr-only" for="kibble-reference-search">{copy.searchLabel}</label>
-						<input id="kibble-reference-search" name="q" type="search" placeholder={copy.searchPlaceholder} class="kc-reference-focus" />
-						<button type="button" onclick={() => (searchOpen = false)} aria-label="Close search" class="kc-reference-icon-control kc-reference-focus">
+						<input bind:this={searchInput} id="kibble-reference-search" name="q" type="search" placeholder={copy.searchPlaceholder} class="kc-reference-focus" onkeydown={handleSearchKeydown} />
+						<button type="button" onclick={closeSearch} onkeydown={handleSearchKeydown} aria-label="Close search" class="kc-reference-icon-control kc-reference-focus">
 							<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 						</button>
 					</form>
 				{:else if searchAction}
-					<button type="button" onclick={() => (searchOpen = true)} class="kc-reference-text-control kc-reference-focus" aria-label={copy.searchLabel}>
+					<button bind:this={searchTrigger} type="button" onclick={openSearch} class="kc-reference-text-control kc-reference-focus" aria-label={copy.searchLabel}>
 						<svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
 						<span class="kc-reference-header__search-label" style="margin-left:0.4rem;">{copy.searchLabel}</span>
 					</button>

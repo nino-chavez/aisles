@@ -33,6 +33,7 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 			{ field: 'home.hero.headline', reason: 'Removes the unimplemented never-lapses refill promise while retaining the reference brand position.' },
 			{ field: 'home.hero.body', reason: 'Retains the pinned brand and category framing without shipping, savings, cadence, or control claims.' },
 			{ field: 'home.serviceProof', reason: 'Replaces unverified commerce promises with bounded merchant-facing copy derived from the pinned category framing and current catalog configuration.' },
+			{ field: 'error.notFoundHeadline', reason: 'Names the actual 404 state instead of implying a temporary catalog outage.' },
 			{ field: 'pdp.purchaseUnavailable', reason: 'The pinned source provides purchase controls. Aisles cannot transact, so the contracted difference states that boundary instead of imitating a purchasable flow.' },
 		] as const,
 	},
@@ -201,6 +202,7 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 		error: {
 			eyebrow: 'Shelf status',
 			headline: 'This shelf needs a moment.',
+			notFoundHeadline: 'Page not found.',
 			returnLabel: 'Return to Kibble & Co.',
 		},
 	},

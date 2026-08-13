@@ -51,7 +51,7 @@ describe('Kibble native zone DOM bindings', () => {
 			zoneAdapter: adapter as never,
 		} }).body;
 		expect(body).toContain('EXECUTED ADAPTER BODY');
-		expect(body).toContain(KIBBLE_PRESERVE_MANIFEST.display.error.headline);
+		expect(body).toContain(KIBBLE_PRESERVE_MANIFEST.display.error.notFoundHeadline);
 		expect(body).not.toContain('FALLBACK BODY SENTINEL');
 		expect(body).not.toContain('FALLBACK EYEBROW SENTINEL');
 		expect(body).not.toContain('FALLBACK HEADLINE SENTINEL');

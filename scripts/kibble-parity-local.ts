@@ -56,6 +56,24 @@ export const KIBBLE_PARITY_DEFAULT_ROUTES: LocalParityRoute[] = [
 	{ id: 'error-404', referencePath: '/missing-kibble-route', candidatePath: '/missing-kibble-route' },
 ];
 
+export const KIBBLE_PARITY_DELIBERATE_APPROVAL_ITEMS = [
+	{ routeId: 'home', reason: 'Unverified Auto-Refill, savings, trust, service, and support claims remain withheld. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'plp', reason: 'Product destinations and unsupported merchandising metadata remain withheld while PDP publication is pending. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'pdp-review', reason: 'Purchase, cart, subscription, savings, and Auto-Refill actions remain unavailable in the review-only catalog display. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'search', reason: 'Search results remain catalog-only and non-transactional while product publication is pending. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'error-empty', reason: 'The candidate does not claim empty catalog results when the bounded search backend is unavailable. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'cart', reason: 'Cart contents, totals, and purchase actions remain unavailable because no cart backend is authorized. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'account', reason: 'Identity, account state, and sign-in actions remain unavailable because no account backend is authorized. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'subscriptions', reason: 'Subscription plans, charges, and account actions remain unavailable because no subscription backend is authorized. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'account-subscriptions', reason: 'Account-linked subscription state and actions remain unavailable because no identity or subscription backend is authorized. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'subscription-detail', reason: 'The direct unavailable-detail shell intentionally differs from the unauthenticated source redirect and exposes no subscriber data. Named human approval or an authenticated reference fixture is required; this difference is not masked or accepted.' },
+	{ routeId: 'checkout', reason: 'The bare checkout path remains the canonical source 404 rather than an invented checkout form. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'checkout-gift', reason: 'Gift defaults, recipients, money, and purchase actions remain disabled because no checkout backend is authorized. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'checkout-prepaid', reason: 'Prepaid terms, savings, totals, and purchase actions remain disabled because no checkout backend is authorized. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'checkout-confirmation', reason: 'The candidate does not claim that an order was read or confirmed. Named human approval is required; this difference is not masked or accepted.' },
+	{ routeId: 'error-404', reason: 'The bounded recovery shell omits internal details and exposes only the home action. Named human approval is required; this difference is not masked or accepted.' },
+] as const;
+
 export function deriveLocalParityPaths(workspaceRoot: string): { referenceRoot: string; fixturePath: string } {
 	return {
 		referenceRoot: resolve(workspaceRoot, 'labs/bc-subscriptions/apps/storefront-svelte'),
@@ -393,7 +411,7 @@ async function main(): Promise<void> {
 			masks: [],
 			routes: routeResults,
 			requiredFixes: routeResults.filter(({ status }) => status === 'failed').map(({ id }) => ({ routeId: id, evidence: `${evidenceRoot}/${id}`, reason: 'Executable visual or structural parity reported unresolved differences.' })),
-			deliberateOpenApprovalItems: [{ routeId: 'home', reason: 'Truth and accessibility differences, including omission of unsubstantiated reference claims, remain visible and require named human approval. They are not masked or accepted by this runner.' }],
+			deliberateOpenApprovalItems: KIBBLE_PARITY_DELIBERATE_APPROVAL_ITEMS.map((item) => ({ ...item })),
 		};
 		await writeFile(`${evidenceRoot}/difference-ledger.json`, `${JSON.stringify(differenceLedger, null, 2)}\n`);
 		console.log(`Kibble local parity difference ledger: ${evidenceRoot}/difference-ledger.json`);

@@ -55,6 +55,11 @@ describe('Kibble reference components fail closed', () => {
 		expect(desktop).toContain('aria-label={copy.cartUnavailableLabel}');
 		expect(desktop).toContain('<span class="kc-reference-header__cart-unavailable">{copy.cartUnavailableLabel}</span>');
 		expect(desktop).toContain('>{copy.searchUnavailableLabel}</span>');
+		expect(desktop).toContain('bind:this={searchTrigger}');
+		expect(desktop).toContain('bind:this={searchInput}');
+		expect(desktop).toContain('searchInput?.focus()');
+		expect(desktop).toContain('searchTrigger?.focus()');
+		expect(desktop).toContain("event.key !== 'Escape'");
 		const mobile = component('KibbleMobileNavigation.svelte');
 		expect(mobile).toContain('{#if accountHref || onPicksClick || picksHref}');
 		expect(mobile).toContain('aria-label={copy.cartUnavailableLabel}');
