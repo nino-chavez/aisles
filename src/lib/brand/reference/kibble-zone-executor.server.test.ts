@@ -4,6 +4,7 @@ import {
 	executeKibbleHiddenZoneTerminalsForRoute,
 	executeKibbleHomeZoneAdapters,
 	executeKibbleHomeModelShelf,
+	executeKibblePdpRelatedModelShelf,
 	executeKibblePdpRelatedZoneAdapter,
 	executeKibblePlpZoneAdapter,
 	executeKibbleSearchEmptyZoneAdapter,
@@ -127,5 +128,21 @@ describe('Kibble exact union-zone execution', () => {
 				{ productId: '3025' }, { productId: '3023' }, { productId: '3024' },
 			] } },
 		});
+	});
+
+	it('permits the PDP model boundary only at the one approved product route', async () => {
+		const products = [{ entityId: 3023 }, { entityId: 3024 }, { entityId: 3025 }];
+		const result = await executeKibblePdpRelatedModelShelf({
+			relatedProducts: products,
+			heading: 'You may also like',
+			routePath: '/product/puppy-starter-kit',
+			runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'] }),
+		});
+		expect(result.rankedProductIds).toEqual(['3025', '3023', '3024']);
+		expect(result.adapter).toMatchObject({ instanceId: 'pdp.related', decisionMode: 'model', content: { component: 'product-carousel' } });
+		await expect(executeKibblePdpRelatedModelShelf({
+			relatedProducts: products, heading: 'You may also like', routePath: '/product/puppy-starter-kit-plus' as never,
+			runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'] }),
+		})).rejects.toThrow(/not explicitly approved/);
 	});
 });

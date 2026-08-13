@@ -201,7 +201,8 @@ const kibble: BrandCompositionPolicy = {
  * Prospect-controlled autonomy temperature for the public observability demo.
  * It is a separate, versioned policy: normal Kibble page loads continue to use
  * Preserve, while an explicit server-trusted demo action may ask a model to
- * rank the fixed Home shelf and nothing else.
+ * rank the fixed Home shelf or one explicitly approved PDP related rail, and
+ * nothing else.
  */
 const kibbleObserveAssist: BrandCompositionPolicy = {
 	...kibble,
@@ -220,6 +221,21 @@ const kibbleObserveAssist: BrandCompositionPolicy = {
 					decisionMode: 'model',
 					publicationMode: 'live',
 					allowedComponentVariantIds: ['kibble.featured-grid.ranked-segment'],
+				},
+			},
+		},
+		pdp: {
+			...kibble.surfaces.pdp!,
+			preset: 'assist',
+			capabilities: ['rank_products'],
+			decisionMode: 'model',
+			zoneOverrides: {
+				...kibble.surfaces.pdp!.zoneOverrides,
+				'pdp.related': {
+					capabilities: ['rank_products'],
+					decisionMode: 'model',
+					publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.product-detail.related-products'],
 				},
 			},
 		},
@@ -418,7 +434,7 @@ export function getTrustedKibbleObserveHomeZonePolicy(input: {
 }
 
 /**
- * Client-safe declaration of the only model decision this demo may request.
+ * Client-safe declaration of the Home model decision this demo may request.
  * The server re-compiles the policy before every call; this descriptor lets
  * the browser reject a response that claims a different authority boundary.
  */
@@ -434,6 +450,59 @@ export function getKibbleObserveHomeModelPolicyDescriptor() {
 		zoneId: 'home.featured-row' as const,
 		capabilities: ['rank_products'] as const,
 		publicationMode: 'live' as const,
+	};
+}
+
+/** The PDP boundary is deliberately an exact route approval, never a slug pattern. */
+export const KIBBLE_OBSERVE_PDP_RELATED_ROUTE = '/product/puppy-starter-kit' as const;
+export const KIBBLE_OBSERVE_PDP_RELATED_SLUG = 'puppy-starter-kit' as const;
+
+/** Compile the one live PDP model boundary exposed by the explicit demo control. */
+export function getTrustedKibbleObservePdpRelatedZonePolicy(input: {
+	origin: TrustedZoneIdentityDefinition['origin'];
+	familyId: 'pdp.related';
+	instanceId: 'pdp.related';
+	routePath: typeof KIBBLE_OBSERVE_PDP_RELATED_ROUTE;
+}): EffectiveCompositionPolicy {
+	if (input.routePath !== KIBBLE_OBSERVE_PDP_RELATED_ROUTE) {
+		throw new Error('Kibble observe PDP route is not explicitly approved.');
+	}
+	const identity = findTrustedZoneIdentity(input.origin, input.familyId, input.instanceId);
+	if (!identity || identity.surface !== 'pdp') {
+		throw new Error(`Kibble observe zone identity is not registered: ${input.origin}:${input.instanceId}.`);
+	}
+	const policy = compileCompositionPolicy({
+		organizationId: KIBBLE_ORGANIZATION_ID,
+		brandId: 'kibble',
+		surface: 'pdp',
+		zoneIdentity: identity,
+		routeSource: 'pathname',
+		routePath: input.routePath,
+		registry: KIBBLE_OBSERVE_ASSIST_POLICY,
+	});
+	if (
+		policy.decisionMode !== 'model' ||
+		policy.publicationMode !== 'live' ||
+		policy.provenance.preset !== 'assist' ||
+		policy.capabilities.length !== 1 ||
+		policy.capabilities[0] !== 'rank_products'
+	) {
+		throw new Error('Kibble observe PDP policy exceeds or misses its approved model boundary.');
+	}
+	return policy;
+}
+
+export function getKibbleObservePdpRelatedModelPolicyDescriptor(routePath: string) {
+	const policy = getTrustedKibbleObservePdpRelatedZonePolicy({
+		origin: 'aisles', familyId: 'pdp.related', instanceId: 'pdp.related',
+		routePath: routePath as typeof KIBBLE_OBSERVE_PDP_RELATED_ROUTE,
+	});
+	return {
+		policyVersion: policy.policyVersion,
+		zoneId: 'pdp.related' as const,
+		capabilities: ['rank_products'] as const,
+		publicationMode: 'live' as const,
+		routePath: KIBBLE_OBSERVE_PDP_RELATED_ROUTE,
 	};
 }
 

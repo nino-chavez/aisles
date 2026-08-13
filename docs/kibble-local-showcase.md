@@ -46,12 +46,14 @@ Absent from this launcher:
 The fixture interceptor, no-op Postgres replacement, and enrichment alias are selected only by `scripts/kibble-showcase-vite.config.ts`. Normal `npm run dev`, `npm run build`, `npm run preview`, and Wrangler do not use them.
 
 The isolated launcher also forces `KIBBLE_DEMO_AI_ENABLED` off. The deployed
-prospect demo can expose a separate **Run bounded AI ranking** control when that
-server flag is enabled. That action is not automatic: it reserves a Redis-backed
-budget and sends sanitized inference plus bounded, approved product facts: ID,
-name, category, price, and persona fit. The response can contain only an exact
-permutation of those product IDs. The model cannot change page structure,
-component variants, copy, prices, links, CSS, or commerce actions.
+prospect demo can expose separate opt-in bounded AI ranking controls when that
+server flag is enabled. Home's control ranks its approved shelf. The PDP rail
+control appears only for `/product/puppy-starter-kit` when the server reloads
+three or four related candidates. Neither action is automatic: each reserves a
+Redis-backed budget and sends sanitized inference plus bounded, approved product
+facts. The response can contain only an exact permutation of those product IDs.
+The model cannot change page structure, component variants, copy, prices, links,
+CSS, or commerce actions.
 
 The launcher blanks the app's production database, Redis, model, incentive, and Observe credentials before it starts Vite. It stamps the run with scenario ID `kibble-local-showcase`, so contracted provenance reports the catalog and scores as synthetic. The inspector and response header both display `Synthetic demo enrichment — not merchant data`.
 

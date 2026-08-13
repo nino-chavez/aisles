@@ -56,10 +56,12 @@ one named approval item per route. Route-by-route human visual approval,
 merchant runtime policy writes and audit storage, migration/deploy/live
 database-provider verification, and Bealls external-reference contracts remain
 open.
-The Home proof uses deterministic rules, not a model. It demonstrates that
-signals can change an approved merchandising field while the reference-owned
-shell remains unchanged. Model-backed Assist behavior still requires its own
-contract, approval, and acceptance evidence.
+The normal Home proof uses deterministic rules. Its separate **Run bounded AI
+ranking** control is a live, opt-in Assist action with its own exact policy,
+provider budget, and permutation validation. The only PDP Assist action is the
+`pdp.related` rail on `/product/puppy-starter-kit`; it can reorder only the
+three-to-four server-reloaded related candidates. Both keep the
+reference-owned shell unchanged.
 Normal production applies that decision at the Home route boundary. The public
 demo begins only with an explicit `?observe=true` request, then keeps a
 lightweight observability rail active across shopper navigation for four hours.

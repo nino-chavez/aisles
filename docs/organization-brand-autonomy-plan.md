@@ -433,9 +433,11 @@ page data is serialized.
 Normal production applies that bounded decision when the Home route renders.
 For a prospect-facing demo, the public launcher on every shopper route adds
 `?observe=true`, starts a four-hour site-wide observability session, and shows
-the current route's visible Template, Rules, and AI authority. On Home it also
-immediately previews the latest persisted-session decision at
-`POST /api/kibble/home-decision?observe=true`. The endpoint is server-authoritative:
+the current route's visible Template, Rules, and AI authority. Home previews
+the latest persisted-session rules decision at
+`POST /api/kibble/home-decision?observe=true`. Its separate **Run bounded AI
+ranking** control is an opt-in model action, not a normal Home render. The
+endpoint is server-authoritative:
 it accepts no persona, score, policy, candidate, or product-order input from the
 browser. It requires the active Kibble brand, the trusted Home
 `reference-preserve` policy, and a valid scoped `aisles_session`; otherwise it
@@ -443,10 +445,21 @@ fails closed with `404` for an unavailable surface or `409` for a missing or
 unknown session. Its no-store response is versioned and carries sanitized
 inference, the score-free zone trace, a runner data-source override when set,
 and contracted `rules` provenance for the current scenario. It does not create
-or mutate a session, call a model, generate a layout, read or write the
+or mutate a session, generate a layout, read or write the
 layout-decision cache, write telemetry, or write a database. It does read the
 existing scoped session from the in-memory session cache or Redis when
 configured.
+
+The only PDP model action is equally narrow. The Observe rail shows **AI-rank
+related products** only on the exact approved route
+`/product/puppy-starter-kit`, only while its server-reloaded related rail has
+three or four candidates, and only when the demo-model flag is enabled. Its
+`POST /api/kibble/pdp-related-decision?observe=true` request accepts only
+`{"mode":"model"}`. It reloads that literal PDP on the server, reserves the
+same Redis budget before any provider call, and can return only one exact
+permutation of those related IDs. Adjacent slugs and browser-supplied route,
+candidate, or product facts have no authority. The fixed PDP, heading, copy,
+prices, links, actions, component, and CSS do not change.
 
 The behavior simulator is an explicit Home signal-lab control, not a commerce
 control. It emits named typed event sequences—category views, product views,

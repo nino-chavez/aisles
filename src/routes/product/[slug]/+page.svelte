@@ -11,6 +11,45 @@
 	let relatedProducts = $derived(data.relatedProducts);
 	let persona = $derived(data.persona);
 	let isKibblePdp = $derived(data.renderMode === 'reference-preserve' || data.renderMode === 'reference-review');
+	type KibblePdpData = NonNullable<PageData['kibblePdp']>;
+	let previewRelatedProducts = $state<KibblePdpData['relatedProducts'] | null>(null);
+	let previewRelatedZoneAdapter = $state<KibblePdpData['zoneAdapter'] | null>(null);
+
+	$effect(() => {
+		data;
+		previewRelatedProducts = null;
+		previewRelatedZoneAdapter = null;
+	});
+
+	$effect(() => {
+		const decision = data.kibblePdp?.relatedModelDecision;
+		if (!isKibblePdp || !decision || !data.kibblePdp) return;
+		let active = true;
+		let cleanup: (() => void) | undefined;
+		void import('$lib/components/kibble/kibble-pdp-live-preview').then(({ listenForKibblePdpLivePreview }) => {
+			const listener = listenForKibblePdpLivePreview({
+				expectation: {
+					routePath: decision.routePath,
+					policyVersion: decision.policyVersion,
+					productIds: data.kibblePdp!.relatedProducts.map(({ entityId }) => String(entityId)),
+					relatedHeading: data.kibblePdp!.relatedHeading,
+				},
+				products: data.kibblePdp!.relatedProducts,
+				onApplied: (preview) => {
+					// Validation proves these are a reorder of this server-rendered rail.
+					previewRelatedProducts = preview.products as KibblePdpData['relatedProducts'];
+					previewRelatedZoneAdapter = preview.zoneAdapter as KibblePdpData['zoneAdapter'];
+				},
+				onStatus: (status) => window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-status', { detail: status })),
+			});
+			if (active) {
+				cleanup = listener;
+				window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-ready'));
+			}
+			else listener();
+		});
+		return () => { active = false; cleanup?.(); };
+	});
 
 	$effect(() => {
 		if (isKibblePdp) return;
@@ -60,7 +99,11 @@
 		data-reference-contract-version={KIBBLE_REFERENCE_CONTRACT.version}
 		data-reference-fixture={KIBBLE_REFERENCE_CONTRACT.source.fixturePath}
 		data-reference-fixture-sha256={KIBBLE_PARITY_FIXED_DATA_IDENTITY}
-	><KibbleProductDetailReference {...data.kibblePdp} /></div>
+	><KibbleProductDetailReference
+		{...data.kibblePdp}
+		relatedProducts={previewRelatedProducts ?? data.kibblePdp.relatedProducts}
+		zoneAdapter={previewRelatedZoneAdapter ?? data.kibblePdp.zoneAdapter}
+	/></div>
 {:else if product && relatedProducts}
 	<div class="mx-auto max-w-7xl px-6 py-8">
 		<nav class="mb-8 text-sm text-surface-muted-fg"><a href="/" class="hover:text-surface-fg">Home</a><span class="mx-2">/</span>{#if product.categoryPath}<a href="/category/{product.categoryPath.replace(/^\/|\/$/g, '').replace(/^(haven|volt|ember)-/i, '')}" class="hover:text-surface-fg">{product.category.replace(/^(Haven|Volt|Ember)\s+/i, '')}</a><span class="mx-2">/</span>{/if}<span class="text-surface-fg">{product.name}</span></nav>

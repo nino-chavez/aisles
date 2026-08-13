@@ -112,8 +112,9 @@ const unionIds = [...new Set([...BEALLS_ZONE_SNAPSHOT.zones.map(({ zoneId }) => 
 
 /**
  * Narrow first live-model boundary: the public Kibble observability demo may
- * rank the already approved Home shelf. The policy and field catalog still
- * have to authorize the exact brand, route, instance and product set.
+ * rank the already approved Home shelf or the one approved PDP related rail.
+ * The policy and field catalog still have to authorize the exact brand,
+ * route, instance and product set.
  */
 export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApproval[]>> = freezeAuthorityGraph({
 	'home.featured-row': [{
@@ -124,9 +125,17 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		routePath: '/',
 		instanceId: 'home.featured-row.1',
 	}],
+	'pdp.related': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.7.0',
+		routePath: '/product/puppy-starter-kit',
+		instanceId: 'pdp.related',
+	}],
 });
 
-export const ZONE_CATALOG_VERSION = '2026-08-13.3';
+export const ZONE_CATALOG_VERSION = '2026-08-13.4';
 export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = freezeAuthorityGraph(Object.fromEntries(unionIds.map((zoneId) => {
 	const isAisles = Object.prototype.hasOwnProperty.call(ZONES, zoneId);
 	const aislesZoneId = zoneId as ZoneId;

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
 	getTrustedKibbleObserveHomeZonePolicy,
+	getTrustedKibbleObservePdpRelatedZonePolicy,
 	getTrustedKibbleZonePolicy,
 } from '$lib/brand/composition-policy';
 import { getBrand } from '$lib/brand/config';
@@ -236,6 +237,67 @@ export async function executeKibblePdpRelatedZoneAdapter(
 	}));
 }
 
+/**
+ * Exact-route PDP model boundary. It can only return one permutation of the
+ * server-reloaded related products; all PDP structure and product facts stay fixed.
+ */
+export async function executeKibblePdpRelatedModelShelf(input: {
+	relatedProducts: Array<{ entityId: number }>;
+	heading: string;
+	routePath: '/product/puppy-starter-kit';
+	runModel: ZoneModelRunner;
+}) {
+	if (input.relatedProducts.length < 3 || input.relatedProducts.length > 4) {
+		throw new Error('Kibble PDP model ranking requires three to four approved related products.');
+	}
+	const terminal = terminalById('pdp.related');
+	if (!terminal.adapterId || !terminal.componentVariantId) {
+		throw new Error('Kibble PDP model terminal lacks a native adapter binding.');
+	}
+	const policy = getTrustedKibbleObservePdpRelatedZonePolicy({
+		origin: terminal.origin,
+		familyId: 'pdp.related',
+		instanceId: 'pdp.related',
+		routePath: input.routePath,
+	});
+	const allowedDecisionModes = policy.provenance.zoneBinding?.allowedDecisionModes;
+	if (!allowedDecisionModes) throw new Error('Kibble observe PDP policy lacks an attested zone binding.');
+	const productIds = input.relatedProducts.map(({ entityId }) => String(entityId));
+	if (new Set(productIds).size !== productIds.length) throw new Error('Kibble PDP model ranking received duplicate product identities.');
+	const identity = executionIdentity(terminal, policy.policyVersion, input.routePath, allowedDecisionModes);
+	const baseline = pdpRelatedContent(input.heading, productIds);
+	const catalog: TrustedBoundZoneCatalog = {
+		identity,
+		fields: fieldsFor(terminal, policy.allowedComponentVariantIds, productIds),
+		products: {
+			organizationId: ORGANIZATION_ID, brandId: 'kibble',
+			referenceId: KIBBLE_REFERENCE_CONTRACT.id, referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
+			catalogId: CATALOG_ID, catalogVersion: CATALOG_VERSION, productIds,
+		},
+		materialize: ({ decision }) => {
+			const raw = decision?.envelope.rawModelContent;
+			const ranked = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).rankedProductIds : null;
+			return pdpRelatedContent(input.heading, Array.isArray(ranked) ? ranked.filter(isString) : productIds);
+		},
+	};
+	const execution = await executeZoneDecision({
+		policy, catalog, fallback: { identity, kind: 'content', content: baseline }, runModel: input.runModel,
+	});
+	if (execution.status !== 'live' || execution.decisionMode !== 'model' || execution.render.kind !== 'content') {
+		throw new Error(`Kibble PDP model ranking did not publish: ${execution.status === 'fallback' ? execution.reason : execution.status}.`);
+	}
+	const adapter = kibbleNativeAdapterBinding({ terminal, execution, adapter: {
+		adapterId: terminal.adapterId,
+		componentVariantId: terminal.componentVariantId,
+		inputSha256: hashAdapterInput(terminal, execution.render.content),
+		content: execution.render.content,
+	} });
+	const raw = execution.decision?.envelope.rawModelContent;
+	const rankedValue = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).rankedProductIds : null;
+	const rankedProductIds = Array.isArray(rankedValue) ? rankedValue.filter(isString) : [];
+	return { policy, execution, adapter, rankedProductIds };
+}
+
 export async function executeKibbleSearchEmptyZoneAdapter(input: { query: string; body: string }) {
 	return kibbleNativeAdapterBinding(await executeKibbleZoneTerminal(terminalById('search.empty-state'), '/search', {
 		component: 'editorial-header',
@@ -440,6 +502,13 @@ function productGridContent(productIds: readonly string[]) {
 			showSpecs: false as const,
 			showQuickAdd: false as const,
 		},
+	};
+}
+
+function pdpRelatedContent(title: string, productIds: readonly string[]) {
+	return {
+		component: 'product-carousel' as const,
+		props: { title, products: productIds.map((productId) => ({ productId, role: 'standard' as const })), showQuickAdd: false as const },
 	};
 }
 
