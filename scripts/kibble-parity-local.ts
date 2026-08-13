@@ -281,6 +281,52 @@ function runForStatus(command: string, args: string[], cwd: string, env: NodeJS.
 	});
 }
 
+const LOCAL_PARITY_SYSTEM_ENV = [
+	'PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'USER', 'LOGNAME', 'SHELL',
+	'LANG', 'LANGUAGE', 'LC_ALL', 'LC_CTYPE', 'TERM', 'COLORTERM', 'NO_COLOR',
+	'FORCE_COLOR', 'CI', 'TZ',
+] as const;
+
+const LOCAL_PARITY_BLANKED_CONNECTIONS = [
+	'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'CF_AI_GATEWAY_URL',
+	'DATABASE_URL', 'RUNTIME_DATABASE_URL',
+	'KV_REST_API_URL', 'KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN', 'REDIS_URL',
+	'VOUCHERIFY_API_URL', 'VOUCHERIFY_APP_ID', 'VOUCHERIFY_SECRET_KEY',
+	'OBSERVE_ACCESS_TOKEN',
+	'BIGCOMMERCE_CLIENT_ID', 'BIGCOMMERCE_CLIENT_SECRET', 'BIGCOMMERCE_ACCESS_TOKEN', 'BIGCOMMERCE_CHANNEL_ID',
+	'KIBBLE_STOREFRONT_TOKEN', 'STOREFRONT_TOKEN', 'VITE_BC_STORE_HASH',
+	'PUBLIC_SUBS_API_URL', 'PUBLIC_SUBS_STORE_HASH',
+	'SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+	'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'POSTHOG_API_KEY', 'SENTRY_DSN',
+	'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'CF_API_TOKEN',
+] as const;
+
+export function buildLocalParityChildEnvironment(input: {
+	base: NodeJS.ProcessEnv;
+	fixturePath: string;
+	interceptor: string;
+	attestationKey: string;
+}): NodeJS.ProcessEnv {
+	const environment: NodeJS.ProcessEnv = {};
+	for (const name of LOCAL_PARITY_SYSTEM_ENV) {
+		if (input.base[name] !== undefined) environment[name] = input.base[name];
+	}
+	for (const name of LOCAL_PARITY_BLANKED_CONNECTIONS) environment[name] = '';
+	return {
+		...environment,
+		NODE_OPTIONS: `--require=${input.interceptor}`,
+		KIBBLE_PARITY_FIXTURE_PATH: input.fixturePath,
+		KIBBLE_PARITY_FIXED_DATA_IDENTITY,
+		KIBBLE_PARITY_ATTESTATION_KEY: input.attestationKey,
+		// Cloudflare's adapter initializes the declared binding before route code
+		// runs. The runner-only Vite config replaces postgres.js, so this local
+		// connection string is parsed but never opened.
+		CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: 'postgres://kibble-parity:fixture@127.0.0.1:5432/kibble-parity',
+		BIGCOMMERCE_STORE_HASH: 'kibble-parity-fixture',
+		BIGCOMMERCE_STOREFRONT_TOKEN: 'kibble-parity-fixture',
+	};
+}
+
 async function main(): Promise<void> {
 	const candidateRoot = process.cwd();
 	const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: candidateRoot, encoding: 'utf8' }).trim();
@@ -299,19 +345,12 @@ async function main(): Promise<void> {
 	const parityAttestationKey = randomBytes(32).toString('hex');
 
 	const interceptor = resolve('scripts/fixtures/kibble-parity-fetch-interceptor.cjs');
-	const baseEnv = {
-		...process.env,
-		NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require=${interceptor}`].filter(Boolean).join(' '),
-		KIBBLE_PARITY_FIXTURE_PATH: fixturePath,
-		// Cloudflare's adapter initializes the declared binding before route code
-		// runs. The runner-only Vite config replaces postgres.js, so this
-		// connection string is parsed but never opened.
-		CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: 'postgres://kibble-parity:fixture@127.0.0.1:5432/kibble-parity',
-		BIGCOMMERCE_STORE_HASH: 'kibble-parity-fixture',
-		BIGCOMMERCE_STOREFRONT_TOKEN: 'kibble-parity-fixture',
-		KIBBLE_PARITY_FIXED_DATA_IDENTITY,
-		KIBBLE_PARITY_ATTESTATION_KEY: parityAttestationKey,
-	};
+	const baseEnv = buildLocalParityChildEnvironment({
+		base: process.env,
+		fixturePath,
+		interceptor,
+		attestationKey: parityAttestationKey,
+	});
 	const reference = child('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(referencePort), '--strictPort'], { cwd: referenceRoot, env: baseEnv });
 	const candidate = child('npx', ['vite', '--config', 'scripts/kibble-parity-local-vite.config.ts', '--host', '127.0.0.1', '--port', String(candidatePort), '--strictPort'], {
 		cwd: candidateRoot,

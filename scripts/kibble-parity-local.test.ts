@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	auditClassifiedDependencyClosure,
+	buildLocalParityChildEnvironment,
 	deriveLocalParityPaths,
 	findWorkspaceRoot,
 	KIBBLE_PARITY_ADAPTED_SOURCE_FILES,
@@ -66,6 +67,37 @@ describe('Kibble local visual parity runner', () => {
 			referenceRoot: '/workspace/dev/labs/bc-subscriptions/apps/storefront-svelte',
 			fixturePath: '/workspace/dev/labs/bc-subscriptions/scripts/kibble-demo/data/seed-output.json',
 		});
+	});
+
+	it('isolates both parity children from developer-shell connections and paid credentials', () => {
+		const environment = buildLocalParityChildEnvironment({
+			base: {
+				PATH: '/usr/bin', HOME: '/tmp/parity-home', LANG: 'en_US.UTF-8',
+				NODE_OPTIONS: '--trace-warnings',
+				KV_REST_API_URL: 'https://real-upstash.example', KV_REST_API_TOKEN: 'real-redis-token',
+				DATABASE_URL: 'postgres://real', RUNTIME_DATABASE_URL: 'postgres://real-runtime',
+				ANTHROPIC_API_KEY: 'real-anthropic', OPENAI_API_KEY: 'real-openai', OPENROUTER_API_KEY: 'real-openrouter',
+				VOUCHERIFY_APP_ID: 'real-voucherify', BIGCOMMERCE_ACCESS_TOKEN: 'real-management-token',
+				KIBBLE_STOREFRONT_TOKEN: 'real-storefront-token', OBSERVE_ACCESS_TOKEN: 'real-observe-token',
+				PUBLIC_SUBS_API_URL: 'https://real-subscriptions.example',
+				UNRELATED_DEVELOPER_SECRET: 'must-not-cross-child-boundary',
+			},
+			fixturePath: '/tmp/pinned-kibble.json',
+			interceptor: '/tmp/kibble-interceptor.cjs',
+			attestationKey: 'a'.repeat(64),
+		});
+		expect(environment).toMatchObject({
+			PATH: '/usr/bin', HOME: '/tmp/parity-home', LANG: 'en_US.UTF-8',
+			KV_REST_API_URL: '', KV_REST_API_TOKEN: '', DATABASE_URL: '', RUNTIME_DATABASE_URL: '',
+			ANTHROPIC_API_KEY: '', OPENAI_API_KEY: '', OPENROUTER_API_KEY: '',
+			VOUCHERIFY_APP_ID: '', BIGCOMMERCE_ACCESS_TOKEN: '', KIBBLE_STOREFRONT_TOKEN: '',
+			OBSERVE_ACCESS_TOKEN: '', PUBLIC_SUBS_API_URL: '',
+			BIGCOMMERCE_STORE_HASH: 'kibble-parity-fixture',
+			BIGCOMMERCE_STOREFRONT_TOKEN: 'kibble-parity-fixture',
+			KIBBLE_PARITY_ATTESTATION_KEY: 'a'.repeat(64),
+		});
+		expect(environment.NODE_OPTIONS).toBe('--require=/tmp/kibble-interceptor.cjs');
+		expect(environment).not.toHaveProperty('UNRELATED_DEVELOPER_SECRET');
 	});
 
 	it('requires every adapted PDP dependency to match its canonical SHA', () => {
