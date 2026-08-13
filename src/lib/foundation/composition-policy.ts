@@ -107,7 +107,9 @@ export interface CompositionPolicyProvenance {
 	referenceId: string | null;
 	referenceVersion: string | null;
 	surface: Surface;
-	zoneId: ZoneId | null;
+	/** String keeps provenance compatible with externally pinned union families;
+	 * compiler inputs and override keys remain the local typed ZoneId boundary. */
+	zoneId: string | null;
 	preset: AutonomyPreset | null;
 }
 

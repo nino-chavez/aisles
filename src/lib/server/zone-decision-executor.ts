@@ -2,7 +2,7 @@
 
 import type { DecisionMode, EffectiveCompositionPolicy, PublicationMode } from '$lib/foundation/composition-policy';
 import { tryNormalizeTrustedErrorRoute, tryNormalizeTrustedShopperRoute } from '$lib/foundation/autonomy-zone-route';
-import { ZONE_CATALOG } from '$lib/foundation/zone-catalog';
+import { findTrustedZoneIdentity, isAislesRendererIdentity, ZONE_CATALOG, type TrustedZoneIdentityDefinition } from '$lib/foundation/zone-catalog';
 import {
 	createZoneDecisionContract,
 	materializeTrustedZoneDecision,
@@ -11,7 +11,7 @@ import {
 	type TrustedZoneFieldCatalog,
 } from '$lib/foundation/zone-decision-schema';
 import { parseZoneContent, type AnyZoneContent } from '$lib/foundation/zone-schemas';
-import { ZONES, type Surface, type ZoneId } from '$lib/foundation/zones';
+import { ZONES, type Surface } from '$lib/foundation/zones';
 
 export interface TrustedZoneExecutionIdentity {
 	organizationId: string;
@@ -22,7 +22,13 @@ export interface TrustedZoneExecutionIdentity {
 	routeSource: 'pathname' | 'error-state';
 	routePath: string;
 	surface: Surface;
-	zoneId: ZoneId;
+	routeManifestVersion: string;
+	routeManifestDigest: string;
+	zoneOrigin: 'aisles' | 'bealls-aisles';
+	/** Family selects its schema; it is never inferred from an indexed instance. */
+	familyId: string;
+	/** Exact reviewed instance identity, including an index where the catalog has one. */
+	instanceId: string;
 	productCatalogId: string;
 	productCatalogVersion: string;
 	allowedDecisionModes: readonly DecisionMode[];
@@ -94,7 +100,11 @@ export interface ZoneExecutionProvenance {
 	routeSource: 'pathname' | 'error-state';
 	routePath: string;
 	surface: Surface;
-	zoneId: ZoneId;
+	routeManifestVersion: string;
+	routeManifestDigest: string;
+	zoneOrigin: 'aisles' | 'bealls-aisles';
+	familyId: string;
+	instanceId: string;
 	decisionMode: DecisionMode;
 	publicationMode: PublicationMode;
 	liveModelApproved: boolean;
@@ -124,11 +134,20 @@ export async function executeZoneDecision(input: {
 	runModel?: ZoneModelRunner;
 }): Promise<ZoneDecisionExecution> {
 	const provenance = provenanceFrom(input.catalog.identity, input.policy);
-	const bindingFailure = validateBindings(input.policy, input.catalog, input.fallback);
-	const fallback = bindingFailure && ['identity_mismatch', 'route_surface_mismatch', 'surface_zone_mismatch', 'product_catalog_mismatch'].includes(bindingFailure)
+	const identityDefinition = findTrustedZoneIdentity(
+		input.catalog.identity.zoneOrigin,
+		input.catalog.identity.familyId,
+		input.catalog.identity.instanceId,
+	);
+	const bindingFailure = validateBindings(input.policy, input.catalog, input.fallback, identityDefinition);
+	const fallback = bindingFailure || !identityDefinition || !isAislesRendererIdentity(identityDefinition)
 		? { kind: 'hidden' as const }
-		: normalizeFallback(input.fallback, input.catalog);
+		: normalizeFallback(input.fallback, input.catalog, identityDefinition);
 	if (bindingFailure) return failure(bindingFailure, fallback, provenance);
+	/** The generic Aisles renderer has no reviewed schema for this Bealls-only instance. */
+	if (!identityDefinition || !isAislesRendererIdentity(identityDefinition)) {
+		return { status: 'live', render: { kind: 'hidden' }, decisionMode: 'fixed', provenance };
+	}
 
 	let contract;
 	try {
@@ -138,7 +157,7 @@ export async function executeZoneDecision(input: {
 	}
 
 	if (contract.kind === 'fixed') {
-		return finishMaterialization({ kind: 'fixed', fixed: contract.fixed }, input, fallback, provenance);
+		return finishMaterialization({ kind: 'fixed', fixed: contract.fixed }, input, fallback, provenance, identityDefinition);
 	}
 
 	let decision: MaterializedTrustedZoneDecision;
@@ -175,6 +194,7 @@ export async function executeZoneDecision(input: {
 		input,
 		fallback,
 		provenance,
+		identityDefinition,
 	);
 }
 
@@ -183,6 +203,7 @@ function finishMaterialization(
 	input: { policy: EffectiveCompositionPolicy; catalog: TrustedBoundZoneCatalog },
 	fallback: TrustedZoneRenderResult,
 	provenance: ZoneExecutionProvenance,
+	identityDefinition: TrustedZoneIdentityDefinition,
 ): ZoneDecisionExecution {
 	let rawContent: unknown;
 	try {
@@ -190,7 +211,8 @@ function finishMaterialization(
 	} catch {
 		return failure('materialization_failed', fallback, provenance);
 	}
-	const parsed = parseZoneContent(input.catalog.identity.zoneId, rawContent);
+	if (!isAislesRendererIdentity(identityDefinition)) return failure('surface_zone_mismatch', { kind: 'hidden' }, provenance);
+	const parsed = parseZoneContent(identityDefinition.familyId, rawContent);
 	if (!parsed.ok) return failure('invalid_renderer_content', fallback, provenance);
 	const authorizedProducts = materializationProductIds(materializationInput);
 	if (parsed.productIds.some((productId) => !authorizedProducts.includes(productId))) {
@@ -223,6 +245,7 @@ function validateBindings(
 	policy: EffectiveCompositionPolicy,
 	catalog: TrustedBoundZoneCatalog,
 	fallback: TrustedZoneFallback,
+	identityDefinition: TrustedZoneIdentityDefinition | null,
 ): ZoneExecutionFailureReason | null {
 	const identity = catalog.identity;
 	const normalizedRoute = identity.routeSource === 'pathname'
@@ -230,9 +253,10 @@ function validateBindings(
 		: identity.routeSource === 'error-state'
 			? tryNormalizeTrustedErrorRoute(identity.routePath, identity.surface)
 			: null;
-	if (!normalizedRoute || normalizedRoute.surface !== identity.surface) return 'route_surface_mismatch';
-	const metadata = Object.prototype.hasOwnProperty.call(ZONES, identity.zoneId) ? ZONES[identity.zoneId] : undefined;
-	if (!metadata || metadata.surface !== identity.surface || policy.provenance.surface !== identity.surface) {
+	if (!normalizedRoute || normalizedRoute.surface !== identity.surface ||
+		normalizedRoute.routeManifestVersion !== identity.routeManifestVersion ||
+		normalizedRoute.routeManifestDigest !== identity.routeManifestDigest) return 'route_surface_mismatch';
+	if (!identityDefinition || identityDefinition.surface !== identity.surface || policy.provenance.surface !== identity.surface) {
 		return 'surface_zone_mismatch';
 	}
 	if (
@@ -246,7 +270,7 @@ function validateBindings(
 		!sameIdentity(fallback.identity, identity)
 	) return 'identity_mismatch';
 	if (policy.provenance.zoneId === null) return 'policy_not_zone_scoped';
-	if (policy.provenance.zoneId !== identity.zoneId) return 'identity_mismatch';
+	if (policy.provenance.zoneId !== identity.familyId) return 'identity_mismatch';
 	const products = catalog.products;
 	if (
 		![products.catalogId, products.catalogVersion].every(isNonBlank) ||
@@ -267,16 +291,21 @@ function validateBindings(
 		identity.allowedDecisionModes.some((mode) => !['fixed', 'rules', 'model'].includes(mode)) ||
 		!identity.allowedDecisionModes.includes(policy.decisionMode)
 	) return 'decision_mode_not_approved';
-	if (policy.decisionMode === 'model' && policy.publicationMode === 'live' && !liveModelApprovedFor(identity.zoneId)) {
+	if (policy.decisionMode === 'model' && policy.publicationMode === 'live' && !liveModelApprovedFor(identity.familyId)) {
 		return 'live_model_not_approved';
 	}
-	if (policy.decisionMode !== 'fixed' && !metadata.engineComposable) return 'fixed_only_zone';
+	if (isAislesRendererIdentity(identityDefinition) && policy.decisionMode !== 'fixed' && !ZONES[identityDefinition.familyId].engineComposable) return 'fixed_only_zone';
 	return null;
 }
 
-function normalizeFallback(fallback: TrustedZoneFallback, catalog: TrustedBoundZoneCatalog): TrustedZoneRenderResult {
+function normalizeFallback(
+	fallback: TrustedZoneFallback,
+	catalog: TrustedBoundZoneCatalog,
+	identityDefinition: TrustedZoneIdentityDefinition,
+): TrustedZoneRenderResult {
 	if (!sameIdentity(fallback.identity, catalog.identity) || fallback.kind === 'hidden') return { kind: 'hidden' };
-	const parsed = parseZoneContent(catalog.identity.zoneId, fallback.content);
+	if (!isAislesRendererIdentity(identityDefinition)) return { kind: 'hidden' };
+	const parsed = parseZoneContent(identityDefinition.familyId, fallback.content);
 	if (!parsed.ok || parsed.content === null) return { kind: 'hidden' };
 	if (parsed.productIds.some((productId) => !catalog.products.productIds.includes(productId))) return { kind: 'hidden' };
 	return { kind: 'content', content: parsed.content };
@@ -304,10 +333,14 @@ function provenanceFrom(identity: TrustedZoneExecutionIdentity, policy: Effectiv
 		routeSource: identity.routeSource,
 		routePath: identity.routePath,
 		surface: identity.surface,
-		zoneId: identity.zoneId,
+		routeManifestVersion: identity.routeManifestVersion,
+		routeManifestDigest: identity.routeManifestDigest,
+		zoneOrigin: identity.zoneOrigin,
+		familyId: identity.familyId,
+		instanceId: identity.instanceId,
 		decisionMode: policy.decisionMode,
 		publicationMode: policy.publicationMode,
-		liveModelApproved: liveModelApprovedFor(identity.zoneId),
+		liveModelApproved: liveModelApprovedFor(identity.familyId),
 	};
 }
 
@@ -321,7 +354,11 @@ function sameIdentity(left: TrustedZoneExecutionIdentity, right: TrustedZoneExec
 		left.routeSource === right.routeSource &&
 		left.routePath === right.routePath &&
 		left.surface === right.surface &&
-		left.zoneId === right.zoneId &&
+		left.routeManifestVersion === right.routeManifestVersion &&
+		left.routeManifestDigest === right.routeManifestDigest &&
+		left.zoneOrigin === right.zoneOrigin &&
+		left.familyId === right.familyId &&
+		left.instanceId === right.instanceId &&
 		left.productCatalogId === right.productCatalogId &&
 		left.productCatalogVersion === right.productCatalogVersion &&
 		left.allowedDecisionModes.length === right.allowedDecisionModes.length &&
@@ -348,6 +385,6 @@ function isSafeId(value: unknown): value is string {
 	return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value);
 }
 
-function liveModelApprovedFor(zoneId: ZoneId): boolean {
+function liveModelApprovedFor(zoneId: string): boolean {
 	return Object.prototype.hasOwnProperty.call(ZONE_CATALOG, zoneId) && ZONE_CATALOG[zoneId].liveModelApproved;
 }

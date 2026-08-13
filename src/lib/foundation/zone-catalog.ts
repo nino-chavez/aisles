@@ -3,7 +3,7 @@
 import { BRAND_IDS } from '$lib/brand/config';
 import { getFallback } from './fallbacks';
 import { BEALLS_ZONE_SNAPSHOT, type ZoneImplementationFacts } from './zone-coverage-snapshot';
-import { ZONES, type Multiplicity, type ZoneId } from './zones';
+import { ZONE_IDS, ZONES, parseZoneInstance, type Multiplicity, type Surface, type ZoneId } from './zones';
 
 export type ZoneCatalogOrigin = 'aisles' | 'bealls-aisles' | 'both';
 export type ZoneSchemaStatus = 'renderer-contract' | 'external-source-snapshot';
@@ -52,6 +52,22 @@ export interface SurfaceRouteMapping {
 	note: string;
 }
 
+/** A concrete, executable entry in the reviewed Aisles + Bealls union. */
+export interface TrustedZoneIdentityDefinition {
+	origin: 'aisles' | 'bealls-aisles';
+	familyId: string;
+	instanceId: string;
+	surface: Surface;
+	/** Only locally implemented Aisles shapes may reach the generic renderer. */
+	rendererContract: 'aisles-renderer' | 'trusted-hidden';
+}
+
+export interface TrustedAislesZoneIdentityDefinition extends TrustedZoneIdentityDefinition {
+	origin: 'aisles';
+	familyId: ZoneId;
+	rendererContract: 'aisles-renderer';
+}
+
 function aislesDefinition(zoneId: ZoneId): ZoneCatalogDefinition {
 	return { repository: 'aisles', ...ZONES[zoneId] };
 }
@@ -77,6 +93,76 @@ const beallsFacts = Object.fromEntries(BEALLS_ZONE_SNAPSHOT.zones.map((zone) => 
 		sourceRef: BEALLS_ZONE_SNAPSHOT.source.ref,
 	} satisfies RepositoryZoneFacts,
 ])) as Readonly<Record<string, RepositoryZoneFacts>>;
+
+function isTrustedSurface(surface: string): surface is Surface {
+	return surface === 'home' || surface === 'plp' || surface === 'pdp' || surface === 'cart' || surface === 'checkout' ||
+		surface === 'search' || surface === 'account' || surface === 'locator' || surface === 'error-404' || surface === 'error-empty';
+}
+
+function trustedSurface(surface: string): Surface {
+	if (!isTrustedSurface(surface)) throw new Error(`reviewed zone snapshot has unknown surface: ${surface}`);
+	return surface;
+}
+
+function exactInstances(familyId: string, definition: ZoneCatalogDefinition): string[] {
+	if (definition.multiplicity !== 'indexed') return [familyId];
+	if (!definition.maxIndex || definition.maxIndex < 1) throw new Error(`indexed zone lacks a bounded max index: ${familyId}`);
+	return Array.from({ length: definition.maxIndex }, (_, index) => `${familyId}.${index + 1}`);
+}
+
+function usesAislesRenderer(familyId: string, instanceId: string, definition: ZoneCatalogDefinition): boolean {
+	const parsed = parseZoneInstance(instanceId);
+	if (!parsed || parsed.family !== familyId) return false;
+	const local = ZONES[parsed.family];
+	const localMaxItems = 'maxItems' in local ? local.maxItems : undefined;
+	return local.surface === definition.surface &&
+		local.multiplicity === definition.multiplicity &&
+		localMaxItems === definition.maxItems;
+}
+
+/**
+ * Exact identities, not only family labels. The Bealls rows are based solely on
+ * the pinned snapshot; entries without a compatible local renderer are an
+ * explicit trusted Hidden boundary rather than a cast into the Aisles schema.
+ */
+export const TRUSTED_ZONE_IDENTITIES: readonly TrustedZoneIdentityDefinition[] = [
+	...ZONE_IDS.flatMap((familyId) => exactInstances(familyId, aislesDefinition(familyId)).map((instanceId) => ({
+		origin: 'aisles' as const,
+		familyId,
+		instanceId,
+		surface: ZONES[familyId].surface,
+		rendererContract: 'aisles-renderer' as const,
+	}))),
+	...BEALLS_ZONE_SNAPSHOT.zones.flatMap((zone) => {
+		const definition = beallsDefinitions[zone.zoneId];
+		return exactInstances(zone.zoneId, definition).map((instanceId) => ({
+			origin: 'bealls-aisles' as const,
+			familyId: zone.zoneId,
+			instanceId,
+			surface: trustedSurface(zone.surface),
+			rendererContract: usesAislesRenderer(zone.zoneId, instanceId, definition)
+				? 'aisles-renderer' as const
+				: 'trusted-hidden' as const,
+		}));
+	}),
+];
+
+export function findTrustedZoneIdentity(
+	origin: unknown,
+	familyId: unknown,
+	instanceId: unknown,
+): TrustedZoneIdentityDefinition | null {
+	if ((origin !== 'aisles' && origin !== 'bealls-aisles') || typeof familyId !== 'string' || typeof instanceId !== 'string') return null;
+	return TRUSTED_ZONE_IDENTITIES.find((candidate) => candidate.origin === origin && candidate.familyId === familyId && candidate.instanceId === instanceId) ?? null;
+}
+
+/** Explicit type boundary before the local schema/fallback registry is used. */
+export function isAislesRendererIdentity(identity: TrustedZoneIdentityDefinition): identity is TrustedZoneIdentityDefinition & {
+	familyId: ZoneId;
+	rendererContract: 'aisles-renderer';
+} {
+	return identity.rendererContract === 'aisles-renderer' && parseZoneInstance(identity.instanceId)?.family === identity.familyId;
+}
 
 function scaffoldOwner(surface: string): ZoneCatalogEntry['requiredScaffoldOwner'] {
 	return surface === 'pdp' || surface === 'cart' || surface === 'checkout' ? 'route' : 'foundation-renderer';
