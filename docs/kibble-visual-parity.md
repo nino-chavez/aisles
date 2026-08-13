@@ -35,6 +35,70 @@ fixture or contract cannot pass this gate.
 
 ## Run it
 
+### Local fixed-data rehearsal
+
+This repository provides one local command for the Home comparison. It starts
+the canonical `bc-subscriptions` storefront and the Aisles candidate as two
+separate Vite processes, supplies both with the source-owned fixed catalog, and
+then invokes the existing 390px and 1280px gate.
+
+```bash
+npm run test:kibble-parity:local
+```
+
+The catalog seam is process-scoped to this command. It intercepts BigCommerce
+GraphQL requests and supplies a no-op Postgres client before either Vite process
+loads application modules. That lets the real Aisles Preserve route execute its
+normal render path without opening Hyperdrive or any database. Cloudflare's
+local binding receives an inert connection string only so it can initialize; the
+preloaded client prevents it from being opened. The ordinary
+Aisles `dev`, `build`, `preview`, and Wrangler paths have no fixture flag or
+fallback. No remote database, Hyperdrive, secrets, or paid API is used.
+
+External image requests are replaced with the same neutral local image while
+the gate captures both pages. This prevents third-party CDNs from changing the
+result. It does not conceal a local asset difference: fixture product images are
+local deterministic data URLs, and the pixel gate still compares their rendered
+positions and dimensions.
+
+Before either endpoint starts, the runner hashes the canonical seed fixture and
+checks its ID, version, and SHA against the canonical source. The gate then
+checks the rendered markers before it captures screenshots. Evidence is written
+to `validation/kibble-parity-local/`.
+
+Home is the current default. A later integration can add routes without changing
+the server mechanism:
+
+```bash
+KIBBLE_PARITY_LOCAL_ROUTES='[{"id":"home","path":"/"},{"id":"plp","path":"/category/dog-food"}]' \
+npm run test:kibble-parity:local
+```
+
+The route matrix only runs surfaces already contracted and rendered by both
+repositories. It does not make product-detail, cart, checkout, or any other
+uncontracted surface into evidence.
+
+The local command defaults to a zero pixel difference and zero structural
+tolerance. Supplying either tolerance through environment variables makes the
+run a non-release rehearsal; record the reason and obtain the separate approval
+required by the main gate before treating it as parity evidence.
+
+### Current fixed-data boundary
+
+The runner initializes the local Cloudflare binding with an inert
+`CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` value, while its
+preloaded test dependency prevents any database connection. The current stop is
+later and fail-closed: the source-owned seed fixture identifies product `3065`
+as route `essential-bundle`, while the Aisles Preserve contract requires
+`essential-bundle-kns4`. The candidate returns 503 before capture, so no
+screenshots or report are written and this is not a parity result.
+
+Do not rewrite the fixture response or add a fixture branch to production routes
+to get past this. The remaining safe unblock is a provenance-approved correction
+to the pinned source fixture or the candidate's pinned route contract.
+
+### Existing endpoint runner
+
 Start the approved reference and candidate URLs yourself. Then provide every
 comparison input. The command has no URL, threshold, mask, or structure
 defaults.
@@ -66,8 +130,15 @@ At 390px and 1280px wide, it checks:
 - The three provenance markers on both pages.
 - Header, navigation, main, footer, heading, section, image, link, and button
   counts, plus full-page height.
+- Computed root colors and body font; h1 font family, weight, line height, and
+  letter spacing; the reference container's width and gutters; and header
+  height and position. These values are exact checks and are recorded in the
+  report. The runner does not normalize typography or CSS before capture.
 - Full-page screenshot dimensions and changed-pixel ratio after the declared
   masks are applied.
+
+Both required Kibble web fonts must load before capture. A failed font load
+fails the run instead of comparing two system-font fallbacks.
 
 The runner disables motion and writes `reference.png`, `candidate.png`,
 `diff.png` when comparable, and `report.json` per run. Any missing marker,

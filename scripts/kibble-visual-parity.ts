@@ -7,15 +7,18 @@ import {
 	assessPixelDifference,
 	compareParityMetadata,
 	compareStructuralMetrics,
+	compareStyleMetrics,
 	readKibbleParityConfig,
 	type ParityMask,
 	type ParityMetadata,
 	type StructuralMetrics,
+	type StyleMetrics,
 } from '../src/lib/brand/reference/kibble-parity';
 
 type PageCapture = {
 	metadata: Partial<ParityMetadata>;
 	metrics: StructuralMetrics;
+	styles: StyleMetrics;
 	screenshot: Buffer;
 };
 
@@ -43,11 +46,32 @@ async function preparePage(page: Page): Promise<void> {
 	});
 }
 
-async function capture(page: Page, url: string): Promise<PageCapture> {
+async function assertRequiredFonts(page: Page, pageLabel: string): Promise<void> {
+	const unavailable = await page.evaluate(async () => {
+		await document.fonts.ready;
+		const required = ['Plus Jakarta Sans', 'IBM Plex Mono'];
+		return required.filter((font) => !document.fonts.check(`16px "${font}"`));
+	});
+	if (unavailable.length > 0) throw new Error(`${pageLabel} did not load required fonts: ${unavailable.join(', ')}.`);
+}
+
+async function freezeExternalImages(page: Page): Promise<void> {
+	await page.route('**/*', async (route) => {
+		const request = route.request();
+		if (request.resourceType() !== 'image' || !/^https?:/i.test(request.url())) return route.continue();
+		await route.fulfill({
+			contentType: 'image/svg+xml',
+			body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="800" height="800" fill="#d9dce5"/></svg>',
+		});
+	});
+}
+
+async function capture(page: Page, url: string, expected: ParityMetadata, pageLabel: string): Promise<PageCapture> {
+	await freezeExternalImages(page);
 	await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
 	await preparePage(page);
-	const [metadata, metrics, screenshot] = await Promise.all([
-		page.evaluate(`(() => {
+	await assertRequiredFonts(page, pageLabel);
+	const metadata = await page.evaluate(`(() => {
 			const attributes = ${JSON.stringify(KIBBLE_PARITY_METADATA)};
 			const marker = document.querySelector('[' + attributes.contractId + ']');
 			return {
@@ -55,7 +79,10 @@ async function capture(page: Page, url: string): Promise<PageCapture> {
 				contractVersion: marker?.getAttribute(attributes.contractVersion) ?? undefined,
 				fixedDataIdentity: marker?.getAttribute(attributes.fixedDataIdentity) ?? undefined,
 			};
-		})()`),
+		})()`);
+	const provenanceProblems = compareParityMetadata(expected, metadata, pageLabel);
+	if (provenanceProblems.length > 0) throw new Error(provenanceProblems.map(({ message }) => message).join(' '));
+	const [metrics, styles, screenshot] = await Promise.all([
 		page.evaluate(`(() => {
 			return {
 				header: document.querySelectorAll('header').length,
@@ -72,9 +99,23 @@ async function capture(page: Page, url: string): Promise<PageCapture> {
 				pageHeight: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight),
 			};
 		})()`),
+		page.evaluate(`(() => {
+			const computed = (element) => element ? getComputedStyle(element) : null;
+			const body = computed(document.body);
+			const heading = computed(document.querySelector('h1'));
+			const container = computed(document.querySelector('.kc-reference-container, .mx-auto.max-w-7xl'));
+			const header = computed(document.querySelector('header'));
+			if (!body || !heading || !container || !header) throw new Error('Computed-style contract requires body, h1, a reference container, and header.');
+			return {
+				rootBackgroundColor: body.backgroundColor, rootColor: body.color, rootFontFamily: body.fontFamily,
+				h1FontFamily: heading.fontFamily, h1FontWeight: heading.fontWeight, h1LineHeight: heading.lineHeight, h1LetterSpacing: heading.letterSpacing,
+				containerMaxWidth: container.maxWidth, containerPaddingLeft: container.paddingLeft, containerPaddingRight: container.paddingRight,
+				headerHeight: header.height, headerPosition: header.position,
+			};
+		})()`),
 		page.screenshot({ fullPage: true, animations: 'disabled' }),
 	]);
-	return { metadata, metrics, screenshot };
+	return { metadata, metrics, styles, screenshot };
 }
 
 async function comparePixels(page: Page, reference: Buffer, candidate: Buffer, masks: ParityMask[]): Promise<PixelComparison> {
@@ -163,8 +204,8 @@ async function main(): Promise<void> {
 			const comparisonPage = await browser.newPage();
 			try {
 				const [reference, candidate] = await Promise.all([
-					capture(referencePage, config.referenceUrl),
-					capture(candidatePage, config.candidateUrl),
+					capture(referencePage, config.referenceUrl, config.expected, 'reference'),
+					capture(candidatePage, config.candidateUrl, config.expected, 'candidate'),
 				]);
 				await Promise.all([
 					writeFile(join(outputDirectory, `${viewport.name}.reference.png`), reference.screenshot),
@@ -178,10 +219,11 @@ async function main(): Promise<void> {
 					...compareParityMetadata(config.expected, reference.metadata, 'reference'),
 					...compareParityMetadata(config.expected, candidate.metadata, 'candidate'),
 					...compareStructuralMetrics(reference.metrics, candidate.metrics, config.structuralTolerances),
+					...compareStyleMetrics(reference.styles, candidate.styles),
 					...assessPixelDifference(pixels.differenceRatio, config.maxPixelDifferenceRatio),
 				];
 				hasFailures ||= problems.length > 0;
-				results.push({ viewport, reference: { metadata: reference.metadata, metrics: reference.metrics }, candidate: { metadata: candidate.metadata, metrics: candidate.metrics }, pixels, problems });
+				results.push({ viewport, reference: { metadata: reference.metadata, metrics: reference.metrics, styles: reference.styles }, candidate: { metadata: candidate.metadata, metrics: candidate.metrics, styles: candidate.styles }, pixels, problems });
 			} finally {
 				await Promise.all([referencePage.close(), candidatePage.close(), comparisonPage.close()]);
 			}
