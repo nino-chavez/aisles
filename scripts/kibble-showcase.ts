@@ -71,6 +71,7 @@ export function buildShowcaseChildEnvironment(
 		BRAND_ID: 'kibble',
 		VITE_BRAND_ID: 'kibble',
 		KIBBLE_PARITY_FIXTURE_PATH: fixturePath,
+		KIBBLE_PARITY_ATTESTATION_KEY: '',
 		KIBBLE_SHOWCASE_DATA_SOURCE,
 		KIBBLE_SHOWCASE_SCENARIO_ID,
 		CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: 'postgres://kibble-showcase:fixture@127.0.0.1:5432/kibble-showcase',

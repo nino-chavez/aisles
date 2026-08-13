@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { access, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, posix, resolve } from 'node:path';
@@ -296,6 +296,7 @@ async function main(): Promise<void> {
 	}
 	await Promise.all([access(resolve(referenceRoot, 'package.json')), access(resolve(candidateRoot, 'package.json')), access(fixturePath)]);
 	verifyPinnedFixture(fixturePath, referenceRoot);
+	const parityAttestationKey = randomBytes(32).toString('hex');
 
 	const interceptor = resolve('scripts/fixtures/kibble-parity-fetch-interceptor.cjs');
 	const baseEnv = {
@@ -309,6 +310,7 @@ async function main(): Promise<void> {
 		BIGCOMMERCE_STORE_HASH: 'kibble-parity-fixture',
 		BIGCOMMERCE_STOREFRONT_TOKEN: 'kibble-parity-fixture',
 		KIBBLE_PARITY_FIXED_DATA_IDENTITY,
+		KIBBLE_PARITY_ATTESTATION_KEY: parityAttestationKey,
 	};
 	const reference = child('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(referencePort), '--strictPort'], { cwd: referenceRoot, env: baseEnv });
 	const candidate = child('npx', ['vite', '--config', 'scripts/kibble-parity-local-vite.config.ts', '--host', '127.0.0.1', '--port', String(candidatePort), '--strictPort'], {

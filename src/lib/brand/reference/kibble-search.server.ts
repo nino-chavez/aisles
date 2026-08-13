@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { env } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
 import type { KibbleProduct, KibbleSearchResponseProvenance } from '$lib/components/kibble/types';
@@ -7,6 +7,10 @@ import { parseKibblePlpCursor } from './kibble-plp';
 import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
 
 export const KIBBLE_SEARCH_PAGE_SIZE = 24;
+const PARITY_FIXTURE_HEADER = 'x-kibble-parity-fixture-sha256';
+const PARITY_REQUEST_HEADER = 'x-kibble-parity-request-sha256';
+const PARITY_CATALOG_HEADER = 'x-kibble-parity-catalog-sha256';
+const PARITY_ATTESTATION_HEADER = 'x-kibble-parity-attestation';
 
 const CursorSchema = z.string().min(1).max(512).regex(/^[A-Za-z0-9+/_=-]+$/).nullable();
 const PageInfoSchema = z.object({
@@ -117,7 +121,6 @@ export async function searchKibbleCatalog(input: {
 			products: [],
 			pageInfo: emptyPageInfo,
 			provenance: buildResponseProvenance({
-				brandId: brand.id, channelId: brand.bc.channelId, storeHash: storeHash ?? null,
 				query, after, source: 'not-requested', products: [], pageInfo: emptyPageInfo,
 			}),
 		};
@@ -136,17 +139,15 @@ export async function searchKibbleCatalog(input: {
 	if (!parsed.success || parsed.data.errors?.length) throw new Error('Kibble catalog search returned an invalid response.');
 	const result = parsed.data.data.site.search.searchProducts.products;
 	const products = result.edges.map(({ node }) => toKibbleProduct(node));
-	const parityFixture = storeHash === 'kibble-parity-fixture'
-		&& env.KIBBLE_PARITY_FIXED_DATA_IDENTITY === KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256;
+	const catalogSha256 = digest({ products: result.edges.map(({ node }) => node), pageInfo: result.pageInfo });
+	const parityFixture = validatesParityFixtureAttestation({ response, query, after, catalogSha256 });
 	return {
 		products,
 		pageInfo: result.pageInfo,
 		provenance: buildResponseProvenance({
-			brandId: brand.id,
-			channelId: brand.bc.channelId,
-			storeHash,
 			query,
 			after,
+			catalogSha256,
 			source: parityFixture ? 'parity-fixture' : 'live-storefront',
 			products,
 			pageInfo: result.pageInfo,
@@ -155,22 +156,15 @@ export async function searchKibbleCatalog(input: {
 }
 
 function buildResponseProvenance(input: {
-	brandId: string;
-	channelId: number;
-	storeHash: string | null;
 	query: string;
 	after: string | null;
+	catalogSha256?: string;
 	source: KibbleSearchResponseProvenance['source'];
 	products: KibbleProduct[];
 	pageInfo: z.infer<typeof PageInfoSchema>;
 }): Omit<KibbleSearchResponseProvenance, 'policyVersion' | 'routePath'> {
 	const fixedDataIdentity = input.source === 'parity-fixture' ? KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256 : undefined;
-	const catalogSha256 = fixedDataIdentity ?? digest({
-		kind: input.source,
-		brandId: input.brandId,
-		channelId: input.channelId,
-		storeHash: input.storeHash,
-	});
+	const catalogSha256 = input.catalogSha256 ?? digest({ products: input.products, pageInfo: input.pageInfo });
 	return {
 		referenceId: KIBBLE_REFERENCE_CONTRACT.id,
 		referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
@@ -182,6 +176,35 @@ function buildResponseProvenance(input: {
 		resultSha256: digest({ products: input.products, pageInfo: input.pageInfo }),
 		...(fixedDataIdentity ? { fixedDataIdentity } : {}),
 	};
+}
+
+function validatesParityFixtureAttestation(input: {
+	response: Response;
+	query: string;
+	after: string | null;
+	catalogSha256: string;
+}): boolean {
+	const key = env.KIBBLE_PARITY_ATTESTATION_KEY;
+	if (!key || !/^[a-f0-9]{64}$/.test(key)) return false;
+	const fixtureSha256 = input.response.headers.get(PARITY_FIXTURE_HEADER);
+	const requestSha256 = input.response.headers.get(PARITY_REQUEST_HEADER);
+	const catalogSha256 = input.response.headers.get(PARITY_CATALOG_HEADER);
+	const attestation = input.response.headers.get(PARITY_ATTESTATION_HEADER);
+	if (fixtureSha256 !== KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256 || catalogSha256 !== input.catalogSha256 || !requestSha256 || !attestation) return false;
+	const expectedRequestSha256 = digest({
+		operation: 'SearchProducts',
+		variables: { searchTerm: input.query, first: KIBBLE_SEARCH_PAGE_SIZE, after: input.after },
+	});
+	if (requestSha256 !== expectedRequestSha256) return false;
+	const expected = createHmac('sha256', key)
+		.update(parityAttestationPayload(fixtureSha256, requestSha256, catalogSha256))
+		.digest('hex');
+	if (!/^[a-f0-9]{64}$/.test(attestation)) return false;
+	return timingSafeEqual(Buffer.from(attestation, 'hex'), Buffer.from(expected, 'hex'));
+}
+
+function parityAttestationPayload(fixtureSha256: string, requestSha256: string, catalogSha256: string): string {
+	return `kibble-search-parity-v1\nfixture=${fixtureSha256}\nrequest=${requestSha256}\ncatalog=${catalogSha256}`;
 }
 
 function digest(value: unknown): string {

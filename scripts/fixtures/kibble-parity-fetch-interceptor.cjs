@@ -5,7 +5,7 @@
  * intentionally outside either storefront's source tree and never runs in a
  * production build. Both Vite processes retain their own rendered routes.
  */
-const { createHash } = require('node:crypto');
+const { createHash, createHmac } = require('node:crypto');
 const { readFileSync } = require('node:fs');
 
 const fixturePath = process.env.KIBBLE_PARITY_FIXTURE_PATH;
@@ -18,6 +18,7 @@ if (expectedFixtureIdentity && fixtureIdentity !== expectedFixtureIdentity) {
 	throw new Error(`Local Kibble parity fixture identity mismatch: expected ${expectedFixtureIdentity}, received ${fixtureIdentity}.`);
 }
 const fixture = JSON.parse(fixtureBytes.toString('utf8'));
+const attestationKey = process.env.KIBBLE_PARITY_ATTESTATION_KEY;
 
 const categories = Object.entries(fixture.categories).map(([name, entityId]) => ({
 	entityId,
@@ -154,7 +155,42 @@ function responseFor(query, variables) {
 	throw new Error(`Local Kibble parity fixture does not implement GraphQL operation ${operation}.`);
 }
 
-module.exports = { fixtureIdentity, operationName, responseFor };
+function canonical(value) {
+	if (Array.isArray(value)) return value.map(canonical);
+	if (value && typeof value === 'object') {
+		return Object.fromEntries(Object.entries(value)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, child]) => [key, canonical(child)]));
+	}
+	return value;
+}
+
+function digest(value) {
+	return createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
+}
+
+function searchAttestationHeaders(variables, data) {
+	if (!attestationKey || !/^[a-f0-9]{64}$/.test(attestationKey) || expectedFixtureIdentity !== fixtureIdentity) return {};
+	const productsPage = data.site.search.searchProducts.products;
+	const requestSha256 = digest({
+		operation: 'SearchProducts',
+		variables: {
+			searchTerm: String(variables.searchTerm || '').trim(),
+			first: Number(variables.first) || 24,
+			after: variables.after ?? null,
+		},
+	});
+	const catalogSha256 = digest({ products: productsPage.edges.map(({ node }) => node), pageInfo: productsPage.pageInfo });
+	const payload = `kibble-search-parity-v1\nfixture=${fixtureIdentity}\nrequest=${requestSha256}\ncatalog=${catalogSha256}`;
+	return {
+		'x-kibble-parity-fixture-sha256': fixtureIdentity,
+		'x-kibble-parity-request-sha256': requestSha256,
+		'x-kibble-parity-catalog-sha256': catalogSha256,
+		'x-kibble-parity-attestation': createHmac('sha256', attestationKey).update(payload).digest('hex'),
+	};
+}
+
+module.exports = { fixtureIdentity, operationName, responseFor, searchAttestationHeaders };
 
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
@@ -163,8 +199,12 @@ globalThis.fetch = async (input, init) => {
 	const request = init ?? (typeof input === 'object' ? input : undefined);
 	const body = typeof request?.body === 'string' ? JSON.parse(request.body) : null;
 	if (!body?.query) throw new Error('Local Kibble parity fixture received a GraphQL request without a query.');
-	return new Response(JSON.stringify({ data: responseFor(body.query, body.variables ?? {}) }), {
+	const variables = body.variables ?? {};
+	const data = responseFor(body.query, variables);
+	const headers = { 'content-type': 'application/json' };
+	if (operationName(body.query) === 'SearchProducts') Object.assign(headers, searchAttestationHeaders(variables, data));
+	return new Response(JSON.stringify({ data }), {
 		status: 200,
-		headers: { 'content-type': 'application/json' },
+		headers,
 	});
 };

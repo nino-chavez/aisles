@@ -4,21 +4,24 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { findWorkspaceRoot } from '../kibble-parity-local';
 
 vi.mock('$env/dynamic/private', () => ({
-	env: {
+		env: {
 		BIGCOMMERCE_STORE_HASH: 'kibble-parity-fixture',
 		KIBBLE_STOREFRONT_TOKEN: 'fixture-token',
 		KIBBLE_PARITY_FIXED_DATA_IDENTITY: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
+		KIBBLE_PARITY_ATTESTATION_KEY: 'a'.repeat(64),
 	},
 }));
 
 const originalFetch = globalThis.fetch;
 const originalFixturePath = process.env.KIBBLE_PARITY_FIXTURE_PATH;
 const originalIdentity = process.env.KIBBLE_PARITY_FIXED_DATA_IDENTITY;
+const originalAttestationKey = process.env.KIBBLE_PARITY_ATTESTATION_KEY;
 const originalBrand = process.env.BRAND_ID;
 const originalStoreHash = process.env.BIGCOMMERCE_STORE_HASH;
 const originalToken = process.env.KIBBLE_STOREFRONT_TOKEN;
 process.env.KIBBLE_PARITY_FIXTURE_PATH = resolve(findWorkspaceRoot(resolve(import.meta.dirname, '../..')), 'labs/bc-subscriptions/scripts/kibble-demo/data/seed-output.json');
 process.env.KIBBLE_PARITY_FIXED_DATA_IDENTITY = '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49';
+process.env.KIBBLE_PARITY_ATTESTATION_KEY = 'a'.repeat(64);
 process.env.BRAND_ID = 'kibble';
 process.env.BIGCOMMERCE_STORE_HASH = 'kibble-parity-fixture';
 process.env.KIBBLE_STOREFRONT_TOKEN = 'fixture-token';
@@ -28,6 +31,7 @@ const interceptor = require('./kibble-parity-fetch-interceptor.cjs') as {
 	fixtureIdentity: string;
 	operationName: (query: string) => string;
 	responseFor: (query: string, variables: Record<string, unknown>) => any;
+	searchAttestationHeaders: (variables: Record<string, unknown>, data: any) => Record<string, string>;
 };
 globalThis.fetch = originalFetch;
 
@@ -37,6 +41,8 @@ afterAll(() => {
 	else process.env.KIBBLE_PARITY_FIXTURE_PATH = originalFixturePath;
 	if (originalIdentity === undefined) delete process.env.KIBBLE_PARITY_FIXED_DATA_IDENTITY;
 	else process.env.KIBBLE_PARITY_FIXED_DATA_IDENTITY = originalIdentity;
+	if (originalAttestationKey === undefined) delete process.env.KIBBLE_PARITY_ATTESTATION_KEY;
+	else process.env.KIBBLE_PARITY_ATTESTATION_KEY = originalAttestationKey;
 	if (originalBrand === undefined) delete process.env.BRAND_ID; else process.env.BRAND_ID = originalBrand;
 	if (originalStoreHash === undefined) delete process.env.BIGCOMMERCE_STORE_HASH; else process.env.BIGCOMMERCE_STORE_HASH = originalStoreHash;
 	if (originalToken === undefined) delete process.env.KIBBLE_STOREFRONT_TOKEN; else process.env.KIBBLE_STOREFRONT_TOKEN = originalToken;
@@ -67,9 +73,10 @@ describe('official Kibble parity GraphQL fixture', () => {
 		const { KIBBLE_SEARCH_PRODUCTS_QUERY, searchKibbleCatalog } = await import('../../src/lib/brand/reference/kibble-search.server');
 		const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
 			const body = JSON.parse(String(init?.body));
-			return new Response(JSON.stringify({ data: interceptor.responseFor(body.query, body.variables) }), {
+			const data = interceptor.responseFor(body.query, body.variables);
+			return new Response(JSON.stringify({ data }), {
 				status: 200,
-				headers: { 'content-type': 'application/json' },
+				headers: { 'content-type': 'application/json', ...interceptor.searchAttestationHeaders(body.variables, data) },
 			});
 		});
 		const result = await searchKibbleCatalog({ query: 'goodgut', fetchImpl });
@@ -79,9 +86,33 @@ describe('official Kibble parity GraphQL fixture', () => {
 		expect(result.products.map(({ entityId }) => entityId)).toEqual([3023, 3024, 3025]);
 		expect(result.provenance).toMatchObject({
 			source: 'parity-fixture', query: 'goodgut', pageSize: 24,
-			catalogSha256: interceptor.fixtureIdentity,
+			catalogSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+			fixedDataIdentity: interceptor.fixtureIdentity,
 			resultSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
 		});
+		expect(result.provenance.catalogSha256).not.toBe(interceptor.fixtureIdentity);
+	});
+
+	it('does not attest an arbitrary or content-tampered mock under reserved parity environment values', async () => {
+		const { KIBBLE_SEARCH_PRODUCTS_QUERY, searchKibbleCatalog } = await import('../../src/lib/brand/reference/kibble-search.server');
+		const variables = { searchTerm: 'goodgut', first: 24, after: null };
+		const data = interceptor.responseFor(KIBBLE_SEARCH_PRODUCTS_QUERY, variables);
+		const unattested = await searchKibbleCatalog({
+			query: 'goodgut',
+			fetchImpl: vi.fn(async () => new Response(JSON.stringify({ data }), { status: 200, headers: { 'content-type': 'application/json' } })),
+		});
+		expect(unattested.provenance.source).toBe('live-storefront');
+		expect(unattested.provenance).not.toHaveProperty('fixedDataIdentity');
+
+		const headers = interceptor.searchAttestationHeaders(variables, data);
+		const tampered = structuredClone(data);
+		tampered.site.search.searchProducts.products.edges[0].node.name = 'Tampered fixture product';
+		const contentMismatch = await searchKibbleCatalog({
+			query: 'goodgut',
+			fetchImpl: vi.fn(async () => new Response(JSON.stringify({ data: tampered }), { status: 200, headers: { 'content-type': 'application/json', ...headers } })),
+		});
+		expect(contentMismatch.provenance.source).toBe('live-storefront');
+		expect(contentMismatch.provenance).not.toHaveProperty('fixedDataIdentity');
 	});
 
 	it.each(['ProductDetail', 'GetKibbleProductDetail'])('serves %s through the same fixed product identity', (operation) => {

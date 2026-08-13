@@ -114,6 +114,7 @@ describe('Kibble local showcase', () => {
 		});
 		expect(child.NODE_OPTIONS).toContain('--trace-warnings');
 		expect(child.NODE_OPTIONS).toContain('--require=/tmp/interceptor.cjs');
+		expect(child.KIBBLE_PARITY_ATTESTATION_KEY).toBe('');
 	});
 
 	it('treats conventional terminal exits as an intentional local shutdown', () => {

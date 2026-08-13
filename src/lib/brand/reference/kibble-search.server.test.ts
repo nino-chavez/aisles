@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$env/dynamic/private', () => ({
-	env: {
+		env: {
 		BIGCOMMERCE_STORE_HASH: 'kibble-parity-fixture',
 		KIBBLE_STOREFRONT_TOKEN: 'fixture-token',
 		KIBBLE_PARITY_FIXED_DATA_IDENTITY: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
+		KIBBLE_PARITY_ATTESTATION_KEY: 'a'.repeat(64),
 	},
 }));
 
@@ -58,11 +59,26 @@ describe('Kibble read-only Storefront search', () => {
 		expect(result.products).toEqual([expect.objectContaining({ entityId: 3023, name: fixtureProduct.name, price: 34.99 })]);
 		expect(result.products[0]).not.toHaveProperty('salePrice');
 		expect(result.provenance).toMatchObject({
-			source: 'parity-fixture', query: 'goodgut', cursor: null, pageSize: 24,
-			catalogSha256: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
-			fixedDataIdentity: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
+			source: 'live-storefront', query: 'goodgut', cursor: null, pageSize: 24,
+			catalogSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
 			resultSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
 		});
+		expect(result.provenance).not.toHaveProperty('fixedDataIdentity');
+	});
+
+	it('digests validated page catalog content instead of store or fixture environment identity', async () => {
+		const response = (product: typeof fixtureProduct) => new Response(JSON.stringify({
+			data: { site: { search: { searchProducts: { products: { edges: [{ node: product }], pageInfo } } } } },
+		}), { status: 200, headers: { 'content-type': 'application/json' } });
+		const first = await searchKibbleCatalog({ query: 'goodgut', fetchImpl: vi.fn(async () => response(fixtureProduct)) });
+		const changedCatalogOnly = {
+			...fixtureProduct,
+			prices: { ...fixtureProduct.prices, salePrice: { value: 28.5, currencyCode: 'USD' as const } },
+		};
+		const second = await searchKibbleCatalog({ query: 'goodgut', fetchImpl: vi.fn(async () => response(changedCatalogOnly)) });
+		expect(second.provenance.catalogSha256).not.toBe(first.provenance.catalogSha256);
+		// salePrice is deliberately not projected into shopper results.
+		expect(second.provenance.resultSha256).toBe(first.provenance.resultSha256);
 	});
 
 	it('makes no request for an empty query and rejects unbounded input or response shapes', async () => {
