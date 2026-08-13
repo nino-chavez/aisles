@@ -56,6 +56,7 @@ const productCarousel = {
 			{ productId: 'p2', role: 'standard' },
 			{ productId: 'p3', role: 'standard' },
 		],
+		showQuickAdd: false,
 	},
 };
 
@@ -239,6 +240,7 @@ describe('PDP recommendation zones', () => {
 				{ productId: 'p2', role: 'standard' },
 				{ productId: 'p3', role: 'standard' },
 			],
+			showQuickAdd: false,
 		},
 	};
 

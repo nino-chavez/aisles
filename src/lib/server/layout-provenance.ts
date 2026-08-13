@@ -27,7 +27,7 @@ export const LayoutProvenanceSchema = z.object({
 		version: z.string().min(1).nullable(),
 	}).strict(),
 	policyVersion: z.string().min(1),
-	surface: z.enum(['home', 'plp', 'pdp', 'cart', 'checkout', 'search', 'error-404', 'error-empty']),
+	surface: z.enum(['home', 'plp', 'pdp', 'cart', 'checkout', 'search', 'account', 'locator', 'error-404', 'error-empty']),
 	route: z.string().startsWith('/'),
 	persona: z.string().min(1),
 	viewportClass: z.literal(RESPONSIVE_VIEWPORT_CLASS),

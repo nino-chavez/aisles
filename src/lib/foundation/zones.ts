@@ -18,7 +18,17 @@
  * per-zone comments below for what changed and why.
  */
 
-export type Surface = 'home' | 'plp' | 'pdp' | 'cart' | 'checkout' | 'search' | 'error-404' | 'error-empty';
+export type Surface =
+	| 'home'
+	| 'plp'
+	| 'pdp'
+	| 'cart'
+	| 'checkout'
+	| 'search'
+	| 'account'
+	| 'locator'
+	| 'error-404'
+	| 'error-empty';
 
 /**
  * - `singleton` — one zone instance; ID is the family name (e.g., `home.hero`).

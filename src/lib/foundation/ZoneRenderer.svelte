@@ -7,17 +7,9 @@
 	 *
 	 * Hidden semantic: when `resolution.content === null`, render no DOM.
 	 *
-	 * Seven of the nine dispatched components below (`EditorialHero`,
-	 * `LifestylePriceHero`, `ImageGallery`, `ProductCarousel`,
-	 * `CategoryTileGrid`, `ServiceCalloutsGrid`, `ClusterChipRow`) do not
-	 * exist yet; a parallel work stream is adding them under
-	 * `$lib/components/layouts/sections/`. These imports will not resolve
-	 * until that lands — that is expected, not a bug in this file. Prop
-	 * shapes for the six with a bealls-aisles equivalent are ported from
-	 * that equivalent's real prop signature; `image-gallery` has no
-	 * bealls-aisles zone equivalent (it is PDP scaffold there), so its
-	 * prop shape below is inferred and may need adjusting once the real
-	 * component lands.
+	 * Asset-backed sections accept only ProductRef identities. This renderer
+	 * resolves images and destinations from the trusted product catalog; zone
+	 * content cannot carry raw URLs, hrefs, classes, or CSS.
 	 *
 	 * bealls-aisles wraps each item in a `DevZoneBadge` (zone id / source /
 	 * layer overlay for dev mode). Aisles has no equivalent component and
@@ -27,6 +19,8 @@
 
 	import type { ZoneResolution } from './resolve-zone';
 	import type { Product } from '$lib/types';
+	import { materializeZoneComponent, type MaterializedZoneComponent } from './autonomy-zone-materializer';
+	import { parseZoneContent } from './zone-schemas';
 	import EditorialHeader from '$lib/components/layouts/sections/EditorialHeader.svelte';
 	import ProductGrid from '$lib/components/layouts/sections/ProductGrid.svelte';
 	import EditorialHero from '$lib/components/layouts/sections/EditorialHero.svelte';
@@ -46,24 +40,21 @@
 		products?: Product[];
 	} = $props();
 
-	function resolveProducts(refs: Array<{ productId: string }> = []): Product[] {
-		return refs
-			.map((ref) => products.find((p) => p.id === ref.productId || String(p.entityId) === ref.productId))
-			.filter((p): p is Product => p !== undefined);
-	}
-
 	type BlockContent = { component: string; props: Record<string, unknown> };
 
 	function isBlockContent(c: unknown): c is BlockContent {
 		return typeof c === 'object' && c !== null && 'component' in c && 'props' in c;
 	}
 
-	let items = $derived.by((): BlockContent[] => {
-		if (resolution.content === null || resolution.content === undefined) return [];
-		if (Array.isArray(resolution.content)) {
-			return resolution.content.filter(isBlockContent);
-		}
-		return isBlockContent(resolution.content) ? [resolution.content] : [];
+	let items = $derived.by((): MaterializedZoneComponent[] => {
+		const parsed = parseZoneContent(resolution.family, resolution.content);
+		if (!parsed.ok || parsed.content === null) return [];
+		const rawItems = Array.isArray(parsed.content)
+			? parsed.content.filter(isBlockContent)
+			: isBlockContent(parsed.content) ? [parsed.content] : [];
+		return rawItems
+			.map((item) => materializeZoneComponent(item, products))
+			.filter((item): item is MaterializedZoneComponent => item !== null);
 	});
 </script>
 
@@ -75,64 +66,20 @@
 			body={item.props.body as string}
 		/>
 	{:else if item.component === 'product-grid'}
-		{@const gridProducts = resolveProducts((item.props.products as Array<{ productId: string }>) ?? [])}
-		{#if gridProducts.length > 0}
-			<ProductGrid
-				columns={item.props.columns as 2 | 3 | 4}
-				products={gridProducts}
-				imageRatio={item.props.imageRatio as 'landscape' | 'square'}
-				showDescription={item.props.showDescription as boolean}
-				showSpecs={item.props.showSpecs as boolean}
-				showQuickAdd={item.props.showQuickAdd as boolean}
-			/>
-		{/if}
+		<ProductGrid {...item.props} />
 	{:else if item.component === 'editorial-hero'}
-		<EditorialHero
-			image={item.props.image as string}
-			eyebrow={item.props.eyebrow as string | undefined}
-			headline={item.props.headline as string}
-			body={item.props.body as string | undefined}
-			ctaLabel={item.props.ctaLabel as string | undefined}
-			ctaHref={item.props.ctaHref as string | undefined}
-			textPosition={item.props.textPosition as 'left' | 'center' | 'right'}
-		/>
+		<EditorialHero {...item.props} />
 	{:else if item.component === 'lifestyle-price-hero'}
-		<LifestylePriceHero
-			image={item.props.image as string}
-			category={item.props.category as string}
-			priceLabel={item.props.priceLabel as string}
-			ctaLabel={item.props.ctaLabel as string}
-			ctaHref={item.props.ctaHref as string}
-		/>
+		<LifestylePriceHero {...item.props} />
 	{:else if item.component === 'image-gallery'}
-		<ImageGallery
-			images={item.props.images as Array<{ url: string; alt: string }>}
-			productName={(item.props.productName as string) ?? ''}
-		/>
+		<ImageGallery {...item.props} />
 	{:else if item.component === 'product-carousel'}
-		{@const carouselProducts = resolveProducts((item.props.products as Array<{ productId: string }>) ?? [])}
-		{#if carouselProducts.length > 0}
-			<ProductCarousel
-				title={item.props.title as string}
-				products={carouselProducts}
-				showQuickAdd={item.props.showQuickAdd as boolean | undefined}
-			/>
-		{/if}
+		<ProductCarousel {...item.props} />
 	{:else if item.component === 'category-tile-grid'}
-		<CategoryTileGrid
-			sectionLabel={item.props.sectionLabel as string | undefined}
-			columns={item.props.columns as 2 | 3 | 4 | 5}
-			tiles={item.props.tiles as Array<{ label: string; image: string; href: string; description?: string }>}
-		/>
+		<CategoryTileGrid {...item.props} />
 	{:else if item.component === 'service-callouts-grid'}
-		<ServiceCalloutsGrid
-			columns={item.props.columns as 3 | 4}
-			callouts={item.props.callouts as Array<{ icon: string; label: string; body?: string }>}
-		/>
+		<ServiceCalloutsGrid {...item.props} />
 	{:else if item.component === 'cluster-chip-row'}
-		<ClusterChipRow
-			sectionLabel={item.props.sectionLabel as string | undefined}
-			chips={item.props.chips as Array<{ label: string; href: string }>}
-		/>
+		<ClusterChipRow {...item.props} />
 	{/if}
 {/each}

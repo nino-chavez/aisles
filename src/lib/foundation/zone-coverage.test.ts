@@ -1,88 +1,157 @@
-/** Cross-repository maintenance gate. Runtime code never reads the sibling checkout. */
-
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import * as ts from 'typescript';
+import { parse } from 'svelte/compiler';
+import { BRAND_IDS } from '$lib/brand/config';
 import { getFallback } from './fallbacks';
-import { ZONE_CATALOG, ZONE_CATALOG_IDS, SURFACE_CATALOG } from './zone-catalog';
+import { ZONE_CATALOG, ZONE_CATALOG_IDS, SURFACE_ROUTE_MAPPINGS } from './zone-catalog';
+import { AISLES_RENDERER_CONTRACT_SNAPSHOT, AISLES_ZONE_REGISTRY_SNAPSHOT, BEALLS_ZONE_SNAPSHOT } from './zone-coverage-snapshot';
 import { ZoneSchemas } from './zone-schemas';
 import { ZONE_IDS, ZONES } from './zones';
 
-const thisDirectory = dirname(fileURLToPath(import.meta.url));
-const beallsZonesPath = resolve(thisDirectory, '../../../../../../bealls-aisles/src/lib/foundation/zones.ts');
-const aislesRoutesPath = resolve(thisDirectory, '../..', 'routes');
+const foundationDirectory = dirname(fileURLToPath(import.meta.url));
+const sourceRoot = resolve(foundationDirectory, '../../..');
+const routesRoot = resolve(sourceRoot, 'src/routes');
 
-function sourceFiles(directory: string): string[] {
+function filesBelow(directory: string): string[] {
 	return readdirSync(directory).flatMap((entry) => {
 		const path = resolve(directory, entry);
-		return statSync(path).isDirectory() ? sourceFiles(path) : [path];
+		return statSync(path).isDirectory() ? filesBelow(path) : [path];
 	});
 }
 
-function sourceZoneDefinitions(path: string): Array<{ zoneId: string; surface: string; multiplicity: string; maxIndex?: number; maxItems?: number; engineComposable: boolean; adminAuthorable: boolean }> {
-	const source = readFileSync(path, 'utf8');
-	return [...source.matchAll(/^\s*'([^']+)':\s*\{\s*surface:\s*'([^']+)',\s*multiplicity:\s*'([^']+)'(?:,\s*maxIndex:\s*(\d+))?(?:,\s*maxItems:\s*(\d+))?,\s*engineComposable:\s*(true|false),\s*adminAuthorable:\s*(true|false)\s*\}/gm)]
-		.map((match) => ({
-			zoneId: match[1], surface: match[2], multiplicity: match[3],
-			...(match[4] === undefined ? {} : { maxIndex: Number(match[4]) }),
-			...(match[5] === undefined ? {} : { maxItems: Number(match[5]) }),
-			engineComposable: match[6] === 'true', adminAuthorable: match[7] === 'true',
-		}))
-		.sort((a, b) => a.zoneId.localeCompare(b.zoneId));
+function resolverCallsInTypeScriptRoutes(): string[] {
+	const calls: string[] = [];
+	for (const path of filesBelow(routesRoot).filter((candidate) => candidate.endsWith('.ts'))) {
+		const source = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+		const visit = (node: ts.Node): void => {
+			if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && ['resolveZone', 'resolveZoneAsync'].includes(node.expression.text)) {
+				calls.push(`${path}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1}`);
+			}
+			ts.forEachChild(node, visit);
+		};
+		visit(source);
+	}
+	return calls;
 }
 
-describe('zone catalog coverage', () => {
-	it('matches Aisles source exactly and records every Aisles zone as declared/schema-covered', () => {
-		expect([...ZONE_IDS].sort()).toEqual(ZONE_CATALOG_IDS.filter((id) => ZONE_CATALOG[id].aislesRuntimeDecision === 'defined'));
+function zoneEvidenceInSvelteRoutes(): { resolverCalls: string[]; rendererTags: string[] } {
+	const evidence = { resolverCalls: [] as string[], rendererTags: [] as string[] };
+	for (const path of filesBelow(routesRoot).filter((candidate) => candidate.endsWith('.svelte'))) {
+		const ast = parse(readFileSync(path, 'utf8'), { filename: path, modern: true });
+		const seen = new WeakSet<object>();
+		const visit = (node: unknown): void => {
+			if (!node || typeof node !== 'object' || seen.has(node)) return;
+			seen.add(node);
+			const record = node as Record<string, unknown>;
+			if (record.type === 'CallExpression') {
+				const callee = record.callee as { type?: string; name?: string } | undefined;
+				if (callee?.type === 'Identifier' && ['resolveZone', 'resolveZoneAsync'].includes(callee.name ?? '')) evidence.resolverCalls.push(path);
+			}
+			if (record.type === 'Component' && record.name === 'ZoneRenderer') evidence.rendererTags.push(path);
+			for (const value of Object.values(record)) {
+				if (Array.isArray(value)) value.forEach(visit);
+				else visit(value);
+			}
+		};
+		visit(ast);
+	}
+	return evidence;
+}
+
+describe('portable zone catalog coverage', () => {
+	it('uses the imported Aisles registry as the current source of truth', () => {
+		expect(Object.entries(ZONES).map(([zoneId, metadata]) => ({ zoneId, ...metadata }))).toEqual(
+			AISLES_ZONE_REGISTRY_SNAPSHOT,
+		);
+		const aislesCatalogIds = ZONE_CATALOG_IDS.filter((zoneId) => ZONE_CATALOG[zoneId].implementation.aisles);
+		expect(aislesCatalogIds).toEqual(ZONE_IDS);
 		for (const zoneId of ZONE_IDS) {
-			const entry = ZONE_CATALOG[zoneId];
-			expect(entry.schemaStatus, zoneId).toBe('explicit');
-			expect(entry.fallbackStatus, zoneId).not.toBe('external-reference');
-			expect(entry.runtimeAdoption, zoneId).toBe('not-adopted');
-			expect(entry.definitions.find((definition) => definition.origin === 'aisles')).toMatchObject({
-				surface: ZONES[zoneId].surface,
-				multiplicity: ZONES[zoneId].multiplicity,
-				engineComposable: ZONES[zoneId].engineComposable,
-				adminAuthorable: ZONES[zoneId].adminAuthorable,
+			const definition = ZONE_CATALOG[zoneId].definitions.find(({ repository }) => repository === 'aisles');
+			expect(definition).toEqual({ repository: 'aisles', ...ZONES[zoneId] });
+			expect(Object.prototype.hasOwnProperty.call(ZoneSchemas, zoneId)).toBe(true);
+		}
+	});
+
+	it('consumes the checked-in Bealls snapshot without a sibling checkout', () => {
+		const snapshotIds = BEALLS_ZONE_SNAPSHOT.zones.map(({ zoneId }) => zoneId);
+		expect(ZONE_CATALOG_IDS).toEqual(snapshotIds);
+		expect(new Set(snapshotIds).size).toBe(snapshotIds.length);
+		expect(BEALLS_ZONE_SNAPSHOT.source.ref).toMatch(/^[a-f0-9]{40}$/);
+		for (const file of BEALLS_ZONE_SNAPSHOT.source.files) {
+			expect(file.path).not.toMatch(/^\//);
+			expect(file.sha256).toMatch(/^[a-f0-9]{64}$/);
+		}
+	});
+
+	it('pins the reviewed Aisles renderer and layout contracts behind materializable=yes', () => {
+		for (const file of AISLES_RENDERER_CONTRACT_SNAPSHOT.files) {
+			const digest = createHash('sha256').update(readFileSync(resolve(sourceRoot, file.path))).digest('hex');
+			expect(digest, file.path).toBe(file.sha256);
+		}
+	});
+
+	it('records current Aisles route facts from TypeScript AST evidence', () => {
+		expect(resolverCallsInTypeScriptRoutes()).toEqual([]);
+		expect(zoneEvidenceInSvelteRoutes()).toEqual({ resolverCalls: [], rendererTags: [] });
+		expect(existsSync(resolve(foundationDirectory, 'ZoneRenderer.svelte'))).toBe(true);
+		for (const zoneId of ZONE_IDS) {
+			expect(ZONE_CATALOG[zoneId].implementation.aisles).toMatchObject({
+				declared: true,
+				schemaValidatable: true,
+				rendererMaterializable: 'yes',
+				routeResolved: false,
+				routeRendered: false,
 			});
 		}
 	});
 
-	it('does not mislabel schema coverage as shopper-route adoption', () => {
-		const routeSource = sourceFiles(aislesRoutesPath)
-			.filter((path) => /\.(?:ts|svelte)$/.test(path))
-			.map((path) => readFileSync(path, 'utf8')).join('\n');
-		expect(routeSource).not.toMatch(/\bresolveZone\s*\(|\bZoneRenderer\b/);
-	});
-
-	it('fails when Bealls adds or removes a zone without an explicit union-catalog decision', () => {
-		const sourceDefinitions = sourceZoneDefinitions(beallsZonesPath);
-		const sourceIds = sourceDefinitions.map(({ zoneId }) => zoneId);
-		const catalogIds = ZONE_CATALOG_IDS;
-		expect(sourceIds).toEqual(catalogIds);
-		expect(sourceIds).toHaveLength(28);
-		expect(ZONE_IDS).toHaveLength(17);
-		for (const source of sourceDefinitions) {
-			const definition = ZONE_CATALOG[source.zoneId].definitions.find((candidate) => candidate.origin === 'bealls-aisles');
-			expect(definition, source.zoneId).toMatchObject({
-				surface: source.surface, multiplicity: source.multiplicity,
-				engineComposable: source.engineComposable, adminAuthorable: source.adminAuthorable,
-				...(source.maxIndex === undefined ? {} : { maxIndex: source.maxIndex }),
-				...(source.maxItems === undefined ? {} : { maxItems: source.maxItems }),
-			});
-		}
-	});
-
-	it('keeps every fallback decision explicit and schema-valid when visible', () => {
+	it('derives fallback status for every current brand and validates visible content', () => {
 		for (const zoneId of ZONE_IDS) {
-			const content = getFallback(zoneId, 'haven');
-			if (content !== null) expect(ZoneSchemas[zoneId].safeParse(content).success, zoneId).toBe(true);
+			const recorded = ZONE_CATALOG[zoneId].fallbackByAislesBrand;
+			expect(Object.keys(recorded ?? {})).toEqual(BRAND_IDS);
+			for (const brandId of BRAND_IDS) {
+				const fallback = getFallback(zoneId, brandId);
+				expect(recorded?.[brandId]).toBe(fallback === null ? 'hidden' : 'content');
+				if (fallback !== null) expect(ZoneSchemas[zoneId].safeParse(fallback).success, `${brandId}:${zoneId}`).toBe(true);
+			}
 		}
 	});
 
-	it('retains source surface identity and does not alias Home Centric category to plp', () => {
-		expect(SURFACE_CATALOG.find((entry) => entry.surfaceId === 'category')).toMatchObject({ aislesEquivalent: null });
-		expect(SURFACE_CATALOG.find((entry) => entry.surfaceId === 'style-guide')).toMatchObject({ aislesEquivalent: null });
+	it('retains per-brand Bealls fallback decisions from the pinned registry sources', () => {
+		for (const zoneId of ZONE_CATALOG_IDS) {
+			const recorded = ZONE_CATALOG[zoneId].fallbackByBeallsBrand;
+			expect(Object.keys(recorded ?? {}), zoneId).toEqual(['bealls', 'beallsflorida', 'homecentric']);
+		}
+		expect(ZONE_CATALOG['home.hero'].fallbackByBeallsBrand).toEqual({
+			bealls: 'content', beallsflorida: 'content', homecentric: 'content',
+		});
+		expect(ZONE_CATALOG['pdp.below-recs'].fallbackByBeallsBrand).toEqual({
+			bealls: 'content', beallsflorida: 'content', homecentric: 'hidden',
+		});
+		expect(ZONE_CATALOG['account.welcome'].fallbackByBeallsBrand).toEqual({
+			bealls: 'hidden', beallsflorida: 'hidden', homecentric: 'hidden',
+		});
+	});
+
+	it('separates route paths from normalized category and style-guide policy surfaces', () => {
+		const beallsCategory = SURFACE_ROUTE_MAPPINGS.find((mapping) => mapping.repository === 'bealls-aisles' && mapping.routePath === '/category/[slug]');
+		expect(beallsCategory).toMatchObject({
+			zoneSurfaceId: 'plp',
+			policySurfaceByBrand: { bealls: 'plp', beallsflorida: 'plp', homecentric: 'category' },
+		});
+		const beallsStyleGuide = SURFACE_ROUTE_MAPPINGS.find((mapping) => mapping.repository === 'bealls-aisles' && mapping.routePath === '/style-guide');
+		expect(beallsStyleGuide).toMatchObject({ zoneSurfaceId: null });
+		const aislesStyleGuide = SURFACE_ROUTE_MAPPINGS.find((mapping) => mapping.repository === 'aisles' && mapping.routePath === '/style-guide');
+		expect(Object.values(aislesStyleGuide?.policySurfaceByBrand ?? {})).toEqual(BRAND_IDS.map(() => null));
+	});
+
+	it('retains explicit per-zone Bealls implementation facts from the pinned sources', () => {
+		expect(ZONE_CATALOG['home.hero'].implementation.beallsAisles).toMatchObject({ routeResolved: true, routeRendered: true, rendererMaterializable: 'yes' });
+		expect(ZONE_CATALOG['home.featured-row'].implementation.beallsAisles).toMatchObject({ routeResolved: false, routeRendered: false, rendererMaterializable: 'partial' });
+		expect(ZONE_CATALOG['plp.empty-state'].implementation.beallsAisles).toMatchObject({ rendererMaterializable: 'no' });
 	});
 });

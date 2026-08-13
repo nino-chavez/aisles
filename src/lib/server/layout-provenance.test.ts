@@ -101,6 +101,22 @@ describe('layout provenance and cache identity', () => {
 		expect(LayoutProvenanceSchema.safeParse({ ...provenance, viewportClass: 'mobile' }).success).toBe(false);
 	});
 
+	it.each([
+		['account', '/account/subscriptions'],
+		['locator', '/store-locator'],
+	] as const)('records the typed %s surface without changing legacy row semantics', (surface, route) => {
+		const provenance = build({ surface, route });
+		expect(provenance).toMatchObject({
+			surface,
+			route,
+			reference: { status: 'uncontracted_legacy', id: null, version: null },
+		});
+	});
+
+	it.each(['style-guide', 'category', 'unknown', '__proto__'])('rejects unknown surface %s', (surface) => {
+		expect(LayoutProvenanceSchema.safeParse({ ...build(), surface }).success).toBe(false);
+	});
+
 	it('builds contracted Preserve provenance only from compiled reference policy', () => {
 		const decision = getContractSurfaceDecision('kibble', 'home');
 		if (decision.mode !== 'reference-preserve') throw new Error('expected Preserve');

@@ -337,6 +337,8 @@ const surfaceSet = new Set<string>([
 	'cart',
 	'checkout',
 	'search',
+	'account',
+	'locator',
 	'error-404',
 	'error-empty',
 ] satisfies Surface[]);

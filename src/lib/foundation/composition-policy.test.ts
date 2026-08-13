@@ -115,6 +115,56 @@ describe('autonomy presets', () => {
 });
 
 describe('hierarchy compilation', () => {
+	it.each(['account', 'locator'] as const)('compiles the typed %s surface without inventing a zone family', (surface) => {
+		const surfacePolicy = {
+			preset: 'preserve' as const,
+			capabilities: [] as const,
+			decisionMode: 'fixed' as const,
+			publicationMode: 'holdout' as const,
+			allowedComponentVariantIds: [] as const,
+			allowedCssVariantIds: [] as const,
+			allowedCopyVariantIds: [] as const,
+		};
+		const surfaceBrand: BrandCompositionPolicy = {
+			...brand,
+			surfaces: { [surface]: surfacePolicy },
+		};
+		const effective = compileCompositionPolicy({
+			organizationId: organization.organizationId,
+			brandId: surfaceBrand.brandId,
+			surface,
+			registry: registry(organization, surfaceBrand),
+		});
+
+		expect(effective.provenance).toMatchObject({ surface, zoneId: null });
+		expect(effective.decisionMode).toBe('fixed');
+	});
+
+	it('does not make a Bealls-only account zone executable in Aisles', () => {
+		const accountBrand: BrandCompositionPolicy = {
+			...brand,
+			surfaces: {
+				account: {
+					preset: 'preserve',
+					capabilities: [],
+					decisionMode: 'fixed',
+					publicationMode: 'holdout',
+					allowedComponentVariantIds: [],
+					allowedCssVariantIds: [],
+					allowedCopyVariantIds: [],
+					zoneOverrides: { 'account.welcome': {} },
+				} as never,
+			},
+		};
+
+		expect(() => compileCompositionPolicy({
+			organizationId: organization.organizationId,
+			brandId: accountBrand.brandId,
+			surface: 'account',
+			registry: registry(organization, accountBrand),
+		})).toThrow(/unknown zone override "account\.welcome" for surface "account"/);
+	});
+
 	it('intersects and narrows organization, brand, surface, and zone authority', () => {
 		const effective = compileHome({ zoneId: 'home.hero' });
 
