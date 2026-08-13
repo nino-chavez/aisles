@@ -36,6 +36,14 @@
 		return () => window.removeEventListener('picks-updated', handlePicksUpdate);
 	});
 
+	// Svelte's body class directive is not emitted for this root layout build.
+	// Own the page-level Preserve surface explicitly and remove it on teardown.
+	$effect(() => {
+		const className = 'kibble-reference-body';
+		document.body.classList.toggle(className, data.chromeMode === 'reference');
+		return () => document.body.classList.remove(className);
+	});
+
 	// Observe dashboard uses its own chrome-less shell
 	let isObserve = $derived($page.url.pathname.startsWith('/observe'));
 
@@ -121,8 +129,6 @@
 		<link href={data.brand.googleFontsUrl} rel="stylesheet" />
 	{/if}
 </svelte:head>
-
-<svelte:body class:kibble-reference-body={data.chromeMode === 'reference'} />
 
 <div style={themeStyle}>
 	{#if isObserve}
