@@ -26,7 +26,7 @@
 	let rehearsalPersona = $state<KibbleInspectorPersona | null>(null);
 	let rehearsalQueued = $state(false);
 	let rehearsalError = $state<string | null>(null);
-	let rehearsalTimeout: ReturnType<typeof setTimeout> | null = null;
+	let rehearsalGeneration = 0;
 	const safeInspectorInference = $derived(sanitizeInspectorInference(inspector.inference));
 	const currentInference = $derived(liveInference ?? safeInspectorInference);
 	const syntheticScenario = $derived.by(() => {
@@ -52,15 +52,12 @@
 				? detail.inference
 				: detail;
 			if (!isKibbleInspectorInference(candidate)) return;
-			rehearsalQueued = false;
-			if (rehearsalTimeout) clearTimeout(rehearsalTimeout);
-			rehearsalTimeout = null;
 			liveInference = sanitizeInspectorInference(candidate);
 		};
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
 		return () => {
+			rehearsalGeneration += 1;
 			window.removeEventListener('aisles-inference-update', onInferenceUpdate);
-			if (rehearsalTimeout) clearTimeout(rehearsalTimeout);
 		};
 	});
 
@@ -76,7 +73,7 @@
 		return 'waiting for a signal';
 	};
 	const rehearsalStatus = $derived(describeKibbleRehearsalStatus(rehearsalPersona, livePreview, rehearsalQueued, rehearsalError));
-	const sendRehearsalSignal = (signal: (typeof rehearsalSignals)[number]) => {
+	const sendRehearsalSignal = async (signal: (typeof rehearsalSignals)[number]) => {
 		const emitter = getEmitter();
 		if (!emitter) {
 			rehearsalPersona = null;
@@ -84,16 +81,20 @@
 			rehearsalError = 'Signal emitter unavailable; no event was sent.';
 			return;
 		}
-		if (rehearsalTimeout) clearTimeout(rehearsalTimeout);
+		const generation = ++rehearsalGeneration;
 		rehearsalError = null;
 		rehearsalPersona = signal.persona;
 		rehearsalQueued = true;
-		rehearsalTimeout = setTimeout(() => {
+		try {
+			await emitter.emitConfirmed('nav.search', { query: signal.query });
+			if (generation !== rehearsalGeneration) return;
 			rehearsalQueued = false;
-			rehearsalError = `Signal ${signal.persona} was not confirmed; no new decision was applied.`;
-			rehearsalTimeout = null;
-		}, 10_000);
-		emitter.emit('nav.search', { query: signal.query });
+		} catch (error) {
+			if (generation !== rehearsalGeneration) return;
+			rehearsalQueued = false;
+			const reason = error instanceof Error ? error.message : 'Signal confirmation failed.';
+			rehearsalError = `Signal ${signal.persona} was not confirmed. ${reason}`;
+		}
 	};
 	const viewChangedShelf = (event: MouseEvent) => {
 		event.preventDefault();
