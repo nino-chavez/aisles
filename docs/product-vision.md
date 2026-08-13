@@ -16,6 +16,25 @@ This tension — invisible to the shopper, transparent to the operator — is th
 
 Transparency is only meaningful if the system's behavior is *explainable*, and explainability is only possible because the AI operates under a formal correctness invariant: every layout the AI produces must be an element of a finite, typed set of valid configurations defined in code. This invariant (`∀I, ∀P, f(I, P) → S ∈ V`) is what makes the Observe dashboard possible — you can surface "which component the AI chose and why" only if the components come from a known vocabulary. Without the vocabulary constraint, the system would be a black box even to its own operators. See `docs/decisions/004-vocabulary-constraint-invariant.md` for the full rationale and enforcement.
 
+## Current merchant-boundary capability
+
+The generic layout engine is not the whole product boundary. For an external
+reference storefront, Aisles now resolves authority through organization, brand,
+route, surface, and zone policy. The Kibble implementation covers Preserve on
+Home, product listing, search, and error surfaces. Product detail is limited to
+development review. Cart, account, subscriptions, and checkout use source-native
+unavailable shells, so preserving their anatomy never becomes a claim that the
+commerce service works.
+
+The Kibble contract records 28 zone families as 36 exact expanded identities.
+Eleven identities use content-backed native adapters; 25 are Trusted Hidden. A
+15-route × three-viewport Kibble harness and a 90-cell Bealls internal regression
+harness protect contract and screenshot mechanics. They do not establish approved
+visual parity, deployed behavior, or functional commerce. Cold-review repairs,
+human route approval, PDP publication, runtime policy writes and audit storage,
+migration/deployment/live-provider verification, and Bealls external-reference
+contracts remain open.
+
 ### Speed Over Accuracy: The Fail-Fast Principle
 
 A slightly wrong layout served in 100ms is recoverable. A perfect layout served in 8 seconds is a bounce.
@@ -45,7 +64,7 @@ Aisles ships with three built-in configurations that demonstrate the current gen
 
 The configurations share no product data, no BC channel, and no visual identity. They do share the inference engine, the layout component vocabulary, the enrichment pipeline, and the prompt construction logic. `src/lib/brand/config.ts` is current renderer configuration, not a complete merchant design contract.
 
-This supports reuse for brands designed around the shared renderer. It does not establish that an unrelated merchant can keep an existing storefront through theme configuration alone. A contract-bound Kibble Preserve path now exists locally for home, product-listing, and error surfaces. The required route coverage, visual acceptance, deployment evidence, and merchant control surface are incomplete. The boundary and remaining work are described in the [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md) and its [Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
+This supports reuse for brands designed around the shared renderer. It does not establish that an unrelated merchant can keep an existing storefront through theme configuration alone. Kibble is the current external-reference case: Preserve covers Home, product listing, search, and error surfaces; PDP is development review only; and cart, account, subscriptions, and checkout are source-native unavailable shells. The contract and regression harnesses cover route anatomy, zone authority, provenance, and screenshot mechanics. Visual acceptance, PDP publication, runtime policy writes and audit storage, migration/deployment/live-provider verification, and Bealls external-reference contracts remain incomplete. The boundary and remaining work are described in the [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md) and its [Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
 
 ---
 

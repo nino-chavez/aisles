@@ -37,10 +37,10 @@ fixture or contract cannot pass this gate.
 
 ### Local fixed-data rehearsal
 
-This repository provides one local command for the Home comparison. It starts
-the canonical `bc-subscriptions` storefront and the Aisles candidate as two
-separate Vite processes, supplies both with the source-owned fixed catalog, and
-then invokes the 390px, 768px, and 1280px gate.
+This repository provides one local command for the 15-route Kibble matrix. It
+starts the canonical `bc-subscriptions` storefront and the Aisles candidate as
+two separate Vite processes, supplies both with the source-owned fixed catalog,
+and invokes the 390px, 768px, and 1280px gate for every named route.
 
 ```bash
 npm run test:kibble-parity:local
@@ -62,31 +62,41 @@ local deterministic data URLs, and the pixel gate still compares their rendered
 positions and dimensions.
 
 Before either endpoint starts, the runner hashes the canonical seed fixture and
-every product-detail dependency classified as adapted, then checks those values
-against the pinned contract. The dependency closure also classifies intentionally
-excluded commerce dependencies and framework or generated imports. The gate then
-checks the rendered markers before it captures screenshots. Evidence is written
-to `validation/kibble-parity-local/`.
+every adapted dependency in the contracted route closures, then checks those
+values against the pinned contract. The dependency closures also classify
+intentionally excluded commerce dependencies and framework or generated imports.
+The gate then checks the rendered markers before it captures screenshots.
+Evidence is written to `validation/kibble-parity-local/`.
 
-Home is the current default. A later integration can add routes without changing
-the server mechanism:
+The default matrix covers Home, product listing, PDP review, search and empty
+search, cart, account, three subscription routes, four checkout routes, and the
+404 surface. The routes are intentionally allowed to differ where Aisles must
+withhold unavailable commerce behavior. Product detail remains review-only; cart,
+account, subscriptions, and checkout are source-native unavailable shells.
+
+For a narrower local diagnosis, override the default route matrix:
 
 ```bash
 KIBBLE_PARITY_LOCAL_ROUTES='[{"id":"home","path":"/"},{"id":"plp","path":"/category/dog-food"}]' \
 npm run test:kibble-parity:local
 ```
 
-The route matrix only runs surfaces already contracted and rendered by both
+The route matrix runs surfaces that are contracted and rendered by both
 repositories. A product-detail comparison remains review evidence until its
-visual and human approval gates pass; it does not authorize publication. Cart,
-checkout, and other uncontracted surfaces remain outside this evidence.
+visual and human approval gates pass; it does not authorize publication. The
+unavailable shells prove only their anatomy, provenance, dependency
+classification, and screenshot mechanics. They do not prove cart, account,
+subscription, or checkout functionality.
 
 The local command defaults to a zero pixel difference and zero structural
 tolerance. Supplying either tolerance through environment variables makes the
 run a non-release rehearsal; record the reason and obtain the separate approval
 required by the main gate before treating it as parity evidence.
 
-### Fixed-data results
+### Historical Home diagnostic, not a matrix approval
+
+The observations below record an earlier single-Home diagnostic. They are not a
+claim about the current 15-route matrix and do not supply a final pixel result.
 
 The runner initializes the local Cloudflare binding with an inert
 `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` value, while its

@@ -18,12 +18,12 @@ deployed, and no database migration has been applied.
 | 0 — correct the record | Integrated in Aisles and Bealls Aisles | Publish the amended claims with the code |
 | 1 — policy compiler | Implemented in Aisles; Bealls-family policies record observed legacy behavior | Production adoption beyond the Kibble slice |
 | 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
-| 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, fallbacks, PDP dependency closure, and safe bundle projection implemented | Approved route-by-route visual comparison |
-| 4 — Kibble routes | Home, product listing, and error surfaces render the Preserve path locally; Home now applies bounded signal-informed product ranking without changing its reference shell; product detail is implemented for development review only | Approve product-detail visual parity and human acceptance before publication; complete search, cart, and checkout contracts |
+| 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, fallbacks, and classified route dependencies implemented. The contract records the exact 28 zone families and 36 expanded Bealls identities: 11 content-backed Kibble-native adapters and 25 Trusted Hidden terminals. | Final cold-review repairs and approved route-by-route visual comparison |
+| 4 — Kibble routes | Home, product listing, search, and error surfaces render Preserve locally. Product detail is implemented for development review only. Cart, account, subscriptions, and checkout render source-native unavailable shells rather than functional commerce. Home applies bounded signal-informed product ranking without changing its reference shell. | Approve product-detail publication and route-by-route human visual review; do not treat unavailable shells as functional commerce |
 | 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented; Kibble Home uses the approved deterministic rules path for `rank_products` and `select_products` | Enable model decisions only when a contracted model-backed zone is approved |
 | 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, actual Home and product-listing Preserve records, and a Home decision trace implemented | Apply the migration and verify the deployed runtime |
-| 7 — executable parity | A real zero-tolerance Home comparison now runs at 390, 768, and 1280 pixels. Reference colors, type, heading metrics, content geometry, and header geometry match. The gate still fails on named truth and accessibility differences. | Approve explicit masks and tolerances, then complete the named route matrix and human review |
-| 8 — Bealls adoption | Separate brand policies and versioned internal renderer contracts are integrated for Bealls, Bealls Florida, and Home Centric. All remain explicitly `uncontracted` for external-reference preservation. | Add approved external-reference contracts and visual gates before making a preservation claim |
+| 7 — executable parity | The local Kibble harness covers 15 named routes at 390, 768, and 1280 pixels. It checks pinned provenance, dependency classifications, structure, and screenshots. Mechanical evidence is not an approval. The Bealls internal regression harness covers its 90 brand/route/viewport cells. | Complete cold-review repairs, then obtain route-by-route human visual approval; no masks or tolerances are approved by this record |
+| 8 — Bealls adoption | Separate brand policies and versioned internal renderer contracts are integrated for Bealls, Bealls Florida, and Home Centric. The 90-cell internal regression harness protects that implementation. All remain explicitly `uncontracted` for external-reference preservation. | Add approved external-reference contracts and visual gates before making a preservation claim |
 | 9 — merchant control | A dedicated, authenticated, read-only Autonomy Sandbox is integrated in `aisles-admin`. It simulates organization → brand → surface → zone narrowing without loading or publishing runtime policy. | Define the runtime-owned versioned read/write contract, tenant-safe storage, audit trail, and publication workflow |
 
 The current Kibble implementation is evidence that the new boundary can be
@@ -409,16 +409,18 @@ Aisles does not implement.
 
 ### Phase 4: Integrate Kibble routes
 
-Render ordered reference zones on the Kibble home surface first. Product listing
-enters Preserve only after its canonical breadcrumbs, sort controls, cursor
-pagination, and load-more behavior pass the same contract gate.
-Product detail now has a deterministic catalog-only implementation pinned to
+Kibble route coverage is now explicit. Home, product listing, search, and error
+surfaces use Preserve. Product listing includes canonical breadcrumbs, trusted
+sort controls, and cursor pagination. Cart, account, subscriptions, and checkout
+use source-native unavailable shells: they preserve the source route's anatomy
+without exposing purchase, account, subscription, or checkout behavior.
+
+Product detail has a deterministic catalog-only implementation pinned to
 Kibble contract `1.5.0` and canonical source
 `ef122b8e17b9eb0b327c9d42491c44a61577ead4`. Its publication policy remains
 `approval_required` while visual approval is open. Development builds may render
 the fixed review surface, but live builds fail into the Preserve error shell.
-Home and product-listing cards remain non-links until that acceptance and policy
-gate moves to approved and live.
+No route is authorized to present these shells as functional commerce.
 Home's ranked-products zone now uses request and session signals to infer one of
 the four existing personas. Deterministic rules may rank and select only the
 merchant-provided candidate shelf. Header, hero, category module, service proof,
@@ -497,11 +499,11 @@ identity that does not match the active deployment.
 
 ### Phase 7: Make parity executable
 
-Add desktop and mobile reference fixtures, component-tree assertions, computed
-token checks, and screenshot comparisons. Force failure and cache-hit paths
-through the same suite. Include header actions, mobile navigation, Kibble-aware
-search and empty states, and fixed-shell server rendering in the acceptance
-matrix; a home-only screenshot is not route parity.
+The local Kibble harness now runs the 15 named route paths at 390px, 768px, and
+1280px. It verifies provenance, classified dependencies, structure, and
+screenshots. The separate Bealls harness covers 90 internal brand/route/viewport
+cells. Neither harness grants visual approval: final cold-review repairs and
+route-by-route human review remain release gates.
 
 ### Phase 8: Adopt the contract in `bealls-aisles`
 
@@ -533,9 +535,9 @@ not merge, publication, deployment, migration, or human acceptance.
 | B | `aisles`: README and existing documentation amendments | Implemented and integrated |
 | C | `bealls-aisles`: scope corrections, policies, and internal renderer contracts | Implemented and integrated; external-reference state remains `uncontracted` |
 | D | `aisles`: Kibble reference components and CSS | Implemented and integrated; source pinned to a local canonical commit |
-| E | `aisles`: Kibble route and renderer integration | Home, product listing, and errors integrated; product detail implemented for development comparison but pending visual approval and unavailable in live publication; remaining routes fail closed |
+| E | `aisles`: Kibble route and renderer integration | Home, product listing, search, and errors integrated in Preserve; product detail is development review only; cart, account, subscriptions, and checkout are source-native unavailable shells |
 | F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for live contracted surfaces and the approval-gated product-detail review path |
-| G | Both repos: deterministic and visual parity suites | Real Kibble Home comparison executed and correctable geometry drift resolved; approval and remaining-route comparisons stay open |
+| G | Both repos: deterministic and visual parity suites | Kibble's 15-route × 3-viewport harness and Bealls's 90-cell internal regression harness are implemented; final cold-review repairs and human visual approval remain open |
 | H | `aisles-admin`: merchant control surface | Dedicated read-only sandbox integrated; versioned runtime writes and audit storage remain unbuilt |
 | I | `aisles`: Kibble Home decision proof | Bounded rules ranking, explicit dev inspector, and isolated synthetic local showcase implemented; no model-backed Preserve zone is approved |
 

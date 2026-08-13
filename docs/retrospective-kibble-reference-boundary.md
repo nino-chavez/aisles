@@ -20,14 +20,17 @@ longer only a proposal. Local follow-up work now includes:
 - a trusted policy-aware resolver and bounded zone-decision schema;
 - a version-pinned Kibble design contract with native chrome, components,
   page recipes, and fallbacks;
-- Kibble Preserve rendering on home, product-listing, and error surfaces, with
-  fixed product-listing structure, trusted sorting, and cursor pagination;
+- Kibble Preserve rendering on Home, product-listing, search, and error
+  surfaces, with fixed product-listing structure, trusted sorting, and cursor
+  pagination;
 - a deterministic catalog-only product-detail implementation pinned to Kibble
   contract `1.5.0`, held at `approval_required` and development-only while its
   visual review remains open;
-- a real zero-tolerance Home comparison at 390, 768, and 1280 pixels, followed
-  by corrections that now match the reference body tokens, type, heading
-  metrics, content geometry, and header geometry;
+- a 15-route Kibble comparison harness at 390, 768, and 1280 pixels, plus a
+  90-cell Bealls-family internal regression harness;
+- an exact Kibble terminal classification for all 28 zone families and 36
+  expanded Bealls identities: 11 content-backed Kibble-native adapters and 25
+  Trusted Hidden terminals;
 - separate Bealls-family internal renderer contracts that still label external
   reference preservation as `uncontracted`;
 - a dedicated, authenticated `aisles-admin` Autonomy Sandbox that explains
@@ -41,10 +44,14 @@ longer only a proposal. Local follow-up work now includes:
 - an isolated local showcase using a pinned catalog and visibly labeled
   synthetic persona-fit data, with production data connections blanked.
 
-The corrective work has not been pushed or deployed. Its database migration has
-not been applied. Kibble product detail is implemented but not approved or live;
-Home and product-listing cards therefore remain non-links. Search, cart, and
-checkout are not contracted.
+The corrective work has not been approved for deployment or publication. Kibble
+product detail is implemented but not approved or live. Cart, account,
+subscriptions, and checkout are contracted source-native unavailable shells;
+they preserve route anatomy without claiming functional commerce. Final
+cold-review repairs, route-by-route human visual approval, PDP publication,
+merchant runtime policy writes and audit storage, migration/deploy/live
+database-provider verification, and Bealls external-reference contracts remain
+open.
 The Home proof uses deterministic rules, not a model. It demonstrates that
 signals can change an approved merchandising field while the reference-owned
 shell remains unchanged. Model-backed Assist behavior still requires its own
@@ -81,11 +88,10 @@ fit values are pinned synthetic fixtures. They do not change production
 authority, and the Preserve
 shell remains fixed.
 The reference and candidate expose matching source-owned fixture markers, and
-the fail-closed comparison command has run against fixed data. The latest Home
-run still fails. Its remaining differences are named consequences of withheld
-commerce claims and actions, added navigation semantics, and shorter truthful
-copy. No masks or tolerances have been approved, and named human approval is
-still open.
+the fail-closed comparison command covers the named 15-route matrix. Its
+mechanical screenshots and structure reports are evidence, not visual approval.
+No masks or tolerances have been approved, and named route-by-route human
+approval is still open.
 
 `bealls-aisles` records each family member separately and now binds its current
 renderer inputs to versioned internal contracts. Those records are inventory,

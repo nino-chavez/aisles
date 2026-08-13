@@ -8,13 +8,13 @@
 
 A single Aisles codebase serves multiple current configurations. Brand selection is controlled by the `BRAND_ID` environment variable. Each deployed configuration gets its own Cloudflare Pages project, BigCommerce channel, and visual inputs, but shares the current application code, AI logic, and infrastructure patterns.
 
-This guide describes configuration for Aisles's existing generic renderer. It is not an external-merchant onboarding recipe. Related brands inside an integrated merchant organization can reuse shared commerce and composition patterns. A separate contract-bound Kibble Preserve path now demonstrates the start of external reference integration on home, product-listing, and error surfaces. The larger visual-parity and route-coverage gates remain open. See the [canonical autonomy plan](organization-brand-autonomy-plan.md) and [Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
+This guide describes configuration for Aisles's existing generic renderer. It is not an external-merchant onboarding recipe. Related brands inside an integrated merchant organization can reuse shared commerce and composition patterns. Kibble is the separate external-reference case: Preserve covers Home, product listing, search, and error surfaces; product detail is development review only; cart, account, subscriptions, and checkout are source-native unavailable shells. Its 28 zone families resolve to 36 exact identities, with 11 content-backed native adapters and 25 Trusted Hidden terminals. The 15-route × three-viewport Kibble harness and the 90-cell Bealls internal harness are mechanical regression evidence, not visual approval or functional-commerce evidence. See the [canonical autonomy plan](organization-brand-autonomy-plan.md) and [Kibble boundary retrospective](retrospective-kibble-reference-boundary.md).
 
-Kibble is the active deployed brand. Haven, Volt, and Ember remain reference configurations in the same codebase.
+Kibble is the active local reference configuration. Haven, Volt, and Ember remain reference configurations in the same codebase. This guide does not verify any deployment.
 
-| Brand | Product domain | Deployment state |
+| Brand | Product domain | Configuration state |
 |---|---|---|
-| Kibble | Pet supplies and Auto-Refill | Cloudflare Pages project `aisles-kibble` |
+| Kibble | Pet supplies and Auto-Refill | `aisles-kibble` project configuration; deployment not verified here |
 | Haven | DTC home furniture | Reference configuration |
 | Volt | Consumer audio and electronics | Reference configuration |
 | Ember | Outdoor lifestyle and fire | Reference configuration |

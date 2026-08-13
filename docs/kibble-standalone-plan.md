@@ -1,19 +1,24 @@
 # Kibble on Aisles — standalone plan
 
-**Status:** implementation complete and deployed, 2026-08-12. The standalone
-Supabase project, paid 49-product enrichment, Kibble signal rules, labeled
-scenario fixtures, protected Observe surface, and Cloudflare Pages release are
-live. Weight fitting still waits for real labeled shopper sessions by design.
+**Status:** implementation and contract integration are present locally. This
+record does not claim a current deployment, applied migration, or live
+database/provider verification. The standalone Supabase plan, enrichment work,
+Kibble signal rules, labeled scenarios, and protected Observe design still need
+their release evidence re-established before they are described as live. Weight
+fitting waits for real labeled shopper sessions by design.
 **Audience:** whoever picks this up next, including a future session with no memory of today.
 
 **Limit:** this completed standalone work established data, security, enrichment,
 signals, and deployment boundaries. It did not establish desktop or mobile visual
 parity with Kibble's reference storefront. Follow-up source work now provides a
-pinned Kibble design contract and Preserve rendering for home, product-listing,
-and error surfaces. Product detail is implemented as a deterministic,
-catalog-only development review under contract `1.5.0`, but its
-`approval_required` policy keeps it unavailable in live publication and keeps
-Home and product-listing cards non-interactive. None of that corrective work is
+pinned Kibble design contract and Preserve rendering for Home, product listing,
+search, and error surfaces. Product detail is implemented as a deterministic,
+catalog-only development review under contract `1.5.0`, and remains unavailable
+for publication. Cart, account, subscriptions, and checkout are source-native
+unavailable shells, not commerce implementations. The contract classifies all
+28 zone families as 36 exact expanded identities: 11 Kibble-native adapters
+with semantic content and 25 Trusted Hidden terminals. A 15-route ×
+three-viewport local harness provides mechanical evidence only. None of this is
 deployed or accepted as complete visual parity. The
 remaining reference-preservation and merchant-control work is tracked in the
 [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md);
@@ -229,9 +234,11 @@ work.
 - If a second brand is never added, the `brand_id` columns are dead weight —
   cheap insurance, but say so rather than pretending they earn their place.
 
-## What was checked, and when
+## Historical standalone evidence, not current release evidence
 
-Verified 2026-08-12 against the code and live services: Supabase project
+The following describes a 2026-08-12 standalone checkpoint. It is not proof of
+the current deployment, migration, live database, or provider state. That state
+must be verified again before release. The checkpoint described a Supabase project
 `aisles-kibble` in East US; eight ordered migrations applied; RLS and the
 least-privilege `aisles_app` role; Cloudflare Hyperdrive bound to that role; live
 owner/runtime database smoke and schema lint; 49 BigCommerce products with zero
