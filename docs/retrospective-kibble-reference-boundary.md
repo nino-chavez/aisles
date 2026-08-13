@@ -49,8 +49,11 @@ The corrective work has not been approved for deployment or publication. Kibble
 product detail is implemented but not approved or live. Cart, account,
 subscriptions, and the three canonical checkout phase routes are contracted
 source-native unavailable shells; the bare `/checkout` path remains the
-canonical source's 404. They preserve route anatomy without claiming functional commerce. Final
-cold-review repairs, route-by-route human visual approval, PDP publication,
+canonical source's 404. They preserve route anatomy without claiming functional
+commerce. The final Kibble cold-review defects are closed locally. The strict
+15-route, three-viewport matrix still leaves all 15 routes and all 45 cells open:
+12,313,565 of 66,597,260 comparable pixels differ (18.4896%), with no masks and
+one named approval item per route. Route-by-route human visual approval, PDP publication,
 merchant runtime policy writes and audit storage, migration/deploy/live
 database-provider verification, and Bealls external-reference contracts remain
 open.
@@ -90,10 +93,11 @@ fit values are pinned synthetic fixtures. They do not change production
 authority, and the Preserve
 shell remains fixed.
 The reference and candidate expose matching source-owned fixture markers, and
-the fail-closed comparison command covers the named 15-route matrix. Its
-mechanical screenshots and structure reports are evidence, not visual approval.
-No masks or tolerances have been approved, and named route-by-route human
-approval is still open.
+the fail-closed comparison command covers the named 15-route matrix. Its latest
+strict run leaves all 45 viewport cells open at 18.4896% weighted pixel
+difference. Its mechanical screenshots and structure reports are evidence, not
+visual approval. No masks or tolerances have been approved, and named
+route-by-route human approval is still open.
 
 `bealls-aisles` records each family member separately and now binds its current
 renderer inputs to versioned internal contracts. Those records are inventory,

@@ -94,6 +94,27 @@ tolerance. Supplying either tolerance through environment variables makes the
 run a non-release rehearsal; record the reason and obtain the separate approval
 required by the main gate before treating it as parity evidence.
 
+### Current full-matrix evidence
+
+The latest clean local run was recorded under
+`validation/kibble-parity-local/2026-08-13T16-23-02.881Z/`. It is local ignored
+evidence, not a checked-in baseline or an approval.
+
+- All 15 named routes ran at 390px, 768px, and 1280px.
+- All 15 routes and all 45 viewport cells remain open at zero tolerance.
+- 12,313,565 of 66,597,260 comparable pixels differ: 18.4896%.
+- The run used no masks.
+- Every route has a separately named approval item for a truthful difference.
+
+The code and accessibility defects found by the final cold audit are closed:
+the PDP gallery has an accessible name and group role, the 320px PDP does not
+overflow on long SKUs, Search opens with focus and returns focus on Escape, the
+Search target is 44 by 44 pixels, and the 404 uses the truthful “Page not found”
+heading with the reference content width. Those fixes do not make the remaining
+pixel differences disappear. Named human review must decide whether each
+truthful omission is acceptable; the runner must not restore unsupported
+commerce, subscription, account, or service claims merely to reduce the diff.
+
 ### Historical Home diagnostic, not a matrix approval
 
 The observations below record an earlier single-Home diagnostic. They are not a
