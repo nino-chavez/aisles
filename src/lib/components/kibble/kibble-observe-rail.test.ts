@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
@@ -31,5 +33,11 @@ describe('KibbleObserveRail', () => {
 		expect(result.body).toContain('/observe?session=session-one');
 		expect(result.body).toContain('https://storefront.bcsubs.app/');
 		expect(result.body).toContain('href="/category/dog-food?observe=false"');
+	});
+
+	it('collapses when same-page navigation opens the full signal lab', () => {
+		const source = readFileSync(resolve(import.meta.dirname, 'KibbleObserveRail.svelte'), 'utf8');
+		expect(source).toContain("window.addEventListener('hashchange', collapseForSignalLab)");
+		expect(source).toContain("window.removeEventListener('hashchange', collapseForSignalLab)");
 	});
 });
