@@ -135,15 +135,12 @@ async function comparePixels(page: Page, reference: Buffer, candidate: Buffer, m
 			reference: { width: referenceImage.width, height: referenceImage.height },
 			candidate: { width: candidateImage.width, height: candidateImage.height },
 		};
-		if (referenceImage.width !== candidateImage.width || referenceImage.height !== candidateImage.height) {
-			return { differenceRatio: null, changedPixels: 0, comparablePixels: 0, dimensions, diffPngBase64: null };
-		}
-
 		const canvas = document.createElement('canvas');
-		canvas.width = referenceImage.width;
-		canvas.height = referenceImage.height;
+		canvas.width = Math.max(referenceImage.width, candidateImage.width);
+		canvas.height = Math.max(referenceImage.height, candidateImage.height);
 		const context = canvas.getContext('2d', { willReadFrequently: true });
 		if (!context) throw new Error('Canvas context unavailable for screenshot comparison');
+		context.clearRect(0, 0, canvas.width, canvas.height);
 		context.drawImage(referenceImage, 0, 0);
 		const referencePixels = context.getImageData(0, 0, canvas.width, canvas.height);
 		context.clearRect(0, 0, canvas.width, canvas.height);
@@ -162,7 +159,8 @@ async function comparePixels(page: Page, reference: Buffer, candidate: Buffer, m
 					continue;
 				}
 				comparablePixels += 1;
-				const difference =
+				const missingFromEitherImage = x >= referenceImage.width || y >= referenceImage.height || x >= candidateImage.width || y >= candidateImage.height;
+				const difference = missingFromEitherImage ? 1020 :
 					Math.abs(referencePixels.data[offset] - candidatePixels.data[offset]) +
 					Math.abs(referencePixels.data[offset + 1] - candidatePixels.data[offset + 1]) +
 					Math.abs(referencePixels.data[offset + 2] - candidatePixels.data[offset + 2]) +

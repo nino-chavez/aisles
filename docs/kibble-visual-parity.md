@@ -93,9 +93,10 @@ not a parity approval.
 
 The measured differences included the page background and text colors, body
 font, hero heading line height and tracking, container geometry, navigation and
-link structure, and full-page height. Screenshot heights differed, so the pixel
-comparison correctly declined to compare differently sized canvases. The run
-wrote its local screenshots and `report.json` under
+link structure, and full-page height. When screenshot dimensions differ, the
+pixel comparison uses the larger canvas and counts the missing area as changed
+instead of suppressing the comparison. The run writes its local screenshots,
+diffs, and `report.json` under
 `validation/kibble-parity-local/`.
 
 The earlier route mismatch for bundle product `3065` was a candidate-contract
