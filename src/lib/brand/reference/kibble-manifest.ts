@@ -85,7 +85,6 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 		},
 		featuredBundle: {
 			entityId: 3065,
-			id: 'essential-bundle-kns4',
 			name: 'Essential Bundle',
 			category: 'Bundles',
 			image: 'https://cdn.shopify.com/s/files/1/0016/2509/6305/files/PLP-Images_GoodGut_Beef_1.png',

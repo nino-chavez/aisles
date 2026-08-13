@@ -12,16 +12,6 @@ if (!fixturePath) throw new Error('KIBBLE_PARITY_FIXTURE_PATH is required by the
 
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
 
-// Aisles Preserve records a render provenance row. The local runner must render
-// that real route without opening Hyperdrive or a local/remote database, so the
-// process replaces the database client before Vite loads application modules.
-// This file is loaded only through NODE_OPTIONS by the local runner.
-if (process.env.KIBBLE_PARITY_DISABLE_DATABASE === '1') {
-	const postgresModule = require.resolve('postgres');
-	const noopSql = () => Promise.resolve([]);
-	noopSql.end = () => Promise.resolve();
-	require.cache[postgresModule] = { id: postgresModule, filename: postgresModule, loaded: true, exports: () => noopSql };
-}
 const categories = Object.entries(fixture.categories).map(([name, entityId]) => ({
 	entityId,
 	name,

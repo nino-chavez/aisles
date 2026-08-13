@@ -124,16 +124,15 @@ async function main(): Promise<void> {
 		...process.env,
 		NODE_OPTIONS: [process.env.NODE_OPTIONS, `--require=${interceptor}`].filter(Boolean).join(' '),
 		KIBBLE_PARITY_FIXTURE_PATH: fixturePath,
-		KIBBLE_PARITY_DISABLE_DATABASE: '1',
-		// Cloudflare's local Hyperdrive binding insists on a local connection
-		// string before route code can inspect it. The preload replaces postgres,
-		// so this inert endpoint is never opened.
+		// Cloudflare's adapter initializes the declared binding before route code
+		// runs. The runner-only Vite config replaces postgres.js, so this
+		// connection string is parsed but never opened.
 		CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: 'postgres://kibble-parity:fixture@127.0.0.1:5432/kibble-parity',
 		BIGCOMMERCE_STORE_HASH: 'kibble-parity-fixture',
 		BIGCOMMERCE_STOREFRONT_TOKEN: 'kibble-parity-fixture',
 	};
 	const reference = child('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(referencePort), '--strictPort'], { cwd: referenceRoot, env: baseEnv });
-	const candidate = child('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(candidatePort), '--strictPort'], {
+	const candidate = child('npx', ['vite', '--config', 'scripts/kibble-parity-local-vite.config.ts', '--host', '127.0.0.1', '--port', String(candidatePort), '--strictPort'], {
 		cwd: candidateRoot,
 		env: { ...baseEnv, BRAND_ID: 'kibble', VITE_BRAND_ID: 'kibble' },
 	});

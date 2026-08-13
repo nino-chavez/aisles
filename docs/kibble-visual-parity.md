@@ -47,11 +47,11 @@ npm run test:kibble-parity:local
 ```
 
 The catalog seam is process-scoped to this command. It intercepts BigCommerce
-GraphQL requests and supplies a no-op Postgres client before either Vite process
-loads application modules. That lets the real Aisles Preserve route execute its
-normal render path without opening Hyperdrive or any database. Cloudflare's
-local binding receives an inert connection string only so it can initialize; the
-preloaded client prevents it from being opened. The ordinary
+GraphQL requests, while a runner-only Vite config replaces the Postgres driver
+with a no-op client. That lets the real Aisles Preserve route execute its normal
+render path without opening Hyperdrive or any database.
+Cloudflare's local binding receives an inert connection string only so it can
+initialize; the runner-only driver cannot open a socket. The ordinary
 Aisles `dev`, `build`, `preview`, and Wrangler paths have no fixture flag or
 fallback. No remote database, Hyperdrive, secrets, or paid API is used.
 
@@ -83,19 +83,26 @@ tolerance. Supplying either tolerance through environment variables makes the
 run a non-release rehearsal; record the reason and obtain the separate approval
 required by the main gate before treating it as parity evidence.
 
-### Current fixed-data boundary
+### First fixed-data result
 
 The runner initializes the local Cloudflare binding with an inert
 `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` value, while its
-preloaded test dependency prevents any database connection. The current stop is
-later and fail-closed: the source-owned seed fixture identifies product `3065`
-as route `essential-bundle`, while the Aisles Preserve contract requires
-`essential-bundle-kns4`. The candidate returns 503 before capture, so no
-screenshots or report are written and this is not a parity result.
+runner-only Postgres replacement prevents any database connection. The first
+complete Home capture failed the gate at both widths. This is useful evidence,
+not a parity approval.
 
-Do not rewrite the fixture response or add a fixture branch to production routes
-to get past this. The remaining safe unblock is a provenance-approved correction
-to the pinned source fixture or the candidate's pinned route contract.
+The measured differences included the page background and text colors, body
+font, hero heading line height and tracking, container geometry, navigation and
+link structure, and full-page height. Screenshot heights differed, so the pixel
+comparison correctly declined to compare differently sized canvases. The run
+wrote its local screenshots and `report.json` under
+`validation/kibble-parity-local/`.
+
+The earlier route mismatch for bundle product `3065` was a candidate-contract
+bug. The canonical fixed fixture binds the stable entity ID, name, category, and
+price while its product slug differs from an older bundle-content lookup key.
+Because the Home CTA targets the Bundles category rather than that PDP, the
+candidate no longer treats the mutable product slug as Home recipe identity.
 
 ### Existing endpoint runner
 

@@ -166,7 +166,6 @@ export function verifyAndMaterializeBundle(product: Product | null): KibbleFeatu
 	if (!product) throw new Error(`Kibble Preserve requires live BigCommerce product ${expected.entityId} (${expected.name}).`);
 	const checks: Array<[string, unknown, unknown]> = [
 		['entity id', product.entityId, expected.entityId],
-		['route id', product.id, expected.id],
 		['name', product.name, expected.name],
 		['category', product.category, expected.category],
 		['list price', product.price, expected.oneTimePrice],

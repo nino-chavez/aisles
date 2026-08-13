@@ -45,7 +45,7 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(selectMerchantRenderMode({ id: 'kibble' }, 'home')).toBe('legacy-generated');
 	});
 
-	it('requires the exact live bundle identity before using the pinned offer', () => {
+	it('requires stable catalog facts without binding the category CTA to a mutable product slug', () => {
 		expect(verifyAndMaterializeBundle(bundle)).toMatchObject({
 			entityId: 3065,
 			href: '/category/bundles',
@@ -55,6 +55,7 @@ describe('Kibble Preserve runtime adapter', () => {
 		expect(() => verifyAndMaterializeBundle(null)).toThrow('requires live BigCommerce product 3065');
 		expect(() => verifyAndMaterializeBundle({ ...bundle, price: 108 })).toThrow('bundle mismatch for list price');
 		expect(() => verifyAndMaterializeBundle({ ...bundle, name: 'Almost Essential' })).toThrow('bundle mismatch for name');
+		expect(() => verifyAndMaterializeBundle({ ...bundle, id: 'essential-bundle' })).not.toThrow();
 		expect(verifyAndMaterializeBundle({ ...bundle, image: 'https://cdn11.bigcommerce.com/transformed.png' }).image)
 			.toBe(KIBBLE_PRESERVE_MANIFEST.display.featuredBundle.image);
 	});
