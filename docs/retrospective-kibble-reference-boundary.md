@@ -36,7 +36,8 @@ longer only a proposal. Local follow-up work now includes:
 - bounded, signal-informed product ranking inside the fixed Kibble Home recipe,
   with enrichment scores kept on the server;
 - an explicit development inspector showing inference, zone authority, before
-  and after product order, policy provenance, and zero model calls; and
+  and after product order, policy provenance, zero model calls, and an
+  immediate server-derived preview after a persisted allowed signal; and
 - an isolated local showcase using a pinned catalog and visibly labeled
   synthetic persona-fit data, with production data connections blanked.
 
@@ -48,6 +49,24 @@ The Home proof uses deterministic rules, not a model. It demonstrates that
 signals can change an approved merchandising field while the reference-owned
 shell remains unchanged. Model-backed Assist behavior still requires its own
 contract, approval, and acceptance evidence.
+Normal production applies that decision at the Home route boundary. The local
+inspector has a narrower purpose: only compile-time development with the
+explicit `?dev=true` query can call
+`POST /api/kibble/home-decision?dev=true` to preview the current scoped-session
+decision. The endpoint derives inference and the approved nine-product shelf on
+the server. It fails closed without the active Kibble brand, the trusted
+`reference-preserve` Home policy, or a valid `aisles_session`; it accepts no
+browser-supplied persona, policy, scores, candidates, or order. The no-store,
+versioned preview exposes sanitized inference, a score-free zone trace, runner
+data-source labeling, and contracted `rules` provenance. It does not call a
+model, generate a layout, mutate the session, use a cache, write telemetry, or
+write a database.
+
+The local synthetic rehearsal buttons are inspector controls, not shopper
+controls. They emit allowed `nav.search` signals through `/api/signals`, then
+request the server preview. The showcase catalog and fit values are pinned
+synthetic fixtures. They do not change production authority, and the Preserve
+shell remains fixed.
 The reference and candidate expose matching source-owned fixture markers, and
 the fail-closed comparison command has run against fixed data. The latest Home
 run still fails. Its remaining differences are named consequences of withheld

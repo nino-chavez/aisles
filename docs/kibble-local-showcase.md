@@ -43,8 +43,32 @@ The fixture interceptor, no-op Postgres replacement, and enrichment alias are se
 
 The launcher blanks the app's production database, Redis, model, incentive, and Observe credentials before it starts Vite. It stamps the run with scenario ID `kibble-local-showcase`, so contracted provenance reports the catalog and scores as synthetic. The inspector and response header both display `Synthetic demo enrichment — not merchant data`.
 
-The inspector requires `?dev=true` on the current request. A previously stored site-wide dev cookie cannot reopen it. Shopper page data never includes persona-fit scores, and production builds omit the inspector code.
+The inspector requires compile-time development mode and `?dev=true` on the
+current request. A previously stored site-wide dev cookie cannot reopen it.
+Shopper page data never includes persona-fit scores.
 
-Changing the intent link reloads the route and recomputes the product shelf. Client-side signals may update the probability display between reloads, but the rendered shelf remains the last server decision until the next route load. Preserve mode makes no model call.
+The synthetic rehearsal buttons appear only for this synthetic local scenario.
+They are not shopper controls. Each button emits one allowed `nav.search`
+signal through the normal `/api/signals` endpoint. After that signal persists,
+the inspector immediately asks `POST /api/kibble/home-decision?dev=true` for a
+server-derived shelf preview. The endpoint accepts no decision inputs from the
+browser. It reads the existing `aisles_session`, derives inference, loads the
+pinned nine-product reference shelf, and applies the trusted Kibble Home
+`reference-preserve` rules policy.
+
+The preview endpoint fails closed unless all of these are true: the compiled
+app is in development mode, the request includes `?dev=true`, the active brand
+is Kibble, the trusted Home policy is `reference-preserve`, and the session
+exists in the active brand scope. It returns `404` for an unavailable surface,
+`409` for a missing or unknown session, and `Cache-Control: no-store` on every
+response. Its response is a preview-only, versioned decision record with the
+trusted reference and policy identity, sanitized inference, the score-free
+zone trace, runner data-source label, and contracted provenance.
+
+The preview does not generate a layout, call a model, write a database, mutate
+the session, write telemetry, or use a cache. Preserve keeps the Kibble shell
+fixed. Allowed signals can only rank and select products from the approved
+shelf. The local catalog and fit data remain pinned synthetic fixtures, not
+merchant data.
 
 Stop the process with `Ctrl-C`.
