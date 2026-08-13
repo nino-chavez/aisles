@@ -23,8 +23,9 @@ longer only a proposal. Local follow-up work now includes:
 - Kibble Preserve rendering on Home, product-listing, search, and error
   surfaces, with fixed product-listing structure, trusted sorting, and cursor
   pagination;
-- a deterministic catalog-only product-detail implementation pinned to Kibble
-  contract `1.5.0`, held at `approval_required` and development-only while its
+- a deterministic catalog-only product-detail implementation in Kibble package
+  `1.6.0`, pinned to source reference contract `1.5.0`, held at
+  `approval_required` and development-only while its
   visual review remains open;
 - a 15-route Kibble comparison harness at 390, 768, and 1280 pixels, plus a
   90-cell Bealls-family internal regression harness;
@@ -46,8 +47,9 @@ longer only a proposal. Local follow-up work now includes:
 
 The corrective work has not been approved for deployment or publication. Kibble
 product detail is implemented but not approved or live. Cart, account,
-subscriptions, and checkout are contracted source-native unavailable shells;
-they preserve route anatomy without claiming functional commerce. Final
+subscriptions, and the three canonical checkout phase routes are contracted
+source-native unavailable shells; the bare `/checkout` path remains the
+canonical source's 404. They preserve route anatomy without claiming functional commerce. Final
 cold-review repairs, route-by-route human visual approval, PDP publication,
 merchant runtime policy writes and audit storage, migration/deploy/live
 database-provider verification, and Bealls external-reference contracts remain

@@ -69,10 +69,11 @@ The gate then checks the rendered markers before it captures screenshots.
 Evidence is written to `validation/kibble-parity-local/`.
 
 The default matrix covers Home, product listing, PDP review, search and empty
-search, cart, account, three subscription routes, four checkout routes, and the
-404 surface. The routes are intentionally allowed to differ where Aisles must
-withhold unavailable commerce behavior. Product detail remains review-only; cart,
-account, subscriptions, and checkout are source-native unavailable shells.
+search, cart, account, three subscription routes, the bare `/checkout` canonical
+404, three canonical checkout phase routes, and the 404 surface. The routes are
+intentionally allowed to differ where Aisles must withhold unavailable commerce
+behavior. Product detail remains review-only; cart, account, subscriptions, and
+the three checkout phase routes are source-native unavailable shells.
 
 For a narrower local diagnosis, override the default route matrix:
 
