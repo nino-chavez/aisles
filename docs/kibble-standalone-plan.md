@@ -20,7 +20,7 @@ source-native unavailable shells, not commerce implementations. The bare
 28 zone families as 36 exact expanded identities: 11 Kibble-native adapters
 with semantic content and 25 Trusted Hidden terminals. A 15-route ×
 three-viewport local harness provides mechanical evidence only. None of this is
-deployed or accepted as complete visual parity. The
+accepted as complete visual parity, and the PLP action is not deployed. The
 remaining reference-preservation and merchant-control work is tracked in the
 [organization, brand, and composition autonomy plan](organization-brand-autonomy-plan.md);
 the reason for the boundary is recorded in the
