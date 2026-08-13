@@ -68,10 +68,27 @@ describe('Preserve route boundaries', () => {
 			});
 			expect(kibble.kibbleChrome?.navItems[0]).toEqual({ label: 'Dog Food', href: '/category/dog-food' });
 			expect(kibble.kibbleChrome?.statusItems).toEqual([]);
-			expect(kibble.kibbleErrorPolicy).toMatchObject({
+			expect(kibble).not.toHaveProperty('kibbleErrorPolicy');
+			expect(kibble).not.toHaveProperty('kibbleErrorAdapter');
+			expect(kibble).not.toHaveProperty('kibbleZoneTerminals');
+
+			const successfulSearch = await loadLayout({ url: new URL('https://aisles.test/search?q=food'), cookies } as never);
+			if (!successfulSearch) throw new Error('Expected the Kibble search layout server load to return data.');
+			expect(successfulSearch.kibbleRoutePolicy).toMatchObject({ routePath: '/search', surface: 'search' });
+			expect(successfulSearch).not.toHaveProperty('kibbleErrorPolicy');
+			expect(successfulSearch).not.toHaveProperty('kibbleErrorAdapter');
+			expect(successfulSearch).not.toHaveProperty('kibbleZoneTerminals');
+
+			const missing = await loadLayout({ url: new URL('https://aisles.test/missing-kibble-route'), cookies } as never);
+			if (!missing) throw new Error('Expected the Kibble 404 layout server load to return data.');
+			expect(missing.kibbleErrorPolicy).toMatchObject({
 				referenceId: 'kibble-shelf-native', referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
-				policies: [{ surface: 'error-404' }, { surface: 'error-empty' }],
+				policies: [{ surface: 'error-404' }],
 			});
+			expect(missing.kibbleErrorAdapter).toMatchObject({
+				instanceId: 'error-404.rescue', sharedContentKind: 'content', adapterId: 'kibble.zone.error-404.rescue',
+			});
+			expect(missing).not.toHaveProperty('kibbleZoneTerminals');
 
 			process.env.BRAND_ID = 'haven';
 			const legacy = await loadLayout({ url: new URL('https://aisles.test/'), cookies } as never);
@@ -79,7 +96,7 @@ describe('Preserve route boundaries', () => {
 			expect(legacy.renderMode).toBe('legacy-generated');
 			expect(legacy.chromeMode).toBe('legacy');
 			expect(legacy.kibbleChrome).toBeNull();
-			expect(legacy.kibbleErrorPolicy).toBeNull();
+			expect(legacy).not.toHaveProperty('kibbleErrorPolicy');
 
 			process.env.BRAND_ID = 'kibble';
 			const pdp = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);
@@ -205,7 +222,7 @@ describe('Preserve route boundaries', () => {
 		}
 	});
 
-	it('uses the bounded read-only Kibble catalog search without publishing product links', async () => {
+	it('uses the bounded read-only Kibble catalog search without publishing product links or unrelated error evidence', async () => {
 		const previousBrand = process.env.BRAND_ID;
 		try {
 			process.env.BRAND_ID = 'kibble';
@@ -214,14 +231,38 @@ describe('Preserve route boundaries', () => {
 				pageInfo: { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null },
 			});
 			const parent = async () => ({ devMode: false, chromeMode: 'reference', renderMode: 'reference-preserve' });
-			await expect(loadSearch({
+			const successfulSearch = await loadSearch({
 				url: new URL('https://aisles.test/search?q=food'), parent,
 				setHeaders: vi.fn(),
-			} as never)).resolves.toMatchObject({
+			} as never);
+			expect(successfulSearch).toMatchObject({
 				renderMode: 'reference-preserve',
 				kibbleSearch: { query: 'food', products: [{ id: 'actual-product' }], zoneAdapter: null },
 			});
+			expect(successfulSearch).not.toHaveProperty('kibbleErrorAdapter');
+			expect(successfulSearch).not.toHaveProperty('kibbleZoneTerminals');
 			expect(searchMocks.searchKibbleCatalog).toHaveBeenCalledWith({ query: 'food', after: null });
+
+			searchMocks.searchKibbleCatalog.mockRejectedValueOnce(new Error('fixture catalog offline'));
+			try {
+				await loadSearch({
+					url: new URL('https://aisles.test/search?q=food'), parent,
+					setHeaders: vi.fn(),
+				} as never);
+				throw new Error('Expected the unavailable catalog to reach the 503 boundary.');
+			} catch (cause) {
+				expect(cause).toMatchObject({
+					status: 503,
+					body: {
+						kibbleErrorAdapter: {
+							instanceId: 'error-empty.rescue',
+							sharedContentKind: 'content',
+							adapterId: 'kibble.zone.error-empty.rescue',
+						},
+						kibbleErrorPolicy: { policies: [{ surface: 'error-empty' }] },
+					},
+				});
+			}
 		} finally {
 			if (previousBrand === undefined) delete process.env.BRAND_ID;
 			else process.env.BRAND_ID = previousBrand;

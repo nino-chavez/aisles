@@ -1,15 +1,25 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { KibbleErrorReference } from '$lib/components/kibble';
+	import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
+	import type { KibbleZoneAdapterBinding } from '$lib/components/kibble/types';
 
 	let chromeMode = $derived($page.data.chromeMode);
 	let status = $derived($page.status);
 	let errorMessage = $derived($page.error?.message ?? 'This page is temporarily unavailable.');
 	let errorPolicyAttribute = $derived(
-		$page.data.kibbleErrorPolicy?.policies
+		($page.data.kibbleErrorPolicy ?? errorPayload($page.error)?.kibbleErrorPolicy)?.policies
 			.map((policy: { surface: string; policyVersion: string }) => `${policy.surface}:${policy.policyVersion}`)
 			.join(','),
 	);
+	let zoneAdapter = $derived($page.data.kibbleErrorAdapter ?? errorPayload($page.error)?.kibbleErrorAdapter);
+
+	function errorPayload(value: unknown): {
+		kibbleErrorAdapter?: KibbleZoneAdapterBinding;
+		kibbleErrorPolicy?: { policies: Array<{ surface: string; policyVersion: string }> };
+	} | null {
+		return value && typeof value === 'object' ? value as never : null;
+	}
 </script>
 
 <svelte:head>
@@ -22,7 +32,7 @@
 		data-reference-contract-version={$page.data.kibbleErrorPolicy?.referenceVersion}
 		data-reference-policy={errorPolicyAttribute}
 	>
-		<KibbleErrorReference {status} message={errorMessage} zoneAdapter={status === 404 ? $page.data.kibbleErrorAdapters?.error404 : $page.data.kibbleErrorAdapters?.errorEmpty} {...$page.data.kibbleError} />
+		<KibbleErrorReference {status} message={errorMessage} {zoneAdapter} {...KIBBLE_PRESERVE_MANIFEST.display.error} />
 	</div>
 {:else}
 	<section class="mx-auto max-w-3xl px-6 py-24 text-center">

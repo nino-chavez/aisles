@@ -9,7 +9,7 @@ import {
 	searchKibbleCatalog,
 	KibbleSearchInputError,
 } from '$lib/brand/reference/kibble-search.server';
-import { executeKibbleSearchEmptyZoneTerminal, kibbleNativeAdapterBinding } from '$lib/brand/reference/kibble-zone-executor.server';
+import { executeKibbleErrorZoneAdapter, executeKibbleSearchEmptyZoneTerminal, kibbleNativeAdapterBinding } from '$lib/brand/reference/kibble-zone-executor.server';
 import { getProducts, customFieldsToRecord, type BCProduct } from '$lib/server/bigcommerce';
 import { searchProducts } from '$lib/server/search';
 import { infer } from '$lib/signals/inference';
@@ -44,7 +44,20 @@ export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, r
 	} catch (cause) {
 		if (cause instanceof KibbleSearchInputError) throw error(400, cause.message);
 		console.error('[kibble-preserve] read-only search failed closed:', cause);
-		throw error(503, 'Catalog search is temporarily unavailable.');
+		const message = 'Catalog search is temporarily unavailable.';
+		const kibbleErrorAdapter = await executeKibbleErrorZoneAdapter({
+			surface: 'error-empty',
+			routePath: url.pathname,
+			status: 503,
+			message,
+		});
+		throw error(503, {
+			message,
+			kibbleErrorAdapter,
+			kibbleErrorPolicy: {
+				policies: [{ surface: 'error-empty', policyVersion: routePolicy.policy.policyVersion }],
+			},
+		} as never);
 	}
 };
 
