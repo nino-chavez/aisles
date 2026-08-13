@@ -360,7 +360,8 @@ reserves the worst-case provider budget before sending sanitized inference and
 bounded approved product facts to the configured model. Its response schema can
 only return an exact permutation of the approved product IDs. Neither path may
 generate or replace the Kibble layout, components, copy, prices, links, CSS, or
-commerce actions.
+commerce actions. A successful model action writes its generation telemetry to
+Postgres after response validation; the rules path writes no telemetry.
 
 | Status | Condition |
 |---|---|

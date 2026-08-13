@@ -22,19 +22,23 @@
 	});
 
 	$effect(() => {
-		const decision = data.kibblePdp?.relatedModelDecision;
-		if (!isKibblePdp || !decision || !data.kibblePdp) return;
+		const pdp = data.kibblePdp;
+		const decision = pdp?.relatedModelDecision;
+		if (!isKibblePdp || !decision || !pdp) return;
+		const expectation = {
+			routePath: decision.routePath,
+			policyVersion: decision.policyVersion,
+			productIds: pdp.relatedProducts.map(({ entityId }) => String(entityId)),
+			relatedHeading: pdp.relatedHeading,
+		};
+		const products = pdp.relatedProducts;
 		let active = true;
 		let cleanup: (() => void) | undefined;
 		void import('$lib/components/kibble/kibble-pdp-live-preview').then(({ listenForKibblePdpLivePreview }) => {
+			if (!active) return;
 			const listener = listenForKibblePdpLivePreview({
-				expectation: {
-					routePath: decision.routePath,
-					policyVersion: decision.policyVersion,
-					productIds: data.kibblePdp!.relatedProducts.map(({ entityId }) => String(entityId)),
-					relatedHeading: data.kibblePdp!.relatedHeading,
-				},
-				products: data.kibblePdp!.relatedProducts,
+				expectation,
+				products,
 				onApplied: (preview) => {
 					// Validation proves these are a reorder of this server-rendered rail.
 					previewRelatedProducts = preview.products as KibblePdpData['relatedProducts'];
@@ -42,11 +46,8 @@
 				},
 				onStatus: (status) => window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-status', { detail: status })),
 			});
-			if (active) {
-				cleanup = listener;
-				window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-ready'));
-			}
-			else listener();
+			cleanup = listener;
+			window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-ready'));
 		});
 		return () => { active = false; cleanup?.(); };
 	});

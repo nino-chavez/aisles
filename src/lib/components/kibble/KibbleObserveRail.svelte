@@ -224,7 +224,7 @@
 				{#if surface === 'pdp' && pdpModelActionEligible && pdpModelActionReady}<button type="button" onclick={requestPdpModelDecision} disabled={pdpModelAction.disabled}>{pdpModelAction.label}</button>{/if}
 				{#if observeHref}<a href={observeHref} target="_blank" rel="noopener">Open session in Observe <span aria-hidden="true">↗</span></a>{/if}
 			</div>
-			{#if surface === 'pdp' && pdpModelAction.detail}<p class="aisles-observe__truth" aria-live="polite">{pdpModelAction.detail}</p>{/if}
+			<p class="aisles-observe__truth" role="status" aria-live="polite">{surface === 'pdp' ? pdpModelAction.detail : ''}</p>
 
 			<details class="aisles-observe__zones">
 				<summary>Visible page zones ({zones.length})</summary>

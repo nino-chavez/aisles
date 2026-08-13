@@ -57,12 +57,21 @@ export async function rankKibblePdpRelatedWithModel(input: {
 	}
 	return {
 		...result,
+		adapter: withKibblePdpRelatedModelCallCount(result.adapter, modelCallCount),
 		modelId: servedModelId,
 		modelCallCount,
 		...(inputTokens === undefined ? {} : { inputTokens }),
 		...(outputTokens === undefined ? {} : { outputTokens }),
 		prompt,
 	};
+}
+
+/** The executor owns the adapter; the model runner alone knows provider attempts. */
+export function withKibblePdpRelatedModelCallCount<T extends { modelCallCount?: number }>(adapter: T, modelCallCount: number): T & { modelCallCount: number } {
+	if (!Number.isInteger(modelCallCount) || modelCallCount < 1 || modelCallCount > 2) {
+		throw new Error('Kibble PDP model call count must be one or two provider attempts.');
+	}
+	return { ...adapter, modelCallCount };
 }
 
 export function buildKibblePdpRelatedProviderOutputSchema(products: readonly Pick<KibblePdpRelatedCandidate, 'entityId'>[]) {

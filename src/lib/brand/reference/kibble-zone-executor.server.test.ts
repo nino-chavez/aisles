@@ -10,6 +10,9 @@ import {
 	executeKibbleSearchEmptyZoneAdapter,
 	executeKibbleZoneTerminal,
 } from './kibble-zone-executor.server';
+import { withKibblePdpRelatedModelCallCount } from './kibble-pdp-related-model.server';
+import { validateKibblePdpLivePreview } from '$lib/components/kibble/kibble-pdp-live-preview';
+import type { KibbleProduct } from '$lib/components/kibble/types';
 import {
 	KIBBLE_CANONICAL_UNION_ZONE_INSTANCE_IDS,
 	KIBBLE_ZONE_TERMINALS,
@@ -144,5 +147,31 @@ describe('Kibble exact union-zone execution', () => {
 			relatedProducts: products, heading: 'You may also like', routePath: '/product/puppy-starter-kit-plus' as never,
 			runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'] }),
 		})).rejects.toThrow(/not explicitly approved/);
+	});
+
+	it('feeds the real executor adapter through client validation with the actual provider call count', async () => {
+		const relatedProducts: KibbleProduct[] = [
+			{ id: 'starter', entityId: 3023, name: 'Starter Bundle', price: 90, image: '', imageAlt: '', description: '', specs: {}, tags: [], category: 'Bundles' },
+			{ id: 'mealtime', entityId: 3024, name: 'Mealtime Kit', price: 55, image: '', imageAlt: '', description: '', specs: {}, tags: [], category: 'Care' },
+			{ id: 'toys', entityId: 3025, name: 'Dog Toy Kit', price: 32, image: '', imageAlt: '', description: '', specs: {}, tags: [], category: 'Toys' },
+		];
+		const result = await executeKibblePdpRelatedModelShelf({
+			relatedProducts,
+			heading: 'You may also like',
+			routePath: '/product/puppy-starter-kit',
+			runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'] }),
+		});
+		const adapter = withKibblePdpRelatedModelCallCount(result.adapter, 1);
+		const preview = validateKibblePdpLivePreview({
+			version: 'kibble-pdp-related-preview-v1', previewOnly: true,
+			routePath: '/product/puppy-starter-kit', policyVersion: result.policy.policyVersion,
+			persona: 'researcher', rankedProductIds: result.rankedProductIds,
+			zoneAdapter: adapter, modelCallCount: 1, provenance: {},
+		}, {
+			routePath: '/product/puppy-starter-kit', policyVersion: result.policy.policyVersion,
+			productIds: relatedProducts.map(({ entityId }) => String(entityId)), relatedHeading: 'You may also like',
+		}, relatedProducts);
+		expect(preview?.products.map(({ id }) => id)).toEqual(['toys', 'starter', 'mealtime']);
+		expect(preview?.zoneAdapter.modelCallCount).toBe(1);
 	});
 });
