@@ -4,6 +4,7 @@ import {
 	KIBBLE_PDP_ADAPTED_SOURCE_FILES,
 	KIBBLE_PDP_EXCLUDED_DEPENDENCIES,
 	KIBBLE_PDP_EXTERNAL_DEPENDENCIES,
+	KIBBLE_PDP_SOURCE_ROOTS,
 	KIBBLE_REFERENCE_CONTRACT,
 	KIBBLE_SEARCH_SOURCE_CLOSURE,
 	KIBBLE_CART_SOURCE_CLOSURE,
@@ -209,6 +210,7 @@ describe('Kibble reference contract', () => {
 		});
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure).toEqual({
 			scope: 'canonical-pdp-import-closure-at-pinned-commit',
+			roots: KIBBLE_PDP_SOURCE_ROOTS,
 			traversalRule: 'Traverse adapted imports recursively; excluded roots terminate traversal; framework and generated imports are external.',
 			adapted: KIBBLE_PDP_ADAPTED_SOURCE_FILES,
 			excluded: KIBBLE_PDP_EXCLUDED_DEPENDENCIES,
@@ -259,6 +261,10 @@ describe('Kibble reference contract', () => {
 	});
 
 	it('rejects PDP source, projection, and cross-contract provenance tampering', () => {
+		const changedRoot = cloneContract();
+		(changedRoot.recipes.pdp.source.dependencyClosure.roots as string[])[0] = 'apps/storefront-svelte/src/routes/cart/+page.svelte';
+		expect(() => KibbleReferenceContractSchema.parse(changedRoot)).toThrow();
+
 		const badSourceHash = cloneContract();
 		(badSourceHash.recipes.pdp.source.dependencyClosure.adapted[0] as { sha256: string }).sha256 = '0'.repeat(64);
 		expect(KibbleReferenceContractSchema.safeParse(badSourceHash).success).toBe(false);

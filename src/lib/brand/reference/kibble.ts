@@ -13,6 +13,11 @@ const UniqueStrings = z.array(RequiredString).superRefine((values, ctx) => {
 });
 const HexColor = z.string().regex(/^#[0-9a-f]{6}$/i);
 
+export const KIBBLE_PDP_SOURCE_ROOTS = [
+	'apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts',
+	'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte',
+] as const;
+
 export const KIBBLE_PDP_ADAPTED_SOURCE_FILES = [
 	{ path: 'apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts', sha256: '61546d7a03e180c02dba320ea10b95c5d590f616ae60ce85adcb31292070ef68' },
 	{ path: 'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte', sha256: '2037eca5a6b2e98b30e9d901ef97616a7347356566d98906ef777948351e3646' },
@@ -397,6 +402,7 @@ export const KibbleReferenceContractSchema = z.object({
 				commit: z.literal('ef122b8e17b9eb0b327c9d42491c44a61577ead4'),
 				dependencyClosure: z.object({
 					scope: z.literal('canonical-pdp-import-closure-at-pinned-commit'),
+					roots: z.tuple([z.literal(KIBBLE_PDP_SOURCE_ROOTS[0]), z.literal(KIBBLE_PDP_SOURCE_ROOTS[1])]),
 					traversalRule: z.literal('Traverse adapted imports recursively; excluded roots terminate traversal; framework and generated imports are external.'),
 					adapted: z.array(z.object({ path: RequiredString, sha256: z.string().regex(/^[0-9a-f]{64}$/) }).strict()).length(KIBBLE_PDP_ADAPTED_SOURCE_FILES.length),
 					excluded: z.array(z.object({ module: RequiredString, reason: RequiredString }).strict()).length(KIBBLE_PDP_EXCLUDED_DEPENDENCIES.length),
@@ -551,6 +557,9 @@ export const KibbleReferenceContractSchema = z.object({
 		ctx.addIssue({ code: 'custom', message: 'PDP source commit must match the canonical Kibble source commit', path: ['recipes', 'pdp', 'source', 'commit'] });
 	}
 	const dependencyClosure = contract.recipes.pdp.source.dependencyClosure;
+	if (JSON.stringify(dependencyClosure.roots) !== JSON.stringify(KIBBLE_PDP_SOURCE_ROOTS)) {
+		ctx.addIssue({ code: 'custom', message: 'PDP dependency roots must match the pinned canonical route roots', path: ['recipes', 'pdp', 'source', 'dependencyClosure', 'roots'] });
+	}
 	if (JSON.stringify(dependencyClosure.adapted) !== JSON.stringify(KIBBLE_PDP_ADAPTED_SOURCE_FILES)) {
 		ctx.addIssue({ code: 'custom', message: 'PDP adapted dependency closure must match the pinned canonical import closure', path: ['recipes', 'pdp', 'source', 'dependencyClosure', 'adapted'] });
 	}
@@ -803,6 +812,7 @@ const contractInput = {
 				commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4',
 				dependencyClosure: {
 					scope: 'canonical-pdp-import-closure-at-pinned-commit',
+					roots: KIBBLE_PDP_SOURCE_ROOTS,
 					traversalRule: 'Traverse adapted imports recursively; excluded roots terminate traversal; framework and generated imports are external.',
 					adapted: KIBBLE_PDP_ADAPTED_SOURCE_FILES,
 					excluded: KIBBLE_PDP_EXCLUDED_DEPENDENCIES,

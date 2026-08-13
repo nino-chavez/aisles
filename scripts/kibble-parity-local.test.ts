@@ -5,6 +5,7 @@ import {
 	deriveLocalParityPaths,
 	findWorkspaceRoot,
 	KIBBLE_PARITY_ADAPTED_SOURCE_FILES,
+	KIBBLE_PARITY_CLASSIFIED_CLOSURES,
 	KIBBLE_PARITY_DEFAULT_ROUTES,
 	KIBBLE_PARITY_PDP_SOURCE_FILES,
 	readLocalParityRoutes,
@@ -101,6 +102,13 @@ describe('Kibble local visual parity runner', () => {
 	});
 
 	it('requires every adapted PDP dependency to match its canonical SHA', () => {
+		expect(KIBBLE_PARITY_CLASSIFIED_CLOSURES[0]).toMatchObject({
+			scope: 'canonical-pdp-import-closure-at-pinned-commit',
+			roots: [
+				'apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts',
+				'apps/storefront-svelte/src/routes/products/[slug]/+page.svelte',
+			],
+		});
 		const exact = Object.fromEntries(KIBBLE_PARITY_PDP_SOURCE_FILES.map(({ path, sha256 }) => [path, sha256]));
 		expect(() => verifyPinnedPdpSourceDigests(exact)).not.toThrow();
 

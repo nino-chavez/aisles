@@ -20,7 +20,8 @@ const KIBBLE_PARITY_SOURCE_GROUPS = [
 	KIBBLE_REFERENCE_CONTRACT.recipes.checkout.source.dependencyClosure.adapted,
 	KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.source.dependencyClosure.adapted,
 ] as const;
-const KIBBLE_PARITY_CLASSIFIED_CLOSURES = [
+export const KIBBLE_PARITY_CLASSIFIED_CLOSURES = [
+	KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure,
 	KIBBLE_REFERENCE_CONTRACT.recipes.search.source.dependencyClosure,
 	KIBBLE_REFERENCE_CONTRACT.recipes.cart.source.dependencyClosure,
 	KIBBLE_REFERENCE_CONTRACT.recipes.account.source.dependencyClosure,
