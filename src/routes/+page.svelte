@@ -3,6 +3,8 @@
 	import type { Layout } from '$lib/schema/layout';
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
 	import { KibbleHomeReference } from '$lib/components/kibble';
+	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
+	import { KIBBLE_PARITY_FIXED_DATA_IDENTITY } from '$lib/brand/reference/kibble-parity';
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -115,17 +117,23 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleHome}
-	<KibbleHomeReference
-		hero={data.kibbleHome.hero}
-		products={data.kibbleHome.products}
-		productHrefs={data.kibbleHome.productHrefs}
-		categories={data.kibbleHome.categories}
-		serviceProof={data.kibbleHome.serviceProof}
-		featuredCopy={data.kibbleHome.featuredCopy}
-		browseHref={data.kibbleHome.browseHref}
-		categoryTitle={data.kibbleHome.categoryTitle}
-		categoryEyebrow={data.kibbleHome.categoryEyebrow}
-	/>
+	<div
+		data-kibble-reference-contract-id={KIBBLE_REFERENCE_CONTRACT.id}
+		data-kibble-reference-contract-version={KIBBLE_REFERENCE_CONTRACT.version}
+		data-kibble-fixed-data-identity={KIBBLE_PARITY_FIXED_DATA_IDENTITY}
+	>
+		<KibbleHomeReference
+			hero={data.kibbleHome.hero}
+			products={data.kibbleHome.products}
+			productHrefs={data.kibbleHome.productHrefs}
+			categories={data.kibbleHome.categories}
+			serviceProof={data.kibbleHome.serviceProof}
+			featuredCopy={data.kibbleHome.featuredCopy}
+			browseHref={data.kibbleHome.browseHref}
+			categoryTitle={data.kibbleHome.categoryTitle}
+			categoryEyebrow={data.kibbleHome.categoryEyebrow}
+		/>
+	</div>
 {:else}
 <!-- Returning visitor banner — chrome, not layout content: shown regardless of aiLayout -->
 {#if data.storedPersona && data.storedCategory}
