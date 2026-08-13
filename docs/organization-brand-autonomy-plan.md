@@ -12,17 +12,19 @@
 The plan is not complete. The corrective implementation is integrated on the
 project branches. The Home model action is merged at `426045a6`, deployed as
 Cloudflare Pages deployment `1691752f-db95-402c-be7c-8d2ae9c1945b`, and was
-verified live on 2026-08-13. The PDP model action is implemented locally and
-still needs deploy. No database migration has been applied.
+verified live on 2026-08-13. The PDP model action is merged at `4efa5ded`,
+deployed as Cloudflare Pages deployment
+`3a748556-2243-4f51-b6da-63f01701278f`, and was verified live on 2026-08-13.
+No database migration has been applied.
 
-| Phase | Local state on 2026-08-13 | Remaining gate |
+| Phase | Verified state on 2026-08-13 | Remaining gate |
 |---|---|---|
 | 0 — correct the record | Integrated in Aisles and Bealls Aisles | Publish the amended claims with the code |
 | 1 — policy compiler | Implemented in Aisles; Bealls-family policies record observed legacy behavior | Production adoption beyond the Kibble slice |
 | 2 — policy-aware resolver | Implemented and tested as an opt-in path | Migrate each contracted route and zone |
 | 3 — Kibble reference package | Pinned contract, native components, CSS, recipes, fallbacks, classified route dependencies, and the final cold-review accessibility repairs are implemented. The contract records the exact 28 zone families and 36 expanded Bealls identities: 11 content-backed Kibble-native adapters and 25 Trusted Hidden terminals. | Approved route-by-route visual comparison |
 | 4 — Kibble routes | Home, product listing, product detail, search, and error surfaces render Preserve. Product detail is live as a catalog-display-only route, and product cards link to it. Cart, account, subscriptions, and the three canonical checkout phase routes render source-native unavailable shells rather than functional commerce; bare `/checkout` remains the source 404. Home applies bounded signal-informed product ranking without changing its reference shell. | Complete route-by-route human visual review; do not treat the PDP or unavailable shells as functional commerce |
-| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented. Home has a live opt-in `rank_products` model action; the exact-route PDP related-products action is implemented locally. | Review and deploy the PDP action; retain route-by-route visual and operational gates |
+| 5 — bounded zone decisions | Strict policy-derived schema, trusted materialization, and fail-closed source binding implemented. Home has a live opt-in `rank_products` model action; the exact-route PDP related-products action is also live. | Add another model-capable surface only after its merchant-owned zone contract is approved; retain route-by-route visual and operational gates |
 | 6 — cache and provenance | Versioned cache/log/Observe code, an additive migration, actual Home and product-listing Preserve records, and a Home decision trace implemented | Apply the migration and verify the deployed runtime |
 | 7 — executable parity | The local Kibble harness covers 15 named routes at 390, 768, and 1280 pixels. It checks pinned provenance, dependency classifications, structure, and screenshots. The latest zero-tolerance run leaves all 15 routes and all 45 viewport cells open: 12,313,565 of 66,597,260 comparable pixels differ (18.4896%), with no masks. Mechanical evidence is not an approval. The Bealls internal regression harness covers its 90 brand/route/viewport cells. | Obtain named route-by-route human visual approval; no masks or tolerances are approved by this record |
 | 8 — Bealls adoption | Separate brand policies and versioned internal renderer contracts are integrated for Bealls, Bealls Florida, and Home Centric. The final clean internal run at `6b7faee` mechanically passed all 90 cells per side with exact active-brand and zone coverage, zero model requests, and no provider/database traffic. Its unmasked comparison still has 62 changed cells and 27,989,468 changed pixels. All brands remain explicitly `uncontracted` for external-reference preservation. | Obtain named human review of the internal visual deltas; add approved external-reference contracts and visual gates before making a preservation claim |
@@ -493,8 +495,10 @@ Kibble Home can rank and select products, while every other Home zone remains
 fixed. Its opt-in model action is now live for the approved Home shelf. The
 normal rules preview truthfully reports zero model calls; the model action
 reports its actual provider attempts. The PDP related-products model action is
-implemented locally for only `/product/puppy-starter-kit` and remains pending
-review and deploy. Each live preview requires a site-wide demo session that
+live for only `/product/puppy-starter-kit`. Its production smoke returned one
+provider attempt and one exact three-product permutation; the model selected
+the existing order in that run, which the inspector reported without claiming
+a visible reorder. Each live preview requires a site-wide demo session that
 begins with an explicit `?observe=true` request;
 the route then re-derives the persisted-session decision server-side rather than
 accepting browser-controlled decision data. A separate local showcase supplies
@@ -572,7 +576,7 @@ evidence. It does not imply a database migration or human visual acceptance.
 | F | `aisles`: generation schema/prompt/API/cache/provenance | Implemented and integrated for live contracted surfaces, including fixed product-detail provenance |
 | G | Both repos: deterministic and visual parity suites | Kibble's 15-route × 3-viewport harness and Bealls's 90-cell internal regression harness are implemented and code-reviewed; both strict visual comparisons and named human approval remain open |
 | H | `aisles-admin`: merchant control surface | Dedicated read-only sandbox integrated; versioned runtime writes and audit storage remain unbuilt |
-| I | `aisles`: Kibble decision proof | Home rules ranking and live opt-in model ranking are deployed. The exact-route PDP related-products model action is implemented locally, pending review and deploy. The isolated local showcase remains provider-free. |
+| I | `aisles`: Kibble decision proof | Home rules ranking plus the opt-in Home and exact-route PDP model rankings are deployed and live-verified. The isolated local showcase remains provider-free. |
 
 ## Compatibility and rollout
 
