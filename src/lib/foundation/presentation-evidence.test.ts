@@ -11,7 +11,7 @@ const baseline = { copy: [{ id: 'headline', label: 'Headline', value: 'Start her
 describe('generic presentation decision evidence', () => {
 	it('records moved, added, removed, unchanged, and changed presentation fields', () => {
 		const evidence = buildPresentationDecisionEvidence({
-			surface: 'plp', zoneId: 'plp.product-ranking', zoneLabel: 'Product ranking', policyVersion: 'plp-v1',
+			surface: 'plp', zoneIds: ['plp.product-ranking'], zoneLabel: 'Product ranking', policyVersion: 'plp-v1',
 			before: products, after: [{ id: 'two', name: 'Product Two' }, { id: 'three', name: 'Product Three' }],
 			provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied',
 			presentationBefore: baseline,
@@ -22,16 +22,26 @@ describe('generic presentation decision evidence', () => {
 		expect(evidence.removed.map(({ id }) => id)).toEqual(['one']);
 		expect(evidence.unchanged).toEqual([]);
 		expect(evidence.outcome).toBe('changed');
+		expect(evidence.zoneIds).toEqual(['plp.product-ranking']);
 		expect(hasPresentationDecisionChanged(evidence)).toBe(true);
 	});
 
 	it('makes the unchanged outcome explicit for a model call that keeps the baseline', () => {
 		const evidence = buildPresentationDecisionEvidence({
-			surface: 'pdp', zoneId: 'pdp.related', zoneLabel: 'Related products', policyVersion: 'pdp-v1',
+			surface: 'pdp', zoneIds: ['pdp.related'], zoneLabel: 'Related products', policyVersion: 'pdp-v1',
 			before: products, after: products, provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied',
 			presentationBefore: baseline, presentationAfter: baseline,
 		});
 		expect(evidence.outcome).toBe('kept');
 		expect(describePresentationDecisionOutcome(evidence)).toBe('AI kept the existing presentation.');
+	});
+
+	it('rejects empty or duplicate named-zone evidence', () => {
+		const input = {
+			surface: 'home', zoneLabel: 'Home presentation', policyVersion: 'home-v1', before: products, after: products,
+			provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied' as const,
+		};
+		expect(() => buildPresentationDecisionEvidence({ ...input, zoneIds: [] })).toThrow('unique named zone instances');
+		expect(() => buildPresentationDecisionEvidence({ ...input, zoneIds: ['home.hero', 'home.hero'] })).toThrow('unique named zone instances');
 	});
 });

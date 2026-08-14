@@ -77,19 +77,30 @@ describe('KibbleObserveRail', () => {
 		expect(source).toContain('decisionEvidence = null');
 	});
 
-	it('makes bounded AI capability visible before the first model call on every approved surface', () => {
+	it('shows readiness before the first call without counting eligible zones as rendered AI output', () => {
 		const rail = readFileSync(resolve(import.meta.dirname, 'KibbleObserveRail.svelte'), 'utf8');
 		const home = readFileSync(resolve(import.meta.dirname, 'KibbleFeaturedGrid.svelte'), 'utf8');
 		const plp = readFileSync(resolve(import.meta.dirname, 'KibbleCategoryReference.svelte'), 'utf8');
 		const pdp = readFileSync(resolve(import.meta.dirname, 'KibbleProductDetailReference.svelte'), 'utf8');
+		const marketing = readFileSync(resolve(import.meta.dirname, 'KibbleMarketingBlock.svelte'), 'utf8');
 
-		expect(rail).toContain("`${surfaceLabel} · AI available`");
+		expect(rail).toContain("`${surfaceLabel} · AI ready`");
 		expect(rail).toContain("return 'Run AI'");
 		expect(rail).toContain("window.dispatchEvent(new CustomEvent('aisles-kibble-model-request'))");
 		expect(rail).toContain("window.addEventListener('aisles-kibble-home-model-ready', onHomeModelReady)");
 		expect(rail).toContain('View changes');
-		expect(rail).toContain("zone.modelEligible ? 'AI available'");
+		expect(rail).toContain("zone.modelEligible ? 'AI ready'");
+		expect(rail).toContain("zones.filter(({ authority, modelCalls }) => authority === 'model' && modelCalls > 0).length");
+		expect(rail).toContain('AI zones and AI calls stay zero until validated model-selected output is rendered.');
+		expect(rail).not.toContain('KIBBLE_HOME_PRESENTATION_POLICY.zoneIds.length');
 		for (const source of [home, plp, pdp]) expect(source).toContain('data-aisles-model-eligible');
+		expect(marketing).toContain('data-aisles-model-calls={zoneArtifact.modelCallCount}');
+		expect(marketing).toContain('data-aisles-authority={zoneArtifact.decisionMode}');
+		expect(marketing).toContain('{zoneArtifact.content.props.headline}');
+		expect(marketing).not.toContain('No optional marketing block selected');
+		expect(plp).toContain("marketingZoneArtifact?.sharedContentKind === 'content'");
+		expect(pdp).toContain("marketingZoneArtifact?.sharedContentKind === 'content'");
+		expect(pdp).toContain('<KibbleMarketingBlock zoneArtifact={marketingZoneArtifact} />');
 	});
 
 	it('covers the narrow funnel surfaces and never offers retry inside the server cooldown', () => {

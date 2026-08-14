@@ -15,11 +15,19 @@ function response(ids = ['13', '11', '12']) {
 	return {
 		version: 'kibble-pdp-presentation-preview-v2', previewOnly: true, routePath: expected.routePath, policyVersion: expected.policyVersion,
 		persona: 'researcher', rankedProductIds: ids, provider: 'anthropic', modelId: 'claude-haiku-4-5',
-		presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY, presentationDecision: KIBBLE_PDP_DEFAULT_PRESENTATION,
-		zoneAdapter: {
-			instanceId: 'pdp.related', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1,
-			adapterId: 'kibble.zone.pdp.related', componentVariantId: 'kibble.product-detail.related-products', inputSha256: 'a'.repeat(64),
-			content: { component: 'product-carousel', props: { title: 'You may also like', products: ids.map((productId) => ({ productId, role: 'standard' })), showQuickAdd: false } },
+		presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY,
+		zoneArtifacts: {
+			related: {
+				instanceId: 'pdp.related', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1,
+				adapterId: 'kibble.zone.pdp.related', componentVariantId: 'kibble.product-detail.related-products', inputSha256: 'a'.repeat(64),
+				selection: { componentVariantId: 'kibble.product-detail.related-products', copyVariantId: KIBBLE_PDP_DEFAULT_PRESENTATION.relatedCopyVariantId },
+				content: { component: 'product-carousel', props: { title: 'You may also like', products: ids.map((productId) => ({ productId, role: 'standard' })), showQuickAdd: false } },
+			},
+			marketing: {
+				instanceId: 'pdp.below-description', sharedStatus: 'live', sharedContentKind: 'hidden', decisionMode: 'model', modelCallCount: 1,
+				adapterId: 'kibble.zone.pdp.below-description', componentVariantId: 'kibble.hero.zone-editorial-header', inputSha256: 'b'.repeat(64),
+				selection: { componentVariantId: 'kibble.hero.zone-editorial-header', copyVariantId: 'none', visible: false },
+			},
 		},
 		modelCallCount: 1, provenance: {},
 	};
@@ -45,7 +53,20 @@ describe('Kibble PDP live preview validation', () => {
 
 	it('rejects a response that changes the fixed related-products heading', () => {
 		const invalid = response();
-		invalid.zoneAdapter.content.props.title = 'Model-authored title';
+		invalid.zoneArtifacts.related.content.props.title = 'Model-authored title';
+		expect(validateKibblePdpLivePreview(invalid, expected, products)).toBeNull();
+	});
+
+	it('rejects the old aggregate decision shape and hidden artifacts with content', () => {
+		expect(validateKibblePdpLivePreview({ ...response(), presentationDecision: KIBBLE_PDP_DEFAULT_PRESENTATION }, expected, products)).toBeNull();
+		const missing = response() as any;
+		delete missing.zoneArtifacts.related;
+		expect(validateKibblePdpLivePreview(missing, expected, products)).toBeNull();
+		const adjacent = response() as any;
+		adjacent.zoneArtifacts['pdp.cross-sell'] = adjacent.zoneArtifacts.marketing;
+		expect(validateKibblePdpLivePreview(adjacent, expected, products)).toBeNull();
+		const invalid = response() as any;
+		invalid.zoneArtifacts.marketing.content = { component: 'editorial-header', props: { eyebrow: '', headline: '', body: '' } };
 		expect(validateKibblePdpLivePreview(invalid, expected, products)).toBeNull();
 	});
 

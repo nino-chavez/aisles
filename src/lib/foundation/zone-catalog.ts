@@ -116,6 +116,14 @@ const unionIds = [...new Set([...BEALLS_ZONE_SNAPSHOT.zones.map(({ zoneId }) => 
  * decision to the concrete normalized pathname and server-reloaded catalog.
  */
 export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApproval[]>> = freezeAuthorityGraph({
+	'home.hero': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.9.0',
+		routePath: '/',
+		instanceId: 'home.hero',
+	}],
 	'home.featured-row': [{
 		organizationId: 'kibble-demo-merchant',
 		brandId: 'kibble',
@@ -123,6 +131,22 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		referenceVersion: '1.9.0',
 		routePath: '/',
 		instanceId: 'home.featured-row.1',
+	}],
+	'home.editorial-strip': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.9.0',
+		routePath: '/',
+		instanceId: 'home.editorial-strip',
+	}],
+	'pdp.below-description': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.9.0',
+		routePath: '/product/[slug]',
+		instanceId: 'pdp.below-description',
 	}],
 	'pdp.related': [{
 		organizationId: 'kibble-demo-merchant',
@@ -139,6 +163,22 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		referenceVersion: '1.9.0',
 		routePath: '/category/[slug]',
 		instanceId: 'plp.product-ranking',
+	}],
+	'plp.editorial-header': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.9.0',
+		routePath: '/category/[slug]',
+		instanceId: 'plp.editorial-header',
+	}],
+	'plp.marketing-block': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.9.0',
+		routePath: '/category/[slug]',
+		instanceId: 'plp.marketing-block',
 	}],
 	'search.empty-state': [{
 		organizationId: 'kibble-demo-merchant',
@@ -168,7 +208,7 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 	],
 });
 
-export const ZONE_CATALOG_VERSION = '2026-08-14.2';
+export const ZONE_CATALOG_VERSION = '2026-08-14.3';
 export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = freezeAuthorityGraph(Object.fromEntries(unionIds.map((zoneId) => {
 	const isAisles = Object.prototype.hasOwnProperty.call(ZONES, zoneId);
 	const aislesZoneId = zoneId as ZoneId;

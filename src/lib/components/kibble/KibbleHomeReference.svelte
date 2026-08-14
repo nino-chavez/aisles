@@ -13,7 +13,10 @@
 		KibbleServiceProofItem,
 		KibbleVisualTile,
 	} from './types';
-	import type { materializeKibbleHomePresentation } from '$lib/brand/reference/kibble-presentation-decisions';
+	import {
+		materializeKibbleHomePresentation,
+		parseKibbleHomePresentationDecision,
+	} from '$lib/brand/reference/kibble-presentation-decisions';
 
 	let {
 		hero,
@@ -28,8 +31,6 @@
 		categoryEyebrow,
 		zoneAdapters,
 		modelEligible = false,
-		presentation = null,
-		modelCallCount = 0,
 	}: {
 			hero: {
 				eyebrow: string;
@@ -55,14 +56,29 @@
 			belowFold: any;
 		};
 		modelEligible?: boolean;
-		presentation?: ReturnType<typeof materializeKibbleHomePresentation> | null;
-		modelCallCount?: number;
 	} = $props();
-	const activeHero = $derived(modelCallCount > 0 && presentation ? presentation.hero : { eyebrow: hero.eyebrow, headline: hero.headline, body: hero.body });
-	const activeFeaturedCopy = $derived(modelCallCount > 0 && presentation ? presentation.featuredCopy : featuredCopy);
-	const activeCatalogCopy = $derived(modelCallCount > 0 && presentation ? presentation.catalogCopy : { title: categoryTitle, eyebrow: categoryEyebrow });
-	const activeCatalogColumns = $derived(modelCallCount > 0 && presentation ? presentation.catalogComponent.columns : 4);
-	const activeSectionOrder = $derived(modelCallCount > 0 && presentation ? presentation.sectionOrder.order : ['featured', 'catalog']);
+	const modelHero = $derived(zoneAdapters?.hero?.decisionMode === 'model' ? zoneAdapters.hero : null);
+	const modelFeatured = $derived(zoneAdapters?.featuredRows?.[0]?.decisionMode === 'model' ? zoneAdapters.featuredRows[0] : null);
+	const modelEditorial = $derived(zoneAdapters?.editorial?.decisionMode === 'model' ? zoneAdapters.editorial : null);
+	const modelDecision = $derived(modelHero?.selection && modelFeatured?.selection && modelEditorial?.selection
+		? parseKibbleHomePresentationDecision({
+			heroCopyVariantId: modelHero.selection.copyVariantId,
+			featuredCopyVariantId: modelFeatured.selection.copyVariantId,
+			catalogCopyVariantId: modelEditorial.selection.copyVariantId,
+			catalogComponentVariantId: modelEditorial.selection.componentVariantId === 'kibble.visual-module.category' ? 'four-column' : 'two-column',
+			sectionOrderId: modelFeatured.selection.placementId,
+		})
+		: null);
+	const modelPresentation = $derived(modelDecision ? materializeKibbleHomePresentation(modelDecision, {
+		hero: { eyebrow: hero.eyebrow, headline: hero.headline, body: hero.body },
+		featuredCopy,
+		catalogCopy: { title: categoryTitle, eyebrow: categoryEyebrow },
+	}) : null);
+	const activeHero = $derived(modelPresentation ? modelPresentation.hero : { eyebrow: hero.eyebrow, headline: hero.headline, body: hero.body });
+	const activeFeaturedCopy = $derived(modelPresentation ? modelPresentation.featuredCopy : featuredCopy);
+	const activeCatalogCopy = $derived(modelPresentation ? modelPresentation.catalogCopy : { title: categoryTitle, eyebrow: categoryEyebrow });
+	const activeCatalogColumns = $derived(modelPresentation ? modelPresentation.catalogComponent.columns : 4);
+	const activeSectionOrder = $derived(modelPresentation ? modelPresentation.sectionOrder.order : ['featured', 'catalog']);
 </script>
 
 <KibbleHero
@@ -74,25 +90,19 @@
 	proofItems={hero.proofItems}
 	zoneAdapter={zoneAdapters?.hero}
 	{modelEligible}
-	{modelCallCount}
+	modelCallCount={modelHero?.modelCallCount ?? 0}
 />
 <div
 	id="kibble-home-recipe-order"
 	tabindex="-1"
-	data-aisles-zone-instance="home.recipe-order"
-	data-aisles-zone-label="Home section order"
-	data-aisles-authority={modelCallCount > 0 ? 'model' : 'fixed'}
-	data-aisles-model-calls={modelCallCount}
-	data-aisles-model-eligible={modelEligible ? 'true' : undefined}
-	data-kibble-zone-status="live"
-	data-kibble-zone-variant={presentation?.decision.sectionOrderId ?? 'featured-then-catalog'}
+	data-kibble-presentation-order={modelDecision?.sectionOrderId ?? 'featured-then-catalog'}
 >
 	{#if activeSectionOrder[0] === 'featured'}
-		<KibbleFeaturedGrid copy={activeFeaturedCopy} {products} {productHrefs} {browseHref} {subscriptionOffers} zoneAdapters={zoneAdapters?.featuredRows} {modelEligible} copyModelCallCount={modelCallCount} />
-		<KibbleVisualModule variant="category" title={activeCatalogCopy.title} eyebrow={activeCatalogCopy.eyebrow} tiles={categories} columns={activeCatalogColumns} zoneAdapter={zoneAdapters?.editorial} {modelEligible} {modelCallCount} componentVariantId={presentation?.decision.catalogComponentVariantId ?? 'four-column'} />
+		<KibbleFeaturedGrid copy={activeFeaturedCopy} {products} {productHrefs} {browseHref} {subscriptionOffers} zoneAdapters={zoneAdapters?.featuredRows} {modelEligible} copyModelCallCount={modelFeatured?.modelCallCount ?? 0} />
+		<KibbleVisualModule variant="category" title={activeCatalogCopy.title} eyebrow={activeCatalogCopy.eyebrow} tiles={categories} columns={activeCatalogColumns} zoneAdapter={zoneAdapters?.editorial} {modelEligible} modelCallCount={modelEditorial?.modelCallCount ?? 0} componentVariantId={modelDecision?.catalogComponentVariantId ?? 'four-column'} />
 	{:else}
-		<KibbleVisualModule variant="category" title={activeCatalogCopy.title} eyebrow={activeCatalogCopy.eyebrow} tiles={categories} columns={activeCatalogColumns} zoneAdapter={zoneAdapters?.editorial} {modelEligible} {modelCallCount} componentVariantId={presentation?.decision.catalogComponentVariantId ?? 'four-column'} />
-		<KibbleFeaturedGrid copy={activeFeaturedCopy} {products} {productHrefs} {browseHref} {subscriptionOffers} zoneAdapters={zoneAdapters?.featuredRows} {modelEligible} copyModelCallCount={modelCallCount} />
+		<KibbleVisualModule variant="category" title={activeCatalogCopy.title} eyebrow={activeCatalogCopy.eyebrow} tiles={categories} columns={activeCatalogColumns} zoneAdapter={zoneAdapters?.editorial} {modelEligible} modelCallCount={modelEditorial?.modelCallCount ?? 0} componentVariantId={modelDecision?.catalogComponentVariantId ?? 'four-column'} />
+		<KibbleFeaturedGrid copy={activeFeaturedCopy} {products} {productHrefs} {browseHref} {subscriptionOffers} zoneAdapters={zoneAdapters?.featuredRows} {modelEligible} copyModelCallCount={modelFeatured?.modelCallCount ?? 0} />
 	{/if}
 </div>
 <KibbleServiceProof items={serviceProof} zoneAdapter={zoneAdapters?.belowFold} />

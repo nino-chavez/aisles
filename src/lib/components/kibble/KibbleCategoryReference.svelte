@@ -1,11 +1,11 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibbleAutoRefillOffer, KibbleProduct, KibbleZoneAdapterBinding } from './types';
+	import type { KibbleAutoRefillOffer, KibbleModelZoneAdapterBinding, KibbleProduct, KibbleRenderedModelZoneAdapterBinding, KibbleZoneAdapterBinding } from './types';
 	import type { KibbleCategoryJobProfile } from '$lib/brand/reference/kibble-catalog-enrichment';
 	import type { KibblePlpSort } from '$lib/brand/reference/kibble-plp';
 	import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
-	import type { materializeKibblePlpPresentation } from '$lib/brand/reference/kibble-presentation-decisions';
+	type EditorialContent = { component: 'editorial-header'; props: { eyebrow: string; headline: string; body: string } };
 
 	let {
 		eyebrow,
@@ -25,8 +25,7 @@
 		zoneAdapter,
 		productRanking,
 		productRankingZoneAdapter,
-		presentation = null,
-		presentationModelCallCount = 0,
+		marketingZoneArtifact = null,
 		subscriptionOffers = {},
 		categoryGuide,
 	}: {
@@ -44,11 +43,10 @@
 		productHrefs: Partial<Record<string, string>>;
 		loadMoreHref: string | null;
 		loadMoreLabel: string;
-		zoneAdapter?: KibbleZoneAdapterBinding<any>;
+		zoneAdapter?: KibbleZoneAdapterBinding<any> | KibbleRenderedModelZoneAdapterBinding<EditorialContent>;
 		productRanking?: { eligible: boolean; routePath: string; policyVersion: string; prefixIds: string[]; tailIds: string[] } | null;
 		productRankingZoneAdapter?: KibbleZoneAdapterBinding<any> | null;
-		presentation?: ReturnType<typeof materializeKibblePlpPresentation> | null;
-		presentationModelCallCount?: number;
+		marketingZoneArtifact?: KibbleModelZoneAdapterBinding<EditorialContent> | null;
 		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
 		categoryGuide: KibbleCategoryJobProfile;
 	} = $props();
@@ -74,13 +72,13 @@
 			</ol>
 		</nav>
 
-		<header id="kibble-plp-editorial-header" tabindex="-1" class="kc-reference-category__header" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={presentation?.decision.headerCopyVariantId ?? zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256} data-aisles-zone-instance={zoneAdapter?.instanceId ?? 'plp.editorial-header'} data-aisles-zone-label="CLP framing" data-aisles-authority={presentationModelCallCount > 0 ? 'model' : (zoneAdapter?.decisionMode ?? 'fixed')} data-aisles-model-calls={presentationModelCallCount} data-aisles-model-eligible={productRanking?.eligible ? 'true' : undefined}>
+		<header id="kibble-plp-editorial-header" tabindex="-1" class="kc-reference-category__header" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter && 'selection' in zoneAdapter ? zoneAdapter.selection.copyVariantId : zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256} data-aisles-zone-instance={zoneAdapter?.instanceId ?? 'plp.editorial-header'} data-aisles-zone-label="CLP framing" data-aisles-authority={zoneAdapter?.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter?.modelCallCount ?? 0} data-aisles-model-eligible={productRanking?.eligible ? 'true' : undefined}>
 			<div>
-				<p class="kc-reference-eyebrow">{presentationModelCallCount > 0 ? presentation?.header.eyebrow : (zoneAdapter?.content.props.eyebrow ?? eyebrow)}</p>
-				<h1 id="kibble-category-heading">{presentationModelCallCount > 0 ? presentation?.header.title : (zoneAdapter?.content.props.headline ?? title)}</h1>
+				<p class="kc-reference-eyebrow">{zoneAdapter?.content.props.eyebrow ?? eyebrow}</p>
+				<h1 id="kibble-category-heading">{zoneAdapter?.content.props.headline ?? title}</h1>
 			</div>
 			<div class="kc-reference-category__controls">
-				<p class="kc-reference-category__count">{presentationModelCallCount > 0 ? presentation?.header.body : (zoneAdapter?.content.props.body ?? `${productCount} ${productCount === 1 ? productSingular : productPlural}`)}</p>
+				<p class="kc-reference-category__count">{zoneAdapter?.content.props.body ?? `${productCount} ${productCount === 1 ? productSingular : productPlural}`}</p>
 				<form method="get" class="kc-reference-category__sort">
 					<label for="kibble-category-sort">{sortLabel}</label>
 					<select id="kibble-category-sort" name="sort" value={selectedSort} onchange={submitSort}>
@@ -102,8 +100,8 @@
 			</ul>
 		</aside>
 
-		{#if presentation?.marketingBlock || productRanking?.eligible}
-			<KibbleMarketingBlock block={presentation?.marketingBlock ?? null} zoneId="plp.marketing-block" modelCallCount={presentationModelCallCount} modelEligible={Boolean(productRanking?.eligible)} />
+		{#if marketingZoneArtifact?.sharedContentKind === 'content'}
+			<KibbleMarketingBlock zoneArtifact={marketingZoneArtifact} />
 		{/if}
 
 		{#if products.length > 0}

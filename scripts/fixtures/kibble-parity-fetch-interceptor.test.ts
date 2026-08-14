@@ -124,6 +124,30 @@ describe('official Kibble parity GraphQL fixture', () => {
 		expect(response.site.route.node.productOptions).toEqual({ edges: [] });
 	});
 
+	it('preflights the stable PDP proof route and its honest category-sibling candidates', async () => {
+		const previousFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+			const body = JSON.parse(String(init?.body));
+			return new Response(JSON.stringify({ data: interceptor.responseFor(body.query, body.variables) }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+			});
+		});
+		try {
+			const { getKibbleProductDetailByPath, resolveKibblePdpRelatedProducts } = await import('../../src/lib/server/bigcommerce');
+			const detail = await getKibbleProductDetailByPath('/puppy-starter-kit/');
+			expect(detail?.entityId).toBe(3064);
+			if (!detail) throw new Error('Pinned PDP proof product was not returned.');
+			const resolution = await resolveKibblePdpRelatedProducts(detail);
+			expect(resolution.products).toHaveLength(4);
+			expect(new Set(resolution.products.map(({ entityId }) => entityId)).size).toBe(4);
+			expect(resolution.products.some(({ entityId }) => entityId === 3064)).toBe(false);
+			expect(resolution).toMatchObject({ candidateSource: 'category_sibling', relationKind: null });
+		} finally {
+			globalThis.fetch = previousFetch;
+		}
+	});
+
 	it('fails closed for an unimplemented operation', () => {
 		expect(() => interceptor.responseFor(query('InventedMutation'), {})).toThrow('InventedMutation');
 	});

@@ -118,6 +118,7 @@ export const ZoneSchemas = {
 	'home.below-fold': serviceCalloutsGrid,
 	'plp.editorial-header': z.union([editorialHero, editorialHeader]),
 	'plp.product-ranking': productGrid,
+	'plp.marketing-block': editorialHeader,
 	'plp.cluster-row': clusterChipRow,
 	'plp.below-grid': categoryTileGrid,
 	'pdp.below-description': editorialHeader,

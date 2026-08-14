@@ -41,7 +41,12 @@ const detail = {
 const adapter = {
 	instanceId: 'pdp.related', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1,
 	adapterId: 'kibble.zone.pdp.related', componentVariantId: 'kibble.product-detail.related-products', inputSha256: 'a'.repeat(64),
+	selection: { componentVariantId: 'kibble.product-detail.related-products', copyVariantId: 'continue-routine' },
 	content: { component: 'product-carousel', props: { title: 'You may also like', products: [{ productId: '13', role: 'standard' }, { productId: '3023', role: 'standard' }, { productId: '12', role: 'standard' }], showQuickAdd: false } },
+};
+const zoneArtifacts = {
+	related: adapter,
+	marketing: { instanceId: 'pdp.below-description', decisionMode: 'model', modelCallCount: 1 },
 };
 
 function request(body: unknown = { mode: 'model', routePath: '/product/puppy-starter-kit' }, query = '?observe=true') {
@@ -64,7 +69,7 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 			relationKind: 'related',
 		}));
 		mocks.reserveBudget.mockReset().mockResolvedValue({ ok: true, sessionUsed: 1, globalUsed: 1 });
-		mocks.rankWithModel.mockReset().mockResolvedValue({ policy: { policyVersion: 'pdp-assist-v1', provenance: { zoneBinding: { instanceId: 'pdp.related' } } }, rankedProductIds: ['13', '3023', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, adapter, modelId: 'claude-haiku-4-5', modelCallCount: 1 });
+		mocks.rankWithModel.mockReset().mockResolvedValue({ policy: { policyVersion: 'pdp-assist-v1', provenance: { zoneBinding: { instanceId: 'pdp.related' } } }, rankedProductIds: ['13', '3023', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, zoneArtifacts, modelId: 'claude-haiku-4-5', modelCallCount: 1 });
 		mocks.provenance.mockReset().mockReturnValue({ decisionSource: 'model' });
 		mocks.logGeneration.mockReset().mockResolvedValue(undefined);
 	});
@@ -83,7 +88,12 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 			expect.objectContaining({ entityId: 13, name: 'Dog Toy Kit', category: 'Toys', price: 32, catalogSignals: expect.objectContaining({ offerProjection: 'unclassified', categorySlug: 'toys' }) }),
 		]);
 		const body = await response.json();
-		expect(body).toMatchObject({ version: 'kibble-pdp-presentation-preview-v2', routePath: '/product/puppy-starter-kit', rankedProductIds: ['13', '3023', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, presentationPolicy: { capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'] } });
+		expect(body).toMatchObject({ version: 'kibble-pdp-presentation-preview-v2', routePath: '/product/puppy-starter-kit', rankedProductIds: ['13', '3023', '12'], zoneArtifacts: { related: { instanceId: 'pdp.related' }, marketing: { instanceId: 'pdp.below-description' } }, presentationPolicy: { capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'] } });
+		expect(Object.keys(body.zoneArtifacts)).toEqual(['related', 'marketing']);
+		expect(body).not.toHaveProperty('presentationDecision');
+		expect(body).not.toHaveProperty('zoneAdapter');
+		expect(JSON.stringify(body)).not.toContain('rawModelContent');
+		for (const artifact of Object.values(body.zoneArtifacts) as Array<{ modelCallCount: number }>) expect(artifact.modelCallCount).toBe(1);
 		expect(JSON.stringify(body)).not.toContain('browser-owned');
 		expect(mocks.provenance).toHaveBeenCalledWith(expect.objectContaining({
 			catalogInput: expect.objectContaining({ candidateSource: 'native_related', relationKind: 'related' }),

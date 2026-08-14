@@ -116,13 +116,76 @@ export type KibbleExcludedSourceCapability = {
 	readonly reason: string;
 };
 
+export type KibbleAislesCapabilityId =
+	| 'rank_products'
+	| 'select_products'
+	| 'select_copy_variant'
+	| 'select_component_variant'
+	| 'toggle_zone'
+	| 'reorder_zones';
+
+export type KibbleFixedCommerceFact =
+	| 'product-facts'
+	| 'price'
+	| 'eligibility'
+	| 'cadence'
+	| 'inventory'
+	| 'links'
+	| 'cart'
+	| 'checkout'
+	| 'account'
+	| 'payment'
+	| 'order'
+	| 'subscription';
+
+export type KibbleObserveCountExpectation =
+	| { readonly kind: 'exact'; readonly value: number; readonly note: string }
+	| { readonly kind: 'range'; readonly min: number; readonly max: number; readonly note: string };
+
+export type KibbleAislesCapabilitySurface = 'home' | 'plp' | 'pdp' | 'search' | 'cart' | 'checkout';
+
+export type KibbleAislesCapabilityProof = {
+	readonly route: {
+		readonly surface: KibbleAislesCapabilitySurface;
+		readonly href: string;
+		readonly stableProof: string;
+	};
+	readonly trigger: {
+		readonly label: string;
+		readonly execution: 'explicit-rules' | 'explicit-observe-model';
+		readonly requiresUserAction: boolean;
+	};
+	readonly namedZoneInstances: readonly string[];
+	readonly candidatePrerequisites: readonly string[];
+	readonly before: {
+		readonly presentation: string;
+		readonly observe: {
+			readonly aiZones: KibbleObserveCountExpectation;
+			readonly aiCalls: KibbleObserveCountExpectation;
+		};
+	};
+	readonly result: {
+		readonly changed: string;
+		readonly kept: string;
+		readonly observe: {
+			readonly aiZones: KibbleObserveCountExpectation;
+			readonly aiCalls: KibbleObserveCountExpectation;
+		};
+	};
+	readonly failClosedReason: string;
+};
+
 export type KibbleAislesCapabilityDemo = {
-	readonly id: 'rank_products' | 'select_products' | 'select_copy_variant' | 'select_component_variant' | 'toggle_zone' | 'reorder_zones';
+	/** An action type is a decision vocabulary entry, not a rendered zone identity. */
+	readonly id: KibbleAislesCapabilityId;
 	readonly label: string;
 	readonly authority: readonly ('rules' | 'model')[];
-	readonly surfaces: readonly ('home' | 'plp' | 'pdp' | 'search' | 'cart' | 'checkout')[];
+	readonly surfaces: readonly KibbleAislesCapabilitySurface[];
+	/** Compact-list link only; proofs is the complete action-by-surface matrix. */
 	readonly demoHref: string;
 	readonly boundary: string;
+	readonly fixedFacts: readonly KibbleFixedCommerceFact[];
+	readonly proofs: readonly KibbleAislesCapabilityProof[];
 };
 
 export type KibbleMerchantCapabilityCoverage = {
@@ -386,13 +449,213 @@ export const KIBBLE_SUBSCRIPTION_CAPABILITY_DEMOS = Object.freeze([
 	},
 ] as const satisfies readonly KibbleSubscriptionCapabilityDemo[]);
 
+export const KIBBLE_FIXED_COMMERCE_FACTS = Object.freeze([
+	'product-facts', 'price', 'eligibility', 'cadence', 'inventory', 'links',
+	'cart', 'checkout', 'account', 'payment', 'order', 'subscription',
+] as const satisfies readonly KibbleFixedCommerceFact[]);
+
+export const KIBBLE_AISLES_PDP_PROOF = Object.freeze({
+	href: '/product/puppy-starter-kit?observe=true',
+	slug: 'puppy-starter-kit',
+	productEntityId: 3064,
+	fixtureSha256: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
+	candidateCount: 4,
+	candidateSource: 'category_sibling',
+	relationKind: null,
+} as const);
+
+const beforeObserve = Object.freeze({
+	aiZones: { kind: 'exact', value: 0, note: 'Eligibility is readiness, not rendered model output.' },
+	aiCalls: { kind: 'exact', value: 0, note: 'No provider is called before the explicit model control.' },
+} as const);
+
+const providerCalls = Object.freeze({
+	kind: 'range', min: 1, max: 2,
+	note: 'Counts actual primary and optional fallback provider attempts.',
+} as const satisfies KibbleObserveCountExpectation);
+
+/**
+ * Typed public proof matrix. The outer row is one decision action; every
+ * inner proof is one surface on which that action is currently enabled.
+ * Several action proofs can share one explicit provider run. That does not
+ * turn an action type into another AI zone or provider call.
+ */
 export const KIBBLE_AISLES_CAPABILITY_DEMOS = Object.freeze([
-	{ id: 'select_products', label: 'Select approved products', authority: ['rules'], surfaces: ['home'], demoHref: '/?observe=true', boundary: 'Selects only from the merchant candidate set; catalog membership stays fixed.' },
-	{ id: 'rank_products', label: 'Rank approved products', authority: ['rules', 'model'], surfaces: ['home', 'plp', 'pdp'], demoHref: '/category/dog-food?observe=true', boundary: 'Changes order only; product facts, price, links, and actions stay fixed.' },
-	{ id: 'select_copy_variant', label: 'Select approved copy', authority: ['model'], surfaces: ['home', 'plp', 'pdp', 'search', 'cart', 'checkout'], demoHref: '/search?q=zzzz-kibble-no-match&observe=true', boundary: 'Selects a merchant-authored variant ID; the model does not write storefront claims.' },
-	{ id: 'select_component_variant', label: 'Select an approved component', authority: ['model'], surfaces: ['home'], demoHref: '/?observe=true', boundary: 'Chooses from registered component variants inside the existing page recipe.' },
-	{ id: 'toggle_zone', label: 'Show an approved marketing zone', authority: ['model'], surfaces: ['plp', 'pdp'], demoHref: '/category/dog-food?observe=true', boundary: 'May show or hide only the named optional marketing block.' },
-	{ id: 'reorder_zones', label: 'Reorder approved Home sections', authority: ['model'], surfaces: ['home'], demoHref: '/?observe=true', boundary: 'Reorders only the approved Home section pair; checkout and account structure remain fixed.' },
+	{
+		id: 'select_products', label: 'Select approved products', authority: ['rules'], surfaces: ['home'],
+		demoHref: '/?observe=true#kibble-signal-lab', boundary: 'Selects only from the merchant candidate set; catalog membership stays fixed.',
+		fixedFacts: KIBBLE_FIXED_COMMERCE_FACTS,
+		proofs: [{
+			route: { surface: 'home', href: '/?observe=true#kibble-signal-lab', stableProof: 'The Home signal lab re-runs the deterministic rules decision against the server-loaded shelf.' },
+			trigger: { label: 'Apply a synthetic shopper scenario', execution: 'explicit-rules', requiresUserAction: true },
+			namedZoneInstances: ['home.featured-row.1', 'home.featured-row.2', 'home.featured-row.3'],
+			candidatePrerequisites: ['At least three current, server-loaded catalog products.', 'Every selected product must already belong to the merchant candidate set.'],
+			before: { presentation: 'The server-rendered merchant shelf order.', observe: beforeObserve },
+			result: {
+				changed: 'Rules may choose a different approved subset for the inferred shopper.',
+				kept: 'The same approved subset remains when it already satisfies the rules.',
+				observe: { aiZones: { kind: 'exact', value: 0, note: 'Rules-owned output is never counted as an AI zone.' }, aiCalls: { kind: 'exact', value: 0, note: 'Rules execute without a provider.' } },
+			},
+			failClosedReason: 'Too few or invalid server candidates retain the merchant shelf; no provider path exists for this trigger.',
+		}],
+	},
+	{
+		id: 'rank_products', label: 'Rank approved products', authority: ['rules', 'model'], surfaces: ['home', 'plp', 'pdp'],
+		demoHref: KIBBLE_AISLES_PDP_PROOF.href, boundary: 'Changes order only; product facts, price, links, and actions stay fixed.',
+		fixedFacts: KIBBLE_FIXED_COMMERCE_FACTS,
+		proofs: [
+			{
+				route: { surface: 'home', href: '/?observe=true', stableProof: 'Home binds one current one-to-eight-product shelf to home.featured-row.1 and publishes only an exact permutation.' },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['home.featured-row.1'],
+				candidatePrerequisites: ['One to eight unique current, server-loaded shelf products.', 'The returned order must be an exact permutation of those IDs.'],
+				before: { presentation: 'The approved Home shelf order.', observe: beforeObserve },
+				result: {
+					changed: 'The same Home product IDs appear in a model-selected order.', kept: 'The original order remains as a valid model-selected result.',
+					observe: { aiZones: { kind: 'exact', value: 3, note: 'The shared Home run renders three validated named-zone selections.' }, aiCalls: providerCalls },
+				},
+				failClosedReason: 'An invalid candidate set, permutation, route, or sibling zone result keeps the approved Home presentation and renders zero AI zones.',
+			},
+			{
+				route: { surface: 'plp', href: '/category/dog-food?sort=FEATURED&observe=true', stableProof: 'The local showcase pins the Dog Food category; only the first three to eight unique server-loaded products are rankable.' },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['plp.product-ranking'],
+				candidatePrerequisites: ['FEATURED sort with no cursor.', 'Three to eight unique current prefix products; any tail stays in merchant order.'],
+				before: { presentation: 'Merchant PLP prefix order followed by its unchanged tail.', observe: beforeObserve },
+				result: {
+					changed: 'The same rankable prefix IDs appear in a model-selected order.', kept: 'The prefix and unchanged tail remain when the model agrees.',
+					observe: { aiZones: { kind: 'range', min: 2, max: 3, note: 'Header and ranking render; optional PLP marketing counts only when visible.' }, aiCalls: providerCalls },
+				},
+				failClosedReason: 'A cursor, non-FEATURED sort, invalid prefix, adjacent artifact, or failed gate keeps the merchant PLP and renders zero AI zones.',
+			},
+			{
+				route: { surface: 'pdp', href: KIBBLE_AISLES_PDP_PROOF.href, stableProof: `The local showcase preflights ${KIBBLE_AISLES_PDP_PROOF.candidateCount} unique ${KIBBLE_AISLES_PDP_PROOF.candidateSource} candidates from fixture ${KIBBLE_AISLES_PDP_PROOF.fixtureSha256}; a drifting live catalog still fails closed.` },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['pdp.related'],
+				candidatePrerequisites: ['Exactly three or four unique current products.', 'Native related products are preferred; category siblings are labeled category_sibling with no merchant-related claim.'],
+				before: { presentation: 'Merchant order and merchant-authored related heading.', observe: beforeObserve },
+				result: {
+					changed: 'The same PDP candidate IDs appear in a model-selected order.', kept: 'The original order remains as a valid model-selected result.',
+					observe: { aiZones: { kind: 'range', min: 1, max: 2, note: 'The related rail counts; optional PDP marketing counts only when visible.' }, aiCalls: providerCalls },
+				},
+				failClosedReason: 'Fewer than three candidates, an unapproved route, invalid output, or a failed gate keeps the approved PDP rail and renders zero AI zones.',
+			},
+		],
+	},
+	{
+		id: 'select_copy_variant', label: 'Select approved copy', authority: ['model'], surfaces: ['home', 'plp', 'pdp', 'search', 'cart', 'checkout'],
+		demoHref: '/search?q=zzzz-kibble-no-match&observe=true', boundary: 'Selects a merchant-authored variant ID; the model does not write storefront claims.',
+		fixedFacts: KIBBLE_FIXED_COMMERCE_FACTS,
+		proofs: [
+			{
+				route: { surface: 'home', href: '/?observe=true', stableProof: 'Home binds copy IDs separately to hero, featured shelf, and catalog module instances.' },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'],
+				candidatePrerequisites: ['One to eight unique current shelf products.', 'Every copy ID must belong to the exact named Home zone.'],
+				before: { presentation: 'Three merchant baseline Home copy variants.', observe: beforeObserve },
+				result: { changed: 'One or more merchant-authored Home variants render.', kept: 'Any baseline variant remains valid when selected.', observe: { aiZones: { kind: 'exact', value: 3, note: 'All three validated Home selections render and count.' }, aiCalls: providerCalls } },
+				failClosedReason: 'A missing, crossed, or unapproved Home copy ID keeps the complete merchant presentation and renders zero AI zones.',
+			},
+			{
+				route: { surface: 'plp', href: '/category/dog-food?sort=FEATURED&observe=true', stableProof: 'The pinned Dog Food PLP binds separate header and optional-marketing copy catalogs.' },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['plp.editorial-header', 'plp.marketing-block'],
+				candidatePrerequisites: ['An eligible pinned PLP ranking prefix.', 'Header and marketing IDs must validate in their own named catalogs.'],
+				before: { presentation: 'Merchant PLP header copy and no optional marketing block.', observe: beforeObserve },
+				result: { changed: 'Approved PLP header or visible marketing copy changes.', kept: 'Baseline header and a hidden marketing result remain valid.', observe: { aiZones: { kind: 'range', min: 2, max: 3, note: 'Header and ranking count; marketing counts only when visible.' }, aiCalls: providerCalls } },
+				failClosedReason: 'Any crossed or unapproved PLP copy ID keeps the complete merchant PLP and renders zero AI zones.',
+			},
+			{
+				route: { surface: 'pdp', href: KIBBLE_AISLES_PDP_PROOF.href, stableProof: 'The pinned proof PDP binds related-heading and optional-marketing variants to two exact instances.' },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['pdp.related', 'pdp.below-description'],
+				candidatePrerequisites: ['Exactly three or four current PDP candidates.', 'Related and marketing IDs must validate in their own named catalogs.'],
+				before: { presentation: 'Merchant related heading and no optional marketing block.', observe: beforeObserve },
+				result: { changed: 'Approved related or visible marketing copy changes.', kept: 'Baseline related copy and a hidden marketing result remain valid.', observe: { aiZones: { kind: 'range', min: 1, max: 2, note: 'Related counts; marketing counts only when visible.' }, aiCalls: providerCalls } },
+				failClosedReason: 'Any crossed or unapproved PDP copy ID keeps the complete merchant PDP and renders zero AI zones.',
+			},
+			{
+				route: { surface: 'search', href: '/search?q=zzzz-kibble-no-match&observe=true', stableProof: 'A server-confirmed zero-result search exposes one copy-only recovery zone.' },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['search.empty-state'],
+				candidatePrerequisites: ['The server must confirm the query has zero catalog results.', 'The returned ID must match one merchant-authored search variant.'],
+				before: { presentation: 'Merchant baseline search-recovery copy.', observe: beforeObserve },
+				result: { changed: 'A different merchant-authored recovery variant renders.', kept: 'The baseline variant remains a valid model-selected result.', observe: { aiZones: { kind: 'exact', value: 1, note: 'Only the rendered search recovery zone counts.' }, aiCalls: providerCalls } },
+				failClosedReason: 'Any search result, unapproved copy ID, disabled gate, or provider failure keeps the baseline and renders zero AI zones.',
+			},
+			{
+				route: { surface: 'cart', href: '/cart?observe=true', stableProof: 'The disconnected Kibble cart route is a stable empty shell with one copy-only recovery instance.' },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['cart.empty-state'],
+				candidatePrerequisites: ['The server-owned cart shell must remain empty and disconnected.', 'The returned ID must match one merchant-authored cart variant.'],
+				before: { presentation: 'Merchant baseline empty-cart copy.', observe: beforeObserve },
+				result: { changed: 'A different merchant-authored empty-cart variant renders.', kept: 'The baseline variant remains valid.', observe: { aiZones: { kind: 'exact', value: 1, note: 'Only the rendered cart empty-state zone counts.' }, aiCalls: providerCalls } },
+				failClosedReason: 'Any unapproved ID, non-empty state, disabled gate, or provider failure keeps the disconnected empty-cart shell and renders zero AI zones.',
+			},
+			{
+				route: { surface: 'checkout', href: '/checkout/gift?observe=true', stableProof: 'The gift route is a stable unavailable shell with one reassurance-only presentation instance.' },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['checkout.assurance-strip'],
+				candidatePrerequisites: ['The gift checkout shell must remain unavailable and transaction-free.', 'The returned ID must match one merchant-authored reassurance variant.'],
+				before: { presentation: 'Merchant baseline checkout reassurance copy.', observe: beforeObserve },
+				result: { changed: 'A different merchant-authored reassurance variant renders.', kept: 'The baseline variant remains valid.', observe: { aiZones: { kind: 'exact', value: 1, note: 'Only the rendered checkout assurance zone counts.' }, aiCalls: providerCalls } },
+				failClosedReason: 'Any unapproved ID, executable checkout state, disabled gate, or provider failure keeps the unavailable shell and renders zero AI zones.',
+			},
+		],
+	},
+	{
+		id: 'select_component_variant', label: 'Select an approved component', authority: ['model'], surfaces: ['home'],
+		demoHref: '/?observe=true', boundary: 'Chooses from registered component variants inside the existing page recipe.',
+		fixedFacts: KIBBLE_FIXED_COMMERCE_FACTS,
+		proofs: [{
+			route: { surface: 'home', href: '/?observe=true', stableProof: 'Home binds the catalog module to two registered complete component variants inside home.editorial-strip.' },
+			trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+			namedZoneInstances: ['home.editorial-strip'],
+			candidatePrerequisites: ['One to eight unique current shelf products.', 'The component ID must be one of the two registered Home catalog-module variants.'],
+			before: { presentation: 'The four-column merchant catalog module.', observe: beforeObserve },
+			result: { changed: 'The registered two-column module renders.', kept: 'The registered four-column baseline remains valid.', observe: { aiZones: { kind: 'exact', value: 3, note: 'The shared Home run renders three validated named-zone selections.' }, aiCalls: providerCalls } },
+			failClosedReason: 'An unregistered component ID or any failed Home sibling validation keeps all three merchant-owned zones and renders zero AI zones.',
+		}],
+	},
+	{
+		id: 'toggle_zone', label: 'Show an approved marketing zone', authority: ['model'], surfaces: ['plp', 'pdp'],
+		demoHref: KIBBLE_AISLES_PDP_PROOF.href, boundary: 'May show or hide only the named optional marketing block.',
+		fixedFacts: KIBBLE_FIXED_COMMERCE_FACTS,
+		proofs: [
+			{
+				route: { surface: 'plp', href: '/category/dog-food?sort=FEATURED&observe=true', stableProof: 'The pinned Dog Food PLP includes one named optional marketing slot hidden by default.' },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['plp.marketing-block'],
+				candidatePrerequisites: ['An eligible pinned PLP ranking prefix.', 'Visibility and copy must validate together for plp.marketing-block.'],
+				before: { presentation: 'No PLP marketing block is rendered.', observe: beforeObserve },
+				result: { changed: 'One merchant-authored block renders in the PLP slot.', kept: 'A model-selected hidden result mounts no DOM and adds no AI zone.', observe: { aiZones: { kind: 'range', min: 2, max: 3, note: 'Header and ranking count; PLP marketing counts only when visible.' }, aiCalls: providerCalls } },
+				failClosedReason: 'An invalid visibility/variant pairing, crossed binding, failed gate, or failed sibling execution keeps the merchant PLP and publishes no model zones; a valid hidden selection is an AI-kept result with two rendered zones.',
+			},
+			{
+				route: { surface: 'pdp', href: KIBBLE_AISLES_PDP_PROOF.href, stableProof: `The pinned proof product ${KIBBLE_AISLES_PDP_PROOF.productEntityId} preflights four honest category siblings; pdp.below-description is hidden by default.` },
+				trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+				namedZoneInstances: ['pdp.below-description'],
+				candidatePrerequisites: ['The PDP action must be eligible with three or four bound candidates.', 'Visibility and copy must validate together for pdp.below-description.'],
+				before: { presentation: 'No PDP marketing block is rendered.', observe: beforeObserve },
+				result: { changed: 'One merchant-authored block renders in the PDP slot.', kept: 'A model-selected hidden result mounts no DOM and adds no AI zone.', observe: { aiZones: { kind: 'range', min: 1, max: 2, note: 'Related counts; PDP marketing counts only when visible.' }, aiCalls: providerCalls } },
+				failClosedReason: 'An invalid visibility/variant pairing, crossed binding, failed gate, or failed sibling execution keeps the merchant PDP and publishes no model zones; a valid hidden selection is an AI-kept result with one rendered zone.',
+			},
+		],
+	},
+	{
+		id: 'reorder_zones', label: 'Reorder approved Home sections', authority: ['model'], surfaces: ['home'],
+		demoHref: '/?observe=true', boundary: 'Reorders only the approved Home section pair; checkout and account structure remain fixed.',
+		fixedFacts: KIBBLE_FIXED_COMMERCE_FACTS,
+		proofs: [{
+			route: { surface: 'home', href: '/?observe=true', stableProof: 'home.featured-row.1 may choose only featured-then-catalog or catalog-then-featured for the existing pair.' },
+			trigger: { label: 'Run bounded AI', execution: 'explicit-observe-model', requiresUserAction: true },
+			namedZoneInstances: ['home.featured-row.1'],
+			candidatePrerequisites: ['The featured and catalog sections must both be present.', 'The placement ID must be one of two merchant-approved orders.'],
+			before: { presentation: 'Featured shelf, then category catalog module.', observe: beforeObserve },
+			result: { changed: 'The two existing named sections exchange order.', kept: 'The merchant baseline order remains valid.', observe: { aiZones: { kind: 'exact', value: 3, note: 'The shared Home run renders three selections; action fields are not extra zones.' }, aiCalls: providerCalls } },
+			failClosedReason: 'Any unapproved placement or missing section keeps the baseline Home order and renders zero AI zones.',
+		}],
+	},
 ] as const satisfies readonly KibbleAislesCapabilityDemo[]);
 
 export const KIBBLE_ONE_TIME_ONLY_ENTITY_IDS = Object.freeze(

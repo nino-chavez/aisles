@@ -22,6 +22,7 @@ import { logGeneration } from '$lib/server/generation-log';
 import { infer } from '$lib/signals/inference';
 import { findSessionStore } from '$lib/signals/session';
 import { MODEL_PROVIDER } from '$lib/server/model';
+import { BoundedModelActionError } from '$lib/server/bounded-model-action.server';
 
 const VERSION = 'kibble-bounded-copy-preview-v1';
 type DecisionRequest =
@@ -88,7 +89,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		}, { headers: noStoreHeaders() });
 	} catch (error) {
 		console.error('[kibble-bounded-copy-decision] operational failure:', error);
-		return json({ error: 'Failed to preview Kibble bounded presentation decision' }, { status: 500, headers: noStoreHeaders() });
+		return json({ error: 'Failed to preview Kibble bounded presentation decision', modelCallCount: attemptedModelCalls(error) }, { status: 500, headers: noStoreHeaders() });
 	}
 };
 
@@ -115,5 +116,6 @@ function invalidRequest() { return json({ error: 'Invalid Kibble decision reques
 function sessionUnavailable() { return json({ error: 'Kibble preview session is unavailable' }, { status: 409, headers: noStoreHeaders() }); }
 function ineligible(message: string) { return json({ error: message }, { status: 409, headers: noStoreHeaders() }); }
 function noStoreHeaders() { return { 'Cache-Control': 'no-store' }; }
+function attemptedModelCalls(error: unknown): number { return error instanceof BoundedModelActionError ? error.callCount : 0; }
 
 export const _test = { parseRequest, VERSION };
