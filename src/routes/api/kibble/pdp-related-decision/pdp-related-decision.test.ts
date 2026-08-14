@@ -74,14 +74,14 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get('cache-control')).toBe('no-store');
 		expect(mocks.getDetail).toHaveBeenCalledWith('/puppy-starter-kit/');
-		expect(mocks.rankWithModel).toHaveBeenCalledWith(expect.objectContaining({
-			routePath: '/product/puppy-starter-kit',
-			products: [
-				{ entityId: 11, name: 'Starter Bundle', category: 'Bundles', price: 90 },
-				{ entityId: 12, name: 'Mealtime Kit', category: 'Care', price: 55 },
-				{ entityId: 13, name: 'Dog Toy Kit', category: 'Toys', price: 32 },
-			],
-		}));
+		expect(mocks.rankWithModel).toHaveBeenCalledTimes(1);
+		const rankInput = mocks.rankWithModel.mock.calls[0][0];
+		expect(rankInput.routePath).toBe('/product/puppy-starter-kit');
+		expect(rankInput.products).toEqual([
+			expect.objectContaining({ entityId: 11, name: 'Starter Bundle', category: 'Bundles', price: 90, catalogSignals: expect.objectContaining({ subscriptionEligible: false }) }),
+			expect.objectContaining({ entityId: 12, name: 'Mealtime Kit', category: 'Care', price: 55, catalogSignals: expect.objectContaining({ subscriptionEligible: false }) }),
+			expect.objectContaining({ entityId: 13, name: 'Dog Toy Kit', category: 'Toys', price: 32, catalogSignals: expect.objectContaining({ subscriptionEligible: false }) }),
+		]);
 		const body = await response.json();
 		expect(body).toMatchObject({ version: 'kibble-pdp-presentation-preview-v2', routePath: '/product/puppy-starter-kit', rankedProductIds: ['13', '11', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, presentationPolicy: { capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'] } });
 		expect(JSON.stringify(body)).not.toContain('browser-owned');
