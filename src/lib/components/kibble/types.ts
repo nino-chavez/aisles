@@ -143,6 +143,96 @@ export type KibblePdpCopy = {
 	detailsHeading: string;
 };
 
+/** Aisles-owned labels for the opt-in one-time commerce slice. */
+export type KibbleCommerceCopy = {
+	addToCartLabel: string;
+	addingToCartLabel: string;
+	addedToCartLabel: string;
+	autoRefillLabel: string;
+	oneTimeLabel: string;
+	checkoutLabel: string;
+	checkingOutLabel: string;
+	cartErrorLabel: string;
+	checkoutErrorLabel: string;
+	autoRefillErrorLabel: string;
+	viewCartLabel: string;
+};
+
+export type KibbleAccountSessionView = {
+	entityId: number;
+	firstName: string;
+	lastName: string;
+	email: string;
+};
+
+export type KibbleOrderView = {
+	entityId: number;
+	updatedAt: string | null;
+	subTotal: { value: number; currencyCode: string } | null;
+	totalIncTax: { value: number; currencyCode: string } | null;
+	itemCount: number;
+};
+
+export const KIBBLE_COMMERCE_COPY: KibbleCommerceCopy = {
+	addToCartLabel: 'Add to cart',
+	addingToCartLabel: 'Adding to cart…',
+	addedToCartLabel: 'Added to cart',
+	autoRefillLabel: 'Auto-Refill',
+	oneTimeLabel: 'One-time',
+	checkoutLabel: 'Checkout',
+	checkingOutLabel: 'Opening checkout…',
+	cartErrorLabel: 'We could not update your cart. Try again.',
+	checkoutErrorLabel: 'Checkout is temporarily unavailable. Try again.',
+	autoRefillErrorLabel: 'Auto-Refill is temporarily unavailable. The item was added as a one-time purchase.',
+	viewCartLabel: 'View cart',
+};
+
+export type KibbleSubscriptionPlanView = {
+	id: string;
+	name: string;
+	amountCents: number;
+	currency: string;
+	interval: 'day' | 'week' | 'month' | 'year';
+	intervalCount: number;
+	salesMode: 'subscribe_only' | 'subscribe_and_one_time' | 'one_time_only';
+	discountPct: number | null;
+	trialDays: number | null;
+	commitmentCycles: number | null;
+};
+
+export type KibbleSubscriptionIntentView = {
+	id: string;
+	name: string;
+	interval: 'day' | 'week' | 'month' | 'year';
+	intervalCount: number;
+	amountCents: number;
+	currency: string;
+	cycles?: number;
+};
+
+export type KibbleCartView = {
+	entityId: string;
+	currencyCode: string;
+	baseAmount: { value: number; currencyCode: string };
+	discountedAmount: { value: number; currencyCode: string };
+	amount: { value: number; currencyCode: string };
+	lineItems: {
+		physicalItems: Array<{
+			entityId: string;
+			productEntityId: number;
+			name: string;
+			quantity: number;
+			path: string | null;
+			imageUrl: string | null;
+			listPrice: { value: number; currencyCode: string };
+			salePrice: { value: number; currencyCode: string } | null;
+			extendedSalePrice: { value: number; currencyCode: string } | null;
+			selectedOptions: Array<{ entityId: number; name: string; value: string | null }>;
+		}>;
+		totalQuantity: number;
+	};
+};
+
 export type KibbleZoneAdapterBinding<TContent = unknown> = {
 	instanceId: string;
 	sharedStatus: 'live' | 'approval_candidate';

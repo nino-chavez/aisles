@@ -4,6 +4,7 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import KibbleSearchReference from '$lib/components/kibble/KibbleSearchReference.svelte';
 import KibbleCartReference from '$lib/components/kibble/KibbleCartReference.svelte';
+import KibbleProductDetailReference from '$lib/components/kibble/KibbleProductDetailReference.svelte';
 import KibbleAccountReference from '$lib/components/kibble/KibbleAccountReference.svelte';
 import KibbleCheckoutReference from '$lib/components/kibble/KibbleCheckoutReference.svelte';
 import KibbleSubscriptionsReference from '$lib/components/kibble/KibbleSubscriptionsReference.svelte';
@@ -61,6 +62,30 @@ describe('Kibble route-specific unavailable shells', () => {
 		expect(body).not.toMatch(/subtotal|discount|checkout now/i);
 	});
 
+	it('renders provider-approved Auto-Refill choices only when commerce is enabled', () => {
+		const body = render(KibbleProductDetailReference, { props: {
+			product: { id: 'goodgut', entityId: 42, name: 'GoodGut', price: 34.99, currencyCode: 'USD', image: '', imageAlt: '', images: [], description: '', descriptionPlain: '', specs: {}, tags: [], category: 'Dog Food', categoryPath: '/dog-food/', sku: 'GOODGUT', isInStock: true },
+			bundle: null, breadcrumbs: [], options: [], relatedProducts: [], relatedProductHrefs: {}, purchaseUnavailableLabel: 'Unavailable', purchaseUnavailableBody: 'No purchase action is available.', relatedHeading: 'Related', commerceEnabled: true,
+			subscriptionPlans: [{ id: 'plan-1', name: 'Monthly', amountCents: 2400, currency: 'USD', interval: 'month', intervalCount: 1, salesMode: 'subscribe_and_one_time', discountPct: 10, trialDays: null, commitmentCycles: null }],
+			copy: { breadcrumbLabel: 'Breadcrumb', galleryLabel: 'images', galleryImagesLabel: 'Images', viewImageLabel: 'View image', imageUnavailableLabel: 'Image unavailable', priceLabel: 'Price', skuLabel: 'SKU', inStockLabel: 'In stock', outOfStockLabel: 'Out of stock', availabilityUnavailableLabel: 'Availability unavailable', bundleEyebrow: 'Kit', bundleProductSingular: 'product', bundleProductPlural: 'products', bundleContentsHeading: 'Contents', optionsLegend: 'Options', requiredSuffix: 'required', detailsHeading: 'Details' },
+		} }).body;
+		expect(body).toContain('Purchase options');
+		expect(body).toContain('Auto-Refill · Monthly');
+		expect(body).toContain('$24.00');
+		expect(body).toContain('every 1 month');
+	});
+
+	it('renders a confirmed cart intent as a bounded line-item detail', () => {
+		const body = render(KibbleCartReference, { props: {
+			availabilityMessage: 'Your cart is empty.', commerceEnabled: true,
+			cart: { entityId: 'cart-1', currencyCode: 'USD', baseAmount: { value: 24, currencyCode: 'USD' }, discountedAmount: { value: 24, currencyCode: 'USD' }, amount: { value: 24, currencyCode: 'USD' }, lineItems: { totalQuantity: 1, physicalItems: [{ entityId: 'line-1', productEntityId: 42, name: 'GoodGut', quantity: 1, path: '/goodgut/', imageUrl: null, listPrice: { value: 24, currencyCode: 'USD' }, salePrice: { value: 24, currencyCode: 'USD' }, extendedSalePrice: { value: 24, currencyCode: 'USD' }, selectedOptions: [] }] } },
+			subscriptionIntents: { 'line-1': { id: 'plan-1', name: 'Monthly', amountCents: 2400, currency: 'USD', interval: 'month', intervalCount: 1 } },
+		} }).body;
+		expect(body).toContain('Auto-Refill');
+		expect(body).toContain('$24.00');
+		expect(body).toContain('every 1 month');
+	});
+
 	it.each(['login', 'register', 'orders', 'addresses', 'payment-methods', 'subscriptions', 'logout', 'unknown'] as const)('renders the %s account subtype with unavailable controls', (subtype) => {
 		const body = render(KibbleAccountReference, { props: { subtype, brandName: 'Kibble & Co.', availabilityMessage: 'Account unavailable.' } }).body;
 		expect(body).toContain(`data-kibble-account-subtype="${subtype}"`);
@@ -68,6 +93,19 @@ describe('Kibble route-specific unavailable shells', () => {
 		expect(body).toContain('Kibble &amp; Co.');
 		if (['login', 'register', 'subscriptions', 'logout', 'unknown'].includes(subtype)) expect(body).toContain('disabled');
 		expect(body).not.toContain('method="POST"');
+	});
+
+	it('renders the opt-in authenticated account state without provider credentials in markup', () => {
+		const body = render(KibbleAccountReference, { props: {
+			subtype: 'orders', brandName: 'Kibble & Co.', availabilityMessage: 'Account services are available.', commerceEnabled: true,
+			session: { entityId: 9, firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com' },
+			orders: [{ entityId: 101, updatedAt: '2026-08-14T00:00:00Z', subTotal: { value: 25, currencyCode: 'USD' }, totalIncTax: { value: 27, currencyCode: 'USD' }, itemCount: 2 }],
+		} }).body;
+		expect(body).toContain('data-kibble-backend-state="authenticated"');
+		expect(body).toContain('Order #101');
+		expect(body).toContain('$27.00');
+		expect(body).not.toContain('customer-token');
+		expect(body).not.toContain('commerce_session');
 	});
 
 	it.each(['gift', 'prepaid', 'confirmation'] as const)('renders the %s checkout subtype without a money-path claim', (subtype) => {
@@ -151,6 +189,13 @@ describe('Kibble route-specific unavailable shells', () => {
 	it('keeps every unavailable deep-route server free of backend calls', () => {
 		for (const path of ['account/[...path]/+page.server.ts', 'checkout/[subtype]/+page.server.ts', 'subscriptions/+page.server.ts', 'portal/subscriptions/[id]/+page.server.ts']) {
 			const source = route(path);
+			if (path.startsWith('account/')) {
+				// Account is the first opt-in commerce slice. Its loader remains inert
+				// when KIBBLE_COMMERCE_MODE=off; live-mode provider reads are tested at
+				// the adapter boundary instead of by this presentation-shell contract.
+				expect(source).toContain('loadKibbleAccountState');
+				continue;
+			}
 			expect(source).not.toMatch(/\bfetch\s*\(|\$lib\/server\/|createApiClient|checkoutKitLoader/);
 		}
 	});

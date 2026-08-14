@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibblePdpBundle, KibblePdpCopy, KibblePdpProduct, KibbleProductOption, KibbleProduct, KibbleZoneAdapterBinding } from './types';
+	import { KIBBLE_COMMERCE_COPY, type KibbleCommerceCopy, type KibblePdpBundle, type KibblePdpCopy, type KibblePdpProduct, type KibbleProductOption, type KibbleProduct, type KibbleSubscriptionPlanView, type KibbleZoneAdapterBinding } from './types';
 	import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
 	import type { materializeKibblePdpPresentation } from '$lib/brand/reference/kibble-presentation-decisions';
 	type RelatedContent = { component: 'product-carousel'; props: { title: string; products: Array<{ productId: string; role: 'standard' }>; showQuickAdd: false } };
@@ -21,6 +21,10 @@
 		relatedModelDecision = null,
 		presentation = null,
 		presentationModelCallCount = 0,
+		commerceEnabled = false,
+		commerceCopy = KIBBLE_COMMERCE_COPY,
+		subscriptionPlans = [],
+		subscriptionError = null,
 	}: {
 		product: KibblePdpProduct;
 		bundle: KibblePdpBundle | null;
@@ -36,6 +40,10 @@
 		relatedModelDecision?: { zoneId: 'pdp.related'; routePath: string } | null;
 		presentation?: ReturnType<typeof materializeKibblePdpPresentation> | null;
 		presentationModelCallCount?: number;
+		commerceEnabled?: boolean;
+		commerceCopy?: KibbleCommerceCopy;
+		subscriptionPlans?: KibbleSubscriptionPlanView[];
+		subscriptionError?: string | null;
 	} = $props();
 
 	let activeImage = $state(0);
@@ -49,17 +57,92 @@
 	const currentImage = $derived(gallery[activeImage] ?? null);
 	const salePrice = $derived(typeof product.salePrice === 'number' && product.salePrice < product.price ? product.salePrice : null);
 	const relatedByEntityId = $derived(new Map(relatedProducts.map((related) => [String(related.entityId), related])));
+	let selectedOptions = $state<Record<string, string>>({});
+	let isAddingToCart = $state(false);
+	let cartMessage = $state('');
+	let cartMessageTone = $state<'neutral' | 'error'>('neutral');
+	let purchaseMode = $state<'one-time' | 'auto-refill'>('one-time');
+	let selectedPlanId = $state('');
+	const activeSubscriptionPlans = $derived(subscriptionPlans.filter((plan) => plan.salesMode !== 'one_time_only'));
+	const selectedPlan = $derived(activeSubscriptionPlans.find((plan) => plan.id === selectedPlanId) ?? activeSubscriptionPlans[0] ?? null);
 
 	function money(value: number): string {
 		return new Intl.NumberFormat('en-US', { style: 'currency', currency: product.currencyCode || 'USD' }).format(value);
 	}
 
+	function planMoney(plan: KibbleSubscriptionPlanView): string {
+		return new Intl.NumberFormat('en-US', { style: 'currency', currency: plan.currency }).format(plan.amountCents / 100);
+	}
+
+	function cadence(plan: KibbleSubscriptionPlanView): string {
+		const unit = plan.intervalCount === 1 ? plan.interval : `${plan.interval}s`;
+		return `every ${plan.intervalCount} ${unit}`;
+	}
+
 	$effect(() => {
 		if (activeImage >= gallery.length) activeImage = 0;
 	});
+
+	function selectedOptionValue(option: KibbleProductOption): string {
+		return selectedOptions[String(option.entityId)] ?? String(option.values.find((value) => value.isDefault)?.entityId ?? '');
+	}
+
+	function setSelectedOption(optionEntityId: number, event: Event): void {
+		selectedOptions = { ...selectedOptions, [String(optionEntityId)]: (event.currentTarget as HTMLSelectElement).value };
+	}
+
+	async function addSelectedPurchaseToCart(): Promise<void> {
+		if (!commerceEnabled || isAddingToCart || product.isInStock === false) return;
+		const selected = options.map((option) => ({ option, value: selectedOptionValue(option) })).filter(({ value }) => value);
+		if (options.some((option) => option.isRequired && !selectedOptionValue(option))) {
+			cartMessageTone = 'error';
+			cartMessage = 'Choose the required options before adding this product.';
+			return;
+		}
+		isAddingToCart = true;
+		cartMessage = '';
+		let oneTimeItemAdded = false;
+		try {
+			const response = await fetch('/api/cart', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					productEntityId: product.entityId,
+					productSlug: product.id,
+					quantity: 1,
+					purchaseMode,
+					selectedOptions: selected.map(({ option, value }) => ({ optionEntityId: option.entityId, optionValueEntityId: Number(value) })),
+				}),
+			});
+			const result = await response.json() as { itemCount?: number; lineItemEntityId?: string | null; error?: string };
+			if (!response.ok) throw new Error(result.error || commerceCopy.cartErrorLabel);
+			oneTimeItemAdded = true;
+			if (purchaseMode === 'auto-refill') {
+				if (!selectedPlan || !result.lineItemEntityId) throw new Error(commerceCopy.autoRefillErrorLabel);
+				const intentResponse = await fetch('/api/cart/intents', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ lineEntityId: result.lineItemEntityId, planId: selectedPlan.id }),
+				});
+				await intentResponse.json();
+				if (!intentResponse.ok) throw new Error(commerceCopy.autoRefillErrorLabel);
+				cartMessageTone = 'neutral';
+				cartMessage = `${commerceCopy.autoRefillLabel} confirmed · ${selectedPlan.name}`;
+			} else {
+				cartMessageTone = 'neutral';
+				cartMessage = commerceCopy.addedToCartLabel;
+			}
+			window.dispatchEvent(new CustomEvent('cart-updated', { detail: { itemCount: result.itemCount ?? 0 } }));
+		} catch (error) {
+			cartMessageTone = 'error';
+			cartMessage = oneTimeItemAdded && purchaseMode === 'auto-refill' ? commerceCopy.autoRefillErrorLabel : error instanceof Error ? error.message : commerceCopy.cartErrorLabel;
+		} finally {
+			isAddingToCart = false;
+		}
+	}
 </script>
 
-<article class="kibble-reference kc-reference-pdp" data-kibble-pdp-recipe="fixed-catalog-display-only">
+<article class="kibble-reference kc-reference-pdp" data-kibble-pdp-recipe={commerceEnabled ? 'catalog-one-time-commerce' : 'fixed-catalog-display-only'}>
 	<div class="kc-reference-container">
 		<nav class="kc-reference-breadcrumbs" aria-label={copy.breadcrumbLabel}>
 			{#each breadcrumbs as crumb, index}
@@ -109,20 +192,46 @@
 				{/if}
 
 				{#if options.length > 0}
-					<fieldset class="kc-reference-pdp__options" disabled aria-describedby="purchase-unavailable">
+					<fieldset class="kc-reference-pdp__options" disabled={!commerceEnabled} aria-describedby={commerceEnabled ? 'purchase-status' : 'purchase-unavailable'}>
 						<legend>{copy.optionsLegend}</legend>
 						{#each options as option (option.entityId)}
 							<label>{option.displayName}{option.isRequired ? ` ${copy.requiredSuffix}` : ''}
-								<select aria-label={option.displayName}>{#each option.values as value (value.entityId)}<option selected={value.isDefault}>{value.label}</option>{/each}</select>
+								<select aria-label={option.displayName} value={selectedOptionValue(option)} onchange={(event) => setSelectedOption(option.entityId, event)}>{#each option.values as value (value.entityId)}<option value={value.entityId}>{value.label}</option>{/each}</select>
 							</label>
 						{/each}
 					</fieldset>
 				{/if}
 
-				<aside class="kc-reference-pdp__purchase-unavailable" id="purchase-unavailable" aria-live="polite">
-					<p class="kc-reference-eyebrow">{purchaseUnavailableLabel}</p>
-					<p>{purchaseUnavailableBody}</p>
-				</aside>
+				{#if commerceEnabled}
+					{#if activeSubscriptionPlans.length > 0}
+						<fieldset class="kc-reference-pdp__purchase-methods" aria-describedby="purchase-status">
+							<legend>Purchase options</legend>
+							<label class:kc-reference-pdp__purchase-method--active={purchaseMode === 'one-time'}>
+								<input type="radio" name="purchase-mode" value="one-time" checked={purchaseMode === 'one-time'} onchange={() => purchaseMode = 'one-time'} />
+								<span><strong>{commerceCopy.oneTimeLabel}</strong><small>{money(salePrice ?? product.price)} today</small></span>
+							</label>
+							{#each activeSubscriptionPlans as plan (plan.id)}
+								<label class:kc-reference-pdp__purchase-method--active={purchaseMode === 'auto-refill' && selectedPlanId === plan.id}>
+									<input type="radio" name="purchase-mode" value="auto-refill" checked={purchaseMode === 'auto-refill' && (selectedPlanId === plan.id || (!selectedPlanId && plan.id === activeSubscriptionPlans[0].id))} onchange={() => { purchaseMode = 'auto-refill'; selectedPlanId = plan.id; }} />
+									<span><strong>{commerceCopy.autoRefillLabel} · {plan.name}</strong><small>{planMoney(plan)} · {cadence(plan)}{plan.discountPct ? ` · ${plan.discountPct}% off` : ''}</small></span>
+								</label>
+							{/each}
+						</fieldset>
+					{:else if subscriptionError}
+						<p class="kc-reference-pdp__subscription-note" role="status">{subscriptionError} One-time purchase remains available.</p>
+					{/if}
+					<form class="kc-reference-pdp__purchase" onsubmit={(event) => { event.preventDefault(); void addSelectedPurchaseToCart(); }}>
+						<button type="submit" class="kc-reference-button kc-reference-button--primary kc-reference-focus" disabled={isAddingToCart || product.isInStock === false}>
+							{isAddingToCart ? commerceCopy.addingToCartLabel : product.isInStock === false ? copy.outOfStockLabel : purchaseMode === 'auto-refill' ? commerceCopy.autoRefillLabel : commerceCopy.addToCartLabel}
+						</button>
+						<p id="purchase-status" aria-live="polite" class:error={cartMessageTone === 'error'}>{cartMessage}</p>
+					</form>
+				{:else}
+					<aside class="kc-reference-pdp__purchase-unavailable" id="purchase-unavailable" aria-live="polite">
+						<p class="kc-reference-eyebrow">{purchaseUnavailableLabel}</p>
+						<p>{purchaseUnavailableBody}</p>
+					</aside>
+				{/if}
 
 				{#if product.description}<div class="kc-reference-pdp__description"><h2>{copy.detailsHeading}</h2><div>{@html product.description}</div></div>{/if}
 				{#if Object.keys(product.specs).length > 0}<dl class="kc-reference-pdp__specs">{#each Object.entries(product.specs) as [label, value]}<div><dt>{label}</dt><dd>{value}</dd></div>{/each}</dl>{/if}

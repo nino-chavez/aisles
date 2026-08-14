@@ -1,7 +1,25 @@
 import { json } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createCart, addToCart, getCart } from '$lib/server/bigcommerce';
+import { createCart, addToCart, getCart, getKibbleProductDetailByPath } from '$lib/server/bigcommerce';
+import {
+	addKibbleCartLine,
+	createKibbleCart,
+	deleteKibbleCartLine,
+	getKibbleCart,
+	getKibbleCommerceMode,
+	KibbleCommerceError,
+	updateKibbleCartLine,
+	type KibbleCart,
+	type KibbleCartLineInput,
+} from '$lib/server/kibble-commerce';
+import {
+	cacheKibbleCart,
+	evictKibbleCart,
+	getCachedKibbleCart,
+	getKibbleCartSessionCookie,
+} from '$lib/server/kibble-cart-store';
+import { getKibbleCommerceSession } from '$lib/server/kibble-commerce-session';
 import { defaultEvaluator } from '$lib/server/incentives';
 import {
 	readAppliedCodes,
@@ -10,10 +28,213 @@ import {
 	loadSessionIncentives,
 } from '$lib/server/incentives/session';
 import { getSessionStore, persistSession, hasSession } from '$lib/signals/session';
+import { emitKibbleAddToCartSignal } from '$lib/server/kibble-commerce-observe';
 import { EMPTY_INCENTIVES, type IncentivesPayload } from '$lib/schema/uip';
 import { getBrand } from '$lib/brand/config';
 
 type BCCart = NonNullable<Awaited<ReturnType<typeof getCart>>>;
+
+const KIBBLE_CART_UNAVAILABLE = 'Cart is unavailable for this Kibble reference-preserved preview.';
+
+function kibbleCartPayload(cart: KibbleCart | null) {
+	return {
+		cart,
+		itemCount: cart?.lineItems.totalQuantity ?? cart?.lineItems.physicalItems.reduce((sum, item) => sum + item.quantity, 0) ?? 0,
+	};
+}
+
+function validPositiveInteger(value: unknown, max: number): value is number {
+	return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= max;
+}
+
+function parseKibbleSelections(value: unknown): Array<{ optionEntityId: number; optionValueEntityId: number }> {
+	if (value === undefined) return [];
+	if (!Array.isArray(value) || value.length > 10) throw new KibbleCommerceError('Invalid product options.', 400, 'validation');
+	return value.map((selection) => {
+		if (!selection || typeof selection !== 'object') throw new KibbleCommerceError('Invalid product options.', 400, 'validation');
+		const optionEntityId = (selection as Record<string, unknown>).optionEntityId;
+		const optionValueEntityId = (selection as Record<string, unknown>).optionValueEntityId;
+		if (!validPositiveInteger(optionEntityId, 2_147_483_647) || !validPositiveInteger(optionValueEntityId, 2_147_483_647)) {
+			throw new KibbleCommerceError('Invalid product options.', 400, 'validation');
+		}
+		return { optionEntityId, optionValueEntityId };
+	});
+}
+
+function matchesKibbleLine(line: KibbleCart['lineItems']['physicalItems'][number], input: KibbleCartLineInput): boolean {
+	if (line.productEntityId !== input.productEntityId) return false;
+	const expected = input.selectedOptions?.multipleChoices ?? [];
+	if (line.selectedOptions.length !== expected.length) return false;
+	return expected.every((selection) => line.selectedOptions.some((option) => option.entityId === selection.optionEntityId && option.valueEntityId === selection.optionValueEntityId));
+}
+
+async function validateKibbleLine(body: Record<string, unknown>): Promise<KibbleCartLineInput> {
+	const productEntityId = body.productEntityId;
+	const quantity = body.quantity === undefined ? 1 : body.quantity;
+	const productSlug = body.productSlug;
+	if (!validPositiveInteger(productEntityId, 2_147_483_647)) {
+		throw new KibbleCommerceError('Invalid product.', 400, 'validation');
+	}
+	if (!validPositiveInteger(quantity, 99)) {
+		throw new KibbleCommerceError('Quantity must be a whole number from 1 to 99.', 400, 'validation');
+	}
+	if (typeof productSlug !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(productSlug) || productSlug.length > 160) {
+		throw new KibbleCommerceError('Invalid product.', 400, 'validation');
+	}
+
+	// Re-read the trusted catalog detail so the browser cannot invent a product
+	// or option value. This is a catalog read, not a commerce mutation.
+	const detail = await getKibbleProductDetailByPath(`/${productSlug}/`);
+	if (!detail || detail.entityId !== productEntityId) {
+		throw new KibbleCommerceError('Product is no longer available.', 400, 'validation');
+	}
+
+	const selections = parseKibbleSelections(body.selectedOptions);
+	const options = detail.productOptions.edges.map(({ node }) => node);
+	const allowedValues = new Map(options.map((option) => [
+		option.entityId,
+		new Set(option.values?.edges.map(({ node }) => node.entityId) ?? []),
+	]));
+	const selectedIds = new Set<number>();
+	for (const selection of selections) {
+		if (selectedIds.has(selection.optionEntityId) || !allowedValues.has(selection.optionEntityId) || !allowedValues.get(selection.optionEntityId)?.has(selection.optionValueEntityId)) {
+			throw new KibbleCommerceError('Invalid product options.', 400, 'validation');
+		}
+		selectedIds.add(selection.optionEntityId);
+	}
+	for (const option of options) {
+		if (option.isRequired && !selectedIds.has(option.entityId)) {
+			throw new KibbleCommerceError(`Select ${option.displayName}.`, 400, 'validation');
+		}
+	}
+
+	return {
+		productEntityId,
+		quantity,
+		...(selections.length > 0 ? { selectedOptions: { multipleChoices: selections } } : {}),
+	};
+}
+
+async function getKibbleCartForRequest(cartId: string, customerAccessToken: string | null, providerSessionCookie: string | null): Promise<KibbleCart | null> {
+	const cached = await getCachedKibbleCart(cartId);
+	if (cached && !customerAccessToken) return cached.cart;
+	const result = await getKibbleCart(cartId, {
+		sessionCookie: cached?.sessionCookie ?? await getKibbleCartSessionCookie(cartId) ?? providerSessionCookie,
+		customerAccessToken,
+	});
+	if (!result.cart) return null;
+	await cacheKibbleCart(result.cart, result.sessionCookie);
+	return result.cart;
+}
+
+async function handleKibblePost(request: Request, cookies: Cookies) {
+	if (getKibbleCommerceMode() === 'off') return json({ error: KIBBLE_CART_UNAVAILABLE }, { status: 503 });
+	const body = await request.json() as Record<string, unknown>;
+	if (body.action) return json({ error: 'Promotions are not available in this slice.' }, { status: 400 });
+	const lineItem = await validateKibbleLine(body);
+	const purchaseMode = body.purchaseMode === 'auto-refill' ? 'auto-refill' : 'one-time';
+	const customerSession = await getKibbleCommerceSession(cookies);
+	const cartId = cookies.get('bc_cart_id');
+	let result;
+	let previousSessionCookie: string | null = null;
+	if (cartId) {
+		const sessionCookie = await getKibbleCartSessionCookie(cartId) ?? customerSession?.providerSessionCookie ?? null;
+		previousSessionCookie = sessionCookie;
+		try {
+			result = await addKibbleCartLine(cartId, lineItem, { sessionCookie, customerAccessToken: customerSession?.accessToken });
+		} catch (error) {
+			if (!(error instanceof KibbleCommerceError) || error.kind !== 'stale-cart') throw error;
+			await evictKibbleCart(cartId);
+			result = await createKibbleCart(lineItem, { customerAccessToken: customerSession?.accessToken });
+		}
+	} else {
+		result = await createKibbleCart(lineItem, { customerAccessToken: customerSession?.accessToken });
+	}
+	await cacheKibbleCart(result.cart, result.sessionCookie ?? previousSessionCookie);
+	cookies.set('bc_cart_id', result.cart.entityId, {
+		path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30,
+	});
+	if (purchaseMode === 'one-time') await emitKibbleAddToCartSignal(cookies, lineItem.productEntityId, lineItem.quantity);
+	const matchingLines = result.cart.lineItems.physicalItems.filter((line) => matchesKibbleLine(line, lineItem) && line.quantity >= lineItem.quantity);
+	return json({ ...kibbleCartPayload(result.cart), lineItemEntityId: matchingLines.at(-1)?.entityId ?? null });
+}
+
+async function handleKibblePatch(request: Request, cookies: Cookies) {
+	if (getKibbleCommerceMode() === 'off') return json({ error: KIBBLE_CART_UNAVAILABLE }, { status: 503 });
+	const body = await request.json() as Record<string, unknown>;
+	const lineItemEntityId = body.lineItemEntityId;
+	const quantity = body.quantity;
+	if (typeof lineItemEntityId !== 'string' || !lineItemEntityId || typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity < 0 || quantity > 99) {
+		return json({ error: 'Invalid line item or quantity.' }, { status: 400 });
+	}
+	const cartId = cookies.get('bc_cart_id');
+	if (!cartId) return json({ error: 'No cart.' }, { status: 404 });
+	const customerSession = await getKibbleCommerceSession(cookies);
+	let cached = await getCachedKibbleCart(cartId);
+	if (!cached) {
+		const recovered = await getKibbleCart(cartId, { sessionCookie: await getKibbleCartSessionCookie(cartId) ?? customerSession?.providerSessionCookie, customerAccessToken: customerSession?.accessToken });
+		if (!recovered.cart) {
+			await evictKibbleCart(cartId);
+			cookies.delete('bc_cart_id', { path: '/' });
+			return json({ error: 'Your cart has expired.' }, { status: 409 });
+		}
+		await cacheKibbleCart(recovered.cart, recovered.sessionCookie);
+		cached = { cart: recovered.cart, sessionCookie: recovered.sessionCookie };
+	}
+	const existing = cached?.cart.lineItems.physicalItems.find((item) => item.entityId === lineItemEntityId);
+	if (!existing) return json({ error: 'Line item not found.' }, { status: 404 });
+	const sessionCookie = cached?.sessionCookie ?? customerSession?.providerSessionCookie ?? undefined;
+	if (quantity === 0) {
+		let result;
+		try {
+			result = await deleteKibbleCartLine(cartId, lineItemEntityId, { sessionCookie, customerAccessToken: customerSession?.accessToken });
+		} catch (error) {
+			if (!(error instanceof KibbleCommerceError) || error.kind !== 'stale-cart') throw error;
+			await evictKibbleCart(cartId);
+			cookies.delete('bc_cart_id', { path: '/' });
+			return json({ error: 'Your cart has expired.' }, { status: 409 });
+		}
+		if (!result.cart) {
+			await evictKibbleCart(cartId);
+			cookies.delete('bc_cart_id', { path: '/' });
+			return json(kibbleCartPayload(null));
+		}
+		await cacheKibbleCart(result.cart, result.sessionCookie ?? sessionCookie ?? null);
+		return json(kibbleCartPayload(result.cart));
+	}
+	let result;
+	try {
+		result = await updateKibbleCartLine(cartId, lineItemEntityId, {
+			productEntityId: existing.productEntityId,
+			quantity,
+			...(existing.variantEntityId ? { variantEntityId: existing.variantEntityId } : {}),
+		}, { sessionCookie, customerAccessToken: customerSession?.accessToken });
+	} catch (error) {
+		if (!(error instanceof KibbleCommerceError) || error.kind !== 'stale-cart') throw error;
+		await evictKibbleCart(cartId);
+		cookies.delete('bc_cart_id', { path: '/' });
+		return json({ error: 'Your cart has expired.' }, { status: 409 });
+	}
+	await cacheKibbleCart(result.cart, result.sessionCookie ?? sessionCookie ?? null);
+	return json(kibbleCartPayload(result.cart));
+}
+
+async function handleKibbleGet(cookies: Cookies) {
+	if (getKibbleCommerceMode() === 'off') return json({ error: KIBBLE_CART_UNAVAILABLE }, { status: 503 });
+	const cartId = cookies.get('bc_cart_id');
+	if (!cartId) return json(kibbleCartPayload(null));
+	const customerSession = await getKibbleCommerceSession(cookies);
+	try {
+		const cart = await getKibbleCartForRequest(cartId, customerSession?.accessToken ?? null, customerSession?.providerSessionCookie ?? null);
+		if (!cart) {
+			await evictKibbleCart(cartId);
+			cookies.delete('bc_cart_id', { path: '/' });
+		}
+		return json(kibbleCartPayload(cart));
+	} catch {
+		return json({ ...kibbleCartPayload(null), error: 'Cart is temporarily unavailable.' }, { status: 503 });
+	}
+}
 
 async function resolveIncentives(cart: BCCart | null, appliedCodes: string[]): Promise<IncentivesPayload> {
 	try {
@@ -53,7 +274,13 @@ async function emitPromoSignal(
 /** POST /api/cart — Add item to cart, or apply/remove a promotion code. */
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	if (getBrand().id === 'kibble') {
-		return json({ error: 'Cart is unavailable for this Kibble reference-preserved preview.' }, { status: 503 });
+		try {
+			return await handleKibblePost(request, cookies);
+		} catch (error) {
+			const status = error instanceof KibbleCommerceError ? error.status : 502;
+			console.warn('[kibble-commerce] Add-to-cart failed:', error instanceof Error ? error.message : error);
+			return json({ error: status === 400 ? (error as Error).message : 'Cart is temporarily unavailable.' }, { status });
+		}
 	}
 	try {
 		const body = await request.json();
@@ -125,10 +352,22 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	}
 };
 
+/** PATCH /api/cart — Kibble quantity update; quantity 0 removes the line. */
+export const PATCH: RequestHandler = async ({ request, cookies }) => {
+	if (getBrand().id !== 'kibble') return json({ error: 'Cart updates are unavailable.' }, { status: 404 });
+	try {
+		return await handleKibblePatch(request, cookies);
+	} catch (error) {
+		const status = error instanceof KibbleCommerceError ? error.status : 502;
+		console.warn('[kibble-commerce] Cart update failed:', error instanceof Error ? error.message : error);
+		return json({ error: status === 400 ? (error as Error).message : 'Cart is temporarily unavailable.' }, { status });
+	}
+};
+
 /** GET /api/cart — Get current cart with UIP incentives payload. */
 export const GET: RequestHandler = async ({ cookies }) => {
 	if (getBrand().id === 'kibble') {
-		return json({ error: 'Cart is unavailable for this Kibble reference-preserved preview.' }, { status: 503 });
+		return handleKibbleGet(cookies);
 	}
 	const cartId = cookies.get('bc_cart_id');
 	const appliedCodes = readAppliedCodes(cookies);

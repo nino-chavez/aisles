@@ -5,8 +5,12 @@ import { getKibbleObserveCopyModelPolicyDescriptor, getTrustedKibbleRoutePolicy 
 import { executeKibbleCartEmptyZoneAdapter } from '$lib/brand/reference/kibble-zone-executor.server';
 import { KIBBLE_CART_DEFAULT_PRESENTATION, materializeKibbleCartPresentation } from '$lib/brand/reference/kibble-presentation-decisions';
 import { createStoreFromRequest } from '$lib/signals/request';
+import { KIBBLE_COMMERCE_COPY } from '$lib/components/kibble/types';
+import { getKibbleCommerceMode, getKibbleCart } from '$lib/server/kibble-commerce';
+import { cacheKibbleCart, getCachedKibbleCart, getKibbleCartSessionCookie } from '$lib/server/kibble-cart-store';
+import { getKibbleCommerceSession } from '$lib/server/kibble-commerce-session';
+import { getKibbleCartSubscriptionIntents } from '$lib/server/kibble-subscriptions';
 
-/** Kibble never reads a cart cookie or commerce backend in Preserve mode. */
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
 	const { renderMode, observeMode } = await parent();
 	const routePolicy = getTrustedKibbleRoutePolicy(getBrand().id, url.pathname);
@@ -14,10 +18,45 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 		if (routePolicy.surface !== 'cart') throw new Error('Kibble cart route resolved to the wrong policy surface.');
 		const modelEnabled = observeMode && privateEnv.KIBBLE_DEMO_AI_ENABLED === 'true';
 		if (modelEnabled) await createStoreFromRequest({ url, request, cookies, category: 'cart' });
+		const commerceEnabled = getKibbleCommerceMode() !== 'off';
+		let cart = null;
+		let cartError: string | null = null;
+		let subscriptionIntents: Record<string, Awaited<ReturnType<typeof getKibbleCartSubscriptionIntents>>[string]> = {};
+		let subscriptionIntentError: string | null = null;
+		if (commerceEnabled) {
+			const customerSession = await getKibbleCommerceSession(cookies);
+			const cartId = cookies.get('bc_cart_id');
+			if (cartId) {
+				try {
+					const cached = await getCachedKibbleCart(cartId);
+					if (cached && !customerSession) cart = cached.cart;
+					else {
+						const result = await getKibbleCart(cartId, { sessionCookie: cached?.sessionCookie ?? await getKibbleCartSessionCookie(cartId) ?? customerSession?.providerSessionCookie, customerAccessToken: customerSession?.accessToken });
+						cart = result.cart;
+						if (result.cart) await cacheKibbleCart(result.cart, result.sessionCookie);
+					}
+				} catch {
+					cartError = 'Cart is temporarily unavailable. Try again.';
+				}
+			}
+			if (cart && privateEnv.KIBBLE_SUBSCRIPTION_API_URL?.trim()) {
+				try {
+					subscriptionIntents = await getKibbleCartSubscriptionIntents(cart.entityId);
+				} catch {
+					subscriptionIntentError = 'Auto-Refill details are temporarily unavailable.';
+				}
+			}
+		}
 		return {
 			renderMode,
 			kibbleCart: {
-				availabilityMessage: 'Cart services are not available in this reference-preserved preview.',
+				availabilityMessage: commerceEnabled ? 'Your cart is empty.' : 'Cart services are not available in this reference-preserved preview.',
+				commerceEnabled,
+				commerceCopy: KIBBLE_COMMERCE_COPY,
+				cart,
+				cartError,
+				subscriptionIntents,
+				subscriptionIntentError,
 				policyVersion: routePolicy.policy.policyVersion,
 				zoneAdapter: await executeKibbleCartEmptyZoneAdapter(materializeKibbleCartPresentation(KIBBLE_CART_DEFAULT_PRESENTATION).copy),
 				cartModelDecision: modelEnabled
