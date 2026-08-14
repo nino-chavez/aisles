@@ -1,0 +1,965 @@
+{
+  "schemaVersion": "1.0",
+  "catalogId": "kibble-multipet-research-2026-08-14",
+  "currency": "USD",
+  "retrievedAt": "2026-08-14",
+  "products": [
+    {
+      "id": "cat-tiki-born-carnivore-trout-3lb",
+      "name": "Tiki Cat Born Carnivore Indoor Health Trout & Menhaden Fish Meal Dry Cat Food, 3-lb bag",
+      "brand": "Tiki Cat",
+      "sku": "KIB-CAT-001",
+      "price": "18.99",
+      "description": "A retailer-listed 3-lb bag of dry cat food in a trout and menhaden fish meal recipe.",
+      "categories": ["Cats", "Food", "Dry Food"],
+      "tags": ["cat", "staple-food", "dry-food", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/tiki-cat-born-carnivore-grain-free/dp/1108678",
+        "retrievedAt": "2026-08-14",
+        "price": "18.99",
+        "facts": ["Dry cat food", "3-lb bag", "Trout and menhaden fish meal recipe"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "staple-food",
+        "shopperJobs": ["Choose a dry food that fits a cat's known diet profile."],
+        "needStates": ["daily-feeding", "fish-recipe-preference"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["lifeStage", "dietaryRestrictions", "foodAllergies", "currentDiet"],
+        "comparisonDimensions": ["food-format", "recipe-protein", "package-size", "life-stage-fit"],
+        "stopConditions": ["Do not recommend when the cat's life stage, dietary restrictions, or food allergies are unknown."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "cat-tiki-after-dark-variety-12",
+      "name": "Tiki Cat After Dark Variety Pack Grain-Free Shredded Wet Cat Food, 3-oz can, case of 12",
+      "brand": "Tiki Cat",
+      "sku": "KIB-CAT-002",
+      "price": "26.11",
+      "description": "A retailer-listed variety case containing twelve 3-oz cans of shredded wet cat food.",
+      "categories": ["Cats", "Food", "Wet Food"],
+      "tags": ["cat", "staple-food", "wet-food", "variety-pack", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/tiki-cat-after-dark-variety-pack/dp/1654030",
+        "retrievedAt": "2026-08-14",
+        "price": "26.11",
+        "facts": ["Shredded wet cat food", "Twelve 3-oz cans", "Variety pack"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "staple-food",
+        "shopperJobs": ["Compare a wet-food variety case with other known-compatible cat foods."],
+        "needStates": ["daily-feeding", "format-variety"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["lifeStage", "dietaryRestrictions", "foodAllergies", "currentDiet"],
+        "comparisonDimensions": ["food-format", "variety", "can-size", "case-count"],
+        "stopConditions": ["Do not recommend when the cat's life stage, dietary restrictions, or food allergies are unknown."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "cat-weruva-kitchen-cuties-12",
+      "name": "Weruva Cats in the Kitchen Cuties Variety Pack Grain-Free Canned Cat Food, 10-oz, case of 12",
+      "brand": "Weruva",
+      "sku": "KIB-CAT-003",
+      "price": "46.99",
+      "description": "A retailer-listed variety case containing twelve 10-oz cans of cat food.",
+      "categories": ["Cats", "Food", "Wet Food"],
+      "tags": ["cat", "staple-food", "wet-food", "variety-pack", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/weruva-cats-in-kitchen-cuties-variety/dp/169234",
+        "retrievedAt": "2026-08-14",
+        "price": "46.99",
+        "facts": ["Canned cat food", "Twelve 10-oz cans", "Variety pack"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "staple-food",
+        "shopperJobs": ["Compare a larger-can wet-food variety case for a multi-cat household."],
+        "needStates": ["daily-feeding", "multi-cat-feeding"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["lifeStage", "dietaryRestrictions", "foodAllergies", "currentDiet", "catCount"],
+        "comparisonDimensions": ["food-format", "variety", "can-size", "case-count"],
+        "stopConditions": ["Do not recommend when any cat's life stage, dietary restrictions, or food allergies are unknown."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "cat-dr-elseys-ultra-40lb",
+      "name": "Dr. Elsey's Ultra Unscented Clumping Clay Cat Litter, 40-lb bag",
+      "brand": "Dr. Elsey's",
+      "sku": "KIB-CAT-004",
+      "price": "22.99",
+      "description": "A retailer-listed 40-lb bag of unscented clumping clay cat litter.",
+      "categories": ["Cats", "Litter", "Clumping Litter"],
+      "tags": ["cat", "litter", "clay", "unscented", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/dr-elseys-ultra-unscented-clumping/dp/32363",
+        "retrievedAt": "2026-08-14",
+        "price": "22.99",
+        "facts": ["Clumping clay litter", "Unscented", "40-lb bag"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "litter",
+        "shopperJobs": ["Choose a repeat litter format for a known household setup."],
+        "needStates": ["litter-box-routine", "unscented-preference"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["catCount", "litterBoxCount", "litterMaterialPreference", "scentPreference"],
+        "comparisonDimensions": ["litter-material", "clumping-format", "scent", "package-size"],
+        "stopConditions": ["Do not infer litter compatibility when the household's material or scent constraints are unknown."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "cat-worlds-best-multicat-28lb",
+      "name": "World's Best Multi-Cat Unscented Clumping Corn Cat Litter, 28-lb bag",
+      "brand": "World's Best",
+      "sku": "KIB-CAT-005",
+      "price": "34.95",
+      "description": "A retailer-listed 28-lb bag of unscented clumping corn cat litter labeled for multi-cat use.",
+      "categories": ["Cats", "Litter", "Clumping Litter"],
+      "tags": ["cat", "litter", "corn", "unscented", "multi-cat", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/worlds-best-multi-cat-unscented/dp/37593",
+        "retrievedAt": "2026-08-14",
+        "price": "34.95",
+        "facts": ["Clumping corn litter", "Unscented", "28-lb bag"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "litter",
+        "shopperJobs": ["Compare a corn-based repeat litter for a multi-cat household."],
+        "needStates": ["litter-box-routine", "multi-cat-household"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["catCount", "litterBoxCount", "litterMaterialPreference", "scentPreference"],
+        "comparisonDimensions": ["litter-material", "clumping-format", "scent", "package-size"],
+        "stopConditions": ["Do not infer litter compatibility when the household's material or scent constraints are unknown."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "cat-inaba-churu-variety-60",
+      "name": "Inaba Churu Tuna & Chicken Variety Pack Grain-Free Lickable Cat Treats, 0.5-oz tube, 60 count",
+      "brand": "Inaba",
+      "sku": "KIB-CAT-006",
+      "price": "39.53",
+      "description": "A retailer-listed variety pack containing sixty 0.5-oz tubes of lickable cat treats.",
+      "categories": ["Cats", "Treats", "Lickable Treats"],
+      "tags": ["cat", "treat", "lickable", "variety-pack", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/inaba-churu-tuna-chicken-variety-pack/dp/788078",
+        "retrievedAt": "2026-08-14",
+        "price": "39.53",
+        "facts": ["Lickable cat treats", "Sixty 0.5-oz tubes", "Tuna and chicken variety pack"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "treat",
+        "shopperJobs": ["Choose a repeat treat format compatible with known diet constraints."],
+        "needStates": ["treat-variety", "interactive-treating"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["lifeStage", "dietaryRestrictions", "foodAllergies", "treatPreferences"],
+        "comparisonDimensions": ["treat-format", "recipe-variety", "count", "portion-format"],
+        "stopConditions": ["Do not recommend when ingredient compatibility or treat limits are unknown."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "cat-greenies-dental-chicken-4-6oz",
+      "name": "Greenies Feline Oven Roasted Chicken Flavor Adult Natural Dental Cat Treats, 4.6-oz bag",
+      "brand": "Greenies",
+      "sku": "KIB-CAT-007",
+      "price": "5.48",
+      "description": "A retailer-listed 4.6-oz bag of chicken-flavor cat treats labeled for adult cats.",
+      "categories": ["Cats", "Treats", "Dental Treats"],
+      "tags": ["cat", "treat", "adult", "chicken-flavor", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/greenies-feline-oven-roasted-chicken/dp/241297",
+        "retrievedAt": "2026-08-14",
+        "price": "5.48",
+        "facts": ["Adult cat treat", "Chicken flavor", "4.6-oz bag"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "treat",
+        "shopperJobs": ["Compare an adult-cat treat format without making a health claim."],
+        "needStates": ["repeat-treat-routine", "adult-cat-selection"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["lifeStage", "dietaryRestrictions", "foodAllergies", "treatPreferences"],
+        "comparisonDimensions": ["treat-format", "life-stage-label", "flavor", "package-size"],
+        "stopConditions": ["Do not recommend for a non-adult cat or when ingredient compatibility is unknown."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "cat-catstages-slow-feeder-orange",
+      "name": "Catstages Non-Skid Slow Feeder Cat Bowl, Orange, 0.5-cup",
+      "brand": "Catstages",
+      "sku": "KIB-CAT-008",
+      "price": "8.47",
+      "description": "A retailer-listed orange non-skid slow feeder cat bowl with a 0.5-cup capacity.",
+      "categories": ["Cats", "Feeding", "Bowls"],
+      "tags": ["cat", "feeding", "slow-feeder", "bowl", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/catstages-non-skid-slow-feeder-cat/dp/1336262",
+        "retrievedAt": "2026-08-14",
+        "price": "8.47",
+        "facts": ["Slow feeder cat bowl", "0.5-cup capacity", "Non-skid format"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "feeding",
+        "shopperJobs": ["Compare a small-capacity slow-feeder bowl with the cat's feeding setup."],
+        "needStates": ["mealtime-setup", "portion-compatible-feeding"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["mealPortion", "foodFormat", "currentBowlType"],
+        "comparisonDimensions": ["capacity", "food-format-fit", "bowl-style", "non-skid"],
+        "stopConditions": ["Do not recommend when the meal portion or food-format fit is unknown."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "cat-frisco-cactus-scratcher-22in",
+      "name": "Frisco Cactus Cat Scratching Post, 22-in",
+      "brand": "Frisco",
+      "sku": "KIB-CAT-009",
+      "price": "25.39",
+      "description": "A retailer-listed cactus-shaped cat scratching post measuring 22 inches.",
+      "categories": ["Cats", "Enrichment", "Scratchers"],
+      "tags": ["cat", "enrichment", "scratcher", "post", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/frisco-cactus-cat-scratching-post/dp/240930",
+        "retrievedAt": "2026-08-14",
+        "price": "25.39",
+        "facts": ["Cat scratching post", "22 inches", "Cactus shape"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "enrichment",
+        "shopperJobs": ["Add a vertical scratcher that fits the available household space."],
+        "needStates": ["scratching-outlet", "indoor-enrichment"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["catSize", "scratchingOrientation", "availableFloorSpace"],
+        "comparisonDimensions": ["height", "scratching-orientation", "footprint", "material"],
+        "stopConditions": ["Do not recommend when the cat's preferred scratching orientation or the available space is unknown."],
+        "repeatScenario": "replacement-reminder"
+      }
+    },
+    {
+      "id": "cat-frisco-pinata-wand",
+      "name": "Frisco Pinata Teaser Wand Cat Toy with Catnip",
+      "brand": "Frisco",
+      "sku": "KIB-CAT-010",
+      "price": "5.99",
+      "description": "A retailer-listed teaser wand cat toy containing catnip.",
+      "categories": ["Cats", "Enrichment", "Interactive Toys"],
+      "tags": ["cat", "enrichment", "wand-toy", "catnip", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/frisco-pinata-teaser-wand-cat-toy/dp/290884",
+        "retrievedAt": "2026-08-14",
+        "price": "5.99",
+        "facts": ["Teaser wand toy", "Contains catnip", "Interactive toy format"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "enrichment",
+        "shopperJobs": ["Choose a supervised interactive toy for an age-compatible cat."],
+        "needStates": ["interactive-play", "catnip-enrichment"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["ageMonths", "catnipPreference", "playStyle"],
+        "comparisonDimensions": ["play-style", "catnip", "supervision", "toy-condition"],
+        "stopConditions": ["Do not recommend for cats below the retailer-stated catnip age threshold.", "Stop use and replace when the toy is damaged or parts become loose."],
+        "repeatScenario": "replacement-reminder"
+      }
+    },
+    {
+      "id": "cat-frisco-airline-carrier-black",
+      "name": "Frisco Soft-Sided Airline Compliant Dog & Cat Carrier, Black",
+      "brand": "Frisco",
+      "sku": "KIB-CAT-011",
+      "price": "44.99",
+      "description": "A retailer-listed black soft-sided carrier for dogs and cats, presented as airline compliant.",
+      "categories": ["Cats", "Travel", "Carriers"],
+      "tags": ["cat", "travel", "soft-sided-carrier", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/frisco-soft-sided-airline-compliant/dp/944766",
+        "retrievedAt": "2026-08-14",
+        "price": "44.99",
+        "facts": ["Soft-sided carrier", "Black", "Listed for dogs and cats"]
+      },
+      "metadata": {
+        "species": ["cat"],
+        "productRole": "travel",
+        "shopperJobs": ["Choose a carrier only after checking pet fit and the current airline rules."],
+        "needStates": ["enclosed-travel", "air-travel-planning"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["petLength", "petHeight", "petWeight", "airline", "flightDate"],
+        "comparisonDimensions": ["pet-fit", "carrier-style", "airline-rules", "travel-mode"],
+        "stopConditions": ["Do not recommend without the pet's measurements.", "Do not claim airline acceptance without confirmation from the operating airline for the planned flight."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "bird-harrisons-adult-lifetime-fine-1lb",
+      "name": "Harrison's Bird Foods Adult Lifetime Fine Organic Pellet Bird Food, 1-lb bag",
+      "brand": "Harrison's Bird Foods",
+      "sku": "KIB-BRD-001",
+      "price": "22.34",
+      "description": "A retailer-listed 1-lb bag of fine-pellet bird food labeled Adult Lifetime.",
+      "categories": ["Birds", "Food", "Pellets"],
+      "tags": ["bird", "staple-food", "fine-pellet", "adult", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/harrisons-adult-lifetime-fine-organic/dp/1429582",
+        "retrievedAt": "2026-08-14",
+        "price": "22.34",
+        "facts": ["Fine pellet bird food", "1-lb bag", "Out of stock at retrieval"]
+      },
+      "metadata": {
+        "species": ["bird"],
+        "productRole": "staple-food",
+        "shopperJobs": ["Compare an adult fine-pellet food after identifying the bird and its current diet stage."],
+        "needStates": ["daily-feeding", "pellet-size-fit"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["birdSpecies", "lifeStage", "breedingOrMolting", "dietTransitionStatus", "currentDiet"],
+        "comparisonDimensions": ["bird-species-fit", "life-stage-label", "pellet-size", "diet-transition"],
+        "stopConditions": ["Do not recommend when bird species, life stage, breeding or molting status, or diet-transition status is unknown."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "bird-kaytee-fortidiet-parakeet-4lb",
+      "name": "Kaytee Forti-Diet Pro Health Parakeet Food, 4-lb bag",
+      "brand": "Kaytee",
+      "sku": "KIB-BRD-002",
+      "price": "11.95",
+      "description": "A retailer-listed 4-lb bag of bird food labeled for parakeets.",
+      "categories": ["Birds", "Food", "Parakeet Food"],
+      "tags": ["bird", "staple-food", "parakeet", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/kaytee-forti-diet-pro-health-parakeet/dp/122973",
+        "retrievedAt": "2026-08-14",
+        "price": "11.95",
+        "facts": ["Parakeet food", "4-lb bag", "Forti-Diet Pro Health line"]
+      },
+      "metadata": {
+        "species": ["bird"],
+        "productRole": "staple-food",
+        "shopperJobs": ["Compare a parakeet-labeled food for a known bird profile."],
+        "needStates": ["daily-feeding", "species-labeled-food"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["birdSpecies", "lifeStage", "currentDiet"],
+        "comparisonDimensions": ["bird-species-fit", "life-stage-fit", "food-format", "package-size"],
+        "stopConditions": ["Do not recommend for a bird whose species or life stage has not been confirmed."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "bird-zupreem-fruitblend-medium-2lb",
+      "name": "ZuPreem FruitBlend Daily Medium Bird Food, 2-lb bag",
+      "brand": "ZuPreem",
+      "sku": "KIB-BRD-003",
+      "price": "16.64",
+      "description": "A retailer-listed 2-lb bag of FruitBlend daily food sized for medium birds.",
+      "categories": ["Birds", "Food", "Medium Bird Food"],
+      "tags": ["bird", "staple-food", "medium-bird", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/zupreem-fruitblend-flavor-natural/dp/128392",
+        "retrievedAt": "2026-08-14",
+        "price": "16.64",
+        "facts": ["Daily bird food", "Medium-bird size", "2-lb bag"]
+      },
+      "metadata": {
+        "species": ["bird"],
+        "productRole": "staple-food",
+        "shopperJobs": ["Compare a medium-bird food for a known species and life stage."],
+        "needStates": ["daily-feeding", "bird-size-fit"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["birdSpecies", "lifeStage", "birdSize", "currentDiet"],
+        "comparisonDimensions": ["bird-species-fit", "bird-size-fit", "food-format", "package-size"],
+        "stopConditions": ["Do not recommend until the bird's species, size, and life stage are confirmed."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "bird-kaytee-greens-topper-1oz",
+      "name": "Kaytee Forti-Diet Pro Health Bird Greens Bird Food, 1-oz bag",
+      "brand": "Kaytee",
+      "sku": "KIB-BRD-004",
+      "price": "3.99",
+      "description": "A retailer-listed 1-oz bag of greens food topper for birds.",
+      "categories": ["Birds", "Food", "Toppers"],
+      "tags": ["bird", "topper", "greens", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/kaytee-forti-diet-pro-health-bird/dp/160391",
+        "retrievedAt": "2026-08-14",
+        "price": "3.99",
+        "facts": ["Bird food topper", "Greens format", "1-oz bag"]
+      },
+      "metadata": {
+        "species": ["bird"],
+        "productRole": "topper",
+        "shopperJobs": ["Add a bird-food topper only within a known species-specific diet routine."],
+        "needStates": ["meal-variety", "topper-selection"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["birdSpecies", "lifeStage", "currentDiet"],
+        "comparisonDimensions": ["bird-species-fit", "food-role", "serving-share", "package-size"],
+        "stopConditions": ["Do not recommend as a complete diet or when the bird's species and current diet are unknown."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "bird-superbird-shredder-rolls",
+      "name": "Super Bird Creations Shredder Rolls Conure Chewable Toy",
+      "brand": "Super Bird Creations",
+      "sku": "KIB-BRD-005",
+      "price": "9.74",
+      "description": "A retailer-listed chewable shredder-roll toy labeled for conures.",
+      "categories": ["Birds", "Enrichment", "Chew Toys"],
+      "tags": ["bird", "enrichment", "conure", "chewable", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/super-bird-creations-shredder-rolls/dp/1287006",
+        "retrievedAt": "2026-08-14",
+        "price": "9.74",
+        "facts": ["Chewable bird toy", "Shredder-roll format", "Conure label"]
+      },
+      "metadata": {
+        "species": ["bird"],
+        "productRole": "enrichment",
+        "shopperJobs": ["Choose a chewable enrichment item sized for a known bird species."],
+        "needStates": ["shredding-enrichment", "chewing-enrichment"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["birdSpecies", "birdSize", "chewingStyle", "materialRestrictions"],
+        "comparisonDimensions": ["bird-species-fit", "bird-size-fit", "play-style", "material"],
+        "stopConditions": ["Do not recommend when species, size, or material restrictions are unknown.", "Stop use and replace when damaged parts create a hazard."],
+        "repeatScenario": "replacement-reminder"
+      }
+    },
+    {
+      "id": "bird-prevue-small-flight-cage-white",
+      "name": "Prevue Pet Products Small Bird Flight Cage, White",
+      "brand": "Prevue Pet Products",
+      "sku": "KIB-BRD-006",
+      "price": "79.99",
+      "description": "A retailer-listed white flight cage presented for small birds.",
+      "categories": ["Birds", "Habitat", "Cages"],
+      "tags": ["bird", "habitat", "small-bird", "flight-cage", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/prevue-pet-products-small-bird-flight/dp/133480",
+        "retrievedAt": "2026-08-14",
+        "price": "79.99",
+        "facts": ["Small-bird flight cage", "White", "Habitat product"]
+      },
+      "metadata": {
+        "species": ["bird"],
+        "productRole": "habitat",
+        "shopperJobs": ["Evaluate a small-bird cage against species, spacing, occupancy, and habitat requirements."],
+        "needStates": ["primary-habitat", "flight-space"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["birdSpecies", "birdSize", "barSpacingNeed", "occupancyCount"],
+        "comparisonDimensions": ["bird-species-fit", "bird-size-fit", "bar-spacing", "occupancy", "cage-format"],
+        "stopConditions": ["Do not recommend until species, size, bar-spacing need, and occupancy are confirmed."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "bird-prevue-travel-cage",
+      "name": "Prevue Pet Products Travel Bird Cage",
+      "brand": "Prevue Pet Products",
+      "sku": "KIB-BRD-007",
+      "price": "79.99",
+      "description": "A retailer-listed travel cage for birds.",
+      "categories": ["Birds", "Travel", "Travel Cages"],
+      "tags": ["bird", "travel", "travel-cage", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/prevue-pet-products-travel-bird-cage/dp/133565",
+        "retrievedAt": "2026-08-14",
+        "price": "79.99",
+        "facts": ["Travel bird cage", "Portable cage format", "Bird travel product"]
+      },
+      "metadata": {
+        "species": ["bird"],
+        "productRole": "travel",
+        "shopperJobs": ["Evaluate a travel cage against the bird's species, size, spacing, and occupancy needs."],
+        "needStates": ["enclosed-travel", "temporary-housing"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["birdSpecies", "birdSize", "barSpacingNeed", "occupancyCount", "travelMode"],
+        "comparisonDimensions": ["bird-species-fit", "bird-size-fit", "bar-spacing", "occupancy", "travel-mode"],
+        "stopConditions": ["Do not recommend until species, size, bar-spacing need, occupancy, and travel mode are confirmed."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "snake-zoomed-aspen-bedding-8qt",
+      "name": "Zoo Med Aspen Snake Bedding, 8-qt bag",
+      "brand": "Zoo Med",
+      "sku": "KIB-SNK-001",
+      "price": "9.98",
+      "description": "A retailer-listed 8-qt bag of aspen bedding for snake habitats.",
+      "categories": ["Reptiles", "Snake", "Substrate"],
+      "tags": ["snake", "substrate", "aspen", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/zoo-med-aspen-snake-bedding/dp/123799",
+        "retrievedAt": "2026-08-14",
+        "price": "9.98",
+        "facts": ["Aspen snake bedding", "8-qt bag", "Loose substrate format"]
+      },
+      "metadata": {
+        "species": ["snake"],
+        "productRole": "substrate",
+        "shopperJobs": ["Compare a snake substrate only after matching species and humidity target."],
+        "needStates": ["habitat-substrate", "burrowing-material"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["snakeSpecies", "humidityTarget", "currentSubstrate", "feedingSetup"],
+        "comparisonDimensions": ["species-fit", "humidity-fit", "substrate-material", "package-volume"],
+        "stopConditions": ["Do not recommend when snake species or humidity target is unknown.", "Do not infer ingestion or feeding safety from the retailer listing."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "snake-reptichip-coconut-chip-12qt",
+      "name": "ReptiChip Loose Coconut Chip Reptile Substrate, 12-qt block",
+      "brand": "ReptiChip",
+      "sku": "KIB-SNK-002",
+      "price": "19.95",
+      "description": "A retailer-listed 12-qt block of loose coconut-chip reptile substrate.",
+      "categories": ["Reptiles", "Snake", "Substrate"],
+      "tags": ["snake", "substrate", "coconut-chip", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/reptichip-loose-coconut-chip-reptile/dp/1594854",
+        "retrievedAt": "2026-08-14",
+        "price": "19.95",
+        "facts": ["Coconut-chip reptile substrate", "12-qt block", "Loose substrate format"]
+      },
+      "metadata": {
+        "species": ["snake"],
+        "productRole": "substrate",
+        "shopperJobs": ["Compare a coconut-chip substrate only after matching snake species and humidity target."],
+        "needStates": ["habitat-substrate", "humidity-managed-habitat"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["snakeSpecies", "humidityTarget", "currentSubstrate", "feedingSetup"],
+        "comparisonDimensions": ["species-fit", "humidity-fit", "substrate-material", "package-volume"],
+        "stopConditions": ["Do not recommend when snake species or humidity target is unknown.", "Do not infer ingestion or feeding safety from the retailer listing."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "snake-exoterra-snake-cave-small",
+      "name": "Exo Terra Snake Cave, Small",
+      "brand": "Exo Terra",
+      "sku": "KIB-SNK-003",
+      "price": "27.99",
+      "description": "A retailer-listed small cave-style hide for snakes.",
+      "categories": ["Reptiles", "Snake", "Hides"],
+      "tags": ["snake", "hide", "small", "cave", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/exo-terra-snake-cave/dp/334071",
+        "retrievedAt": "2026-08-14",
+        "price": "27.99",
+        "facts": ["Snake cave", "Small size", "Hide product"]
+      },
+      "metadata": {
+        "species": ["snake"],
+        "productRole": "hide",
+        "shopperJobs": ["Compare a hide only after checking animal and enclosure fit."],
+        "needStates": ["enclosure-cover", "habitat-furnishing"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["snakeSpecies", "animalLength", "animalGirth", "enclosureDimensions"],
+        "comparisonDimensions": ["animal-fit", "enclosure-fit", "hide-size", "hide-style"],
+        "stopConditions": ["Do not recommend until the snake and enclosure measurements are known."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "snake-arcadia-deep-heat-projector-80w",
+      "name": "Arcadia Reptile Deep Heat Projector, 80-watt, 1 count",
+      "brand": "Arcadia Reptile",
+      "sku": "KIB-SNK-004",
+      "price": "34.52",
+      "description": "A retailer-listed 80-watt reptile deep heat projector sold as one unit.",
+      "categories": ["Reptiles", "Snake", "Heating"],
+      "tags": ["snake", "heat-source", "80-watt", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/arcadia-reptile-deep-heat-projector/dp/1364502",
+        "retrievedAt": "2026-08-14",
+        "price": "34.52",
+        "facts": ["Deep heat projector", "80 watts", "One count"]
+      },
+      "metadata": {
+        "species": ["snake"],
+        "productRole": "heat-source",
+        "shopperJobs": ["Evaluate a heat source only inside a measured and controlled snake enclosure plan."],
+        "needStates": ["controlled-enclosure-heating", "temperature-gradient"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["snakeSpecies", "enclosureDimensions", "currentTemperatureRange", "targetTemperatureRange", "existingFixtureController", "wattageCapacity"],
+        "comparisonDimensions": ["species-fit", "enclosure-size", "wattage", "controller-compatibility", "temperature-target"],
+        "stopConditions": ["Do not recommend without enclosure measurements, measured current temperatures, a target range, and a compatible fixture and controller.", "Do not present the retailer listing as a husbandry prescription."],
+        "repeatScenario": "replacement-reminder"
+      }
+    },
+    {
+      "id": "reptile-zoomed-reptitemp-digital",
+      "name": "Zoo Med ReptiTemp Digital Reptile Terrarium Thermostat",
+      "brand": "Zoo Med",
+      "sku": "KIB-REP-001",
+      "price": "49.98",
+      "description": "A retailer-listed digital thermostat for reptile terrariums.",
+      "categories": ["Reptiles", "Environment", "Thermostats"],
+      "tags": ["snake", "bearded-dragon", "environment-control", "thermostat", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/zoo-med-reptitemp-digital-reptile/dp/257684",
+        "retrievedAt": "2026-08-14",
+        "price": "49.98",
+        "facts": ["Digital reptile thermostat", "Terrarium controller", "Environment-control product"]
+      },
+      "metadata": {
+        "species": ["snake", "bearded-dragon"],
+        "productRole": "environment-control",
+        "shopperJobs": ["Compare a thermostat only against a measured enclosure and compatible heat setup."],
+        "needStates": ["temperature-control", "enclosure-automation"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["animalSpecies", "enclosureDimensions", "currentTemperatureRange", "targetTemperatureRange", "existingFixtureController", "wattageCapacity"],
+        "comparisonDimensions": ["species-fit", "controller-mode", "wattage-capacity", "temperature-range", "fixture-compatibility"],
+        "stopConditions": ["Do not recommend without enclosure measurements, temperature ranges, wattage load, and fixture compatibility.", "Do not treat a thermostat as a substitute for measured enclosure monitoring."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "reptile-zoomed-reptitemp-dimming",
+      "name": "Zoo Med ReptiTemp Dimming Reptile Thermostat",
+      "brand": "Zoo Med",
+      "sku": "KIB-REP-002",
+      "price": "59.99",
+      "description": "A retailer-listed dimming thermostat for reptile heat equipment.",
+      "categories": ["Reptiles", "Environment", "Thermostats"],
+      "tags": ["snake", "bearded-dragon", "environment-control", "dimming-thermostat", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/zoo-med-reptitemp-dimming-reptile/dp/2214870",
+        "retrievedAt": "2026-08-14",
+        "price": "59.99",
+        "facts": ["Dimming reptile thermostat", "Heat-equipment controller", "Environment-control product"]
+      },
+      "metadata": {
+        "species": ["snake", "bearded-dragon"],
+        "productRole": "environment-control",
+        "shopperJobs": ["Compare a dimming thermostat only against a measured enclosure and compatible heat setup."],
+        "needStates": ["dimming-temperature-control", "enclosure-automation"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["animalSpecies", "enclosureDimensions", "currentTemperatureRange", "targetTemperatureRange", "existingFixtureController", "wattageCapacity"],
+        "comparisonDimensions": ["species-fit", "controller-mode", "wattage-capacity", "temperature-range", "fixture-compatibility"],
+        "stopConditions": ["Do not recommend without enclosure measurements, temperature ranges, wattage load, and fixture compatibility.", "Do not treat a thermostat as a substitute for measured enclosure monitoring."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "reptile-exoterra-combometer",
+      "name": "Exo Terra Combometer Digital Thermometer & Hygrometer",
+      "brand": "Exo Terra",
+      "sku": "KIB-REP-003",
+      "price": "31.44",
+      "description": "A retailer-listed combined digital thermometer and hygrometer for reptile enclosures.",
+      "categories": ["Reptiles", "Environment", "Monitoring"],
+      "tags": ["snake", "bearded-dragon", "environment-monitor", "thermometer", "hygrometer", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/exo-terra-combometer-digital/dp/191169",
+        "retrievedAt": "2026-08-14",
+        "price": "31.44",
+        "facts": ["Digital thermometer", "Digital hygrometer", "Combined enclosure monitor"]
+      },
+      "metadata": {
+        "species": ["snake", "bearded-dragon"],
+        "productRole": "environment-monitor",
+        "shopperJobs": ["Compare an enclosure monitor against the animal's target temperature and humidity ranges."],
+        "needStates": ["temperature-monitoring", "humidity-monitoring"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["animalSpecies", "enclosureDimensions", "targetTemperatureRange", "humidityTarget", "sensorPlacementPlan"],
+        "comparisonDimensions": ["species-fit", "measurements", "display-format", "sensor-placement", "target-ranges"],
+        "stopConditions": ["Do not recommend before target ranges and sensor placement are defined.", "Do not convert a retailer listing into target husbandry values."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "reptile-exoterra-water-dish-large",
+      "name": "Exo Terra Reptile Water Dish, Large",
+      "brand": "Exo Terra",
+      "sku": "KIB-REP-004",
+      "price": "19.99",
+      "description": "A retailer-listed large water dish for reptile enclosures.",
+      "categories": ["Reptiles", "Habitat", "Water Dishes"],
+      "tags": ["snake", "bearded-dragon", "hydration", "water-dish", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/exo-terra-reptile-water-dish/dp/131414",
+        "retrievedAt": "2026-08-14",
+        "price": "19.99",
+        "facts": ["Reptile water dish", "Large size", "Habitat accessory"]
+      },
+      "metadata": {
+        "species": ["snake", "bearded-dragon"],
+        "productRole": "hydration",
+        "shopperJobs": ["Compare a water dish after checking animal and enclosure fit."],
+        "needStates": ["water-access", "habitat-furnishing"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["animalSpecies", "animalSize", "enclosureDimensions", "currentDishSize"],
+        "comparisonDimensions": ["animal-fit", "enclosure-fit", "dish-size", "placement"],
+        "stopConditions": ["Do not recommend until animal size and enclosure dimensions are known."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "beardie-flukers-buffet-adult-7-5oz",
+      "name": "Fluker's Buffet Blend Adult Bearded Dragon Food, 7.5-oz jar",
+      "brand": "Fluker's",
+      "sku": "KIB-BDG-001",
+      "price": "10.69",
+      "description": "A retailer-listed 7.5-oz jar of bearded dragon food labeled for adults.",
+      "categories": ["Reptiles", "Bearded Dragon", "Food"],
+      "tags": ["bearded-dragon", "staple-food", "adult", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/flukers-buffet-blend-adult-bearded/dp/347416",
+        "retrievedAt": "2026-08-14",
+        "price": "10.69",
+        "facts": ["Adult bearded dragon food", "7.5-oz jar", "Buffet Blend line"]
+      },
+      "metadata": {
+        "species": ["bearded-dragon"],
+        "productRole": "staple-food",
+        "shopperJobs": ["Compare an adult-labeled prepared food within a known bearded dragon diet."],
+        "needStates": ["prepared-food-option", "adult-life-stage"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["lifeStage", "currentDiet"],
+        "comparisonDimensions": ["life-stage-label", "food-format", "package-size", "current-diet-fit"],
+        "stopConditions": ["Do not recommend unless the animal is confirmed adult.", "Do not present a prepared food listing as a complete husbandry diet."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "beardie-repashy-buffet-3oz",
+      "name": "Repashy Superfoods Beardie Buffet Gel Premix Bearded Dragon Food, 3-oz bottle",
+      "brand": "Repashy Superfoods",
+      "sku": "KIB-BDG-002",
+      "price": "10.99",
+      "description": "A retailer-listed 3-oz bottle of gel-premix food for bearded dragons.",
+      "categories": ["Reptiles", "Bearded Dragon", "Food"],
+      "tags": ["bearded-dragon", "staple-food", "gel-premix", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/repashy-superfoods-beardie-buffet-gel/dp/335398",
+        "retrievedAt": "2026-08-14",
+        "price": "10.99",
+        "facts": ["Bearded dragon food", "Gel premix", "3-oz bottle"]
+      },
+      "metadata": {
+        "species": ["bearded-dragon"],
+        "productRole": "staple-food",
+        "shopperJobs": ["Compare a gel-premix food within a known bearded dragon diet."],
+        "needStates": ["prepared-food-option", "diet-format-variety"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["lifeStage", "currentDiet"],
+        "comparisonDimensions": ["life-stage-fit", "food-format", "package-size", "current-diet-fit"],
+        "stopConditions": ["Do not recommend when life stage or current diet is unknown.", "Do not present a prepared food listing as a complete husbandry diet."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "beardie-flukers-buffet-juvenile-8-5oz",
+      "name": "Fluker's Buffet Blend Juvenile Bearded Dragon Food, 8.5-oz jar",
+      "brand": "Fluker's",
+      "sku": "KIB-BDG-003",
+      "price": "14.84",
+      "description": "A retailer-listed 8.5-oz jar of bearded dragon food labeled for juveniles.",
+      "categories": ["Reptiles", "Bearded Dragon", "Food"],
+      "tags": ["bearded-dragon", "staple-food", "juvenile", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/flukers-buffet-blend-juvenile-bearded/dp/347415",
+        "retrievedAt": "2026-08-14",
+        "price": "14.84",
+        "facts": ["Juvenile bearded dragon food", "8.5-oz jar", "Buffet Blend line"]
+      },
+      "metadata": {
+        "species": ["bearded-dragon"],
+        "productRole": "staple-food",
+        "shopperJobs": ["Compare a juvenile-labeled prepared food within a known bearded dragon diet."],
+        "needStates": ["prepared-food-option", "juvenile-life-stage"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["lifeStage", "currentDiet"],
+        "comparisonDimensions": ["life-stage-label", "food-format", "package-size", "current-diet-fit"],
+        "stopConditions": ["Do not recommend unless the animal is confirmed juvenile.", "Do not present a prepared food listing as a complete husbandry diet."],
+        "repeatScenario": "consumable-repeat"
+      }
+    },
+    {
+      "id": "beardie-zoomed-reptisun-10-t5-34in",
+      "name": "Zoo Med ReptiSun 10.0 T5-HO UVB Fluorescent Reptile Lamp, 39-watt, 34-in",
+      "brand": "Zoo Med",
+      "sku": "KIB-BDG-004",
+      "price": "32.99",
+      "description": "A retailer-listed 39-watt, 34-inch T5-HO UVB fluorescent reptile lamp.",
+      "categories": ["Reptiles", "Bearded Dragon", "UVB Lighting"],
+      "tags": ["bearded-dragon", "uvb-lighting", "t5-ho", "34-inch", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/zoo-med-reptisun-100-t5-ho-uvb/dp/344986",
+        "retrievedAt": "2026-08-14",
+        "price": "32.99",
+        "facts": ["T5-HO UVB lamp", "39 watts", "34 inches"]
+      },
+      "metadata": {
+        "species": ["bearded-dragon"],
+        "productRole": "uvb-lighting",
+        "shopperJobs": ["Evaluate a UVB lamp only inside a measured bearded dragon lighting plan."],
+        "needStates": ["uvb-lighting", "scheduled-lamp-replacement"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["enclosureDimensions", "currentTemperatureRange", "targetTemperatureRange", "existingFixtureController", "wattageCapacity", "fixtureLength", "baskingDistance"],
+        "comparisonDimensions": ["enclosure-fit", "lamp-length", "wattage", "fixture-compatibility", "basking-distance"],
+        "stopConditions": ["Do not recommend without enclosure measurements, basking distance, fixture length, compatible equipment, and the intended replacement plan.", "Do not derive UVB placement or exposure instructions from the retailer listing."],
+        "repeatScenario": "replacement-reminder"
+      }
+    },
+    {
+      "id": "beardie-zoomed-reptisun-t5-hood-36in",
+      "name": "Zoo Med ReptiSun T5-HO Reptile Terrarium Hood, 36-in",
+      "brand": "Zoo Med",
+      "sku": "KIB-BDG-005",
+      "price": "85.98",
+      "description": "A retailer-listed 36-inch T5-HO terrarium lighting hood for reptiles.",
+      "categories": ["Reptiles", "Bearded Dragon", "Lighting Fixtures"],
+      "tags": ["bearded-dragon", "lighting-fixture", "t5-ho", "36-inch", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/zoo-med-reptisun-t5-ho-reptile/dp/345003",
+        "retrievedAt": "2026-08-14",
+        "price": "85.98",
+        "facts": ["T5-HO terrarium hood", "36 inches", "Lighting fixture"]
+      },
+      "metadata": {
+        "species": ["bearded-dragon"],
+        "productRole": "lighting-fixture",
+        "shopperJobs": ["Evaluate a lighting fixture only after matching enclosure and lamp requirements."],
+        "needStates": ["uvb-fixture", "enclosure-lighting-setup"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["enclosureDimensions", "fixtureLength", "existingLighting", "requiredLampType", "wattageCapacity", "baskingDistance"],
+        "comparisonDimensions": ["enclosure-fit", "fixture-length", "lamp-compatibility", "wattage-capacity", "basking-distance"],
+        "stopConditions": ["Do not recommend without enclosure dimensions and an exact compatible lamp plan.", "Do not assume the hood includes or fits the required lamp without source confirmation."],
+        "repeatScenario": "none"
+      }
+    },
+    {
+      "id": "beardie-exoterra-intense-basking-100w",
+      "name": "Exo Terra Intense Basking Reptile Spot Lamp, 100-watt bulb",
+      "brand": "Exo Terra",
+      "sku": "KIB-BDG-006",
+      "price": "13.99",
+      "description": "A retailer-listed 100-watt reptile basking spot bulb.",
+      "categories": ["Reptiles", "Bearded Dragon", "Heating"],
+      "tags": ["bearded-dragon", "heat-source", "basking-lamp", "100-watt", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/exo-terra-intense-basking-reptile/dp/123935",
+        "retrievedAt": "2026-08-14",
+        "price": "13.99",
+        "facts": ["Basking spot lamp", "100-watt bulb", "Reptile heat product"]
+      },
+      "metadata": {
+        "species": ["bearded-dragon"],
+        "productRole": "heat-source",
+        "shopperJobs": ["Evaluate a basking bulb only inside a measured and controlled enclosure plan."],
+        "needStates": ["controlled-basking-heat", "temperature-gradient"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["enclosureDimensions", "currentTemperatureRange", "targetTemperatureRange", "existingFixtureController", "wattageCapacity"],
+        "comparisonDimensions": ["enclosure-size", "wattage", "controller-compatibility", "temperature-target", "fixture-compatibility"],
+        "stopConditions": ["Do not recommend without enclosure measurements, measured temperatures, a target range, and a compatible fixture and controller.", "Do not present wattage alone as proof of enclosure suitability."],
+        "repeatScenario": "replacement-reminder"
+      }
+    },
+    {
+      "id": "beardie-exoterra-cave-xxlarge",
+      "name": "Exo Terra Cave Reptile Hideout, XX-Large",
+      "brand": "Exo Terra",
+      "sku": "KIB-BDG-007",
+      "price": "31.23",
+      "description": "A retailer-listed XX-large cave-style hideout for reptile enclosures.",
+      "categories": ["Reptiles", "Bearded Dragon", "Hides"],
+      "tags": ["bearded-dragon", "hide", "xx-large", "cave", "research-candidate"],
+      "readiness": "research-candidate",
+      "source": {
+        "retailer": "Chewy",
+        "url": "https://www.chewy.com/exo-terra-cave-reptile-hideout/dp/2036910",
+        "retrievedAt": "2026-08-14",
+        "price": "31.23",
+        "facts": ["Reptile cave hideout", "XX-large size", "Habitat furnishing"]
+      },
+      "metadata": {
+        "species": ["bearded-dragon"],
+        "productRole": "hide",
+        "shopperJobs": ["Compare a hide only after checking animal and enclosure fit."],
+        "needStates": ["enclosure-cover", "habitat-furnishing"],
+        "selectionMode": "profile-required",
+        "requiredProfileFields": ["animalSize", "enclosureDimensions", "availableFloorSpace"],
+        "comparisonDimensions": ["animal-fit", "enclosure-fit", "hide-size", "footprint"],
+        "stopConditions": ["Do not recommend until the animal size, enclosure dimensions, and available floor space are known."],
+        "repeatScenario": "none"
+      }
+    }
+  ]
+}
