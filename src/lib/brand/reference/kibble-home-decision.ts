@@ -2,6 +2,7 @@ import type { EffectiveCompositionPolicy, AutonomyCapability, DecisionMode } fro
 import type { PersonaInference } from '$lib/signals/types';
 import type { PersonaFitScores } from '$lib/server/enrichment/types';
 import type { Product } from '$lib/types';
+import type { KibbleCatalogSignals } from './kibble-catalog-enrichment';
 import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '../composition-policy';
 import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
 import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
@@ -10,6 +11,7 @@ export const KIBBLE_HOME_SHELF_CAPACITY = 8;
 
 export type KibbleHomeCandidateProduct = Product & {
 	personaFit?: PersonaFitScores | null;
+	catalogSignals?: KibbleCatalogSignals;
 };
 
 export interface KibbleHomeProductSummary {

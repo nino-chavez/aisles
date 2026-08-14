@@ -5,6 +5,7 @@ import {
 	KIBBLE_SUBSCRIPTION_CAPABILITY_PRODUCT_IDS,
 	KIBBLE_SUBSCRIPTION_CAPABILITY_SURFACES,
 	getKibbleCatalogCapabilities,
+	getKibbleCatalogSignals,
 	kibbleCatalogCapabilityCount,
 	kibbleCatalogCoverage,
 	materializeKibbleSubscriptionOffers,
@@ -62,6 +63,21 @@ describe('Kibble catalog capability projection', () => {
 		});
 		expect(offers.harness).toBeUndefined();
 		expect(getKibbleCatalogCapabilities(3049)).toBeNull();
+	});
+
+	it('exposes safe capability signals to bounded server-side presentation decisions', () => {
+		expect(getKibbleCatalogSignals(3023)).toEqual({
+			subscriptionEligible: true,
+			subscriptionCapabilities: ['subscribe-and-save', 'intro-offer'],
+			subscriptionSavingsPercent: 15,
+			subscriptionCadenceMonths: [1, 2, 3],
+		});
+		expect(getKibbleCatalogSignals(3049)).toEqual({
+			subscriptionEligible: false,
+			subscriptionCapabilities: [],
+			subscriptionSavingsPercent: null,
+			subscriptionCadenceMonths: null,
+		});
 	});
 
 	it('keeps source prices and savings within a display-safe range', () => {

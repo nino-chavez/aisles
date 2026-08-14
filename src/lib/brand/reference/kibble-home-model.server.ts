@@ -113,7 +113,10 @@ export function buildKibbleHomeModelPrompt(
 	const candidates = products.map((product) => {
 		const fit = product.personaFit?.[inference.primary];
 		const fitLabel = typeof fit === 'number' && Number.isFinite(fit) ? fit.toFixed(3) : 'unavailable';
-		return `- ${product.entityId} | ${product.name} | ${product.category} | USD ${product.price.toFixed(2)} | ${inference.primary} fit ${fitLabel}`;
+		const subscription = product.catalogSignals?.subscriptionEligible
+			? ` | subscription: ${product.catalogSignals.subscriptionCapabilities.join(', ')} | save ${product.catalogSignals.subscriptionSavingsPercent}% | cadence ${product.catalogSignals.subscriptionCadenceMonths?.join('/')}`
+			: ' | subscription: one-time only';
+		return `- ${product.entityId} | ${product.name} | ${product.category} | USD ${product.price.toFixed(2)} | ${inference.primary} fit ${fitLabel}${subscription}`;
 	}).join('\n');
 	return [
 		'Compose one bounded Kibble & Co. storefront presentation for the inferred shopper.',

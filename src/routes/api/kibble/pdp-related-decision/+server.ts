@@ -22,6 +22,7 @@ import { infer } from '$lib/signals/inference';
 import { findSessionStore } from '$lib/signals/session';
 import { MODEL_PROVIDER } from '$lib/server/model';
 import { KIBBLE_PDP_PRESENTATION_POLICY } from '$lib/brand/reference/kibble-presentation-decisions';
+import { getKibbleCatalogSignals } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 const SESSION_COOKIE = 'aisles_session';
 const PREVIEW_VERSION = 'kibble-pdp-presentation-preview-v2';
@@ -118,7 +119,7 @@ function serverRelatedCandidates(products: BCProduct[], productEntityId: number)
 			|| typeof node?.name !== 'string' || node.name.length < 1 || node.name.length > 96
 			|| typeof price !== 'number' || !Number.isFinite(price) || price < 0
 			|| typeof category !== 'string' || category.length > 96) throw new Error('Kibble PDP related catalog data is invalid.');
-		return { entityId, name: node.name, category, price };
+		return { entityId, name: node.name, category, price, catalogSignals: getKibbleCatalogSignals(entityId) };
 	});
 	if (candidates.length > 4 || new Set(candidates.map(({ entityId }) => entityId)).size !== candidates.length) {
 		throw new Error('Kibble PDP related catalog identities are invalid.');

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
+import type { KibbleCatalogSignals } from './kibble-catalog-enrichment';
 import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS, KIBBLE_DEMO_PROVIDER_DEADLINE_MS } from '$lib/kibble-demo-ai-boundary';
 import { runBoundedModelAction } from '$lib/server/bounded-model-action.server';
 import { executeKibblePdpRelatedModelShelf } from './kibble-zone-executor.server';
@@ -18,6 +19,7 @@ export type KibblePdpRelatedCandidate = {
 	name: string;
 	category: string;
 	price: number;
+	catalogSignals?: KibbleCatalogSignals;
 };
 
 export async function rankKibblePdpRelatedWithModel(input: {
@@ -102,7 +104,12 @@ export function buildKibblePdpRelatedModelPrompt(
 	const probabilities = Object.entries(inference.probabilities)
 		.map(([persona, probability]) => `${persona}=${probability.toFixed(3)}`).join(', ');
 	const candidates = products
-		.map((product) => `- ${product.entityId} | ${product.name} | ${product.category} | USD ${product.price.toFixed(2)}`).join('\n');
+		.map((product) => {
+			const subscription = product.catalogSignals?.subscriptionEligible
+				? ` | subscription: ${product.catalogSignals.subscriptionCapabilities.join(', ')} | save ${product.catalogSignals.subscriptionSavingsPercent}%`
+				: ' | subscription: one-time only';
+			return `- ${product.entityId} | ${product.name} | ${product.category} | USD ${product.price.toFixed(2)}${subscription}`;
+		}).join('\n');
 	return [
 		'Compose one bounded Kibble & Co. related-products presentation for the inferred shopper.',
 		'Return every supplied product ID exactly once, plus one ID for every approved presentation field.',

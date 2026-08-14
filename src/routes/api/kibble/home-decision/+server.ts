@@ -74,7 +74,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 				products: decision.products,
 				presentationContext: buildKibbleHomePresentationContext(referenceProducts.source),
 			});
-			const products = modelDecision.products.map(({ personaFit: _personaFit, ...product }) => product);
+			const products = modelDecision.products.map(({ personaFit: _personaFit, catalogSignals: _catalogSignals, ...product }) => product);
 			const rankedProductIds = products.map(({ entityId }) => entityId);
 			const scenarioId = privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo';
 			const provenance = buildContractedLayoutProvenance({
@@ -135,7 +135,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			});
 		}
 
-		const products = decision.products.map(({ personaFit: _personaFit, ...product }) => product);
+		const products = decision.products.map(({ personaFit: _personaFit, catalogSignals: _catalogSignals, ...product }) => product);
 		const featuredZoneAdapters = await executeKibbleHomeFeaturedZoneAdapters(products);
 		const rankedProductIds = products.map(({ entityId }) => entityId);
 		const scenarioId = privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo';

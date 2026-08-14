@@ -27,7 +27,7 @@ import {
 import { MAX_LAYOUT_PRODUCTS } from './layout-prompt';
 import type { Product } from '$lib/types';
 import type { PersonaFitScores, PetProfile } from './enrichment/types';
-import { materializeKibbleSubscriptionOffers } from '$lib/brand/reference/kibble-catalog-enrichment';
+import { getKibbleCatalogSignals, materializeKibbleSubscriptionOffers } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 /** Category map — driven by the active brand config */
 export const CATEGORY_MAP: Record<string, { bcName: string; displayName: string }> = getBrand().categories;
@@ -41,7 +41,7 @@ export interface EnrichedProduct extends Product {
 }
 
 export type ReferenceHomeProducts = {
-	products: Array<Product & { personaFit: PersonaFitScores | null }>;
+	products: Array<Product & { personaFit: PersonaFitScores | null; catalogSignals: ReturnType<typeof getKibbleCatalogSignals> }>;
 	source: 'featured' | 'newest' | 'deterministic-catalog';
 	subscriptionOffers: Record<string, import('$lib/components/kibble/types').KibbleAutoRefillOffer>;
 };
@@ -95,11 +95,12 @@ async function materializeReferenceHomeResult(
 
 async function attachReferenceEnrichment(
 	products: Product[],
-): Promise<Array<Product & { personaFit: PersonaFitScores | null }>> {
+): Promise<Array<Product & { personaFit: PersonaFitScores | null; catalogSignals: ReturnType<typeof getKibbleCatalogSignals> }>> {
 	const enrichment = await getEnrichmentByEntityIds(products.map(({ entityId }) => entityId));
 	return products.map((product) => ({
 		...product,
 		personaFit: enrichment.get(product.entityId)?.personaFit ?? null,
+		catalogSignals: getKibbleCatalogSignals(product.entityId),
 	}));
 }
 

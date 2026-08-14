@@ -54,7 +54,7 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 			const shopperInference = sanitizeInspectorInference(inference);
 			// Enrichment scores authorize the server-side ranking. They are not
 			// shopper-facing product data and must not cross the render boundary.
-			const renderedHomeProducts = homeDecision.products.map(({ personaFit: _personaFit, ...product }) => product);
+			const renderedHomeProducts = homeDecision.products.map(({ personaFit: _personaFit, catalogSignals: _catalogSignals, ...product }) => product);
 			const kibbleHomeBase = buildKibbleHomeReference(
 				brand,
 				renderedHomeProducts,

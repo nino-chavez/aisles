@@ -32,6 +32,13 @@ export type KibbleSubscriptionCapability =
 	| 'gift'
 	| 'build-a-box';
 
+export type KibbleCatalogSignals = {
+	readonly subscriptionEligible: boolean;
+	readonly subscriptionCapabilities: readonly KibbleSubscriptionCapability[];
+	readonly subscriptionSavingsPercent: number | null;
+	readonly subscriptionCadenceMonths: readonly [1, 2, 3] | null;
+};
+
 export const KIBBLE_CATALOG_ENTITY_IDS = Object.freeze(
 	Array.from({ length: 49 }, (_, index) => 3023 + index),
 );
@@ -124,6 +131,23 @@ export const KIBBLE_ONE_TIME_ONLY_ENTITY_IDS = Object.freeze(
 
 export function getKibbleCatalogCapabilities(entityId: number): KibbleCatalogCapability | null {
 	return KIBBLE_CATALOG_CAPABILITIES[entityId] ?? null;
+}
+
+export function getKibbleCatalogSignals(entityId: number): KibbleCatalogSignals {
+	const subscription = getKibbleCatalogCapabilities(entityId)?.subscription;
+	return subscription
+		? {
+			subscriptionEligible: true,
+			subscriptionCapabilities: subscription.capabilities,
+			subscriptionSavingsPercent: subscription.savingsPercent,
+			subscriptionCadenceMonths: subscription.cadenceMonths,
+		}
+		: {
+			subscriptionEligible: false,
+			subscriptionCapabilities: [],
+			subscriptionSavingsPercent: null,
+			subscriptionCadenceMonths: null,
+		};
 }
 
 /**
