@@ -10,6 +10,7 @@ import { rankKibbleHomeWithModel } from './kibble-home-model.server';
 import { rankKibblePdpRelatedWithModel } from './kibble-pdp-related-model.server';
 import { hashKibblePlpRankingInput } from './kibble-plp-ranking-boundary.server';
 import { validateKibblePlpLivePreview } from '$lib/components/kibble/kibble-plp-live-preview';
+import { KIBBLE_HOME_DEFAULT_PRESENTATION, KIBBLE_PDP_DEFAULT_PRESENTATION, KIBBLE_PLP_DEFAULT_PRESENTATION, KIBBLE_PLP_PRESENTATION_POLICY } from './kibble-presentation-decisions';
 
 const inference: PersonaInference = {
 	primary: 'researcher', probabilities: { gatherer: 0.1, hunter: 0.1, researcher: 0.7, gifter: 0.1 }, confidence: 0.6, entropy: 0.5, certainty: 0.6,
@@ -20,27 +21,28 @@ const candidates = Array.from({ length: 10 }, (_, index) => ({ entityId: index +
 describe('Kibble PLP runner to adapter to client', () => {
 	beforeEach(() => mocks.generateText.mockReset());
 	it('composes one validated model action into the exact prefix-only client preview', async () => {
-		mocks.generateText.mockResolvedValueOnce({ modelId: 'claude-test', result: { output: { rankedProductIds: ['8', '7', '6', '5', '4', '3', '2', '1'] }, usage: { inputTokens: 1, outputTokens: 1 } } });
+		mocks.generateText.mockResolvedValueOnce({ modelId: 'claude-test', result: { output: { rankedProductIds: ['8', '7', '6', '5', '4', '3', '2', '1'], ...KIBBLE_PLP_DEFAULT_PRESENTATION }, usage: { inputTokens: 1, outputTokens: 1 } } });
 		const result = await rankKibblePlpFirstEightWithModel({ inference, prefix: candidates.slice(0, 8), tail: candidates.slice(8) });
 		expect(result.modelCallCount).toBe(1);
 		expect(result.zoneAdapter.modelCallCount).toBe(1);
 		const prefixIds = candidates.slice(0, 8).map(({ entityId }) => String(entityId));
 		const tailIds = ['9', '10'];
-		const preview = validateKibblePlpLivePreview({ version: 'kibble-plp-first-eight-preview-v1', previewOnly: true, routePath: '/category/dog-food', sort: 'FEATURED', cursor: null, policyVersion: result.policy.policyVersion, reference: { id: 'kibble-shelf-native', version: '1.8.0' }, persona: 'researcher', prefixIds, tailIds, rankedPrefixIds: result.rankedPrefixIds, zoneAdapter: result.zoneAdapter, modelCallCount: result.modelCallCount, provider: 'anthropic', modelId: result.modelId, provenance: {} }, { routePath: '/category/dog-food', sort: 'FEATURED', cursor: null, policyVersion: result.policy.policyVersion, reference: { id: 'kibble-shelf-native', version: '1.8.0' }, prefixIds, tailIds, expectedInputSha256: hashKibblePlpRankingInput(prefixIds, tailIds) }, candidates.map((candidate) => ({ id: String(candidate.entityId), ...candidate, image: '', imageAlt: '', description: '', specs: {}, tags: [] })));
+		const preview = validateKibblePlpLivePreview({ version: 'kibble-plp-presentation-preview-v2', previewOnly: true, routePath: '/category/dog-food', sort: 'FEATURED', cursor: null, policyVersion: result.policy.policyVersion, reference: { id: 'kibble-shelf-native', version: '1.8.0' }, persona: 'researcher', prefixIds, tailIds, rankedPrefixIds: result.rankedPrefixIds, presentationPolicy: KIBBLE_PLP_PRESENTATION_POLICY, presentationDecision: result.presentationDecision, zoneAdapter: result.zoneAdapter, modelCallCount: result.modelCallCount, provider: 'anthropic', modelId: result.modelId, provenance: {} }, { routePath: '/category/dog-food', sort: 'FEATURED', cursor: null, policyVersion: result.policy.policyVersion, reference: { id: 'kibble-shelf-native', version: '1.8.0' }, prefixIds, tailIds, expectedInputSha256: hashKibblePlpRankingInput(prefixIds, tailIds), title: 'Dog Food', productCount: 10, productSingular: 'product', productPlural: 'products' }, candidates.map((candidate) => ({ id: String(candidate.entityId), ...candidate, image: '', imageAlt: '', description: '', specs: {}, tags: [] })));
 		expect(preview?.products.map(({ entityId }) => entityId)).toEqual([8, 7, 6, 5, 4, 3, 2, 1, 9, 10]);
 	});
 
-	it('passes one action-scoped AbortSignal to Home, PDP, and PLP provider calls', async () => {
+	it('passes one action-scoped AbortSignal and output cap to Home, PDP, and PLP provider calls', async () => {
 		mocks.generateText
-			.mockResolvedValueOnce({ modelId: 'claude-test', result: { output: { rankedProductIds: ['1', '2', '3'] }, usage: {} } })
-			.mockResolvedValueOnce({ modelId: 'claude-test', result: { output: { rankedProductIds: ['1', '2', '3'] }, usage: {} } })
-			.mockResolvedValueOnce({ modelId: 'claude-test', result: { output: { rankedProductIds: ['3', '2', '1'] }, usage: {} } });
+			.mockResolvedValueOnce({ modelId: 'claude-test', result: { output: { rankedProductIds: ['1', '2', '3'], ...KIBBLE_HOME_DEFAULT_PRESENTATION }, usage: {} } })
+			.mockResolvedValueOnce({ modelId: 'claude-test', result: { output: { rankedProductIds: ['1', '2', '3'], ...KIBBLE_PDP_DEFAULT_PRESENTATION }, usage: {} } })
+			.mockResolvedValueOnce({ modelId: 'claude-test', result: { output: { rankedProductIds: ['3', '2', '1'], ...KIBBLE_PLP_DEFAULT_PRESENTATION }, usage: {} } });
 		await rankKibbleHomeWithModel({ inference, products: candidates.slice(0, 3).map((candidate) => ({ id: String(candidate.entityId), ...candidate, image: '', imageAlt: '', description: '', specs: {}, tags: [], personaFit: { gatherer: 0.1, hunter: 0.1, researcher: 0.8, gifter: 0.1 } })) });
 		await rankKibblePdpRelatedWithModel({ inference, products: candidates.slice(0, 3), routePath: '/product/puppy-starter-kit', heading: 'You may also like' });
 		await rankKibblePlpFirstEightWithModel({ inference, prefix: candidates.slice(0, 3), tail: candidates.slice(3) });
 		expect(mocks.generateText).toHaveBeenCalledTimes(3);
 		for (const [options] of mocks.generateText.mock.calls) {
 			expect(options.abortSignal).toBeInstanceOf(AbortSignal);
+			expect(options.maxOutputTokens).toBe(512);
 		}
 	});
 });

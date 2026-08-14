@@ -1,5 +1,6 @@
 /** Shared limits for every paid Kibble Observe model action. */
 export const KIBBLE_DEMO_PROVIDER_DEADLINE_MS = 12_000;
+export const KIBBLE_DEMO_MAX_OUTPUT_TOKENS = 512;
 export const KIBBLE_DEMO_PLP_CLIENT_TIMEOUT_MS = 15_000;
 export const KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS = 30_000;
 export const KIBBLE_DEMO_ACTION_COOLDOWN_SECONDS = 45;

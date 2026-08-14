@@ -15,8 +15,8 @@ vi.mock('$lib/brand/composition-policy', () => ({
 vi.mock('$lib/brand/reference/kibble', () => ({ KIBBLE_REFERENCE_CONTRACT: { recipes: { pdp: { variantId: 'kibble.product-detail.catalog-display-only' } } } }));
 vi.mock('$lib/brand/reference/kibble-manifest', () => ({ KIBBLE_PRESERVE_MANIFEST: { display: { pdp: { relatedHeading: 'You may also like' } } } }));
 vi.mock('$lib/brand/reference/kibble-pdp-related-model.server', () => ({
-	KIBBLE_PDP_RELATED_MODEL_PROMPT_VERSION: 'kibble-pdp-related-bounded-rank-v1',
-	KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION: 'kibble-pdp-related-zone-decision-v1',
+	KIBBLE_PDP_RELATED_MODEL_PROMPT_VERSION: 'kibble-pdp-related-presentation-v2',
+	KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION: 'kibble-pdp-presentation-decision-v2',
 	rankKibblePdpRelatedWithModel: mocks.rankWithModel,
 }));
 vi.mock('$lib/server/bigcommerce', () => ({ getKibbleProductDetailByPath: mocks.getDetail }));
@@ -61,7 +61,7 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 		mocks.infer.mockReset().mockReturnValue(inference);
 		mocks.getDetail.mockReset().mockResolvedValue(structuredClone(detail));
 		mocks.reserveBudget.mockReset().mockResolvedValue({ ok: true, sessionUsed: 1, globalUsed: 1 });
-		mocks.rankWithModel.mockReset().mockResolvedValue({ policy: { policyVersion: 'pdp-assist-v1', provenance: { zoneBinding: { instanceId: 'pdp.related' } } }, rankedProductIds: ['13', '11', '12'], adapter, modelId: 'claude-haiku-4-5', modelCallCount: 1 });
+		mocks.rankWithModel.mockReset().mockResolvedValue({ policy: { policyVersion: 'pdp-assist-v1', provenance: { zoneBinding: { instanceId: 'pdp.related' } } }, rankedProductIds: ['13', '11', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, adapter, modelId: 'claude-haiku-4-5', modelCallCount: 1 });
 		mocks.provenance.mockReset().mockReturnValue({ decisionSource: 'model' });
 		mocks.logGeneration.mockReset().mockResolvedValue(undefined);
 	});
@@ -80,7 +80,7 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 			],
 		}));
 		const body = await response.json();
-		expect(body).toMatchObject({ routePath: '/product/puppy-starter-kit', rankedProductIds: ['13', '11', '12'] });
+		expect(body).toMatchObject({ version: 'kibble-pdp-presentation-preview-v2', routePath: '/product/puppy-starter-kit', rankedProductIds: ['13', '11', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, presentationPolicy: { capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'] } });
 		expect(JSON.stringify(body)).not.toContain('browser-owned');
 	});
 

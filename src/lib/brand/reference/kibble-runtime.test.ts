@@ -8,6 +8,7 @@ import {
 } from './kibble-manifest.server';
 import { KIBBLE_PDP_BOUNDS, KIBBLE_PDP_BUNDLE_PROJECTION_SHA256, KIBBLE_REFERENCE_CONTRACT } from './kibble';
 import {
+	buildKibbleHomePresentationContext,
 	buildKibbleHomeReference,
 	isKibblePdpPublished,
 	materializeKibbleCategory,
@@ -83,6 +84,7 @@ describe('Kibble Preserve runtime adapter', () => {
 			'opening-merchandising', 'ranked-products', 'catalog-entry', 'service-proof',
 		]);
 		expect(home.featuredCopy.title).toBe('Catalog shelf');
+		expect(buildKibbleHomePresentationContext('newest').featuredCopy.title).toBe('New arrivals');
 		expect(home.products.map(({ entityId }) => entityId)).toEqual([4, 2, 3]);
 		expect(home.productHrefs).toEqual({ four: '/product/four', two: '/product/two', three: '/product/three' });
 		expect(home.categories).toHaveLength(8);

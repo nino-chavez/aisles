@@ -12,23 +12,28 @@ const inference: PersonaInference = {
 };
 
 describe('bounded Kibble PDP related-products model prompt', () => {
-	it('offers only server-approved rank facts and denies every visible PDP axis', () => {
+	it('offers only server-approved product facts and presentation IDs', () => {
 		const prompt = buildKibblePdpRelatedModelPrompt(inference, [
 			{ entityId: 11, name: 'Starter Bundle', category: 'Bundles', price: 90 },
 			{ entityId: 12, name: 'Dog Toy Kit', category: 'Toys', price: 32 },
 			{ entityId: 13, name: 'Mealtime Kit', category: 'Care', price: 55 },
 		]);
 		expect(prompt).toContain('11 | Starter Bundle | Bundles | USD 90.00');
-		expect(prompt).toContain('Your only authority is rankedProductIds. Return every supplied product ID exactly once.');
-		expect(prompt).toContain('Do not write copy. Do not choose layout, components, CSS, prices, claims, links, or actions.');
+		expect(prompt).toContain('Return every supplied product ID exactly once, plus one ID for every approved presentation field.');
+		expect(prompt).toContain('relatedCopyVariantId: merchant-baseline=');
+		expect(prompt).toContain('continue-routine=');
+		expect(prompt).toContain('compare-related=');
+		expect(prompt).toContain('Do not write prose');
 		expect(prompt).not.toContain('private request value');
 	});
 
 	it('uses a provider-compatible enum then leaves exact permutation enforcement to the generic contract', async () => {
 		const schema = buildKibblePdpRelatedProviderOutputSchema([{ entityId: 11 }, { entityId: 12 }, { entityId: 13 }]);
-		expect(schema.safeParse({ rankedProductIds: ['13', '11', '12'] }).success).toBe(true);
+		const decision = { rankedProductIds: ['13', '11', '12'], relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'routine-builder' };
+		expect(schema.safeParse(decision).success).toBe(true);
 		expect(schema.safeParse({ rankedProductIds: ['13', 'outside'] }).success).toBe(false);
-		expect(schema.safeParse({ rankedProductIds: ['13', '11', '12'], copy: 'forbidden' }).success).toBe(false);
+		expect(schema.safeParse({ ...decision, relatedCopyVariantId: 'forbidden' }).success).toBe(false);
+		expect(schema.safeParse({ ...decision, copy: 'forbidden' }).success).toBe(false);
 		const responseFormat = await Output.object({ schema }).responseFormat;
 		expect(JSON.stringify(responseFormat)).not.toContain('maxItems');
 		expect(() => buildKibblePdpRelatedProviderOutputSchema([{ entityId: 1 }, { entityId: 2 }])).toThrow(/three to four unique/);

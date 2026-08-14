@@ -11,6 +11,8 @@
 		featured,
 		proofItems,
 		zoneAdapter,
+		modelEligible = false,
+		modelCallCount = 0,
 	}: {
 		eyebrow: string;
 		headline: string;
@@ -19,6 +21,8 @@
 		featured: KibbleFeaturedBundle;
 		proofItems: KibbleProofItem[];
 		zoneAdapter?: KibbleZoneAdapterBinding<any>;
+		modelEligible?: boolean;
+		modelCallCount?: number;
 	} = $props();
 
 	function money(value: number): string {
@@ -30,12 +34,12 @@
 	}
 </script>
 
-<section class="kibble-reference kc-reference-hero" aria-labelledby="kibble-reference-hero-heading" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256} data-aisles-zone-instance={zoneAdapter?.instanceId} data-aisles-zone-label={zoneAdapter?.instanceId} data-aisles-authority={zoneAdapter?.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter?.modelCallCount ?? 0}>
+<section class="kibble-reference kc-reference-hero" aria-labelledby="kibble-reference-hero-heading" data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256} data-aisles-zone-instance={zoneAdapter?.instanceId ?? 'home.hero'} data-aisles-zone-label="Opening hero" data-aisles-authority={modelCallCount > 0 ? 'model' : (zoneAdapter?.decisionMode ?? 'fixed')} data-aisles-model-calls={modelCallCount} data-aisles-model-eligible={modelEligible ? 'true' : undefined}>
 	<div class="kc-reference-container kc-reference-hero__inner">
 		<div class="kc-reference-hero__copy">
-			<span class="kc-reference-hero__tag">{zoneAdapter?.content.props.eyebrow ?? eyebrow}</span>
-			<h1 id="kibble-reference-hero-heading">{zoneAdapter?.content.props.headline ?? headline}</h1>
-			<p class="kc-reference-hero__body">{zoneAdapter?.content.props.body ?? body}</p>
+			<span class="kc-reference-hero__tag">{modelCallCount > 0 ? eyebrow : (zoneAdapter?.content.props.eyebrow ?? eyebrow)}</span>
+			<h1 id="kibble-reference-hero-heading">{modelCallCount > 0 ? headline : (zoneAdapter?.content.props.headline ?? headline)}</h1>
+			<p class="kc-reference-hero__body">{modelCallCount > 0 ? body : (zoneAdapter?.content.props.body ?? body)}</p>
 
 			{#if ctas.length > 0}
 				<div class="kc-reference-hero__ctas">

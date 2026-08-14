@@ -12,6 +12,7 @@
 		subscriptionOffers = {},
 		zoneAdapters,
 		modelEligible = false,
+		copyModelCallCount = 0,
 	}: {
 		copy: KibbleFeaturedCopy;
 		products: KibbleProduct[];
@@ -20,6 +21,7 @@
 		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
 		zoneAdapters?: KibbleZoneAdapterBinding<ProductGridContent>[];
 		modelEligible?: boolean;
+		copyModelCallCount?: number;
 	} = $props();
 	const productsByEntityId = $derived(new Map(products.map((product) => [String(product.entityId), product])));
 	const resolvedAdapters = $derived(zoneAdapters ?? []);
@@ -28,7 +30,7 @@
 {#if products.length > 0}
 	<section id="kibble-featured-shelf" tabindex="-1" class="kibble-reference kc-reference-section" aria-labelledby="kibble-featured-heading">
 		<div class="kc-reference-container">
-			<div class="kc-reference-section__header">
+			<div class="kc-reference-section__header" data-aisles-zone-instance="home.featured-copy" data-aisles-zone-label="Featured shelf copy" data-aisles-authority={copyModelCallCount > 0 ? 'model' : 'fixed'} data-aisles-model-calls={copyModelCallCount} data-aisles-model-eligible={modelEligible ? 'true' : undefined} data-kibble-zone-status="live" data-kibble-zone-variant="kibble.featured-copy.selected">
 				<div>
 					<p class="kc-reference-eyebrow">{copy.eyebrow}</p>
 					<h2 id="kibble-featured-heading" class="kc-reference-section__title">{copy.title}</h2>

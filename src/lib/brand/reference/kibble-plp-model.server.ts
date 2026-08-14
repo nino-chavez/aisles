@@ -3,11 +3,18 @@ import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
 import { model, withModelFallback } from '$lib/server/model';
 import { createKibbleDemoProviderDeadline } from '$lib/server/kibble-demo-ai-deadline.server';
+import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS } from '$lib/kibble-demo-ai-boundary';
 import { getTrustedKibbleObservePlpProductRankingZonePolicy } from '$lib/brand/composition-policy';
 import { SHOPPER_ROUTE_MANIFEST_DIGEST, SHOPPER_ROUTE_MANIFEST_VERSION } from '$lib/foundation/autonomy-zone-route';
 import type { TrustedZoneFieldCatalog } from '$lib/foundation/zone-decision-schema';
 import { executeZoneDecision, type TrustedBoundZoneCatalog, type TrustedZoneExecutionIdentity, type ZoneModelRunner } from '$lib/server/zone-decision-executor';
 import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
+import {
+	KIBBLE_PLP_PRESENTATION_IDS,
+	kibblePlpPresentationPromptOptions,
+	parseKibblePlpPresentationDecision,
+	type KibblePlpPresentationDecision,
+} from './kibble-presentation-decisions';
 import {
 	hashKibblePlpCandidateCatalog,
 	hashKibblePlpRankingInput,
@@ -15,8 +22,8 @@ import {
 	type KibblePlpRankableCandidate,
 } from './kibble-plp-ranking-boundary.server';
 
-export const KIBBLE_PLP_MODEL_PROMPT_VERSION = 'kibble-plp-first-eight-rank-v1';
-export const KIBBLE_PLP_MODEL_SCHEMA_VERSION = 'kibble-plp-first-eight-zone-decision-v1';
+export const KIBBLE_PLP_MODEL_PROMPT_VERSION = 'kibble-plp-first-eight-presentation-v2';
+export const KIBBLE_PLP_MODEL_SCHEMA_VERSION = 'kibble-plp-presentation-decision-v2';
 const ROUTE_PATH = KIBBLE_PLP_RANKING_ROUTE;
 
 export type KibblePlpCandidate = KibblePlpRankableCandidate;
@@ -68,20 +75,25 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 	let modelId = '';
 	let inputTokens: number | undefined;
 	let outputTokens: number | undefined;
+	let presentationDecision: KibblePlpPresentationDecision | null = null;
 	const deadline = createKibbleDemoProviderDeadline();
 	const runModel: ZoneModelRunner = async ({ outputSchema }) => {
 		const generated = await withModelFallback(async (candidateModelId) => {
 			modelCallCount += 1;
-			return generateText({ model: model(candidateModelId), abortSignal: deadline.signal, output: Output.object({ schema: providerOutputSchema }), prompt });
+			return generateText({ model: model(candidateModelId), abortSignal: deadline.signal, maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS, output: Output.object({ schema: providerOutputSchema }), prompt });
 		}, deadline.signal);
 		modelId = generated.modelId;
 		inputTokens = generated.result.usage?.inputTokens;
 		outputTokens = generated.result.usage?.outputTokens;
-		return outputSchema.parse(generated.result.output);
+		const providerResult = providerOutputSchema.parse(generated.result.output);
+		const { rankedProductIds, ...presentationFields } = providerResult;
+		presentationDecision = parseKibblePlpPresentationDecision(presentationFields);
+		if (!presentationDecision) throw new Error('Kibble PLP presentation decision left the merchant allow-list.');
+		return outputSchema.parse({ rankedProductIds });
 	};
 	try {
 		const execution = await executeZoneDecision({ policy, catalog, fallback: { identity, kind: 'content', content: productGridContent(prefixIds) }, runModel });
-		if (execution.status !== 'live' || execution.decisionMode !== 'model' || execution.render.kind !== 'content' || !modelId || modelCallCount < 1) {
+		if (execution.status !== 'live' || execution.decisionMode !== 'model' || execution.render.kind !== 'content' || !modelId || modelCallCount < 1 || !presentationDecision) {
 			throw new Error(`Kibble PLP model ranking did not publish: ${execution.status === 'fallback' ? execution.reason : execution.status}.`);
 		}
 		const raw = execution.decision?.envelope.rawModelContent;
@@ -89,7 +101,7 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 		const rankedPrefixIds: string[] = Array.isArray(rankedValue) ? rankedValue.filter(isString) : [];
 		if (!sameExactSet(rankedPrefixIds, prefixIds)) throw new Error('Kibble PLP model output was not an exact approved prefix permutation.');
 		return {
-			policy, execution, prefixIds, tailIds, rankedPrefixIds, modelId, modelCallCount, prompt,
+			policy, execution, prefixIds, tailIds, rankedPrefixIds, modelId, modelCallCount, prompt, presentationDecision,
 			productCatalogId: identity.productCatalogId, productCatalogVersion: identity.productCatalogVersion,
 			...(inputTokens === undefined ? {} : { inputTokens }), ...(outputTokens === undefined ? {} : { outputTokens }),
 			zoneAdapter: {
@@ -106,18 +118,24 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 export function buildKibblePlpProviderOutputSchema(products: readonly Pick<KibblePlpCandidate, 'entityId'>[]) {
 	const ids = products.map(({ entityId }) => String(entityId));
 	if (ids.length < 3 || ids.length > 8 || new Set(ids).size !== ids.length) throw new Error('Kibble PLP provider schema requires three to eight unique approved IDs.');
-	return z.object({ rankedProductIds: z.array(z.enum([ids[0]!, ...ids.slice(1)])) }).strict();
+	return z.object({
+		rankedProductIds: z.array(z.enum([ids[0]!, ...ids.slice(1)])),
+		headerCopyVariantId: z.enum(tuple(KIBBLE_PLP_PRESENTATION_IDS.headerCopyVariantIds)),
+		marketingBlockVariantId: z.enum(tuple(KIBBLE_PLP_PRESENTATION_IDS.marketingBlockVariantIds)),
+	}).strict();
 }
 
 export function buildKibblePlpModelPrompt(inference: PersonaInference, products: readonly KibblePlpCandidate[]) {
 	return [
-		'Rank only the first eight already-approved Kibble & Co. category products for the inferred shopper.',
-		'Your only authority is rankedProductIds. Return every supplied product ID exactly once.',
-		'Do not add or remove products. Do not write copy. Do not choose the category, sort, cursor, layout, CSS, prices, links, or actions.',
+		'Compose the bounded Kibble & Co. category presentation for the inferred shopper.',
+		'Return every supplied product ID exactly once, plus one ID for every approved presentation field.',
+		'You may only select the listed merchant-owned IDs. Do not write prose, add products, change the category, sort, cursor, prices, links, actions, CSS, or invent components.',
 		`Primary persona: ${inference.primary}`,
 		`Persona probabilities: ${Object.entries(inference.probabilities).map(([key, value]) => `${key}=${value.toFixed(3)}`).join(', ')}`,
 		'Approved prefix products:',
 		...products.map((product) => `- ${product.entityId} | ${product.name} | ${product.category} | USD ${product.price.toFixed(2)}`),
+		'Approved presentation choices:',
+		...kibblePlpPresentationPromptOptions(),
 	].join('\n');
 }
 
@@ -125,3 +143,4 @@ export function buildKibblePlpModelPrompt(inference: PersonaInference, products:
 function productGridContent(productIds: readonly string[]) { return { component: 'product-grid' as const, props: { columns: 4 as const, products: productIds.map((productId) => ({ productId, role: 'standard' as const })), imageRatio: 'square' as const, showDescription: false as const, showSpecs: false as const, showQuickAdd: false as const } }; }
 function isString(value: unknown): value is string { return typeof value === 'string'; }
 function sameExactSet(actual: readonly string[], expected: readonly string[]) { return actual.length === expected.length && new Set(actual).size === actual.length && actual.every((id) => expected.includes(id)); }
+function tuple<T extends string>(values: readonly T[]): [T, ...T[]] { const first = values[0]; if (!first) throw new Error('Kibble PLP presentation allow-list is empty.'); return [first, ...values.slice(1)]; }

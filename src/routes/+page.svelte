@@ -10,6 +10,11 @@
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 	import { KIBBLE_PARITY_FIXED_DATA_IDENTITY } from '$lib/brand/reference/kibble-parity';
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
+	import {
+		KIBBLE_HOME_DEFAULT_PRESENTATION,
+		materializeKibbleHomePresentation,
+		snapshotKibbleHomePresentation,
+	} from '$lib/brand/reference/kibble-presentation-decisions';
 
 	let { data }: { data: PageData } = $props();
 
@@ -20,6 +25,7 @@
 	let previewProducts = $state<KibbleProduct[] | null>(null);
 	let previewFeaturedZoneAdapters = $state<KibbleZoneAdapterBinding[] | null>(null);
 	let previewInspector = $state<KibbleDevInspectorData | null>(null);
+	let previewHomePresentation = $state<ReturnType<typeof materializeKibbleHomePresentation> | null>(null);
 	let livePreviewStatus = $state<KibbleLivePreviewStatus>({ state: 'waiting' });
 	let signalLabOpen = $state(false);
 	let currentPersona = $derived(overridePersona ?? data.persona ?? 'gatherer');
@@ -28,6 +34,21 @@
 		...data.kibbleHome.zoneAdapters,
 		...(previewFeaturedZoneAdapters ? { featuredRows: previewFeaturedZoneAdapters } : {}),
 	} : undefined);
+	let homePresentationContext = $derived(data.kibbleHome ? {
+		hero: {
+			eyebrow: data.kibbleHome.hero.eyebrow,
+			headline: data.kibbleHome.hero.headline,
+			body: data.kibbleHome.hero.body,
+		},
+		featuredCopy: data.kibbleHome.featuredCopy,
+		catalogCopy: {
+			eyebrow: data.kibbleHome.categoryEyebrow,
+			title: data.kibbleHome.categoryTitle,
+		},
+	} : undefined);
+	let defaultHomePresentation = $derived(materializeKibbleHomePresentation(KIBBLE_HOME_DEFAULT_PRESENTATION, homePresentationContext));
+	let activeHomePresentation = $derived(previewHomePresentation ?? defaultHomePresentation);
+	let activeHomeModelCallCount = $derived(previewFeaturedZoneAdapters?.[0]?.modelCallCount ?? 0);
 
 	onMount(() => {
 		const syncSignalLab = () => { signalLabOpen = window.location.hash === '#kibble-signal-lab'; };
@@ -50,6 +71,7 @@
 		previewProducts = null;
 		previewFeaturedZoneAdapters = null;
 		previewInspector = null;
+		previewHomePresentation = null;
 		livePreviewStatus = { state: 'waiting' };
 	});
 
@@ -69,10 +91,17 @@
 				expectation,
 				getCurrentProductIds: () => (previewProducts ?? data.kibbleHome?.products ?? []).map(({ id }) => id),
 				getCurrentProductSummaries: () => (previewProducts ?? data.kibbleHome?.products ?? []).map(({ id, name }) => ({ id, name })),
+				getCurrentPresentation: () => snapshotKibbleHomePresentation(activeHomePresentation),
+				snapshotPresentationDecision: (decision) => snapshotKibbleHomePresentation(
+					materializeKibbleHomePresentation(decision, homePresentationContext),
+				),
 				onApplied: (preview) => {
 					previewProducts = preview.products;
 					previewFeaturedZoneAdapters = preview.featuredZoneAdapters ?? null;
 					previewInspector = preview.inspector;
+					previewHomePresentation = preview.presentationDecision
+						? materializeKibbleHomePresentation(preview.presentationDecision, homePresentationContext)
+						: null;
 				},
 				onStatus: (status) => {
 					livePreviewStatus = status;
@@ -219,6 +248,8 @@
 			categoryEyebrow={data.kibbleHome.categoryEyebrow}
 			zoneAdapters={activeHomeZoneAdapters}
 			modelEligible={Boolean(data.kibbleHomeInspector?.availableModelDecision)}
+			presentation={activeHomePresentation}
+			modelCallCount={activeHomeModelCallCount}
 		/>
 	</div>
 {:else}

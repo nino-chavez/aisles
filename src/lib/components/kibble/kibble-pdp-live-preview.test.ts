@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { validateKibblePdpLivePreview } from './kibble-pdp-live-preview';
 import type { KibbleProduct } from './types';
+import { KIBBLE_PDP_DEFAULT_PRESENTATION, KIBBLE_PDP_PRESENTATION_POLICY } from '$lib/brand/reference/kibble-presentation-decisions';
 
 const products: KibbleProduct[] = [
 	{ id: 'starter', entityId: 11, name: 'Starter Bundle', price: 90, image: '', imageAlt: '', description: '', specs: {}, tags: [], category: 'Bundles' },
@@ -12,8 +13,9 @@ const products: KibbleProduct[] = [
 const expected = { routePath: '/product/puppy-starter-kit' as const, policyVersion: 'pdp-assist-v1', productIds: ['11', '12', '13'], relatedHeading: 'You may also like' };
 function response(ids = ['13', '11', '12']) {
 	return {
-		version: 'kibble-pdp-related-preview-v1', previewOnly: true, routePath: expected.routePath, policyVersion: expected.policyVersion,
+		version: 'kibble-pdp-presentation-preview-v2', previewOnly: true, routePath: expected.routePath, policyVersion: expected.policyVersion,
 		persona: 'researcher', rankedProductIds: ids, provider: 'anthropic', modelId: 'claude-haiku-4-5',
+		presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY, presentationDecision: KIBBLE_PDP_DEFAULT_PRESENTATION,
 		zoneAdapter: {
 			instanceId: 'pdp.related', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1,
 			adapterId: 'kibble.zone.pdp.related', componentVariantId: 'kibble.product-detail.related-products', inputSha256: 'a'.repeat(64),

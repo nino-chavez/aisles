@@ -2,6 +2,8 @@
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
 	import type { KibblePdpBundle, KibblePdpCopy, KibblePdpProduct, KibbleProductOption, KibbleProduct, KibbleZoneAdapterBinding } from './types';
+	import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
+	import type { materializeKibblePdpPresentation } from '$lib/brand/reference/kibble-presentation-decisions';
 	type RelatedContent = { component: 'product-carousel'; props: { title: string; products: Array<{ productId: string; role: 'standard' }>; showQuickAdd: false } };
 
 	let {
@@ -17,6 +19,8 @@
 		copy,
 		zoneAdapter,
 		relatedModelDecision = null,
+		presentation = null,
+		presentationModelCallCount = 0,
 	}: {
 		product: KibblePdpProduct;
 		bundle: KibblePdpBundle | null;
@@ -30,6 +34,8 @@
 		copy: KibblePdpCopy;
 		zoneAdapter?: KibbleZoneAdapterBinding<any> | null;
 		relatedModelDecision?: { zoneId: 'pdp.related'; routePath: string } | null;
+		presentation?: ReturnType<typeof materializeKibblePdpPresentation> | null;
+		presentationModelCallCount?: number;
 	} = $props();
 
 	let activeImage = $state(0);
@@ -124,7 +130,11 @@
 		</div>
 	</div>
 
+	{#if presentation?.marketingBlock}
+		<KibbleMarketingBlock block={presentation.marketingBlock} zoneId="pdp.marketing-block" modelCallCount={presentationModelCallCount} modelEligible={Boolean(relatedModelDecision)} />
+	{/if}
+
 	{#if zoneAdapter}
-		<div id="kibble-pdp-related" tabindex="-1" class="kc-reference-pdp__related" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256} data-aisles-zone-instance={zoneAdapter.instanceId} data-aisles-zone-label={zoneAdapter.instanceId} data-aisles-authority={zoneAdapter.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter.modelCallCount ?? 0} data-aisles-model-eligible={relatedModelDecision?.zoneId === 'pdp.related' ? 'true' : undefined} data-aisles-pdp-model-eligible={relatedModelDecision?.zoneId === 'pdp.related' ? 'true' : undefined}><div class="kc-reference-container"><h2 class="kc-reference-display">{zoneAdapter.content.props.title}</h2><div class="kc-reference-product-grid">{#each zoneAdapter.content.props.products as productRef (productRef.productId)}{@const related = relatedByEntityId.get(productRef.productId)}{#if related}<KibbleProductCard product={related} productHref={relatedProductHrefs[related.id]} />{/if}{/each}</div></div></div>
+		<div id="kibble-pdp-related" tabindex="-1" class="kc-reference-pdp__related" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={presentation?.decision.relatedCopyVariantId ?? zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256} data-aisles-zone-instance={zoneAdapter.instanceId} data-aisles-zone-label="Related products" data-aisles-authority={presentationModelCallCount > 0 ? 'model' : (zoneAdapter.decisionMode ?? 'fixed')} data-aisles-model-calls={presentationModelCallCount} data-aisles-model-eligible={relatedModelDecision?.zoneId === 'pdp.related' ? 'true' : undefined} data-aisles-pdp-model-eligible={relatedModelDecision?.zoneId === 'pdp.related' ? 'true' : undefined}><div class="kc-reference-container"><h2 class="kc-reference-display">{presentationModelCallCount > 0 ? (presentation?.relatedHeading ?? relatedHeading) : relatedHeading}</h2><div class="kc-reference-product-grid">{#each zoneAdapter.content.props.products as productRef (productRef.productId)}{@const related = relatedByEntityId.get(productRef.productId)}{#if related}<KibbleProductCard product={related} productHref={relatedProductHrefs[related.id]} />{/if}{/each}</div></div></div>
 	{/if}
 </article>
