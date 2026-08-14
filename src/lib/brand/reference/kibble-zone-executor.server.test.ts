@@ -122,6 +122,12 @@ describe('Kibble exact union-zone execution', () => {
 		await expect(executeKibbleZoneTerminal(visible[0])).rejects.toThrow('requires semantic adapter content');
 	});
 
+	it('keeps the PDP related zone inapplicable below three candidates', async () => {
+		expect(await executeKibblePdpRelatedZoneAdapter([
+			{ entityId: 3023 }, { entityId: 3024 },
+		], 'You may also like', '/product/reference-product')).toBeNull();
+	});
+
 	it('lets the live model boundary return only an exact approved product permutation', async () => {
 		const products = [{ entityId: 3023 }, { entityId: 3024 }, { entityId: 3025 }];
 		const runModel = async ({ outputSchema }: { outputSchema: { safeParse(value: unknown): { success: boolean } } }) => {

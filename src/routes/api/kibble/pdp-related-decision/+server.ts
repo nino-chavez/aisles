@@ -14,7 +14,7 @@ import {
 	rankKibblePdpRelatedWithModel,
 	type KibblePdpRelatedCandidate,
 } from '$lib/brand/reference/kibble-pdp-related-model.server';
-import { getKibbleProductDetailByPath, type BCKibbleProductDetail, type BCProduct } from '$lib/server/bigcommerce';
+import { getKibblePdpRelatedProducts, getKibbleProductDetailByPath, type BCProduct } from '$lib/server/bigcommerce';
 import { reserveKibbleDemoAiCall } from '$lib/server/kibble-demo-ai-budget';
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		if (!store) return sessionUnavailable();
 		const detail = await getKibbleProductDetailByPath(`/${slug}/`);
 		if (!detail) return unavailable();
-		const products = serverRelatedCandidates(detail, detail.entityId);
+		const products = serverRelatedCandidates(await getKibblePdpRelatedProducts(detail), detail.entityId);
 		if (products.length < 3) return ineligible();
 		const reservation = await reserveKibbleDemoAiCall(sessionId);
 		if (!reservation.ok) return budgetUnavailable(reservation.reason);
@@ -101,10 +101,9 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 	}
 };
 
-function serverRelatedCandidates(detail: BCKibbleProductDetail, productEntityId: number): KibblePdpRelatedCandidate[] {
-	const relatedEdges = detail.relatedProducts?.edges;
-	if (!Number.isInteger(productEntityId) || productEntityId <= 0 || !Array.isArray(relatedEdges)) return [];
-	const candidates: KibblePdpRelatedCandidate[] = relatedEdges.map(({ node }: { node: BCProduct }): KibblePdpRelatedCandidate => {
+function serverRelatedCandidates(products: BCProduct[], productEntityId: number): KibblePdpRelatedCandidate[] {
+	if (!Number.isInteger(productEntityId) || productEntityId <= 0 || !Array.isArray(products)) return [];
+	const candidates: KibblePdpRelatedCandidate[] = products.map((node: BCProduct): KibblePdpRelatedCandidate => {
 		const entityId = node?.entityId;
 		const price = node?.prices?.price?.value;
 		const category = node?.categories?.edges?.[0]?.node?.name ?? '';

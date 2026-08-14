@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({ brandId: 'kibble', enabled: 'true', store: null as Record<string, unknown> | null }));
 const mocks = vi.hoisted(() => ({
-	findSessionStore: vi.fn(), infer: vi.fn(), getDetail: vi.fn(), reserveBudget: vi.fn(), rankWithModel: vi.fn(), provenance: vi.fn(), logGeneration: vi.fn(),
+	findSessionStore: vi.fn(), infer: vi.fn(), getDetail: vi.fn(), getRelated: vi.fn(), reserveBudget: vi.fn(), rankWithModel: vi.fn(), provenance: vi.fn(), logGeneration: vi.fn(),
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: new Proxy({}, { get: (_target, key) => key === 'KIBBLE_DEMO_AI_ENABLED' ? state.enabled : undefined }) }));
@@ -17,7 +17,7 @@ vi.mock('$lib/brand/reference/kibble-pdp-related-model.server', () => ({
 	KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION: 'kibble-pdp-presentation-decision-v2',
 	rankKibblePdpRelatedWithModel: mocks.rankWithModel,
 }));
-vi.mock('$lib/server/bigcommerce', () => ({ getKibbleProductDetailByPath: mocks.getDetail }));
+vi.mock('$lib/server/bigcommerce', () => ({ getKibbleProductDetailByPath: mocks.getDetail, getKibblePdpRelatedProducts: mocks.getRelated }));
 vi.mock('$lib/server/kibble-demo-ai-budget', () => ({ reserveKibbleDemoAiCall: mocks.reserveBudget }));
 vi.mock('$lib/server/layout-provenance', () => ({ buildContractedLayoutProvenance: mocks.provenance }));
 vi.mock('$lib/server/generation-log', () => ({ logGeneration: mocks.logGeneration }));
@@ -58,6 +58,7 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 		mocks.findSessionStore.mockReset().mockResolvedValue(state.store);
 		mocks.infer.mockReset().mockReturnValue(inference);
 		mocks.getDetail.mockReset().mockResolvedValue(structuredClone(detail));
+		mocks.getRelated.mockReset().mockImplementation(async (value: typeof detail) => value.relatedProducts.edges.map(({ node }) => node));
 		mocks.reserveBudget.mockReset().mockResolvedValue({ ok: true, sessionUsed: 1, globalUsed: 1 });
 		mocks.rankWithModel.mockReset().mockResolvedValue({ policy: { policyVersion: 'pdp-assist-v1', provenance: { zoneBinding: { instanceId: 'pdp.related' } } }, rankedProductIds: ['13', '11', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, adapter, modelId: 'claude-haiku-4-5', modelCallCount: 1 });
 		mocks.provenance.mockReset().mockReturnValue({ decisionSource: 'model' });

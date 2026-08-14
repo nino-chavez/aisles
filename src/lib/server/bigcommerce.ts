@@ -312,6 +312,42 @@ export async function getProductsByCategory(
 	};
 }
 
+/**
+ * Resolve the bounded PDP related-products set from server-owned catalog data.
+ * BigCommerce's explicit relatedProducts field is preferred; when it is sparse,
+ * category siblings fill the same 3–4 slot bound. Bundle contents are a separate
+ * Preserve projection and never participate in this recommendation set.
+ */
+export async function getKibblePdpRelatedProducts(detail: BCKibbleProductDetail): Promise<BCProduct[]> {
+	const currentEntityId = detail.entityId;
+	const nativeRelated = uniqueCatalogProducts(
+		detail.relatedProducts?.edges?.map(({ node }) => node) ?? [],
+	).filter(({ entityId }) => entityId !== currentEntityId).slice(0, 4);
+	if (nativeRelated.length >= 3) return nativeRelated;
+
+	const categoryEntityId = detail.categories?.edges?.[0]?.node?.entityId;
+	if (!Number.isInteger(categoryEntityId) || categoryEntityId <= 0) return nativeRelated;
+
+	try {
+		const { products: categoryProducts } = await getProductsByCategory(categoryEntityId, { first: 8 });
+		return uniqueCatalogProducts([...nativeRelated, ...categoryProducts])
+			.filter(({ entityId }) => entityId !== currentEntityId)
+			.slice(0, 4);
+	} catch (error) {
+		console.warn('[kibble-preserve] category fallback unavailable for PDP related products', error);
+		return nativeRelated;
+	}
+}
+
+function uniqueCatalogProducts(products: BCProduct[]): BCProduct[] {
+	const seen = new Set<number>();
+	return products.filter((product) => {
+		if (!Number.isInteger(product?.entityId) || seen.has(product.entityId)) return false;
+		seen.add(product.entityId);
+		return true;
+	});
+}
+
 interface ProductByPathResponse {
 	site: {
 		route: {

@@ -3,6 +3,7 @@ import { env as privateEnv } from '$env/dynamic/private';
 import {
 	customFieldsToRecord,
 	getKibbleProductDetailByPath,
+	getKibblePdpRelatedProducts,
 	getProductByPath,
 	getProductsByCategory,
 	type BCProduct,
@@ -130,10 +131,9 @@ async function loadKibblePreservePdp({
 		const product = materializeKibbleProduct(detail, slug);
 		const manifest = materializeKibblePdpManifest(slug, product.name);
 		const categoryHref = materializeKibbleCategoryHref(product.categoryPath);
-		const relatedEdges = boundedArray(detail.relatedProducts?.edges, 'related products', KIBBLE_PDP_BOUNDS.arrays.relatedProducts);
-		const relatedProducts = relatedEdges
-			.map(({ node }) => materializeKibbleCatalogProduct(node, 'related product'))
-			.filter((candidate) => candidate.entityId !== product.entityId);
+		boundedArray(detail.relatedProducts?.edges, 'related products', KIBBLE_PDP_BOUNDS.arrays.relatedProducts);
+		const relatedProducts = (await getKibblePdpRelatedProducts(detail))
+			.map((candidate) => materializeKibbleCatalogProduct(candidate, 'related product'));
 		assertUnique(relatedProducts.map(({ entityId }) => entityId), 'related product entity ids');
 		const relatedModelDecision = (
 			observeMode &&

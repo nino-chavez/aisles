@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getKibbleProductDetailByPath, getProductsByCategory, type BCProduct } from './bigcommerce';
+import { getKibblePdpRelatedProducts, getKibbleProductDetailByPath, getProductsByCategory, type BCProduct } from './bigcommerce';
 
 vi.mock('$env/dynamic/private', () => ({
 	env: {
@@ -114,5 +114,23 @@ describe('BigCommerce Kibble Preserve PDP query', () => {
 			data: { site: { route: { node: { __typename: 'Category' } } } },
 		}), { status: 200, headers: { 'content-type': 'application/json' } }));
 		await expect(getKibbleProductDetailByPath('dog-food')).resolves.toBeNull();
+	});
+
+	it('fills a sparse native related list from the canonical category catalog and keeps the 3–4 bound', async () => {
+		const detail = {
+			...product(7),
+			images: { edges: [] }, inventory: null, productOptions: { edges: [] },
+			relatedProducts: { edges: [] },
+		};
+		const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(categoryResponse(
+			[product(7), product(8), product(9), product(10)],
+			{ hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null },
+		));
+
+		const result = await getKibblePdpRelatedProducts(detail);
+
+		expect(result.map(({ entityId }) => entityId)).toEqual([8, 9, 10]);
+		const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+		expect(request.variables).toMatchObject({ categoryId: 10, first: 8 });
 	});
 });

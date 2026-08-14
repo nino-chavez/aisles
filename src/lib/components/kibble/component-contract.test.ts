@@ -176,6 +176,7 @@ describe('Kibble reference components fail closed', () => {
 		expect(result.body).toContain('aria-pressed="true"');
 		expect(result.body).toContain('aria-current="true"');
 		expect(result.body).toContain('Purchase unavailable in this preview');
+		expect(result.body).not.toContain('data-aisles-zone-instance="pdp.related"');
 		expect(result.body).not.toMatch(/Add to Cart|Auto-Refill|Subscribe/);
 	});
 
