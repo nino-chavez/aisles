@@ -52,6 +52,11 @@
 			<span class="kc-reference-autorefill-seal kc-reference-product-card__seal">
 				{autoRefill.label} · {autoRefill.savingsLabel} {autoRefill.savingsPercent}%{#if autoRefill.cadenceLabel} · {autoRefill.cadenceLabel}{/if}
 			</span>
+			{#if autoRefill.capabilityLabels?.length}
+				<span class="kc-reference-autorefill-seal kc-reference-product-card__seal">
+					{autoRefill.capabilityLabels.join(' · ')}
+				</span>
+			{/if}
 		{/if}
 	</div>
 {/snippet}

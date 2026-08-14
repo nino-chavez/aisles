@@ -6,6 +6,7 @@ import { chromium } from 'playwright';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 import KibbleProductDetailReference from './KibbleProductDetailReference.svelte';
 import KibbleCategoryReference from './KibbleCategoryReference.svelte';
+import KibbleProductCard from './KibbleProductCard.svelte';
 
 const component = (name: string) => readFileSync(resolve(import.meta.dirname, name), 'utf8');
 
@@ -79,6 +80,24 @@ describe('Kibble reference components fail closed', () => {
 		expect(card).toContain('{#if productHref}');
 		expect(card).toContain('<article');
 		expect(card).toContain('kc-reference-product-card--disabled');
+	});
+
+	it('renders catalog capability labels from the server-owned offer projection', () => {
+		const body = render(KibbleProductCard, {
+			props: {
+				product: {
+					id: 'goodgut', entityId: 3023, name: 'GoodGut', price: 34.99,
+					image: '', imageAlt: 'GoodGut', description: '', specs: {}, tags: [], category: 'Dog Food',
+				},
+				productHref: '/product/goodgut',
+				autoRefill: {
+					price: 29.74, savingsPercent: 15, label: 'Auto-Refill', savingsLabel: 'Save',
+					cadenceLabel: 'every 1, 2, or 3 months', capabilityLabels: ['Intro offer'],
+				},
+			},
+		}).body;
+		expect(body).toContain('Auto-Refill · Save 15%');
+		expect(body).toContain('Intro offer');
 	});
 
 	it('keeps the featured bundle below the page heading in the heading outline', () => {

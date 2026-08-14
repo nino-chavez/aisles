@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibbleProduct, KibbleZoneAdapterBinding } from './types';
+	import type { KibbleAutoRefillOffer, KibbleProduct, KibbleZoneAdapterBinding } from './types';
 	import type { KibblePlpSort } from '$lib/brand/reference/kibble-plp';
 	import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
 	import type { materializeKibblePlpPresentation } from '$lib/brand/reference/kibble-presentation-decisions';
@@ -26,6 +26,7 @@
 		productRankingZoneAdapter,
 		presentation = null,
 		presentationModelCallCount = 0,
+		subscriptionOffers = {},
 	}: {
 		eyebrow: string;
 		title: string;
@@ -46,6 +47,7 @@
 		productRankingZoneAdapter?: KibbleZoneAdapterBinding<any> | null;
 		presentation?: ReturnType<typeof materializeKibblePlpPresentation> | null;
 		presentationModelCallCount?: number;
+		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
 	} = $props();
 
 	function submitSort(event: Event) {
@@ -94,7 +96,7 @@
 		{#if products.length > 0}
 			<div id="kibble-plp-product-ranking" tabindex="-1" class="kc-reference-product-grid" data-aisles-zone-instance="plp.product-ranking" data-aisles-zone-label="PLP product order" data-aisles-authority={productRankingZoneAdapter?.decisionMode ?? 'fixed'} data-aisles-model-calls={productRankingZoneAdapter?.modelCallCount ?? 0} data-kibble-zone-status={productRankingZoneAdapter?.sharedStatus ?? 'live'} data-kibble-zone-adapter={productRankingZoneAdapter?.adapterId} data-kibble-zone-variant={productRankingZoneAdapter?.componentVariantId} data-aisles-model-eligible={productRanking?.eligible ? 'true' : undefined} data-aisles-plp-model-eligible={productRanking?.eligible ? 'true' : undefined} data-aisles-plp-route={productRanking?.routePath} data-aisles-plp-policy={productRanking?.policyVersion} data-aisles-plp-prefix={productRanking?.prefixIds.join(',')} data-aisles-plp-tail={productRanking?.tailIds.join(',')}>
 				{#each products as product (product.entityId)}
-					<KibbleProductCard product={product} productHref={productHrefs[product.id]} />
+					<KibbleProductCard product={product} productHref={productHrefs[product.id]} autoRefill={subscriptionOffers[product.id] ?? null} />
 				{/each}
 			</div>
 		{:else}

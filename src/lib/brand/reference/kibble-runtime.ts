@@ -18,6 +18,8 @@ import {
 import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
 import type { Surface } from '$lib/foundation/zones';
 import type { KibbleHomePresentationContext } from './kibble-presentation-decisions';
+import { materializeKibbleSubscriptionOffers } from './kibble-catalog-enrichment';
+import type { KibbleAutoRefillOffer } from '$lib/components/kibble/types';
 
 export type MerchantRenderMode =
 	| 'reference-preserve'
@@ -105,6 +107,7 @@ export function buildKibbleHomeReference(
 	products: Product[],
 	featuredSource: KibbleFeaturedSource,
 	bundleProduct: Product | null,
+	subscriptionOffers: Record<string, KibbleAutoRefillOffer> = {},
 ) {
 	assertKibbleBrand(brand);
 	const manifest = KIBBLE_PRESERVE_MANIFEST.display;
@@ -128,6 +131,7 @@ export function buildKibbleHomeReference(
 			proofItems: [],
 		},
 		products: featuredProducts,
+		subscriptionOffers: materializeOffersForProducts(featuredProducts, subscriptionOffers),
 		// Product destinations are emitted only while the approved read-only PDP
 		// recipe and its trusted publication policy are both live.
 		productHrefs: isKibblePdpPublished() ? materializeKibblePdpHrefs(featuredProducts) : {},
@@ -157,6 +161,7 @@ export function materializeKibbleCategory(
 	state: {
 		sort: KibblePlpSort;
 		pageInfo: { hasNextPage: boolean; endCursor: string | null };
+		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
 	},
 ) {
 	assertKibbleBrand(brand);
@@ -179,12 +184,20 @@ export function materializeKibbleCategory(
 		productPlural: plp.productPlural,
 		emptyMessage: plp.emptyMessage,
 		products,
+		subscriptionOffers: materializeOffersForProducts(products, state.subscriptionOffers ?? materializeKibbleSubscriptionOffers(products)),
 		loadMoreLabel: plp.loadMoreLabel,
 		loadMoreHref: state.pageInfo.hasNextPage && state.pageInfo.endCursor
 			? buildKibblePlpHref(state.sort, state.pageInfo.endCursor)
 			: null,
 		productHrefs: isKibblePdpPublished() ? materializeKibblePdpHrefs(products) : {},
 	};
+}
+
+function materializeOffersForProducts(
+	products: readonly Pick<Product, 'id' | 'entityId'>[],
+	offers: Record<string, KibbleAutoRefillOffer>,
+): Record<string, KibbleAutoRefillOffer> {
+	return Object.fromEntries(products.flatMap((product) => offers[product.id] ? [[product.id, offers[product.id]]] : []));
 }
 
 /** Validated PDP destinations. Publication callers must also pass the approval gate. */

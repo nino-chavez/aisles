@@ -78,6 +78,7 @@ export type KibbleAutoRefillOffer = {
 	label: string;
 	savingsLabel: string;
 	cadenceLabel?: string;
+	capabilityLabels?: readonly string[];
 };
 
 export type KibbleFeaturedCopy = {

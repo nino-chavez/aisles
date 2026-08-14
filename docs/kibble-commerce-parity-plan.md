@@ -87,6 +87,23 @@ calls. BigCommerce documents private tokens as the headless/server-side option
 and says they must not be exposed to a browser. See [GraphQL Storefront
 authentication](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/authentication).
 
+### Catalog capability projection
+
+The preserve storefront now carries a pinned, display-safe capability
+projection alongside the live BigCommerce product read. The projection covers
+all 49 sandbox catalog rows: 34 subscription-eligible products and bundles,
+15 one-time-only products, and seven source capabilities. Home, category, and
+search cards render Auto-Refill price, cadence, savings, and the distinct trial,
+intro-offer, annual, prepaid, and gift labels when the source maps them to a
+product. Build-a-box remains explicitly portal-owned because the canonical
+reference has no storefront product URL for that flow.
+
+This projection makes the storefront demonstrable without pretending that a
+card label is a transaction. BigCommerce remains the live catalog and price
+authority; `bc-subscriptions` remains the plan and lifecycle authority. The
+projection must be replaced by a server-side plan lookup before any purchase
+mode, cart intent, or checkout action is enabled.
+
 ## Reference behavior and internal patterns
 
 ### The Bealls-family Aisles path is a scaffold, not the commerce authority

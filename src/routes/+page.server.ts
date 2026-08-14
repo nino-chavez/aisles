@@ -60,6 +60,7 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				renderedHomeProducts,
 				referenceProducts.source,
 				bundleProduct,
+				referenceProducts.subscriptionOffers,
 			);
 			const kibbleHome = {
 				...kibbleHomeBase,

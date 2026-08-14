@@ -18,6 +18,7 @@ import { searchProducts } from '$lib/server/search';
 import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
 import { loadSessionIncentives } from '$lib/server/incentives/session';
+import { materializeKibbleSubscriptionOffers } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, request }) => {
 	const { renderMode, devMode, observeMode } = await parent();
@@ -40,6 +41,7 @@ export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, r
 			kibbleSearch: {
 				query,
 				products: result.products,
+				subscriptionOffers: materializeKibbleSubscriptionOffers(result.products),
 				productHrefs: materializeKibblePdpHrefs(result.products),
 				pageInfo: result.pageInfo,
 				loadMoreHref: result.pageInfo.hasNextPage && result.pageInfo.endCursor ? buildKibbleSearchHref(query, result.pageInfo.endCursor) : null,

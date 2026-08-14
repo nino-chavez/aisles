@@ -122,6 +122,7 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 			const categoryBase = materializeKibbleCategory(getBrand(), slug, result.products, {
 				sort: kibblePlp.sort,
 				pageInfo: result.pageInfo,
+				subscriptionOffers: result.subscriptionOffers,
 			});
 			kibbleCategory = {
 				...categoryBase,
