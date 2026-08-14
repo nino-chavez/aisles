@@ -1,9 +1,7 @@
-import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
-import { model, withModelFallback } from '$lib/server/model';
-import { createKibbleDemoProviderDeadline } from '$lib/server/kibble-demo-ai-deadline.server';
-import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS } from '$lib/kibble-demo-ai-boundary';
+import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS, KIBBLE_DEMO_PROVIDER_DEADLINE_MS } from '$lib/kibble-demo-ai-boundary';
+import { runBoundedModelAction } from '$lib/server/bounded-model-action.server';
 import { executeKibblePdpRelatedModelShelf } from './kibble-zone-executor.server';
 import {
 	KIBBLE_PDP_PRESENTATION_IDS,
@@ -38,53 +36,42 @@ export async function rankKibblePdpRelatedWithModel(input: {
 	let inputTokens: number | undefined;
 	let outputTokens: number | undefined;
 	let presentationDecision: KibblePdpPresentationDecision | null = null;
-	const deadline = createKibbleDemoProviderDeadline();
-	try {
-		const result = await executeKibblePdpRelatedModelShelf({
-			relatedProducts: input.products,
-			heading: input.heading,
-			routePath: input.routePath,
-			runModel: async ({ outputSchema }) => {
-				const generated = await withModelFallback(async (modelId) => {
-					modelCallCount += 1;
-					return generateText({
-						model: model(modelId),
-						abortSignal: deadline.signal,
-						maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
-						// Anthropic's schema subset cannot carry the generic array bounds.
-						// The generic contract parses this response here and revalidates it
-						// again before the adapter can publish it.
-						output: Output.object({ schema: providerOutputSchema }),
-						prompt,
-					});
-				}, deadline.signal);
-				servedModelId = generated.modelId;
-				inputTokens = generated.result.usage?.inputTokens;
-				outputTokens = generated.result.usage?.outputTokens;
-				const providerResult = providerOutputSchema.parse(generated.result.output);
-				const { rankedProductIds, ...presentationFields } = providerResult;
-				presentationDecision = parseKibblePdpPresentationDecision(presentationFields);
-				if (!presentationDecision) throw new Error('Kibble PDP presentation decision left the merchant allow-list.');
-				return outputSchema.parse({ rankedProductIds });
-			},
-		});
-		if (!servedModelId || modelCallCount < 1 || !presentationDecision) throw new Error('Kibble PDP model runner returned no provider evidence.');
-		if (result.rankedProductIds.length !== input.products.length || new Set(result.rankedProductIds).size !== input.products.length) {
-			throw new Error('Kibble PDP model output was not an exact approved product permutation.');
-		}
-		return {
-			...result,
-			adapter: withKibblePdpRelatedModelCallCount(result.adapter, modelCallCount),
-			modelId: servedModelId,
-			modelCallCount,
-			presentationDecision,
-			...(inputTokens === undefined ? {} : { inputTokens }),
-			...(outputTokens === undefined ? {} : { outputTokens }),
-			prompt,
-		};
-	} finally {
-		deadline.dispose();
+	const result = await executeKibblePdpRelatedModelShelf({
+		relatedProducts: input.products,
+		heading: input.heading,
+		routePath: input.routePath,
+		runModel: async ({ outputSchema }) => {
+			const generated = await runBoundedModelAction({
+				outputSchema: providerOutputSchema,
+				prompt,
+				maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
+				timeoutMs: KIBBLE_DEMO_PROVIDER_DEADLINE_MS,
+			});
+			modelCallCount = generated.callCount;
+			servedModelId = generated.modelId;
+			inputTokens = generated.inputTokens;
+			outputTokens = generated.outputTokens;
+			const providerResult = generated.output;
+			const { rankedProductIds, ...presentationFields } = providerResult;
+			presentationDecision = parseKibblePdpPresentationDecision(presentationFields);
+			if (!presentationDecision) throw new Error('Kibble PDP presentation decision left the merchant allow-list.');
+			return outputSchema.parse({ rankedProductIds });
+		},
+	});
+	if (!servedModelId || modelCallCount < 1 || !presentationDecision) throw new Error('Kibble PDP model runner returned no provider evidence.');
+	if (result.rankedProductIds.length !== input.products.length || new Set(result.rankedProductIds).size !== input.products.length) {
+		throw new Error('Kibble PDP model output was not an exact approved product permutation.');
 	}
+	return {
+		...result,
+		adapter: withKibblePdpRelatedModelCallCount(result.adapter, modelCallCount),
+		modelId: servedModelId,
+		modelCallCount,
+		presentationDecision,
+		...(inputTokens === undefined ? {} : { inputTokens }),
+		...(outputTokens === undefined ? {} : { outputTokens }),
+		prompt,
+	};
 }
 
 /** The executor owns the adapter; the model runner alone knows provider attempts. */

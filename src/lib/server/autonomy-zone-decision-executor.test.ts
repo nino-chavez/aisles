@@ -10,6 +10,7 @@ import {
 	type OrganizationCompositionPolicy,
 } from '$lib/foundation/composition-policy';
 import { SHOPPER_ROUTE_MANIFEST_DIGEST, SHOPPER_ROUTE_MANIFEST_VERSION } from '$lib/foundation/autonomy-zone-route';
+import { capabilitiesWithinSurface, isDecisionModeWithinSurface, surfaceAuthorityFor } from '$lib/foundation/surface-authority';
 import { findTrustedZoneIdentity, TRUSTED_ZONE_IDENTITIES, ZONE_CATALOG, type TrustedZoneIdentityDefinition } from '$lib/foundation/zone-catalog';
 import type { TrustedZoneFieldCatalog } from '$lib/foundation/zone-decision-schema';
 import { ZONE_IDS, ZONES, type ZoneId } from '$lib/foundation/zones';
@@ -80,6 +81,7 @@ function contentForZone(zoneId: ZoneId): unknown {
 
 function identityForZone(zoneId: ZoneId): TrustedZoneExecutionIdentity {
 	const surface = ZONES[zoneId].surface;
+	const authority = surfaceAuthorityFor(surface);
 	const routes = {
 		home: '/', plp: '/category/example', pdp: '/product/example', cart: '/cart', checkout: '/checkout', search: '/search',
 		account: '/account', locator: '/store-locator', 'error-404': '/missing', 'error-empty': '/category/empty',
@@ -91,6 +93,7 @@ function identityForZone(zoneId: ZoneId): TrustedZoneExecutionIdentity {
 		surface,
 		familyId: zoneId,
 		instanceId: ZONES[zoneId].multiplicity === 'indexed' ? `${zoneId}.1` : zoneId,
+		allowedDecisionModes: authority.maximumDecisionMode === 'fixed' ? ['fixed'] : ['fixed', 'rules', 'model'],
 	};
 }
 
@@ -124,9 +127,10 @@ function policy(
 		executionIdentity.instanceId,
 	);
 	if (!definition) throw new Error(`test identity is not registered: ${executionIdentity.instanceId}`);
-	const decisionMode = overrides.decisionMode ?? 'model';
+	const authority = surfaceAuthorityFor(definition.surface);
+	const decisionMode = overrides.decisionMode ?? authority.maximumDecisionMode;
 	const publicationMode = overrides.publicationMode ?? 'live';
-	const capabilities = overrides.capabilities ?? AUTONOMY_CAPABILITIES;
+	const capabilities = overrides.capabilities ?? authority.maximumCapabilities;
 	const allowedComponentVariantIds = overrides.allowedComponentVariantIds ?? ['component.carousel'];
 	const allowedCssVariantIds = overrides.allowedCssVariantIds ?? ['css.reference'];
 	const allowedCopyVariantIds = overrides.allowedCopyVariantIds ?? ['copy.reference'];
@@ -152,8 +156,8 @@ function policy(
 		surfaces: {
 			[definition.surface]: {
 				preset: 'compose',
-				capabilities: AUTONOMY_CAPABILITIES,
-				decisionMode: 'model',
+				capabilities: authority.maximumCapabilities,
+				decisionMode: authority.maximumDecisionMode,
 				publicationMode: 'live',
 				allowedComponentVariantIds: ['component.carousel'],
 				allowedCssVariantIds: ['css.reference'],
@@ -244,13 +248,21 @@ describe('identity-bound zone decision executor', () => {
 
 	it.each(ZONE_IDS)('executes every allowed decision mode for %s and blocks engine modes on fixed-only zones', async (zoneId) => {
 		const zoneIdentity = identityForZone(zoneId);
+		const authority = surfaceAuthorityFor(zoneIdentity.surface);
+		const requestedCapability = authority.maximumCapabilities.includes('select_products') ? 'select_products' : authority.maximumCapabilities[0];
 		for (const decisionMode of ['fixed', 'rules', 'model'] as const satisfies readonly DecisionMode[]) {
-			const runRules = vi.fn(() => ({ productIds }));
-			const runModel = vi.fn(async () => ({ productIds }));
+			const requestedCapabilities = decisionMode === 'fixed' ? [] : requestedCapability ? [requestedCapability] : [];
+			if (!isDecisionModeWithinSurface(zoneIdentity.surface, decisionMode) || !capabilitiesWithinSurface(zoneIdentity.surface, requestedCapabilities)) {
+				expect(() => policy({ decisionMode, capabilities: requestedCapabilities }, zoneIdentity)).toThrow(/surface authority|zone expands surface|effective policy expands/);
+				continue;
+			}
+			const decisionOutput = requestedCapability === 'select_copy_variant' ? { copyVariantId: 'copy.reference' } : { productIds };
+			const runRules = vi.fn(() => decisionOutput);
+			const runModel = vi.fn(async () => decisionOutput);
 			const result = await executeZoneDecision({
 				policy: policy({
 					decisionMode,
-					capabilities: decisionMode === 'fixed' ? [] : ['select_products'],
+					capabilities: requestedCapabilities,
 					publicationMode: decisionMode === 'model' ? 'holdout' : 'live',
 				}, zoneIdentity),
 				catalog: catalog({ identity: zoneIdentity, materialize: () => contentForZone(zoneId) }),

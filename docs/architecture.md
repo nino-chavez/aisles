@@ -10,6 +10,11 @@ Aisles is an AI-native headless storefront platform that personalizes the shoppi
 
 Current configurations run on a single codebase and select the existing generic renderer's inputs through configuration. This is not a reference-preservation architecture for unrelated merchants.
 
+For new generative-commerce presentation and inference work, the canonical
+contract is [Generative-commerce MVP contract](generative-commerce-mvp.md).
+The whole-page layout path described later in this document is retained for
+compatibility coverage; it is not the authority model for new commerce zones.
+
 ---
 
 ## The Core Invariant
