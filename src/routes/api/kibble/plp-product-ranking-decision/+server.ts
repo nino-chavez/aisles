@@ -11,6 +11,7 @@ import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
 import { infer } from '$lib/signals/inference';
 import { findSessionStore } from '$lib/signals/session';
+import { MODEL_PROVIDER } from '$lib/server/model';
 
 const SESSION_COOKIE = 'aisles_session';
 const VERSION = 'kibble-plp-first-eight-preview-v1';
@@ -47,7 +48,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities }, scenarioId,
 		});
 		await logGeneration({ type: 'preserve_render', persona: inference.primary, categorySlug: 'dog-food', cacheHit: false, generationTimeMs: Date.now() - startedAt, productCount: page.products.length, inputTokens: result.inputTokens, outputTokens: result.outputTokens, model: `anthropic/${result.modelId}`, sessionId, provenance });
-		return json({ version: VERSION, previewOnly: true, routePath: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE, sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, cursor: null, policyVersion: result.policy.policyVersion, reference: { id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version }, prefixIds: result.prefixIds, tailIds: result.tailIds, rankedPrefixIds: result.rankedPrefixIds, zoneAdapter: result.zoneAdapter, modelCallCount: result.modelCallCount, provenance }, { headers: noStoreHeaders() });
+		return json({ version: VERSION, previewOnly: true, routePath: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE, sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, cursor: null, policyVersion: result.policy.policyVersion, reference: { id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version }, prefixIds: result.prefixIds, tailIds: result.tailIds, rankedPrefixIds: result.rankedPrefixIds, zoneAdapter: result.zoneAdapter, modelCallCount: result.modelCallCount, provider: MODEL_PROVIDER, modelId: result.modelId, provenance }, { headers: noStoreHeaders() });
 	} catch (error) {
 		console.error('[kibble-plp-product-ranking-decision] operational failure:', error);
 		return json({ error: 'Failed to preview Kibble PLP product ranking' }, { status: 500, headers: noStoreHeaders() });

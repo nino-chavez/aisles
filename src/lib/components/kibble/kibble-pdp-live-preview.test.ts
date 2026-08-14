@@ -13,7 +13,7 @@ const expected = { routePath: '/product/puppy-starter-kit' as const, policyVersi
 function response(ids = ['13', '11', '12']) {
 	return {
 		version: 'kibble-pdp-related-preview-v1', previewOnly: true, routePath: expected.routePath, policyVersion: expected.policyVersion,
-		persona: 'researcher', rankedProductIds: ids,
+		persona: 'researcher', rankedProductIds: ids, provider: 'anthropic', modelId: 'claude-haiku-4-5',
 		zoneAdapter: {
 			instanceId: 'pdp.related', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1,
 			adapterId: 'kibble.zone.pdp.related', componentVariantId: 'kibble.product-detail.related-products', inputSha256: 'a'.repeat(64),

@@ -23,6 +23,7 @@ const anthropic = createAnthropic({
 
 export const PRIMARY_MODEL = 'claude-haiku-4-5';
 export const FALLBACK_MODEL = 'claude-sonnet-4-6';
+export const MODEL_PROVIDER = 'anthropic' as const;
 
 export function model(id: string = PRIMARY_MODEL) {
 	return anthropic(id);

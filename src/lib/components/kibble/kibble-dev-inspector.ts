@@ -71,9 +71,65 @@ export interface KibbleDevInspectorData {
 	};
 }
 
+export type KibbleDecisionEvidence = {
+	surface: 'home' | 'plp' | 'pdp';
+	zoneId: string;
+	zoneLabel: string;
+	policyVersion: string;
+	provider: 'anthropic' | null;
+	model: string | null;
+	calls: number | null;
+	before: KibbleInspectorProductSummary[];
+	after: KibbleInspectorProductSummary[];
+	moved: KibbleInspectorProductSummary[];
+	added: KibbleInspectorProductSummary[];
+	removed: KibbleInspectorProductSummary[];
+	unchanged: KibbleInspectorProductSummary[];
+	copy: 'unchanged';
+	state: 'applied' | 'failed';
+	fallback: boolean;
+};
+
 export type KibbleLivePreviewStatus =
-	| { state: 'waiting' | 'updating' | 'failed' }
-	| { state: 'applied'; persona: KibbleInspectorPersona; changed: boolean };
+	| { state: 'waiting' | 'updating' | 'failed'; mode?: 'rules' | 'model'; evidence?: KibbleDecisionEvidence }
+	| { state: 'applied'; mode?: 'rules' | 'model'; persona: KibbleInspectorPersona; changed: boolean; evidence?: KibbleDecisionEvidence };
+
+export function buildKibbleDecisionEvidence(input: {
+	surface: KibbleDecisionEvidence['surface'];
+	zoneId: string;
+	zoneLabel: string;
+	policyVersion: string;
+	before: readonly KibbleInspectorProductSummary[];
+	after: readonly KibbleInspectorProductSummary[];
+	provider: 'anthropic' | null;
+	model: string | null;
+	calls: number | null;
+	state: KibbleDecisionEvidence['state'];
+}): KibbleDecisionEvidence {
+	const before = input.before.map(({ id, name }) => ({ id, name }));
+	const after = input.after.map(({ id, name }) => ({ id, name }));
+	const beforeById = new Map(before.map((product, index) => [product.id, { product, index }]));
+	const afterIds = new Set(after.map(({ id }) => id));
+	const beforeIds = new Set(before.map(({ id }) => id));
+	return {
+		surface: input.surface,
+		zoneId: input.zoneId,
+		zoneLabel: input.zoneLabel,
+		policyVersion: input.policyVersion,
+		provider: input.provider,
+		model: input.model,
+		calls: input.calls,
+		before,
+		after,
+		moved: after.filter((product, index) => beforeById.has(product.id) && beforeById.get(product.id)?.index !== index),
+		added: after.filter(({ id }) => !beforeIds.has(id)),
+		removed: before.filter(({ id }) => !afterIds.has(id)),
+		unchanged: after.filter((product, index) => beforeById.get(product.id)?.index === index),
+		copy: 'unchanged',
+		state: input.state,
+		fallback: input.state === 'failed',
+	};
+}
 
 export function describeKibbleRehearsalStatus(
 	requestedPersona: KibbleInspectorPersona | null,
@@ -114,7 +170,9 @@ export function describeKibbleModelDecisionStatus(status: KibbleLivePreviewStatu
 	if (status.state === 'updating') return 'Bounded AI ranking is running.';
 	if (status.state === 'failed') return 'Bounded AI ranking failed; the last approved shelf was retained.';
 	if (status.state === 'applied') {
-		return `Bounded AI ranking applied for ${status.persona}; shelf order ${status.changed ? 'changed' : 'was unchanged'}.`;
+		return status.changed
+			? `Bounded AI ranking applied for ${status.persona}; the approved shelf order changed.`
+			: `Bounded AI ranking applied for ${status.persona}; AI kept the existing order and copy.`;
 	}
 	return 'Bounded AI ranking is ready.';
 }

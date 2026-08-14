@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { hashKibblePlpRankingInput } from '$lib/brand/reference/kibble-plp-ranking-boundary.server';
 import { listenForKibblePlpLivePreview, validateKibblePlpLivePreview } from './kibble-plp-live-preview';
 import type { KibbleProduct } from './types';
+import type { KibbleLivePreviewStatus } from './kibble-dev-inspector';
 
 const products: KibbleProduct[] = Array.from({ length: 10 }, (_, index) => ({ id: `food-${index + 1}`, entityId: index + 1, name: `Food ${index + 1}`, price: index + 10, image: '', imageAlt: '', description: '', specs: {}, tags: [], category: 'Dog Food' }));
 const expected = { routePath: '/category/dog-food' as const, sort: 'FEATURED' as const, cursor: null, policyVersion: 'plp-assist-v1', reference: { id: 'kibble-shelf-native', version: '1.8.0' }, prefixIds: products.slice(0, 8).map(({ entityId }) => String(entityId)), tailIds: ['9', '10'], expectedInputSha256: hashKibblePlpRankingInput(products.slice(0, 8).map(({ entityId }) => String(entityId)), ['9', '10']) };
 function response(ids = [...expected.prefixIds].reverse()) {
-	return { version: 'kibble-plp-first-eight-preview-v1', previewOnly: true, routePath: expected.routePath, sort: expected.sort, cursor: null, policyVersion: expected.policyVersion, reference: expected.reference, prefixIds: expected.prefixIds, tailIds: expected.tailIds, rankedPrefixIds: ids, modelCallCount: 1, provenance: {}, zoneAdapter: { instanceId: 'plp.product-ranking', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1, adapterId: 'kibble.zone.plp.product-ranking', componentVariantId: 'kibble.category-listing.ranked-prefix', inputSha256: hashKibblePlpRankingInput(expected.prefixIds, expected.tailIds), content: { component: 'product-grid', props: { columns: 4, products: ids.map((productId) => ({ productId, role: 'standard' })), imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false } } } };
+	return { version: 'kibble-plp-first-eight-preview-v1', previewOnly: true, routePath: expected.routePath, sort: expected.sort, cursor: null, policyVersion: expected.policyVersion, reference: expected.reference, prefixIds: expected.prefixIds, tailIds: expected.tailIds, rankedPrefixIds: ids, modelCallCount: 1, provider: 'anthropic', modelId: 'claude-haiku-4-5', persona: 'hunter', provenance: {}, zoneAdapter: { instanceId: 'plp.product-ranking', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1, adapterId: 'kibble.zone.plp.product-ranking', componentVariantId: 'kibble.category-listing.ranked-prefix', inputSha256: hashKibblePlpRankingInput(expected.prefixIds, expected.tailIds), content: { component: 'product-grid', props: { columns: 4, products: ids.map((productId) => ({ productId, role: 'standard' })), imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false } } } };
 }
 
 describe('Kibble PLP live preview validation', () => {
@@ -47,11 +48,11 @@ describe('Kibble PLP live preview request lifecycle', () => {
 		const listeners = new EventTarget();
 		vi.stubGlobal('window', Object.assign(listeners, { setTimeout, clearTimeout }));
 		vi.stubGlobal('fetch', vi.fn((_url, init: RequestInit) => new Promise((_resolve, reject) => init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))));
-		const statuses: string[] = [];
+		const statuses: KibbleLivePreviewStatus[] = [];
 		const stop = listenForKibblePlpLivePreview({ expectation: expected, products, onApplied: () => {}, onStatus: (status) => statuses.push(status) });
 		window.dispatchEvent(new Event('aisles-kibble-plp-model-request'));
 		await vi.advanceTimersByTimeAsync(15_000);
-		expect(statuses).toEqual(['updating', 'failed']);
+		expect(statuses).toEqual([{ state: 'updating', mode: 'model' }, { state: 'failed', mode: 'model', evidence: expect.objectContaining({ state: 'failed', fallback: true }) }]);
 		window.dispatchEvent(new Event('aisles-kibble-plp-model-request'));
 		expect(fetch).toHaveBeenCalledTimes(2);
 		stop();

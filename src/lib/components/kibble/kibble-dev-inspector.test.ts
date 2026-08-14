@@ -86,7 +86,7 @@ describe('KibbleDevInspector', () => {
 
 	it('labels the public demo shelf preview and its applied status', () => {
 		const result = render(KibbleDevInspector, { props: { inspector, livePreview: { state: 'applied', persona: 'hunter', changed: true } } });
-		expect(result.body).toContain('preview applied for hunter');
+		expect(result.body).toContain('rules applied for hunter');
 		expect(result.body).toContain('Signals update deterministic rules first. The explicit AI control may reorder the same approved shelf; the Kibble template remains fixed.');
 		expect(result.body).not.toContain('View changed shelf');
 	});
@@ -115,7 +115,7 @@ describe('KibbleDevInspector', () => {
 		expect(describeKibbleModelDecisionStatus({ state: 'failed' }))
 			.toBe('Bounded AI ranking failed; the last approved shelf was retained.');
 		expect(describeKibbleModelDecisionStatus({ state: 'applied', persona: 'hunter', changed: false }))
-			.toBe('Bounded AI ranking applied for hunter; shelf order was unchanged.');
+			.toBe('Bounded AI ranking applied for hunter; AI kept the existing order and copy.');
 	});
 
 	it('offers real behavior simulations only for a synthetic scenario', () => {

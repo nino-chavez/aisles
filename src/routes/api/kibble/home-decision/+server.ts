@@ -19,6 +19,7 @@ import {
 	KIBBLE_HOME_MODEL_SCHEMA_VERSION,
 	rankKibbleHomeWithModel,
 } from '$lib/brand/reference/kibble-home-model.server';
+import { MODEL_PROVIDER } from '$lib/server/model';
 import { reserveKibbleDemoAiCall } from '$lib/server/kibble-demo-ai-budget';
 import { logGeneration } from '$lib/server/generation-log';
 import { executeKibbleHomeFeaturedZoneAdapters } from '$lib/brand/reference/kibble-zone-executor.server';
@@ -110,6 +111,8 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 				persona: inference.primary,
 				products,
 				featuredZoneAdapters: [modelDecision.zoneAdapter],
+				provider: MODEL_PROVIDER,
+				modelId: modelDecision.modelId,
 				inspector: buildModelInspector({
 					decision,
 					inference,
