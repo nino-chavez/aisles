@@ -41,10 +41,10 @@ describe('Kibble trusted route authority', () => {
 
 	it('binds only the three canonical checkout subroutes', async () => {
 		for (const subtype of ['gift', 'prepaid', 'confirmation']) {
-			const result = await loadCheckoutPath({ params: { subtype }, url: new URL(`https://aisles.test/checkout/${subtype}`) } as never);
+			const result = await loadCheckoutPath({ params: { subtype }, url: new URL(`https://aisles.test/checkout/${subtype}`), parent } as never);
 			expect(result).toMatchObject({ kibbleCheckout: { subtype, policyVersion: expect.any(String) } });
 		}
-		await expect(loadCheckoutPath({ params: { subtype: 'admin' }, url: new URL('https://aisles.test/checkout/admin') } as never))
+		await expect(loadCheckoutPath({ params: { subtype: 'admin' }, url: new URL('https://aisles.test/checkout/admin'), parent } as never))
 			.rejects.toMatchObject({ status: 404 });
 	});
 

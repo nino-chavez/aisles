@@ -111,11 +111,9 @@ function fallbackByBrand(zoneId: ZoneId): Readonly<Record<string, ZoneFallbackSt
 const unionIds = [...new Set([...BEALLS_ZONE_SNAPSHOT.zones.map(({ zoneId }) => zoneId), ...Object.keys(ZONES)])];
 
 /**
- * Narrow first live-model boundary: the public Kibble observability demo may
- * rank the already approved Home shelf, the one approved PDP related rail, or
- * the exact FEATURED, cursor-null first-eight prefix on `/category/dog-food`.
- * The policy and field catalog still have to authorize the exact brand,
- * route, instance and product set.
+ * Public Kibble observability boundaries. Dynamic category and product
+ * approvals use a reviewed route-manifest pattern; execution still binds the
+ * decision to the concrete normalized pathname and server-reloaded catalog.
  */
 export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApproval[]>> = freezeAuthorityGraph({
 	'home.featured-row': [{
@@ -131,7 +129,7 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		brandId: 'kibble',
 		referenceId: 'kibble-shelf-native',
 		referenceVersion: '1.8.0',
-		routePath: '/product/puppy-starter-kit',
+		routePath: '/product/[slug]',
 		instanceId: 'pdp.related',
 	}],
 	'plp.product-ranking': [{
@@ -139,12 +137,38 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		brandId: 'kibble',
 		referenceId: 'kibble-shelf-native',
 		referenceVersion: '1.8.0',
-		routePath: '/category/dog-food',
+		routePath: '/category/[slug]',
 		instanceId: 'plp.product-ranking',
 	}],
+	'search.empty-state': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.8.0',
+		routePath: '/search',
+		instanceId: 'search.empty-state',
+	}],
+	'cart.empty-state': [{
+		organizationId: 'kibble-demo-merchant',
+		brandId: 'kibble',
+		referenceId: 'kibble-shelf-native',
+		referenceVersion: '1.8.0',
+		routePath: '/cart',
+		instanceId: 'cart.empty-state',
+	}],
+	'checkout.assurance-strip': [
+		{
+			organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.8.0',
+			routePath: '/checkout/gift', instanceId: 'checkout.assurance-strip',
+		},
+		{
+			organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.8.0',
+			routePath: '/checkout/prepaid', instanceId: 'checkout.assurance-strip',
+		},
+	],
 });
 
-export const ZONE_CATALOG_VERSION = '2026-08-13.5';
+export const ZONE_CATALOG_VERSION = '2026-08-14.1';
 export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = freezeAuthorityGraph(Object.fromEntries(unionIds.map((zoneId) => {
 	const isAisles = Object.prototype.hasOwnProperty.call(ZONES, zoneId);
 	const aislesZoneId = zoneId as ZoneId;

@@ -12,6 +12,8 @@
 		policyVersion,
 		responseProvenance,
 		zoneAdapter,
+		searchModelDecision = null,
+		presentationModelCallCount = 0,
 		availabilityMessage = '',
 	}: {
 		query: string;
@@ -22,6 +24,8 @@
 		policyVersion?: string;
 		responseProvenance?: KibbleSearchResponseProvenance;
 		zoneAdapter?: KibbleZoneAdapterBinding<any> | null;
+		searchModelDecision?: { zoneId: 'search.empty-state'; routePath: '/search'; policyVersion: string } | null;
+		presentationModelCallCount?: number;
 		availabilityMessage?: string;
 	} = $props();
 
@@ -67,7 +71,7 @@
 			</div>
 			{#if loadMoreHref}<div class="kc-reference-category__pagination"><a class="kc-reference-focus" href={loadMoreHref}>Load more</a></div>{/if}
 		{:else if zoneAdapter}
-			<div class="kc-reference-route__empty" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256} data-aisles-zone-instance={zoneAdapter.instanceId} data-aisles-zone-label={zoneAdapter.instanceId} data-aisles-authority={zoneAdapter.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter.modelCallCount ?? 0}>
+			<div id="kibble-search-empty-state" tabindex="-1" class="kc-reference-route__empty" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256} data-aisles-zone-instance={zoneAdapter.instanceId} data-aisles-zone-label="Search recovery" data-aisles-authority={presentationModelCallCount > 0 ? 'model' : (zoneAdapter.decisionMode ?? 'fixed')} data-aisles-model-calls={presentationModelCallCount} data-aisles-model-eligible={searchModelDecision ? 'true' : undefined} data-aisles-search-model-eligible={searchModelDecision ? 'true' : undefined}>
 				<p class="kc-reference-eyebrow">{zoneAdapter.content.props.eyebrow}</p>
 				<h2>{zoneAdapter.content.props.headline}</h2>
 				<p>{zoneAdapter.content.props.body}</p>

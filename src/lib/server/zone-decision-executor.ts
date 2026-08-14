@@ -409,7 +409,16 @@ function liveModelApprovedFor(identity: TrustedZoneExecutionIdentity): boolean {
 		&& approval.brandId === identity.brandId
 		&& approval.referenceId === identity.referenceId
 		&& approval.referenceVersion === identity.referenceVersion
-		&& approval.routePath === identity.routePath
+		&& approvedRouteMatches(approval.routePath, identity)
 		&& approval.instanceId === identity.instanceId,
 	);
+}
+
+function approvedRouteMatches(approvedRoute: string, identity: TrustedZoneExecutionIdentity): boolean {
+	if (approvedRoute === identity.routePath) return true;
+	const normalized = tryNormalizeTrustedShopperRoute(identity.routePath);
+	if (!normalized || normalized.surface !== identity.surface) return false;
+	if (approvedRoute === '/product/[slug]') return identity.surface === 'pdp' && identity.routePath.startsWith('/product/');
+	if (approvedRoute === '/category/[slug]') return identity.surface === 'plp' && identity.routePath.startsWith('/category/');
+	return false;
 }

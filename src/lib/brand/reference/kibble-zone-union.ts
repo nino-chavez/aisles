@@ -103,6 +103,7 @@ export const KIBBLE_LOCAL_ZONE_INSTANCE_IDS = [
 	'pdp.cross-sell',
 	'pdp.recently-viewed',
 	'cart.above-checkout-cta',
+	'cart.empty-state',
 	'checkout.assurance-strip',
 	'checkout.last-chance-upsell',
 	'search.empty-state',
@@ -130,6 +131,8 @@ const VISIBLE_ADAPTERS = {
 	'plp.editorial-header': ['kibble.zone.plp.editorial-header', 'kibble.category-listing.editorial-header'],
 	'pdp.related': ['kibble.zone.pdp.related', 'kibble.product-detail.related-products'],
 	'search.empty-state': ['kibble.zone.search.empty-state', 'kibble.search.empty-state'],
+	'cart.empty-state': ['kibble.zone.cart.empty-state', 'kibble.cart.reference-shell'],
+	'checkout.assurance-strip': ['kibble.zone.checkout.assurance-strip', 'kibble.checkout.reference-shell'],
 	'error-404.rescue': ['kibble.zone.error-404.rescue', 'kibble.error.rescue'],
 	'error-empty.rescue': ['kibble.zone.error-empty.rescue', 'kibble.error.rescue'],
 } as const satisfies Partial<Record<KibbleCanonicalUnionZoneInstanceId, readonly [string, string]>>;

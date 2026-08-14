@@ -18,13 +18,11 @@ import {
 import {
 	hashKibblePlpCandidateCatalog,
 	hashKibblePlpRankingInput,
-	KIBBLE_PLP_RANKING_ROUTE,
 	type KibblePlpRankableCandidate,
 } from './kibble-plp-ranking-boundary.server';
 
 export const KIBBLE_PLP_MODEL_PROMPT_VERSION = 'kibble-plp-first-eight-presentation-v2';
 export const KIBBLE_PLP_MODEL_SCHEMA_VERSION = 'kibble-plp-presentation-decision-v2';
-const ROUTE_PATH = KIBBLE_PLP_RANKING_ROUTE;
 
 export type KibblePlpCandidate = KibblePlpRankableCandidate;
 
@@ -36,6 +34,7 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 	inference: PersonaInference;
 	prefix: KibblePlpCandidate[];
 	tail: KibblePlpCandidate[];
+	routePath: string;
 }) {
 	if (input.prefix.length < 3 || input.prefix.length > 8) throw new Error('Kibble PLP ranking requires three to eight approved prefix products.');
 	if (new Set(input.prefix.map(({ entityId }) => entityId)).size !== input.prefix.length) throw new Error('Kibble PLP ranking received duplicate prefix identities.');
@@ -43,11 +42,11 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 	const tailIds = input.tail.map(({ entityId }) => String(entityId));
 	const productCatalogVersion = hashKibblePlpCandidateCatalog([...input.prefix, ...input.tail]);
 	if (new Set([...prefixIds, ...tailIds]).size !== prefixIds.length + tailIds.length) throw new Error('Kibble PLP page contains duplicate catalog identities.');
-	const policy = getTrustedKibbleObservePlpProductRankingZonePolicy({ origin: 'aisles', familyId: 'plp.product-ranking', instanceId: 'plp.product-ranking', routePath: ROUTE_PATH });
+	const policy = getTrustedKibbleObservePlpProductRankingZonePolicy({ origin: 'aisles', familyId: 'plp.product-ranking', instanceId: 'plp.product-ranking', routePath: input.routePath });
 	const identity: TrustedZoneExecutionIdentity = {
 		organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: KIBBLE_REFERENCE_CONTRACT.id,
 		referenceVersion: KIBBLE_REFERENCE_CONTRACT.version, policyVersion: policy.policyVersion,
-		routeSource: 'pathname', routePath: ROUTE_PATH, surface: 'plp', routeManifestVersion: SHOPPER_ROUTE_MANIFEST_VERSION,
+		routeSource: 'pathname', routePath: input.routePath, surface: 'plp', routeManifestVersion: SHOPPER_ROUTE_MANIFEST_VERSION,
 		routeManifestDigest: SHOPPER_ROUTE_MANIFEST_DIGEST, zoneOrigin: 'aisles', familyId: 'plp.product-ranking', instanceId: 'plp.product-ranking',
 		productCatalogId: 'kibble-live-category-candidates', productCatalogVersion,
 		allowedDecisionModes: policy.provenance.zoneBinding?.allowedDecisionModes ?? [],
@@ -107,7 +106,7 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 			zoneAdapter: {
 				instanceId: 'plp.product-ranking', sharedStatus: 'live' as const, sharedContentKind: 'content' as const, decisionMode: 'model' as const,
 				modelCallCount, adapterId: 'kibble.zone.plp.product-ranking', componentVariantId: 'kibble.category-listing.ranked-prefix',
-				inputSha256: hashKibblePlpRankingInput(prefixIds, tailIds), content: execution.render.content,
+				inputSha256: hashKibblePlpRankingInput(prefixIds, tailIds, input.routePath), content: execution.render.content,
 			},
 		};
 	} finally {

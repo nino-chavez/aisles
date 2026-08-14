@@ -7,7 +7,7 @@
 		modelCallCount,
 		modelEligible = true,
 	}: {
-		block: { eyebrow: string; headline: string; body: string };
+		block: { eyebrow: string; headline: string; body: string } | null;
 		zoneId: 'plp.marketing-block' | 'pdp.marketing-block';
 		modelCallCount: number;
 		modelEligible?: boolean;
@@ -27,9 +27,15 @@
 	data-kibble-zone-variant="kibble.marketing-block.copy-led"
 >
 	<div class="kc-reference-container kc-reference-marketing-block__inner">
-		<p class="kc-reference-eyebrow">{block.eyebrow}</p>
-		<h2>{block.headline}</h2>
-		<p>{block.body}</p>
+		{#if block}
+			<p class="kc-reference-eyebrow">{block.eyebrow}</p>
+			<h2>{block.headline}</h2>
+			<p>{block.body}</p>
+		{:else}
+			<p class="kc-reference-eyebrow">AI zone available</p>
+			<h2>Optional marketing block</h2>
+			<p>The model may show one merchant-approved block here, or keep this slot empty.</p>
+		{/if}
 	</div>
 </aside>
 

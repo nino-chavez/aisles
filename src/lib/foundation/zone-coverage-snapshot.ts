@@ -45,6 +45,7 @@ export const AISLES_ZONE_REGISTRY_SNAPSHOT = [
 	{ zoneId: 'pdp.cross-sell', surface: 'pdp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	{ zoneId: 'pdp.recently-viewed', surface: 'pdp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: false },
 	{ zoneId: 'cart.above-checkout-cta', surface: 'cart', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
+	{ zoneId: 'cart.empty-state', surface: 'cart', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	{ zoneId: 'checkout.assurance-strip', surface: 'checkout', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	{ zoneId: 'checkout.last-chance-upsell', surface: 'checkout', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	{ zoneId: 'search.empty-state', surface: 'search', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
@@ -56,7 +57,7 @@ export const AISLES_RENDERER_CONTRACT_SNAPSHOT = {
 	files: [
 		{ path: 'src/lib/foundation/ZoneRenderer.svelte', sha256: '8867a76190f5070bdedf431cad5bc05dbdf53c647e7870f86d2d81fbb4f8ec4f' },
 		{ path: 'src/lib/foundation/autonomy-zone-materializer.ts', sha256: '93810d4fbf6debe3880f146ca21531a6fdaa8da67bd1ff89b924826adb208b31' },
-		{ path: 'src/lib/foundation/zone-schemas.ts', sha256: 'e7184963e6ec6ebf285781b7be1a7c7dcec996b91e948493df498d2d3e61ad2a' },
+		{ path: 'src/lib/foundation/zone-schemas.ts', sha256: '551a856ca551373f7a95b219ba8f10982980a450fcca8ff7243132b8bd414a56' },
 		{ path: 'src/lib/components/layouts/LayoutRenderer.svelte', sha256: '351eda569ba54d6f9419d7b042b68afbc64d337935269542397ad8da63b28827' },
 		{ path: 'src/lib/schema/layout.ts', sha256: 'e35307b2541757991d26ae54e54d1bc274177ffe4a0eb976581a95e79ca20ced' },
 	],

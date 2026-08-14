@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 /** Canonical server-only bindings for the bounded PLP ranking action. */
-export const KIBBLE_PLP_RANKING_ROUTE = '/category/dog-food' as const;
+export const KIBBLE_PLP_RANKING_ROUTE_PATTERN = '/category/[slug]' as const;
 export const KIBBLE_PLP_RANKING_SORT = 'FEATURED' as const;
 
 export type KibblePlpRankableCandidate = {
@@ -11,8 +11,8 @@ export type KibblePlpRankableCandidate = {
 	price: number;
 };
 
-export function hashKibblePlpRankingInput(prefixIds: readonly string[], tailIds: readonly string[]) {
-	return sha256Hex(JSON.stringify({ routePath: KIBBLE_PLP_RANKING_ROUTE, sort: KIBBLE_PLP_RANKING_SORT, cursor: null, prefixIds, tailIds }));
+export function hashKibblePlpRankingInput(prefixIds: readonly string[], tailIds: readonly string[], routePath: string) {
+	return sha256Hex(JSON.stringify({ routePath, sort: KIBBLE_PLP_RANKING_SORT, cursor: null, prefixIds, tailIds }));
 }
 
 /** Binds exact current server-reloaded candidate facts, never a fixture. */

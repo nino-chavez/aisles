@@ -3,10 +3,9 @@ import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { getBrand } from '$lib/brand/config';
 import {
-	KIBBLE_OBSERVE_PDP_RELATED_ROUTE,
-	KIBBLE_OBSERVE_PDP_RELATED_SLUG,
 	getKibbleObservePdpRelatedModelPolicyDescriptor,
 } from '$lib/brand/composition-policy';
+import { tryNormalizeTrustedShopperRoute } from '$lib/foundation/autonomy-zone-route';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 import {
@@ -34,14 +33,18 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		cookies.get('aisles_observe_demo') !== '1' ||
 		getBrand().id !== 'kibble'
 	) return unavailable();
-	if (!await parseModelMode(request)) return invalidRequest();
+	const modelRequest = await parseModelRequest(request);
+	if (!modelRequest) return invalidRequest();
+	const trustedRoute = tryNormalizeTrustedShopperRoute(modelRequest.routePath);
+	if (!trustedRoute || trustedRoute.surface !== 'pdp') return invalidRequest();
+	const slug = trustedRoute.routePath.slice('/product/'.length);
 	const sessionId = cookies.get(SESSION_COOKIE);
 	if (!sessionId) return sessionUnavailable();
 
 	try {
 		const store = await findSessionStore(sessionId, { fresh: true });
 		if (!store) return sessionUnavailable();
-		const detail = await getKibbleProductDetailByPath(`/${KIBBLE_OBSERVE_PDP_RELATED_SLUG}/`);
+		const detail = await getKibbleProductDetailByPath(`/${slug}/`);
 		if (!detail) return unavailable();
 		const products = serverRelatedCandidates(detail, detail.entityId);
 		if (products.length < 3) return ineligible();
@@ -52,14 +55,14 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		const modelDecision = await rankKibblePdpRelatedWithModel({
 			inference,
 			products,
-			routePath: KIBBLE_OBSERVE_PDP_RELATED_ROUTE,
+			routePath: trustedRoute.routePath,
 			heading: KIBBLE_PRESERVE_MANIFEST.display.pdp.relatedHeading,
 		});
 		const scenarioId = privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo';
 		const provenance = buildContractedLayoutProvenance({
 			policy: modelDecision.policy,
 			surface: 'pdp',
-			route: KIBBLE_OBSERVE_PDP_RELATED_ROUTE,
+			route: trustedRoute.routePath,
 			persona: inference.primary,
 			rendererComponentId: 'kibble.product-detail',
 			rendererVariantId: KIBBLE_REFERENCE_CONTRACT.recipes.pdp.variantId,
@@ -72,7 +75,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			scenarioId,
 		});
 		await logGeneration({
-			type: 'preserve_render', persona: inference.primary, categorySlug: 'puppy-starter-kit', cacheHit: false,
+			type: 'preserve_render', persona: inference.primary, categorySlug: slug, cacheHit: false,
 			generationTimeMs: Date.now() - startedAt, productCount: products.length,
 			inputTokens: modelDecision.inputTokens, outputTokens: modelDecision.outputTokens,
 			model: `anthropic/${modelDecision.modelId}`, sessionId, provenance,
@@ -80,7 +83,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		return json({
 			version: PREVIEW_VERSION,
 			previewOnly: true,
-			routePath: KIBBLE_OBSERVE_PDP_RELATED_ROUTE,
+			routePath: trustedRoute.routePath,
 			policyVersion: modelDecision.policy.policyVersion,
 			persona: inference.primary,
 			rankedProductIds: modelDecision.rankedProductIds,
@@ -117,14 +120,15 @@ function serverRelatedCandidates(detail: BCKibbleProductDetail, productEntityId:
 	return candidates;
 }
 
-async function parseModelMode(request: Request): Promise<boolean> {
+async function parseModelRequest(request: Request): Promise<{ mode: 'model'; routePath: string } | null> {
 	const raw = await request.text();
-	if (!raw || raw.length > 128) return false;
+	if (!raw || raw.length > 256) return null;
 	try {
 		const value = JSON.parse(raw);
 		return !!value && typeof value === 'object' && !Array.isArray(value)
-			&& Object.keys(value).length === 1 && Object.prototype.hasOwnProperty.call(value, 'mode') && value.mode === 'model';
-	} catch { return false; }
+			&& Object.keys(value).length === 2 && value.mode === 'model' && typeof value.routePath === 'string'
+			? { mode: 'model', routePath: value.routePath } : null;
+	} catch { return null; }
 }
 
 function budgetUnavailable(reason: 'disabled' | 'cooldown' | 'session_limit' | 'global_limit' | 'unavailable') {
@@ -137,4 +141,4 @@ function invalidRequest() { return json({ error: 'Invalid Kibble decision reques
 function sessionUnavailable() { return json({ error: 'Kibble preview session is unavailable' }, { status: 409, headers: noStoreHeaders() }); }
 function noStoreHeaders() { return { 'Cache-Control': 'no-store' }; }
 
-export const _test = { serverRelatedCandidates, PREVIEW_VERSION, descriptor: getKibbleObservePdpRelatedModelPolicyDescriptor };
+export const _test = { serverRelatedCandidates, parseModelRequest, PREVIEW_VERSION, descriptor: getKibbleObservePdpRelatedModelPolicyDescriptor };

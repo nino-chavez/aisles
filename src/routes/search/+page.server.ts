@@ -1,7 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
+import { env as privateEnv } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
-import { getTrustedKibbleRoutePolicy } from '$lib/brand/composition-policy';
+import { getKibbleObserveCopyModelPolicyDescriptor, getTrustedKibbleRoutePolicy } from '$lib/brand/composition-policy';
 import { materializeKibblePdpHrefs } from '$lib/brand/reference/kibble-runtime';
 import {
 	buildKibbleSearchHref,
@@ -19,7 +20,7 @@ import { createStoreFromRequest } from '$lib/signals/request';
 import { loadSessionIncentives } from '$lib/server/incentives/session';
 
 export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, request }) => {
-	const { renderMode, devMode } = await parent();
+	const { renderMode, devMode, observeMode } = await parent();
 	const routePolicy = getTrustedKibbleRoutePolicy(getBrand().id, url.pathname);
 	if (!routePolicy) return loadLegacySearch({ url, cookies, request, renderMode, devMode });
 	if (routePolicy.surface !== 'search') throw error(500, 'Kibble search route resolved to the wrong policy surface.');
@@ -28,6 +29,8 @@ export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, r
 		const query = parseKibbleSearchQuery(url.searchParams.get('q'));
 		const after = parseKibbleSearchCursor(url.searchParams.get('after'));
 		const result = await searchKibbleCatalog({ query, after });
+		const modelEnabled = result.products.length === 0 && observeMode && privateEnv.KIBBLE_DEMO_AI_ENABLED === 'true';
+		if (modelEnabled) await createStoreFromRequest({ url, request, cookies, category: 'search' });
 		const emptyExecution = await executeKibbleSearchEmptyZoneTerminal(result.products.length === 0 ? {
 			query,
 			body: query ? 'Try a different keyword, or browse all categories.' : 'Type something above to search the catalog.',
@@ -47,6 +50,9 @@ export const load: PageServerLoad = async ({ url, parent, setHeaders, cookies, r
 					routePath: '/search' as const,
 				},
 				zoneAdapter: emptyExecution.adapter ? kibbleNativeAdapterBinding(emptyExecution) : null,
+				searchModelDecision: modelEnabled
+					? getKibbleObserveCopyModelPolicyDescriptor({ surface: 'search', familyId: 'search.empty-state', instanceId: 'search.empty-state', routePath: '/search' })
+					: null,
 			},
 		};
 	} catch (cause) {
