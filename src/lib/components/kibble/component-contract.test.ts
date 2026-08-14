@@ -125,9 +125,10 @@ describe('Kibble reference components fail closed', () => {
 		expect(pdp).toContain("data-kibble-pdp-recipe={commerceEnabled ? 'catalog-one-time-commerce' : 'fixed-catalog-display-only'}");
 		expect(pdp).toContain('commerceEnabled = false');
 		expect(pdp).toContain("fetch('/api/cart'");
+		expect(pdp).toContain("fetch('/api/cart/intents'");
+		expect(pdp).toContain('subscriptionPlans');
+		expect(pdp).toContain('purchaseMode,');
 		expect(pdp).not.toContain('/api/suggest');
-		expect(pdp).not.toContain('Auto-Refill');
-		expect(pdp).not.toContain('subscription');
 		for (const field of ['purchaseUnavailableLabel', 'purchaseUnavailableBody', 'breadcrumbLabel', 'galleryLabel', 'skuLabel', 'bundleEyebrow', 'bundleContentsHeading', 'detailsHeading']) expect(pdp).toContain(field);
 		expect(pdp).toContain('aria-pressed={activeImage === index}');
 		expect(pdp).toContain("aria-current={activeImage === index ? 'true' : undefined}");

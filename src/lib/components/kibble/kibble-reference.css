@@ -1078,6 +1078,16 @@
 .kc-reference-pdp__options { display: grid; gap: .75rem; margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-md); }
 .kc-reference-pdp__options label { display: grid; gap: .35rem; color: var(--kc-muted-text); font-size: .76rem; font-weight: 700; }
 .kc-reference-pdp__options select { min-height: 42px; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-sm); background: var(--kc-muted-surface); color: var(--kc-muted-text); padding-inline: .75rem; }
+.kc-reference-pdp__purchase-methods { display: grid; gap: .55rem; margin-top: 1.5rem; padding: 0; border: 0; }
+.kc-reference-pdp__purchase-methods legend { margin-bottom: .2rem; color: var(--kc-muted-text); font-family: var(--kc-font-machinery); font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.kc-reference-pdp__purchase-methods label { display: flex; min-width: 0; align-items: flex-start; gap: .65rem; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-md); background: var(--kc-surface); padding: .75rem; cursor: pointer; }
+.kc-reference-pdp__purchase-methods label:has(input:focus-visible) { outline: 2px solid var(--kc-action); outline-offset: 2px; }
+.kc-reference-pdp__purchase-methods label.kc-reference-pdp__purchase-method--active { border-color: var(--kc-action); background: var(--kc-panel); }
+.kc-reference-pdp__purchase-methods input { margin-top: .2rem; accent-color: var(--kc-action); }
+.kc-reference-pdp__purchase-methods span { display: grid; min-width: 0; gap: .2rem; }
+.kc-reference-pdp__purchase-methods strong { overflow-wrap: anywhere; font-size: .84rem; }
+.kc-reference-pdp__purchase-methods small, .kc-reference-pdp__subscription-note { color: var(--kc-muted-text); font-size: .75rem; line-height: 1.45; }
+.kc-reference-pdp__subscription-note { margin: 1.25rem 0 0; }
 .kc-reference-pdp__purchase-unavailable { margin-block: 1.5rem; border: 1px solid var(--kc-border-strong); border-left: 4px solid var(--kc-action); border-radius: var(--kc-radius-md); background: var(--kc-muted-surface); padding: 1rem; }
 .kc-reference-pdp__purchase-unavailable p:last-child { margin: .4rem 0 0; color: var(--kc-muted-text); font-size: .9rem; line-height: 1.5; }
 .kc-reference-pdp__description, .kc-reference-pdp__specs { margin-top: 1.75rem; border-top: 1px solid var(--kc-border); padding-top: 1.25rem; }
@@ -1257,6 +1267,8 @@
 .kc-reference-cart__item-detail { min-width: 0; }
 .kc-reference-cart__item-detail h2 { margin: 0; font-family: var(--kc-font-display); font-size: .98rem; line-height: 1.35; }
 .kc-reference-cart__item-detail > p { margin: .35rem 0 0; color: var(--kc-muted-text); font-family: var(--kc-font-machinery); font-size: .72rem; }
+.kc-reference-cart__subscription { color: var(--kc-action-hover) !important; font-weight: 700; }
+.kc-reference-cart__subscription-error { margin: 1rem 0 0; color: var(--kc-muted-text); font-size: .78rem; }
 .kc-reference-cart__options { display: flex; flex-wrap: wrap; gap: .35rem .75rem; margin: .5rem 0 0; padding: 0; color: var(--kc-muted-text); font-size: .72rem; list-style: none; }
 .kc-reference-cart__quantity { display: flex; align-items: center; gap: .65rem; margin-top: .8rem; font-family: var(--kc-font-machinery); font-size: .75rem; }
 .kc-reference-cart__quantity button:not(.kc-reference-route__text-link) { width: 2rem; min-height: 2rem; border: 1px solid var(--kc-border-strong); border-radius: var(--kc-radius-sm); background: var(--kc-surface); color: var(--kc-identity); font-size: 1rem; }

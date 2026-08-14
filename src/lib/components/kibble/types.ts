@@ -148,10 +148,13 @@ export type KibbleCommerceCopy = {
 	addToCartLabel: string;
 	addingToCartLabel: string;
 	addedToCartLabel: string;
+	autoRefillLabel: string;
+	oneTimeLabel: string;
 	checkoutLabel: string;
 	checkingOutLabel: string;
 	cartErrorLabel: string;
 	checkoutErrorLabel: string;
+	autoRefillErrorLabel: string;
 	viewCartLabel: string;
 };
 
@@ -174,11 +177,37 @@ export const KIBBLE_COMMERCE_COPY: KibbleCommerceCopy = {
 	addToCartLabel: 'Add to cart',
 	addingToCartLabel: 'Adding to cart…',
 	addedToCartLabel: 'Added to cart',
+	autoRefillLabel: 'Auto-Refill',
+	oneTimeLabel: 'One-time',
 	checkoutLabel: 'Checkout',
 	checkingOutLabel: 'Opening checkout…',
 	cartErrorLabel: 'We could not update your cart. Try again.',
 	checkoutErrorLabel: 'Checkout is temporarily unavailable. Try again.',
+	autoRefillErrorLabel: 'Auto-Refill is temporarily unavailable. The item was added as a one-time purchase.',
 	viewCartLabel: 'View cart',
+};
+
+export type KibbleSubscriptionPlanView = {
+	id: string;
+	name: string;
+	amountCents: number;
+	currency: string;
+	interval: 'day' | 'week' | 'month' | 'year';
+	intervalCount: number;
+	salesMode: 'subscribe_only' | 'subscribe_and_one_time' | 'one_time_only';
+	discountPct: number | null;
+	trialDays: number | null;
+	commitmentCycles: number | null;
+};
+
+export type KibbleSubscriptionIntentView = {
+	id: string;
+	name: string;
+	interval: 'day' | 'week' | 'month' | 'year';
+	intervalCount: number;
+	amountCents: number;
+	currency: string;
+	cycles?: number;
 };
 
 export type KibbleCartView = {

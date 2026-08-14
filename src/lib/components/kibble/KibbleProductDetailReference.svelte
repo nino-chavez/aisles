@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import { KIBBLE_COMMERCE_COPY, type KibbleCommerceCopy, type KibblePdpBundle, type KibblePdpCopy, type KibblePdpProduct, type KibbleProductOption, type KibbleProduct, type KibbleZoneAdapterBinding } from './types';
+	import { KIBBLE_COMMERCE_COPY, type KibbleCommerceCopy, type KibblePdpBundle, type KibblePdpCopy, type KibblePdpProduct, type KibbleProductOption, type KibbleProduct, type KibbleSubscriptionPlanView, type KibbleZoneAdapterBinding } from './types';
 	import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
 	import type { materializeKibblePdpPresentation } from '$lib/brand/reference/kibble-presentation-decisions';
 	type RelatedContent = { component: 'product-carousel'; props: { title: string; products: Array<{ productId: string; role: 'standard' }>; showQuickAdd: false } };
@@ -23,6 +23,8 @@
 		presentationModelCallCount = 0,
 		commerceEnabled = false,
 		commerceCopy = KIBBLE_COMMERCE_COPY,
+		subscriptionPlans = [],
+		subscriptionError = null,
 	}: {
 		product: KibblePdpProduct;
 		bundle: KibblePdpBundle | null;
@@ -40,6 +42,8 @@
 		presentationModelCallCount?: number;
 		commerceEnabled?: boolean;
 		commerceCopy?: KibbleCommerceCopy;
+		subscriptionPlans?: KibbleSubscriptionPlanView[];
+		subscriptionError?: string | null;
 	} = $props();
 
 	let activeImage = $state(0);
@@ -57,9 +61,22 @@
 	let isAddingToCart = $state(false);
 	let cartMessage = $state('');
 	let cartMessageTone = $state<'neutral' | 'error'>('neutral');
+	let purchaseMode = $state<'one-time' | 'auto-refill'>('one-time');
+	let selectedPlanId = $state('');
+	const activeSubscriptionPlans = $derived(subscriptionPlans.filter((plan) => plan.salesMode !== 'one_time_only'));
+	const selectedPlan = $derived(activeSubscriptionPlans.find((plan) => plan.id === selectedPlanId) ?? activeSubscriptionPlans[0] ?? null);
 
 	function money(value: number): string {
 		return new Intl.NumberFormat('en-US', { style: 'currency', currency: product.currencyCode || 'USD' }).format(value);
+	}
+
+	function planMoney(plan: KibbleSubscriptionPlanView): string {
+		return new Intl.NumberFormat('en-US', { style: 'currency', currency: plan.currency }).format(plan.amountCents / 100);
+	}
+
+	function cadence(plan: KibbleSubscriptionPlanView): string {
+		const unit = plan.intervalCount === 1 ? plan.interval : `${plan.interval}s`;
+		return `every ${plan.intervalCount} ${unit}`;
 	}
 
 	$effect(() => {
@@ -74,7 +91,7 @@
 		selectedOptions = { ...selectedOptions, [String(optionEntityId)]: (event.currentTarget as HTMLSelectElement).value };
 	}
 
-	async function addOneTimeToCart(): Promise<void> {
+	async function addSelectedPurchaseToCart(): Promise<void> {
 		if (!commerceEnabled || isAddingToCart || product.isInStock === false) return;
 		const selected = options.map((option) => ({ option, value: selectedOptionValue(option) })).filter(({ value }) => value);
 		if (options.some((option) => option.isRequired && !selectedOptionValue(option))) {
@@ -84,6 +101,7 @@
 		}
 		isAddingToCart = true;
 		cartMessage = '';
+		let oneTimeItemAdded = false;
 		try {
 			const response = await fetch('/api/cart', {
 				method: 'POST',
@@ -92,17 +110,32 @@
 					productEntityId: product.entityId,
 					productSlug: product.id,
 					quantity: 1,
+					purchaseMode,
 					selectedOptions: selected.map(({ option, value }) => ({ optionEntityId: option.entityId, optionValueEntityId: Number(value) })),
 				}),
 			});
-			const result = await response.json() as { itemCount?: number; error?: string };
+			const result = await response.json() as { itemCount?: number; lineItemEntityId?: string | null; error?: string };
 			if (!response.ok) throw new Error(result.error || commerceCopy.cartErrorLabel);
-			cartMessageTone = 'neutral';
-			cartMessage = commerceCopy.addedToCartLabel;
+			oneTimeItemAdded = true;
+			if (purchaseMode === 'auto-refill') {
+				if (!selectedPlan || !result.lineItemEntityId) throw new Error(commerceCopy.autoRefillErrorLabel);
+				const intentResponse = await fetch('/api/cart/intents', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ lineEntityId: result.lineItemEntityId, planId: selectedPlan.id }),
+				});
+				await intentResponse.json();
+				if (!intentResponse.ok) throw new Error(commerceCopy.autoRefillErrorLabel);
+				cartMessageTone = 'neutral';
+				cartMessage = `${commerceCopy.autoRefillLabel} confirmed · ${selectedPlan.name}`;
+			} else {
+				cartMessageTone = 'neutral';
+				cartMessage = commerceCopy.addedToCartLabel;
+			}
 			window.dispatchEvent(new CustomEvent('cart-updated', { detail: { itemCount: result.itemCount ?? 0 } }));
 		} catch (error) {
 			cartMessageTone = 'error';
-			cartMessage = error instanceof Error ? error.message : commerceCopy.cartErrorLabel;
+			cartMessage = oneTimeItemAdded && purchaseMode === 'auto-refill' ? commerceCopy.autoRefillErrorLabel : error instanceof Error ? error.message : commerceCopy.cartErrorLabel;
 		} finally {
 			isAddingToCart = false;
 		}
@@ -170,9 +203,26 @@
 				{/if}
 
 				{#if commerceEnabled}
-					<form class="kc-reference-pdp__purchase" onsubmit={(event) => { event.preventDefault(); void addOneTimeToCart(); }}>
+					{#if activeSubscriptionPlans.length > 0}
+						<fieldset class="kc-reference-pdp__purchase-methods" aria-describedby="purchase-status">
+							<legend>Purchase options</legend>
+							<label class:kc-reference-pdp__purchase-method--active={purchaseMode === 'one-time'}>
+								<input type="radio" name="purchase-mode" value="one-time" checked={purchaseMode === 'one-time'} onchange={() => purchaseMode = 'one-time'} />
+								<span><strong>{commerceCopy.oneTimeLabel}</strong><small>{money(salePrice ?? product.price)} today</small></span>
+							</label>
+							{#each activeSubscriptionPlans as plan (plan.id)}
+								<label class:kc-reference-pdp__purchase-method--active={purchaseMode === 'auto-refill' && selectedPlanId === plan.id}>
+									<input type="radio" name="purchase-mode" value="auto-refill" checked={purchaseMode === 'auto-refill' && (selectedPlanId === plan.id || (!selectedPlanId && plan.id === activeSubscriptionPlans[0].id))} onchange={() => { purchaseMode = 'auto-refill'; selectedPlanId = plan.id; }} />
+									<span><strong>{commerceCopy.autoRefillLabel} · {plan.name}</strong><small>{planMoney(plan)} · {cadence(plan)}{plan.discountPct ? ` · ${plan.discountPct}% off` : ''}</small></span>
+								</label>
+							{/each}
+						</fieldset>
+					{:else if subscriptionError}
+						<p class="kc-reference-pdp__subscription-note" role="status">{subscriptionError} One-time purchase remains available.</p>
+					{/if}
+					<form class="kc-reference-pdp__purchase" onsubmit={(event) => { event.preventDefault(); void addSelectedPurchaseToCart(); }}>
 						<button type="submit" class="kc-reference-button kc-reference-button--primary kc-reference-focus" disabled={isAddingToCart || product.isInStock === false}>
-							{isAddingToCart ? commerceCopy.addingToCartLabel : product.isInStock === false ? copy.outOfStockLabel : commerceCopy.addToCartLabel}
+							{isAddingToCart ? commerceCopy.addingToCartLabel : product.isInStock === false ? copy.outOfStockLabel : purchaseMode === 'auto-refill' ? commerceCopy.autoRefillLabel : commerceCopy.addToCartLabel}
 						</button>
 						<p id="purchase-status" aria-live="polite" class:error={cartMessageTone === 'error'}>{cartMessage}</p>
 					</form>

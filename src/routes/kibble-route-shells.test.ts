@@ -4,6 +4,7 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import KibbleSearchReference from '$lib/components/kibble/KibbleSearchReference.svelte';
 import KibbleCartReference from '$lib/components/kibble/KibbleCartReference.svelte';
+import KibbleProductDetailReference from '$lib/components/kibble/KibbleProductDetailReference.svelte';
 import KibbleAccountReference from '$lib/components/kibble/KibbleAccountReference.svelte';
 import KibbleCheckoutReference from '$lib/components/kibble/KibbleCheckoutReference.svelte';
 import KibbleSubscriptionsReference from '$lib/components/kibble/KibbleSubscriptionsReference.svelte';
@@ -59,6 +60,30 @@ describe('Kibble route-specific unavailable shells', () => {
 		expect(body).toContain('Your cart');
 		expect(body).toContain('No cart was read, created, priced, or changed.');
 		expect(body).not.toMatch(/subtotal|discount|checkout now/i);
+	});
+
+	it('renders provider-approved Auto-Refill choices only when commerce is enabled', () => {
+		const body = render(KibbleProductDetailReference, { props: {
+			product: { id: 'goodgut', entityId: 42, name: 'GoodGut', price: 34.99, currencyCode: 'USD', image: '', imageAlt: '', images: [], description: '', descriptionPlain: '', specs: {}, tags: [], category: 'Dog Food', categoryPath: '/dog-food/', sku: 'GOODGUT', isInStock: true },
+			bundle: null, breadcrumbs: [], options: [], relatedProducts: [], relatedProductHrefs: {}, purchaseUnavailableLabel: 'Unavailable', purchaseUnavailableBody: 'No purchase action is available.', relatedHeading: 'Related', commerceEnabled: true,
+			subscriptionPlans: [{ id: 'plan-1', name: 'Monthly', amountCents: 2400, currency: 'USD', interval: 'month', intervalCount: 1, salesMode: 'subscribe_and_one_time', discountPct: 10, trialDays: null, commitmentCycles: null }],
+			copy: { breadcrumbLabel: 'Breadcrumb', galleryLabel: 'images', galleryImagesLabel: 'Images', viewImageLabel: 'View image', imageUnavailableLabel: 'Image unavailable', priceLabel: 'Price', skuLabel: 'SKU', inStockLabel: 'In stock', outOfStockLabel: 'Out of stock', availabilityUnavailableLabel: 'Availability unavailable', bundleEyebrow: 'Kit', bundleProductSingular: 'product', bundleProductPlural: 'products', bundleContentsHeading: 'Contents', optionsLegend: 'Options', requiredSuffix: 'required', detailsHeading: 'Details' },
+		} }).body;
+		expect(body).toContain('Purchase options');
+		expect(body).toContain('Auto-Refill · Monthly');
+		expect(body).toContain('$24.00');
+		expect(body).toContain('every 1 month');
+	});
+
+	it('renders a confirmed cart intent as a bounded line-item detail', () => {
+		const body = render(KibbleCartReference, { props: {
+			availabilityMessage: 'Your cart is empty.', commerceEnabled: true,
+			cart: { entityId: 'cart-1', currencyCode: 'USD', baseAmount: { value: 24, currencyCode: 'USD' }, discountedAmount: { value: 24, currencyCode: 'USD' }, amount: { value: 24, currencyCode: 'USD' }, lineItems: { totalQuantity: 1, physicalItems: [{ entityId: 'line-1', productEntityId: 42, name: 'GoodGut', quantity: 1, path: '/goodgut/', imageUrl: null, listPrice: { value: 24, currencyCode: 'USD' }, salePrice: { value: 24, currencyCode: 'USD' }, extendedSalePrice: { value: 24, currencyCode: 'USD' }, selectedOptions: [] }] } },
+			subscriptionIntents: { 'line-1': { id: 'plan-1', name: 'Monthly', amountCents: 2400, currency: 'USD', interval: 'month', intervalCount: 1 } },
+		} }).body;
+		expect(body).toContain('Auto-Refill');
+		expect(body).toContain('$24.00');
+		expect(body).toContain('every 1 month');
 	});
 
 	it.each(['login', 'register', 'orders', 'addresses', 'payment-methods', 'subscriptions', 'logout', 'unknown'] as const)('renders the %s account subtype with unavailable controls', (subtype) => {

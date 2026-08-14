@@ -1,6 +1,6 @@
 <script lang="ts">
 	import './kibble-reference.css';
-	import { KIBBLE_COMMERCE_COPY, type KibbleCartView, type KibbleCommerceCopy, type KibbleZoneAdapterBinding } from './types';
+	import { KIBBLE_COMMERCE_COPY, type KibbleCartView, type KibbleCommerceCopy, type KibbleSubscriptionIntentView, type KibbleZoneAdapterBinding } from './types';
 
 	let {
 		availabilityMessage,
@@ -12,6 +12,8 @@
 		commerceCopy = KIBBLE_COMMERCE_COPY,
 		cart = null,
 		cartError = null,
+		subscriptionIntents = {},
+		subscriptionIntentError = null,
 	}: {
 		availabilityMessage: string;
 		policyVersion?: string;
@@ -22,6 +24,8 @@
 		commerceCopy?: KibbleCommerceCopy;
 		cart?: KibbleCartView | null;
 		cartError?: string | null;
+		subscriptionIntents?: Record<string, KibbleSubscriptionIntentView>;
+		subscriptionIntentError?: string | null;
 	} = $props();
 
 	let currentCart = $state<KibbleCartView | null | undefined>(undefined);
@@ -142,6 +146,7 @@
 							<div class="kc-reference-cart__item-detail">
 								{#if productHref(item.path)}<a class="kc-reference-focus" href={productHref(item.path)}><h2>{item.name}</h2></a>{:else}<h2>{item.name}</h2>{/if}
 								{#if item.selectedOptions.length > 0}<ul class="kc-reference-cart__options">{#each item.selectedOptions as option (option.entityId)}{#if option.value}<li>{option.name}: {option.value}</li>{/if}{/each}</ul>{/if}
+								{#if subscriptionIntents[item.entityId]}{@const intent = subscriptionIntents[item.entityId]}<p class="kc-reference-cart__subscription" aria-label="Auto-Refill details">{commerceCopy.autoRefillLabel} · {money(intent.amountCents / 100)} · every {intent.intervalCount} {intent.intervalCount === 1 ? intent.interval : `${intent.interval}s`}</p>{/if}
 								<p>{money(item.salePrice?.value ?? item.listPrice.value)} each</p>
 								<div class="kc-reference-cart__quantity" aria-label={`Quantity for ${item.name}`}>
 									<button type="button" class="kc-reference-focus" disabled={isUpdating === item.entityId} onclick={() => updateQuantity(item, item.quantity - 1)} aria-label={`Decrease quantity of ${item.name}`}>−</button>
@@ -153,7 +158,8 @@
 							<strong>{money(item.extendedSalePrice?.value ?? (item.salePrice?.value ?? item.listPrice.value) * item.quantity)}</strong>
 						</li>
 					{/each}
-				</ul>
+					</ul>
+					{#if subscriptionIntentError}<p class="kc-reference-cart__subscription-error" role="status">{subscriptionIntentError}</p>{/if}
 				<aside class="kc-reference-cart__summary" aria-label="Cart summary">
 					<p class="kc-reference-eyebrow">Order summary</p>
 					<div><span>Cart total</span><strong>{money(total)}</strong></div>

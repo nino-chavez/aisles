@@ -9,6 +9,7 @@ import { KIBBLE_COMMERCE_COPY } from '$lib/components/kibble/types';
 import { getKibbleCommerceMode, getKibbleCart } from '$lib/server/kibble-commerce';
 import { cacheKibbleCart, getCachedKibbleCart, getKibbleCartSessionCookie } from '$lib/server/kibble-cart-store';
 import { getKibbleCommerceSession } from '$lib/server/kibble-commerce-session';
+import { getKibbleCartSubscriptionIntents } from '$lib/server/kibble-subscriptions';
 
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
 	const { renderMode, observeMode } = await parent();
@@ -20,6 +21,8 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 		const commerceEnabled = getKibbleCommerceMode() !== 'off';
 		let cart = null;
 		let cartError: string | null = null;
+		let subscriptionIntents: Record<string, Awaited<ReturnType<typeof getKibbleCartSubscriptionIntents>>[string]> = {};
+		let subscriptionIntentError: string | null = null;
 		if (commerceEnabled) {
 			const customerSession = await getKibbleCommerceSession(cookies);
 			const cartId = cookies.get('bc_cart_id');
@@ -36,6 +39,13 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 					cartError = 'Cart is temporarily unavailable. Try again.';
 				}
 			}
+			if (cart && privateEnv.KIBBLE_SUBSCRIPTION_API_URL?.trim()) {
+				try {
+					subscriptionIntents = await getKibbleCartSubscriptionIntents(cart.entityId);
+				} catch {
+					subscriptionIntentError = 'Auto-Refill details are temporarily unavailable.';
+				}
+			}
 		}
 		return {
 			renderMode,
@@ -45,6 +55,8 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				commerceCopy: KIBBLE_COMMERCE_COPY,
 				cart,
 				cartError,
+				subscriptionIntents,
+				subscriptionIntentError,
 				policyVersion: routePolicy.policy.policyVersion,
 				zoneAdapter: await executeKibbleCartEmptyZoneAdapter(materializeKibbleCartPresentation(KIBBLE_CART_DEFAULT_PRESENTATION).copy),
 				cartModelDecision: modelEnabled

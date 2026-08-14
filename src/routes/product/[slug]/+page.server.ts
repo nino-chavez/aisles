@@ -18,7 +18,7 @@ import {
 	KIBBLE_REFERENCE_CONTRACT,
 } from '$lib/brand/reference/kibble';
 import { isKibblePdpPublished, materializeKibblePdpHrefs, type MerchantRenderMode } from '$lib/brand/reference/kibble-runtime';
-import { KIBBLE_COMMERCE_COPY, type KibblePdpBundle, type KibblePdpCopy, type KibbleProductOption } from '$lib/components/kibble/types';
+import { KIBBLE_COMMERCE_COPY, type KibblePdpBundle, type KibblePdpCopy, type KibbleProductOption, type KibbleSubscriptionPlanView } from '$lib/components/kibble/types';
 import {
 	assertKibblePreserveRoutePolicy,
 	getContractSurfaceDecision,
@@ -33,6 +33,7 @@ import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.serv
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { isKibbleCommerceEnabled } from '$lib/server/kibble-commerce';
+import { getKibbleSubscriptionPlans, KibbleSubscriptionError } from '$lib/server/kibble-subscriptions';
 
 export const load: PageServerLoad = async ({ params, url, request, cookies, parent }) => {
 	const slug = params.slug;
@@ -142,6 +143,23 @@ async function loadKibblePreservePdp({
 			relatedProducts.length >= 3 && relatedProducts.length <= 4
 		) ? getKibbleObservePdpRelatedModelPolicyDescriptor(url.pathname) : null;
 		const options = materializeKibbleOptions(detail);
+		const commerceEnabled = isKibbleCommerceEnabled();
+		let subscriptionPlans: KibbleSubscriptionPlanView[] = [];
+		let subscriptionError: string | null = null;
+		if (commerceEnabled) {
+			try {
+				subscriptionPlans = (await getKibbleSubscriptionPlans(product.entityId)).map(({ id, name, amountCents, currency, interval, intervalCount, salesMode, discountPct, trialDays, commitmentCycles }) => ({
+					id, name, amountCents, currency, interval, intervalCount, salesMode, discountPct, trialDays, commitmentCycles,
+				}));
+			} catch (cause) {
+				// Plan discovery is optional. One-time commerce must remain usable when
+				// the subscription service has not been approved for this environment.
+				if (!(cause instanceof KibbleSubscriptionError && cause.kind === 'configuration')) {
+					console.warn('[kibble-subscriptions] PDP plan discovery failed:', cause instanceof Error ? cause.message : cause);
+				}
+				subscriptionError = 'Auto-Refill is temporarily unavailable.';
+			}
+		}
 		const breadcrumbs = [
 			{ label: boundedCopy(manifest.breadcrumbHomeLabel, 'breadcrumbs[].label', 'PDP home breadcrumb'), href: '/' },
 			...(categoryHref && product.category ? [{ label: boundedCopy(product.category, 'breadcrumbs[].label', 'PDP category breadcrumb'), href: categoryHref }] : []),
@@ -188,8 +206,10 @@ async function loadKibblePreservePdp({
 				copy: manifest.copy,
 				zoneAdapter: await executeKibblePdpRelatedZoneAdapter(relatedProducts, manifest.relatedHeading, url.pathname),
 				relatedModelDecision,
-				commerceEnabled: isKibbleCommerceEnabled(),
+				commerceEnabled,
 				commerceCopy: KIBBLE_COMMERCE_COPY,
+				subscriptionPlans,
+				subscriptionError,
 			},
 			provenance,
 		};

@@ -28,6 +28,7 @@ import {
 	loadSessionIncentives,
 } from '$lib/server/incentives/session';
 import { getSessionStore, persistSession, hasSession } from '$lib/signals/session';
+import { emitKibbleAddToCartSignal } from '$lib/server/kibble-commerce-observe';
 import { EMPTY_INCENTIVES, type IncentivesPayload } from '$lib/schema/uip';
 import { getBrand } from '$lib/brand/config';
 
@@ -58,6 +59,13 @@ function parseKibbleSelections(value: unknown): Array<{ optionEntityId: number; 
 		}
 		return { optionEntityId, optionValueEntityId };
 	});
+}
+
+function matchesKibbleLine(line: KibbleCart['lineItems']['physicalItems'][number], input: KibbleCartLineInput): boolean {
+	if (line.productEntityId !== input.productEntityId) return false;
+	const expected = input.selectedOptions?.multipleChoices ?? [];
+	if (line.selectedOptions.length !== expected.length) return false;
+	return expected.every((selection) => line.selectedOptions.some((option) => option.entityId === selection.optionEntityId && option.valueEntityId === selection.optionValueEntityId));
 }
 
 async function validateKibbleLine(body: Record<string, unknown>): Promise<KibbleCartLineInput> {
@@ -107,24 +115,6 @@ async function validateKibbleLine(body: Record<string, unknown>): Promise<Kibble
 	};
 }
 
-async function emitKibbleAddToCartSignal(cookies: Cookies, productEntityId: number, quantity: number): Promise<void> {
-	const sessionId = cookies.get('aisles_session');
-	if (!sessionId || !(await hasSession(sessionId))) return;
-	try {
-		const store = await getSessionStore(sessionId);
-		// Keep the signal useful for inference without copying price, product
-		// names, customer data, or provider tokens into Observe.
-		store.emit('commerce.add_to_cart', 'commerce', {
-			productEntityId,
-			quantity,
-			purchaseMode: 'one-time',
-		}, { page: '/product/[slug]' });
-		await persistSession(store);
-	} catch (error) {
-		console.warn('[kibble-commerce] Failed to persist add-to-cart signal:', error instanceof Error ? error.message : error);
-	}
-}
-
 async function getKibbleCartForRequest(cartId: string, customerAccessToken: string | null, providerSessionCookie: string | null): Promise<KibbleCart | null> {
 	const cached = await getCachedKibbleCart(cartId);
 	if (cached && !customerAccessToken) return cached.cart;
@@ -142,6 +132,7 @@ async function handleKibblePost(request: Request, cookies: Cookies) {
 	const body = await request.json() as Record<string, unknown>;
 	if (body.action) return json({ error: 'Promotions are not available in this slice.' }, { status: 400 });
 	const lineItem = await validateKibbleLine(body);
+	const purchaseMode = body.purchaseMode === 'auto-refill' ? 'auto-refill' : 'one-time';
 	const customerSession = await getKibbleCommerceSession(cookies);
 	const cartId = cookies.get('bc_cart_id');
 	let result;
@@ -163,8 +154,9 @@ async function handleKibblePost(request: Request, cookies: Cookies) {
 	cookies.set('bc_cart_id', result.cart.entityId, {
 		path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30,
 	});
-	await emitKibbleAddToCartSignal(cookies, lineItem.productEntityId, lineItem.quantity);
-	return json(kibbleCartPayload(result.cart));
+	if (purchaseMode === 'one-time') await emitKibbleAddToCartSignal(cookies, lineItem.productEntityId, lineItem.quantity);
+	const matchingLines = result.cart.lineItems.physicalItems.filter((line) => matchesKibbleLine(line, lineItem) && line.quantity >= lineItem.quantity);
+	return json({ ...kibbleCartPayload(result.cart), lineItemEntityId: matchingLines.at(-1)?.entityId ?? null });
 }
 
 async function handleKibblePatch(request: Request, cookies: Cookies) {
