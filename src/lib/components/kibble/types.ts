@@ -143,6 +143,52 @@ export type KibblePdpCopy = {
 	detailsHeading: string;
 };
 
+/** Aisles-owned labels for the opt-in one-time commerce slice. */
+export type KibbleCommerceCopy = {
+	addToCartLabel: string;
+	addingToCartLabel: string;
+	addedToCartLabel: string;
+	checkoutLabel: string;
+	checkingOutLabel: string;
+	cartErrorLabel: string;
+	checkoutErrorLabel: string;
+	viewCartLabel: string;
+};
+
+export const KIBBLE_COMMERCE_COPY: KibbleCommerceCopy = {
+	addToCartLabel: 'Add to cart',
+	addingToCartLabel: 'Adding to cart…',
+	addedToCartLabel: 'Added to cart',
+	checkoutLabel: 'Checkout',
+	checkingOutLabel: 'Opening checkout…',
+	cartErrorLabel: 'We could not update your cart. Try again.',
+	checkoutErrorLabel: 'Checkout is temporarily unavailable. Try again.',
+	viewCartLabel: 'View cart',
+};
+
+export type KibbleCartView = {
+	entityId: string;
+	currencyCode: string;
+	baseAmount: { value: number; currencyCode: string };
+	discountedAmount: { value: number; currencyCode: string };
+	amount: { value: number; currencyCode: string };
+	lineItems: {
+		physicalItems: Array<{
+			entityId: string;
+			productEntityId: number;
+			name: string;
+			quantity: number;
+			path: string | null;
+			imageUrl: string | null;
+			listPrice: { value: number; currencyCode: string };
+			salePrice: { value: number; currencyCode: string } | null;
+			extendedSalePrice: { value: number; currencyCode: string } | null;
+			selectedOptions: Array<{ entityId: number; name: string; value: string | null }>;
+		}>;
+		totalQuantity: number;
+	};
+};
+
 export type KibbleZoneAdapterBinding<TContent = unknown> = {
 	instanceId: string;
 	sharedStatus: 'live' | 'approval_candidate';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibblePdpBundle, KibblePdpCopy, KibblePdpProduct, KibbleProductOption, KibbleProduct, KibbleZoneAdapterBinding } from './types';
+	import { KIBBLE_COMMERCE_COPY, type KibbleCommerceCopy, type KibblePdpBundle, type KibblePdpCopy, type KibblePdpProduct, type KibbleProductOption, type KibbleProduct, type KibbleZoneAdapterBinding } from './types';
 	import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
 	import type { materializeKibblePdpPresentation } from '$lib/brand/reference/kibble-presentation-decisions';
 	type RelatedContent = { component: 'product-carousel'; props: { title: string; products: Array<{ productId: string; role: 'standard' }>; showQuickAdd: false } };
@@ -21,6 +21,8 @@
 		relatedModelDecision = null,
 		presentation = null,
 		presentationModelCallCount = 0,
+		commerceEnabled = false,
+		commerceCopy = KIBBLE_COMMERCE_COPY,
 	}: {
 		product: KibblePdpProduct;
 		bundle: KibblePdpBundle | null;
@@ -36,6 +38,8 @@
 		relatedModelDecision?: { zoneId: 'pdp.related'; routePath: string } | null;
 		presentation?: ReturnType<typeof materializeKibblePdpPresentation> | null;
 		presentationModelCallCount?: number;
+		commerceEnabled?: boolean;
+		commerceCopy?: KibbleCommerceCopy;
 	} = $props();
 
 	let activeImage = $state(0);
@@ -49,6 +53,10 @@
 	const currentImage = $derived(gallery[activeImage] ?? null);
 	const salePrice = $derived(typeof product.salePrice === 'number' && product.salePrice < product.price ? product.salePrice : null);
 	const relatedByEntityId = $derived(new Map(relatedProducts.map((related) => [String(related.entityId), related])));
+	let selectedOptions = $state<Record<string, string>>({});
+	let isAddingToCart = $state(false);
+	let cartMessage = $state('');
+	let cartMessageTone = $state<'neutral' | 'error'>('neutral');
 
 	function money(value: number): string {
 		return new Intl.NumberFormat('en-US', { style: 'currency', currency: product.currencyCode || 'USD' }).format(value);
@@ -57,9 +65,51 @@
 	$effect(() => {
 		if (activeImage >= gallery.length) activeImage = 0;
 	});
+
+	function selectedOptionValue(option: KibbleProductOption): string {
+		return selectedOptions[String(option.entityId)] ?? String(option.values.find((value) => value.isDefault)?.entityId ?? '');
+	}
+
+	function setSelectedOption(optionEntityId: number, event: Event): void {
+		selectedOptions = { ...selectedOptions, [String(optionEntityId)]: (event.currentTarget as HTMLSelectElement).value };
+	}
+
+	async function addOneTimeToCart(): Promise<void> {
+		if (!commerceEnabled || isAddingToCart || product.isInStock === false) return;
+		const selected = options.map((option) => ({ option, value: selectedOptionValue(option) })).filter(({ value }) => value);
+		if (options.some((option) => option.isRequired && !selectedOptionValue(option))) {
+			cartMessageTone = 'error';
+			cartMessage = 'Choose the required options before adding this product.';
+			return;
+		}
+		isAddingToCart = true;
+		cartMessage = '';
+		try {
+			const response = await fetch('/api/cart', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					productEntityId: product.entityId,
+					productSlug: product.id,
+					quantity: 1,
+					selectedOptions: selected.map(({ option, value }) => ({ optionEntityId: option.entityId, optionValueEntityId: Number(value) })),
+				}),
+			});
+			const result = await response.json() as { itemCount?: number; error?: string };
+			if (!response.ok) throw new Error(result.error || commerceCopy.cartErrorLabel);
+			cartMessageTone = 'neutral';
+			cartMessage = commerceCopy.addedToCartLabel;
+			window.dispatchEvent(new CustomEvent('cart-updated', { detail: { itemCount: result.itemCount ?? 0 } }));
+		} catch (error) {
+			cartMessageTone = 'error';
+			cartMessage = error instanceof Error ? error.message : commerceCopy.cartErrorLabel;
+		} finally {
+			isAddingToCart = false;
+		}
+	}
 </script>
 
-<article class="kibble-reference kc-reference-pdp" data-kibble-pdp-recipe="fixed-catalog-display-only">
+<article class="kibble-reference kc-reference-pdp" data-kibble-pdp-recipe={commerceEnabled ? 'catalog-one-time-commerce' : 'fixed-catalog-display-only'}>
 	<div class="kc-reference-container">
 		<nav class="kc-reference-breadcrumbs" aria-label={copy.breadcrumbLabel}>
 			{#each breadcrumbs as crumb, index}
@@ -109,20 +159,29 @@
 				{/if}
 
 				{#if options.length > 0}
-					<fieldset class="kc-reference-pdp__options" disabled aria-describedby="purchase-unavailable">
+					<fieldset class="kc-reference-pdp__options" disabled={!commerceEnabled} aria-describedby={commerceEnabled ? 'purchase-status' : 'purchase-unavailable'}>
 						<legend>{copy.optionsLegend}</legend>
 						{#each options as option (option.entityId)}
 							<label>{option.displayName}{option.isRequired ? ` ${copy.requiredSuffix}` : ''}
-								<select aria-label={option.displayName}>{#each option.values as value (value.entityId)}<option selected={value.isDefault}>{value.label}</option>{/each}</select>
+								<select aria-label={option.displayName} value={selectedOptionValue(option)} onchange={(event) => setSelectedOption(option.entityId, event)}>{#each option.values as value (value.entityId)}<option value={value.entityId}>{value.label}</option>{/each}</select>
 							</label>
 						{/each}
 					</fieldset>
 				{/if}
 
-				<aside class="kc-reference-pdp__purchase-unavailable" id="purchase-unavailable" aria-live="polite">
-					<p class="kc-reference-eyebrow">{purchaseUnavailableLabel}</p>
-					<p>{purchaseUnavailableBody}</p>
-				</aside>
+				{#if commerceEnabled}
+					<form class="kc-reference-pdp__purchase" onsubmit={(event) => { event.preventDefault(); void addOneTimeToCart(); }}>
+						<button type="submit" class="kc-reference-button kc-reference-button--primary kc-reference-focus" disabled={isAddingToCart || product.isInStock === false}>
+							{isAddingToCart ? commerceCopy.addingToCartLabel : product.isInStock === false ? copy.outOfStockLabel : commerceCopy.addToCartLabel}
+						</button>
+						<p id="purchase-status" aria-live="polite" class:error={cartMessageTone === 'error'}>{cartMessage}</p>
+					</form>
+				{:else}
+					<aside class="kc-reference-pdp__purchase-unavailable" id="purchase-unavailable" aria-live="polite">
+						<p class="kc-reference-eyebrow">{purchaseUnavailableLabel}</p>
+						<p>{purchaseUnavailableBody}</p>
+					</aside>
+				{/if}
 
 				{#if product.description}<div class="kc-reference-pdp__description"><h2>{copy.detailsHeading}</h2><div>{@html product.description}</div></div>{/if}
 				{#if Object.keys(product.specs).length > 0}<dl class="kc-reference-pdp__specs">{#each Object.entries(product.specs) as [label, value]}<div><dt>{label}</dt><dd>{value}</dd></div>{/each}</dl>{/if}

@@ -120,10 +120,14 @@ describe('Kibble reference components fail closed', () => {
 		}
 	});
 
-	it('keeps the PDP catalog-only and routes every visible label through its adapter copy', () => {
+	it('keeps commerce opt-in and routes commerce actions through the server boundary', () => {
 		const pdp = component('KibbleProductDetailReference.svelte');
-		expect(pdp).toContain('data-kibble-pdp-recipe="fixed-catalog-display-only"');
-		for (const forbidden of ['/api/cart', '/api/suggest', 'addToCart', 'Auto-Refill', 'subscription']) expect(pdp).not.toContain(forbidden);
+		expect(pdp).toContain("data-kibble-pdp-recipe={commerceEnabled ? 'catalog-one-time-commerce' : 'fixed-catalog-display-only'}");
+		expect(pdp).toContain('commerceEnabled = false');
+		expect(pdp).toContain("fetch('/api/cart'");
+		expect(pdp).not.toContain('/api/suggest');
+		expect(pdp).not.toContain('Auto-Refill');
+		expect(pdp).not.toContain('subscription');
 		for (const field of ['purchaseUnavailableLabel', 'purchaseUnavailableBody', 'breadcrumbLabel', 'galleryLabel', 'skuLabel', 'bundleEyebrow', 'bundleContentsHeading', 'detailsHeading']) expect(pdp).toContain(field);
 		expect(pdp).toContain('aria-pressed={activeImage === index}');
 		expect(pdp).toContain("aria-current={activeImage === index ? 'true' : undefined}");

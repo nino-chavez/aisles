@@ -89,7 +89,6 @@
 
 	// ─── Cart ──────────────────────────────────────────────────────
 	$effect(() => {
-		if (data.chromeMode === 'reference') return;
 		fetch('/api/cart')
 			.then((res) => res.json())
 			.then((data) => { cartCount = data.itemCount || 0; })

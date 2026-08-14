@@ -18,7 +18,7 @@ import {
 	KIBBLE_REFERENCE_CONTRACT,
 } from '$lib/brand/reference/kibble';
 import { isKibblePdpPublished, materializeKibblePdpHrefs, type MerchantRenderMode } from '$lib/brand/reference/kibble-runtime';
-import type { KibblePdpBundle, KibblePdpCopy, KibbleProductOption } from '$lib/components/kibble/types';
+import { KIBBLE_COMMERCE_COPY, type KibblePdpBundle, type KibblePdpCopy, type KibbleProductOption } from '$lib/components/kibble/types';
 import {
 	assertKibblePreserveRoutePolicy,
 	getContractSurfaceDecision,
@@ -32,6 +32,7 @@ import { executeKibblePdpRelatedZoneAdapter } from '$lib/brand/reference/kibble-
 import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import { isKibbleCommerceEnabled } from '$lib/server/kibble-commerce';
 
 export const load: PageServerLoad = async ({ params, url, request, cookies, parent }) => {
 	const slug = params.slug;
@@ -187,6 +188,8 @@ async function loadKibblePreservePdp({
 				copy: manifest.copy,
 				zoneAdapter: await executeKibblePdpRelatedZoneAdapter(relatedProducts, manifest.relatedHeading, url.pathname),
 				relatedModelDecision,
+				commerceEnabled: isKibbleCommerceEnabled(),
+				commerceCopy: KIBBLE_COMMERCE_COPY,
 			},
 			provenance,
 		};
