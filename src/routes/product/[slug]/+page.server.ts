@@ -3,7 +3,7 @@ import { env as privateEnv } from '$env/dynamic/private';
 import {
 	customFieldsToRecord,
 	getKibbleProductDetailByPath,
-	getKibblePdpRelatedProducts,
+	resolveKibblePdpRelatedProducts,
 	getProductByPath,
 	getProductsByCategory,
 	type BCProduct,
@@ -132,7 +132,8 @@ async function loadKibblePreservePdp({
 		const manifest = materializeKibblePdpManifest(slug, product.name);
 		const categoryHref = materializeKibbleCategoryHref(product.categoryPath);
 		boundedArray(detail.relatedProducts?.edges, 'related products', KIBBLE_PDP_BOUNDS.arrays.relatedProducts);
-		const relatedProducts = (await getKibblePdpRelatedProducts(detail))
+		const relatedResolution = await resolveKibblePdpRelatedProducts(detail);
+		const relatedProducts = relatedResolution.products
 			.map((candidate) => materializeKibbleCatalogProduct(candidate, 'related product'));
 		assertUnique(relatedProducts.map(({ entityId }) => entityId), 'related product entity ids');
 		const relatedModelDecision = (
@@ -162,7 +163,13 @@ async function loadKibblePreservePdp({
 				renderedManifest: manifest,
 				bundleProjectionSha256: KIBBLE_PDP_BUNDLE_PROJECTION_VERIFIED_SHA256,
 			},
-			catalogInput: { product, options, relatedProducts },
+			catalogInput: {
+				product,
+				options,
+				relatedProducts,
+				relatedCandidateSource: relatedResolution.candidateSource,
+				relatedRelationKind: relatedResolution.relationKind,
+			},
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
 			scenarioId: store.getCrossSessionContext().scenarioId,
 		});
@@ -184,6 +191,8 @@ async function loadKibblePreservePdp({
 				purchaseUnavailableLabel: manifest.purchaseUnavailableLabel,
 				purchaseUnavailableBody: manifest.purchaseUnavailableBody,
 				relatedHeading: manifest.relatedHeading,
+				relatedCandidateSource: relatedResolution.candidateSource,
+				relatedRelationKind: relatedResolution.relationKind,
 				copy: manifest.copy,
 				zoneAdapter: await executeKibblePdpRelatedZoneAdapter(relatedProducts, manifest.relatedHeading, url.pathname),
 				relatedModelDecision,

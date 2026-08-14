@@ -312,31 +312,65 @@ export async function getProductsByCategory(
 	};
 }
 
+export type KibblePdpRelatedCandidateSource = 'native_related' | 'category_sibling';
+
+export type KibblePdpRelatedResolution = {
+	products: BCProduct[];
+	candidateSource: KibblePdpRelatedCandidateSource;
+	relationKind: 'related' | null;
+};
+
 /**
  * Resolve the bounded PDP related-products set from server-owned catalog data.
  * BigCommerce's explicit relatedProducts field is preferred; when it is sparse,
  * category siblings fill the same 3–4 slot bound. Bundle contents are a separate
  * Preserve projection and never participate in this recommendation set.
+ *
+ * The source is part of the result because a category sibling is a safe fallback,
+ * not proof that the merchant configured a native related-products relationship.
  */
-export async function getKibblePdpRelatedProducts(detail: BCKibbleProductDetail): Promise<BCProduct[]> {
+export async function resolveKibblePdpRelatedProducts(detail: BCKibbleProductDetail): Promise<KibblePdpRelatedResolution> {
 	const currentEntityId = detail.entityId;
 	const nativeRelated = uniqueCatalogProducts(
 		detail.relatedProducts?.edges?.map(({ node }) => node) ?? [],
 	).filter(({ entityId }) => entityId !== currentEntityId).slice(0, 4);
-	if (nativeRelated.length >= 3) return nativeRelated;
+	if (nativeRelated.length >= 3) return {
+		products: nativeRelated,
+		candidateSource: 'native_related',
+		relationKind: 'related',
+	};
 
 	const categoryEntityId = detail.categories?.edges?.[0]?.node?.entityId;
-	if (!Number.isInteger(categoryEntityId) || categoryEntityId <= 0) return nativeRelated;
+	if (!Number.isInteger(categoryEntityId) || categoryEntityId <= 0) return nativeResolution(nativeRelated);
 
 	try {
 		const { products: categoryProducts } = await getProductsByCategory(categoryEntityId, { first: 8 });
-		return uniqueCatalogProducts([...nativeRelated, ...categoryProducts])
+		const products = uniqueCatalogProducts([...nativeRelated, ...categoryProducts])
 			.filter(({ entityId }) => entityId !== currentEntityId)
 			.slice(0, 4);
+		const usedCategorySibling = products.some(({ entityId }) => !nativeRelated.some((native) => native.entityId === entityId));
+		return usedCategorySibling ? {
+			products,
+			candidateSource: 'category_sibling',
+			relationKind: null,
+		} : nativeResolution(products);
 	} catch (error) {
 		console.warn('[kibble-preserve] category fallback unavailable for PDP related products', error);
-		return nativeRelated;
+		return nativeResolution(nativeRelated);
 	}
+}
+
+/** Preserve the array-returning helper for callers that only need candidates. */
+export async function getKibblePdpRelatedProducts(detail: BCKibbleProductDetail): Promise<BCProduct[]> {
+	return (await resolveKibblePdpRelatedProducts(detail)).products;
+}
+
+function nativeResolution(products: BCProduct[]): KibblePdpRelatedResolution {
+	return {
+		products,
+		candidateSource: 'native_related',
+		relationKind: products.length > 0 ? 'related' : null,
+	};
 }
 
 function uniqueCatalogProducts(products: BCProduct[]): BCProduct[] {

@@ -14,7 +14,7 @@ import {
 	rankKibblePdpRelatedWithModel,
 	type KibblePdpRelatedCandidate,
 } from '$lib/brand/reference/kibble-pdp-related-model.server';
-import { getKibblePdpRelatedProducts, getKibbleProductDetailByPath, type BCProduct } from '$lib/server/bigcommerce';
+import { resolveKibblePdpRelatedProducts, getKibbleProductDetailByPath, type BCProduct } from '$lib/server/bigcommerce';
 import { reserveKibbleDemoAiCall } from '$lib/server/kibble-demo-ai-budget';
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
@@ -46,7 +46,8 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		if (!store) return sessionUnavailable();
 		const detail = await getKibbleProductDetailByPath(`/${slug}/`);
 		if (!detail) return unavailable();
-		const products = serverRelatedCandidates(await getKibblePdpRelatedProducts(detail), detail.entityId);
+		const relatedResolution = await resolveKibblePdpRelatedProducts(detail);
+		const products = serverRelatedCandidates(relatedResolution.products, detail.entityId);
 		if (products.length < 3) return ineligible();
 		const reservation = await reserveKibbleDemoAiCall(sessionId);
 		if (!reservation.ok) return budgetUnavailable(reservation.reason);
@@ -70,7 +71,13 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			promptVersion: KIBBLE_PDP_RELATED_MODEL_PROMPT_VERSION,
 			schemaVersion: KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION,
 			contractInput: { zone: modelDecision.policy.provenance.zoneBinding, rankedProductIds: modelDecision.rankedProductIds, presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY, presentationDecision: modelDecision.presentationDecision, modelCallCount: modelDecision.modelCallCount },
-			catalogInput: { source: 'server-reloaded-pdp-related', candidates: products, rankedProductIds: modelDecision.rankedProductIds },
+			catalogInput: {
+				source: 'server-reloaded-pdp-related',
+				candidateSource: relatedResolution.candidateSource,
+				relationKind: relatedResolution.relationKind,
+				candidates: products,
+				rankedProductIds: modelDecision.rankedProductIds,
+			},
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
 			scenarioId,
 		});

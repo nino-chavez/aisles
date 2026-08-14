@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getKibblePdpRelatedProducts, getKibbleProductDetailByPath, getProductsByCategory, type BCProduct } from './bigcommerce';
+import { getKibblePdpRelatedProducts, getKibbleProductDetailByPath, getProductsByCategory, resolveKibblePdpRelatedProducts, type BCProduct } from './bigcommerce';
 
 vi.mock('$env/dynamic/private', () => ({
 	env: {
@@ -122,7 +122,7 @@ describe('BigCommerce Kibble Preserve PDP query', () => {
 			images: { edges: [] }, inventory: null, productOptions: { edges: [] },
 			relatedProducts: { edges: [] },
 		};
-		const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(categoryResponse(
+		const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => categoryResponse(
 			[product(7), product(8), product(9), product(10)],
 			{ hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null },
 		));
@@ -130,7 +130,25 @@ describe('BigCommerce Kibble Preserve PDP query', () => {
 		const result = await getKibblePdpRelatedProducts(detail);
 
 		expect(result.map(({ entityId }) => entityId)).toEqual([8, 9, 10]);
+		const resolution = await resolveKibblePdpRelatedProducts(detail);
+		expect(resolution).toMatchObject({ candidateSource: 'category_sibling', relationKind: null, products: result });
 		const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
 		expect(request.variables).toMatchObject({ categoryId: 10, first: 8 });
+	});
+
+	it('keeps native merchant relationships distinct from category-sibling fallback candidates', async () => {
+		const detail = {
+			...product(7),
+			images: { edges: [] }, inventory: null, productOptions: { edges: [] },
+			relatedProducts: { edges: [product(8), product(9), product(10)].map((node) => ({ node })) },
+		};
+
+		const resolution = await resolveKibblePdpRelatedProducts(detail);
+
+		expect(resolution).toMatchObject({
+			candidateSource: 'native_related',
+			relationKind: 'related',
+			products: [product(8), product(9), product(10)],
+		});
 	});
 });

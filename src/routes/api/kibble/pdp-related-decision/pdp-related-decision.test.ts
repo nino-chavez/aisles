@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({ brandId: 'kibble', enabled: 'true', store: null as Record<string, unknown> | null }));
 const mocks = vi.hoisted(() => ({
-	findSessionStore: vi.fn(), infer: vi.fn(), getDetail: vi.fn(), getRelated: vi.fn(), reserveBudget: vi.fn(), rankWithModel: vi.fn(), provenance: vi.fn(), logGeneration: vi.fn(),
+	findSessionStore: vi.fn(), infer: vi.fn(), getDetail: vi.fn(), resolveRelated: vi.fn(), reserveBudget: vi.fn(), rankWithModel: vi.fn(), provenance: vi.fn(), logGeneration: vi.fn(),
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: new Proxy({}, { get: (_target, key) => key === 'KIBBLE_DEMO_AI_ENABLED' ? state.enabled : undefined }) }));
@@ -17,7 +17,7 @@ vi.mock('$lib/brand/reference/kibble-pdp-related-model.server', () => ({
 	KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION: 'kibble-pdp-presentation-decision-v2',
 	rankKibblePdpRelatedWithModel: mocks.rankWithModel,
 }));
-vi.mock('$lib/server/bigcommerce', () => ({ getKibbleProductDetailByPath: mocks.getDetail, getKibblePdpRelatedProducts: mocks.getRelated }));
+vi.mock('$lib/server/bigcommerce', () => ({ getKibbleProductDetailByPath: mocks.getDetail, resolveKibblePdpRelatedProducts: mocks.resolveRelated }));
 vi.mock('$lib/server/kibble-demo-ai-budget', () => ({ reserveKibbleDemoAiCall: mocks.reserveBudget }));
 vi.mock('$lib/server/layout-provenance', () => ({ buildContractedLayoutProvenance: mocks.provenance }));
 vi.mock('$lib/server/generation-log', () => ({ logGeneration: mocks.logGeneration }));
@@ -58,7 +58,11 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 		mocks.findSessionStore.mockReset().mockResolvedValue(state.store);
 		mocks.infer.mockReset().mockReturnValue(inference);
 		mocks.getDetail.mockReset().mockResolvedValue(structuredClone(detail));
-		mocks.getRelated.mockReset().mockImplementation(async (value: typeof detail) => value.relatedProducts.edges.map(({ node }) => node));
+		mocks.resolveRelated.mockReset().mockImplementation(async (value: typeof detail) => ({
+			products: value.relatedProducts.edges.map(({ node }) => node),
+			candidateSource: 'native_related',
+			relationKind: 'related',
+		}));
 		mocks.reserveBudget.mockReset().mockResolvedValue({ ok: true, sessionUsed: 1, globalUsed: 1 });
 		mocks.rankWithModel.mockReset().mockResolvedValue({ policy: { policyVersion: 'pdp-assist-v1', provenance: { zoneBinding: { instanceId: 'pdp.related' } } }, rankedProductIds: ['13', '11', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, adapter, modelId: 'claude-haiku-4-5', modelCallCount: 1 });
 		mocks.provenance.mockReset().mockReturnValue({ decisionSource: 'model' });
@@ -81,6 +85,9 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 		const body = await response.json();
 		expect(body).toMatchObject({ version: 'kibble-pdp-presentation-preview-v2', routePath: '/product/puppy-starter-kit', rankedProductIds: ['13', '11', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, presentationPolicy: { capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'] } });
 		expect(JSON.stringify(body)).not.toContain('browser-owned');
+		expect(mocks.provenance).toHaveBeenCalledWith(expect.objectContaining({
+			catalogInput: expect.objectContaining({ candidateSource: 'native_related', relationKind: 'related' }),
+		}));
 	});
 
 	it('rejects bodies that try to inject browser facts before catalog or budget work', async () => {

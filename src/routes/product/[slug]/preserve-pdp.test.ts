@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-	getKibbleProductDetailByPath: vi.fn(), getKibblePdpRelatedProducts: vi.fn(), createStoreFromRequest: vi.fn(), infer: vi.fn(),
+	getKibbleProductDetailByPath: vi.fn(), resolveKibblePdpRelatedProducts: vi.fn(), createStoreFromRequest: vi.fn(), infer: vi.fn(),
 	buildContractedLayoutProvenance: vi.fn(), logGeneration: vi.fn(async () => {}),
 }));
 
 vi.mock('$lib/server/bigcommerce', () => ({
 	getKibbleProductDetailByPath: mocks.getKibbleProductDetailByPath,
-	getKibblePdpRelatedProducts: mocks.getKibblePdpRelatedProducts,
+	resolveKibblePdpRelatedProducts: mocks.resolveKibblePdpRelatedProducts,
 	getProductByPath: vi.fn(), getProductsByCategory: vi.fn(),
 	customFieldsToRecord: (product: { customFields: { edges: Array<{ node: { name: string; value: string } }> } }) => Object.fromEntries(product.customFields.edges.map(({ node }) => [node.name, node.value])),
 }));
@@ -43,7 +43,11 @@ describe('Kibble Preserve PDP route', () => {
 	beforeEach(() => {
 		process.env.BRAND_ID = 'kibble';
 		mocks.getKibbleProductDetailByPath.mockReset().mockResolvedValue(detail);
-		mocks.getKibblePdpRelatedProducts.mockReset().mockImplementation(async (value: typeof detail) => value.relatedProducts.edges.map(({ node }) => node));
+		mocks.resolveKibblePdpRelatedProducts.mockReset().mockImplementation(async (value: typeof detail) => ({
+			products: value.relatedProducts.edges.map(({ node }) => node),
+			candidateSource: 'category_sibling',
+			relationKind: null,
+		}));
 		mocks.createStoreFromRequest.mockReset().mockResolvedValue({ visitCount: 1, store: {
 			toInferenceContext: () => ({}), getCrossSessionContext: () => ({ scenarioId: null }),
 		} });
@@ -91,12 +95,14 @@ describe('Kibble Preserve PDP route', () => {
 			name: `Related Food ${entityId}`,
 			path: `/related-food-${entityId}/`,
 		}));
-		mocks.getKibblePdpRelatedProducts.mockResolvedValueOnce(candidates);
+		mocks.resolveKibblePdpRelatedProducts.mockResolvedValueOnce({ products: candidates, candidateSource: 'native_related', relationKind: 'related' });
 
 		const data = await load(preserveEvent('verified-food') as never);
 		if (!data || !('kibblePdp' in data)) throw new Error('Expected Kibble PDP data.');
 		expect(data.kibblePdp.relatedProducts).toHaveLength(3);
 		expect(data.kibblePdp.zoneAdapter).toMatchObject({ instanceId: 'pdp.related' });
+		expect(data.kibblePdp.relatedCandidateSource).toBe('native_related');
+		expect(data.kibblePdp.relatedRelationKind).toBe('related');
 	});
 
 	it('fails closed before catalog access when the trusted route is explicitly unavailable', async () => {
