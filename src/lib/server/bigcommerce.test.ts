@@ -151,4 +151,24 @@ describe('BigCommerce Kibble Preserve PDP query', () => {
 			products: [product(8), product(9), product(10)],
 		});
 	});
+
+	it('fills the Surf & Turf bundle PDP from its BigCommerce Bundles category', async () => {
+		const detail = {
+			...product(3071),
+			categories: { edges: [{ node: { entityId: 332, name: 'Bundles', path: '/bundles-ch1/' } }] },
+			images: { edges: [] }, inventory: null, productOptions: { edges: [] },
+			relatedProducts: { edges: [] },
+		};
+		const categoryProducts = [3064, 3065, 3066, 3067, 3068, 3069, 3070, 3071].map(product);
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async () => categoryResponse(
+			categoryProducts,
+			{ hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null },
+		));
+
+		const resolution = await resolveKibblePdpRelatedProducts(detail);
+
+		expect(resolution.products.map(({ entityId }) => entityId)).toEqual([3064, 3065, 3066, 3067]);
+		expect(resolution.candidateSource).toBe('category_sibling');
+		expect(resolution.relationKind).toBeNull();
+	});
 });
