@@ -74,6 +74,29 @@ export type KibbleCartMutationResult = {
 	sessionCookie: string | null;
 };
 
+export type KibbleCustomer = {
+	entityId: number;
+	firstName: string;
+	lastName: string;
+	email: string;
+};
+
+export type KibbleCustomerLoginResult = {
+	customer: KibbleCustomer;
+	accessToken: string;
+	accessTokenExpiresAt: string | null;
+	cartEntityId: string | null;
+	sessionCookie: string | null;
+};
+
+export type KibbleCustomerOrder = {
+	entityId: number;
+	updatedAt: string | null;
+	subTotal: CommerceMoney | null;
+	totalIncTax: CommerceMoney | null;
+	itemCount: number;
+};
+
 type GraphQLResponse<T> = {
 	data: T;
 	errors?: Array<{ message: string }>;
@@ -86,7 +109,7 @@ type CommerceRequestOptions = {
 
 export class KibbleCommerceError extends Error {
 	readonly status: number;
-	readonly kind: 'configuration' | 'provider' | 'stale-cart' | 'validation';
+	readonly kind: 'configuration' | 'provider' | 'stale-cart' | 'validation' | 'authentication';
 
 	constructor(message: string, status = 502, kind: KibbleCommerceError['kind'] = 'provider') {
 		super(message);
@@ -147,7 +170,7 @@ async function commerceQuery<T>(
 		throw new KibbleCommerceError(
 			`Commerce provider returned HTTP ${response.status}.`,
 			response.status >= 500 ? 502 : response.status,
-			response.status === 404 ? 'stale-cart' : 'provider',
+			response.status === 401 ? 'authentication' : response.status === 404 ? 'stale-cart' : 'provider',
 		);
 	}
 
@@ -155,7 +178,12 @@ async function commerceQuery<T>(
 	if (payload.errors?.length) {
 		const rawMessage = payload.errors[0].message.toLowerCase();
 		const stale = /cart.*(not found|does not exist)|not found.*cart/.test(rawMessage);
-		throw new KibbleCommerceError('Commerce provider rejected the cart operation.', stale ? 404 : 502, stale ? 'stale-cart' : 'provider');
+		const authentication = /authentication|credential|password|login|customer.*(not authorized|not logged)/.test(rawMessage);
+		throw new KibbleCommerceError(
+			authentication ? 'Commerce provider rejected the customer credentials.' : 'Commerce provider rejected the operation.',
+			authentication ? 401 : stale ? 404 : 502,
+			authentication ? 'authentication' : stale ? 'stale-cart' : 'provider',
+		);
 	}
 	return { data: payload.data, sessionCookie: extractSessionCookie(response.headers) };
 }
@@ -293,4 +321,148 @@ export async function createKibbleCheckoutRedirect(
 	const url = data.cart.createCartRedirectUrls.redirectUrls?.redirectedCheckoutUrl;
 	if (!url || !url.startsWith('https://')) throw new KibbleCommerceError('Commerce provider did not return a checkout URL.');
 	return url;
+}
+
+/**
+ * Verified against the current BigCommerce Storefront GraphQL customer login
+ * contract: https://docs.bigcommerce.com/developer/api-reference/graphql/storefront/mutations/login
+ * and server-side token handling:
+ * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/authentication
+ */
+export async function loginKibbleCustomer(
+	email: string,
+	password: string,
+	guestCartEntityId: string | null,
+	options?: CommerceRequestOptions,
+): Promise<KibbleCustomerLoginResult | null> {
+	const { data, sessionCookie } = await commerceQuery<{
+		login: {
+			customer: KibbleCustomer | null;
+			customerAccessToken: { value: string; expiresAt: string | null } | null;
+			cart: { entityId: string } | null;
+		} | null;
+	}>(`
+		mutation CustomerLogin($email: String!, $password: String!, $guestCartEntityId: String) {
+			login(email: $email, password: $password, guestCartEntityId: $guestCartEntityId) {
+				customer { entityId firstName lastName email }
+				cart { entityId }
+				customerAccessToken { value expiresAt }
+			}
+		}
+	`, { email, password, guestCartEntityId }, options);
+	const result = data.login;
+	if (!result?.customer || !result.customerAccessToken?.value) return null;
+	return {
+		customer: result.customer,
+		accessToken: result.customerAccessToken.value,
+		accessTokenExpiresAt: result.customerAccessToken.expiresAt,
+		cartEntityId: result.cart?.entityId ?? null,
+		sessionCookie: sessionCookie,
+	};
+}
+
+/**
+ * Verified against the current BigCommerce GraphQL Storefront customer guide:
+ * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/customers
+ * Registration errors are provider-owned; this adapter returns only safe text.
+ */
+export async function registerKibbleCustomer(input: {
+	firstName: string;
+	lastName: string;
+	email: string;
+	password: string;
+}): Promise<{ customer: KibbleCustomer | null; errors: string[] }> {
+	const { data } = await commerceQuery<{
+		customer: {
+			registerCustomer: {
+				customer: KibbleCustomer | null;
+				errors: Array<{ message: string }>;
+			};
+		};
+	}>(`
+		mutation RegisterCustomer($input: RegisterCustomerInput!) {
+			customer {
+				registerCustomer(input: $input) {
+					customer { entityId firstName lastName email }
+					errors {
+						__typename
+						... on ValidationError { message }
+						... on CustomerRegistrationError { message }
+						... on EmailAlreadyInUseError { message }
+						... on AccountCreationDisabledError { message }
+					}
+				}
+			}
+		}
+	`, { input });
+	const result = data.customer.registerCustomer;
+	return { customer: result.customer, errors: result.errors.map(({ message }) => message).filter(Boolean) };
+}
+
+/** BigCommerce invalidates the customer access token when this server-side logout runs. */
+export async function logoutKibbleCustomer(
+	accessToken: string,
+	options?: CommerceRequestOptions,
+): Promise<void> {
+	await commerceQuery<{ logout: { result: string | null } }>(`
+		mutation CustomerLogout {
+			logout { result }
+		}
+	`, undefined, { ...options, customerAccessToken: accessToken });
+}
+
+/**
+ * The Storefront GraphQL orders surface is currently documented as beta:
+ * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/orders
+ * Keep the response summary narrow and customer-context-bound.
+ */
+export async function getKibbleCustomerOrders(
+	accessToken: string,
+	options?: CommerceRequestOptions,
+): Promise<KibbleCustomerOrder[]> {
+	const { data } = await commerceQuery<{
+		customer: {
+			orders: {
+				edges: Array<{ node: {
+					entityId: number;
+					updatedAt: { utc: string } | null;
+					subTotal: CommerceMoney | null;
+					totalIncTax: CommerceMoney | null;
+					consignments: { shipping: { edges: Array<{ node: { lineItems: { edges: Array<{ node: { quantity: number } }> } } }> } };
+				} }>;
+			};
+		} | null;
+	}>(`
+		query CustomerOrders {
+			customer {
+				orders {
+					edges {
+						node {
+						entityId
+						updatedAt { utc }
+						subTotal { value currencyCode }
+						totalIncTax { value currencyCode }
+						consignments {
+							shipping {
+								edges {
+									node {
+									lineItems { edges { node { quantity } } }
+								}
+							}
+							}
+						}
+					}
+				}
+			}
+		}
+	`, undefined, { ...options, customerAccessToken: accessToken });
+	return data.customer?.orders.edges.map(({ node }) => ({
+		entityId: node.entityId,
+		updatedAt: node.updatedAt?.utc ?? null,
+		subTotal: node.subTotal,
+		totalIncTax: node.totalIncTax,
+		itemCount: node.consignments.shipping.edges
+			.flatMap(({ node: consignment }) => consignment.lineItems.edges)
+			.reduce((sum, { node: line }) => sum + line.quantity, 0),
+	})) ?? [];
 }

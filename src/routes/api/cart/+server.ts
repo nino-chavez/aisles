@@ -19,6 +19,7 @@ import {
 	getCachedKibbleCart,
 	getKibbleCartSessionCookie,
 } from '$lib/server/kibble-cart-store';
+import { getKibbleCommerceSession } from '$lib/server/kibble-commerce-session';
 import { defaultEvaluator } from '$lib/server/incentives';
 import {
 	readAppliedCodes,
@@ -124,10 +125,13 @@ async function emitKibbleAddToCartSignal(cookies: Cookies, productEntityId: numb
 	}
 }
 
-async function getKibbleCartForRequest(cartId: string): Promise<KibbleCart | null> {
+async function getKibbleCartForRequest(cartId: string, customerAccessToken: string | null, providerSessionCookie: string | null): Promise<KibbleCart | null> {
 	const cached = await getCachedKibbleCart(cartId);
-	if (cached) return cached.cart;
-	const result = await getKibbleCart(cartId, { sessionCookie: await getKibbleCartSessionCookie(cartId) });
+	if (cached && !customerAccessToken) return cached.cart;
+	const result = await getKibbleCart(cartId, {
+		sessionCookie: cached?.sessionCookie ?? await getKibbleCartSessionCookie(cartId) ?? providerSessionCookie,
+		customerAccessToken,
+	});
 	if (!result.cart) return null;
 	await cacheKibbleCart(result.cart, result.sessionCookie);
 	return result.cart;
@@ -138,21 +142,22 @@ async function handleKibblePost(request: Request, cookies: Cookies) {
 	const body = await request.json() as Record<string, unknown>;
 	if (body.action) return json({ error: 'Promotions are not available in this slice.' }, { status: 400 });
 	const lineItem = await validateKibbleLine(body);
+	const customerSession = await getKibbleCommerceSession(cookies);
 	const cartId = cookies.get('bc_cart_id');
 	let result;
 	let previousSessionCookie: string | null = null;
 	if (cartId) {
-		const sessionCookie = await getKibbleCartSessionCookie(cartId);
+		const sessionCookie = await getKibbleCartSessionCookie(cartId) ?? customerSession?.providerSessionCookie ?? null;
 		previousSessionCookie = sessionCookie;
 		try {
-			result = await addKibbleCartLine(cartId, lineItem, { sessionCookie });
+			result = await addKibbleCartLine(cartId, lineItem, { sessionCookie, customerAccessToken: customerSession?.accessToken });
 		} catch (error) {
 			if (!(error instanceof KibbleCommerceError) || error.kind !== 'stale-cart') throw error;
 			await evictKibbleCart(cartId);
-			result = await createKibbleCart(lineItem);
+			result = await createKibbleCart(lineItem, { customerAccessToken: customerSession?.accessToken });
 		}
 	} else {
-		result = await createKibbleCart(lineItem);
+		result = await createKibbleCart(lineItem, { customerAccessToken: customerSession?.accessToken });
 	}
 	await cacheKibbleCart(result.cart, result.sessionCookie ?? previousSessionCookie);
 	cookies.set('bc_cart_id', result.cart.entityId, {
@@ -172,9 +177,10 @@ async function handleKibblePatch(request: Request, cookies: Cookies) {
 	}
 	const cartId = cookies.get('bc_cart_id');
 	if (!cartId) return json({ error: 'No cart.' }, { status: 404 });
+	const customerSession = await getKibbleCommerceSession(cookies);
 	let cached = await getCachedKibbleCart(cartId);
 	if (!cached) {
-		const recovered = await getKibbleCart(cartId, { sessionCookie: await getKibbleCartSessionCookie(cartId) });
+		const recovered = await getKibbleCart(cartId, { sessionCookie: await getKibbleCartSessionCookie(cartId) ?? customerSession?.providerSessionCookie, customerAccessToken: customerSession?.accessToken });
 		if (!recovered.cart) {
 			await evictKibbleCart(cartId);
 			cookies.delete('bc_cart_id', { path: '/' });
@@ -185,11 +191,11 @@ async function handleKibblePatch(request: Request, cookies: Cookies) {
 	}
 	const existing = cached?.cart.lineItems.physicalItems.find((item) => item.entityId === lineItemEntityId);
 	if (!existing) return json({ error: 'Line item not found.' }, { status: 404 });
-	const sessionCookie = cached?.sessionCookie ?? undefined;
+	const sessionCookie = cached?.sessionCookie ?? customerSession?.providerSessionCookie ?? undefined;
 	if (quantity === 0) {
 		let result;
 		try {
-			result = await deleteKibbleCartLine(cartId, lineItemEntityId, { sessionCookie });
+			result = await deleteKibbleCartLine(cartId, lineItemEntityId, { sessionCookie, customerAccessToken: customerSession?.accessToken });
 		} catch (error) {
 			if (!(error instanceof KibbleCommerceError) || error.kind !== 'stale-cart') throw error;
 			await evictKibbleCart(cartId);
@@ -210,7 +216,7 @@ async function handleKibblePatch(request: Request, cookies: Cookies) {
 			productEntityId: existing.productEntityId,
 			quantity,
 			...(existing.variantEntityId ? { variantEntityId: existing.variantEntityId } : {}),
-		}, { sessionCookie });
+		}, { sessionCookie, customerAccessToken: customerSession?.accessToken });
 	} catch (error) {
 		if (!(error instanceof KibbleCommerceError) || error.kind !== 'stale-cart') throw error;
 		await evictKibbleCart(cartId);
@@ -225,8 +231,9 @@ async function handleKibbleGet(cookies: Cookies) {
 	if (getKibbleCommerceMode() === 'off') return json({ error: KIBBLE_CART_UNAVAILABLE }, { status: 503 });
 	const cartId = cookies.get('bc_cart_id');
 	if (!cartId) return json(kibbleCartPayload(null));
+	const customerSession = await getKibbleCommerceSession(cookies);
 	try {
-		const cart = await getKibbleCartForRequest(cartId);
+		const cart = await getKibbleCartForRequest(cartId, customerSession?.accessToken ?? null, customerSession?.providerSessionCookie ?? null);
 		if (!cart) {
 			await evictKibbleCart(cartId);
 			cookies.delete('bc_cart_id', { path: '/' });

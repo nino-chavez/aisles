@@ -70,6 +70,19 @@ describe('Kibble route-specific unavailable shells', () => {
 		expect(body).not.toContain('method="POST"');
 	});
 
+	it('renders the opt-in authenticated account state without provider credentials in markup', () => {
+		const body = render(KibbleAccountReference, { props: {
+			subtype: 'orders', brandName: 'Kibble & Co.', availabilityMessage: 'Account services are available.', commerceEnabled: true,
+			session: { entityId: 9, firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com' },
+			orders: [{ entityId: 101, updatedAt: '2026-08-14T00:00:00Z', subTotal: { value: 25, currencyCode: 'USD' }, totalIncTax: { value: 27, currencyCode: 'USD' }, itemCount: 2 }],
+		} }).body;
+		expect(body).toContain('data-kibble-backend-state="authenticated"');
+		expect(body).toContain('Order #101');
+		expect(body).toContain('$27.00');
+		expect(body).not.toContain('customer-token');
+		expect(body).not.toContain('commerce_session');
+	});
+
 	it.each(['gift', 'prepaid', 'confirmation'] as const)('renders the %s checkout subtype without a money-path claim', (subtype) => {
 		const body = render(KibbleCheckoutReference, { props: { subtype, availabilityMessage: 'Checkout unavailable.' } }).body;
 		expect(body).toContain(`data-kibble-checkout-subtype="${subtype}"`);
@@ -151,6 +164,13 @@ describe('Kibble route-specific unavailable shells', () => {
 	it('keeps every unavailable deep-route server free of backend calls', () => {
 		for (const path of ['account/[...path]/+page.server.ts', 'checkout/[subtype]/+page.server.ts', 'subscriptions/+page.server.ts', 'portal/subscriptions/[id]/+page.server.ts']) {
 			const source = route(path);
+			if (path.startsWith('account/')) {
+				// Account is the first opt-in commerce slice. Its loader remains inert
+				// when KIBBLE_COMMERCE_MODE=off; live-mode provider reads are tested at
+				// the adapter boundary instead of by this presentation-shell contract.
+				expect(source).toContain('loadKibbleAccountState');
+				continue;
+			}
 			expect(source).not.toMatch(/\bfetch\s*\(|\$lib\/server\/|createApiClient|checkoutKitLoader/);
 		}
 	});

@@ -8,6 +8,7 @@ import {
 	KibbleCommerceError,
 } from '$lib/server/kibble-commerce';
 import { cacheKibbleCart, getCachedKibbleCart, getKibbleCartSessionCookie } from '$lib/server/kibble-cart-store';
+import { getKibbleCommerceSession } from '$lib/server/kibble-commerce-session';
 
 /**
  * Create a just-in-time BigCommerce hosted-checkout handoff. The client never
@@ -21,9 +22,10 @@ export const POST: RequestHandler = async ({ cookies }) => {
 	if (!cartId) return json({ error: 'Your cart is empty.' }, { status: 400 });
 
 	try {
+		const customerSession = await getKibbleCommerceSession(cookies);
 		let cached = await getCachedKibbleCart(cartId);
 		if (!cached) {
-			const recovered = await getKibbleCart(cartId, { sessionCookie: await getKibbleCartSessionCookie(cartId) });
+			const recovered = await getKibbleCart(cartId, { sessionCookie: await getKibbleCartSessionCookie(cartId) ?? customerSession?.providerSessionCookie, customerAccessToken: customerSession?.accessToken });
 			if (!recovered.cart) {
 				cookies.delete('bc_cart_id', { path: '/' });
 				return json({ error: 'Your cart has expired.' }, { status: 409 });
@@ -33,7 +35,8 @@ export const POST: RequestHandler = async ({ cookies }) => {
 		}
 		if (!cached.cart.lineItems.physicalItems.length) return json({ error: 'Your cart is empty.' }, { status: 400 });
 		const url = await createKibbleCheckoutRedirect(cartId, {
-			sessionCookie: cached.sessionCookie ?? await getKibbleCartSessionCookie(cartId),
+			sessionCookie: cached.sessionCookie ?? await getKibbleCartSessionCookie(cartId) ?? customerSession?.providerSessionCookie,
+			customerAccessToken: customerSession?.accessToken,
 		});
 		return json({ url });
 	} catch (error) {

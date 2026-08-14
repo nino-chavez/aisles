@@ -4,6 +4,10 @@ import {
 	createKibbleCart,
 	createKibbleCheckoutRedirect,
 	getKibbleCart,
+	getKibbleCustomerOrders,
+	loginKibbleCustomer,
+	logoutKibbleCustomer,
+	registerKibbleCustomer,
 	type KibbleCart,
 } from './kibble-commerce';
 
@@ -88,5 +92,45 @@ describe('Kibble commerce adapter', () => {
 		expect(body.variables).toEqual({ cartId: 'cart-1' });
 		expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('cookie')).toBe('bc_session=session-1');
 	});
-});
 
+	it('merges the guest cart during server-side customer login', async () => {
+		const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(response({ login: {
+			customer: { entityId: 9, firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com' },
+			customerAccessToken: { value: 'customer-token', expiresAt: '2026-08-21T00:00:00Z' },
+			cart: { entityId: 'customer-cart-9' },
+		} }));
+		const result = await loginKibbleCustomer('ada@example.com', 'password', 'guest-cart-1', { sessionCookie: 'bc_session=session-1' });
+		expect(result).toMatchObject({ customer: { entityId: 9, email: 'ada@example.com' }, accessToken: 'customer-token', cartEntityId: 'customer-cart-9' });
+		const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+		expect(body.variables).toEqual({ email: 'ada@example.com', password: 'password', guestCartEntityId: 'guest-cart-1' });
+		expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('cookie')).toBe('bc_session=session-1');
+	});
+
+	it('keeps registration errors provider-owned and sends no customer token to the browser', async () => {
+		const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(response({ customer: { registerCustomer: {
+			customer: null,
+			errors: [{ __typename: 'EmailAlreadyInUseError', message: 'Email already in use.' }],
+		} } }));
+		await expect(registerKibbleCustomer({ firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com', password: 'password' }))
+			.resolves.toEqual({ customer: null, errors: ['Email already in use.'] });
+		const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+		expect(body.query).toContain('registerCustomer');
+		expect(body.query).not.toContain('customerAccessToken');
+	});
+
+	it('sends customer context for logout and customer order reads', async () => {
+		const fetchMock = vi.spyOn(globalThis, 'fetch')
+			.mockResolvedValueOnce(response({ logout: { result: 'SUCCESS' } }))
+			.mockResolvedValueOnce(response({ customer: { orders: { edges: [{ node: {
+				entityId: 101,
+				updatedAt: { utc: '2026-08-14T00:00:00Z' },
+				subTotal: { value: 25, currencyCode: 'USD' },
+				totalIncTax: { value: 27, currencyCode: 'USD' },
+				consignments: { shipping: { edges: [{ node: { lineItems: { edges: [{ node: { quantity: 2 } }] } } }] } },
+			} }] } } }));
+		await logoutKibbleCustomer('customer-token', { sessionCookie: 'bc_session=session-1' });
+		const orders = await getKibbleCustomerOrders('customer-token', { sessionCookie: 'bc_session=session-1' });
+		expect(orders).toEqual([{ entityId: 101, updatedAt: '2026-08-14T00:00:00Z', subTotal: { value: 25, currencyCode: 'USD' }, totalIncTax: { value: 27, currencyCode: 'USD' }, itemCount: 2 }]);
+		for (const call of fetchMock.mock.calls) expect(new Headers(call[1]?.headers).get('x-bc-customer-access-token')).toBe('customer-token');
+	});
+});

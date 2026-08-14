@@ -8,6 +8,7 @@ import { createStoreFromRequest } from '$lib/signals/request';
 import { KIBBLE_COMMERCE_COPY } from '$lib/components/kibble/types';
 import { getKibbleCommerceMode, getKibbleCart } from '$lib/server/kibble-commerce';
 import { cacheKibbleCart, getCachedKibbleCart, getKibbleCartSessionCookie } from '$lib/server/kibble-cart-store';
+import { getKibbleCommerceSession } from '$lib/server/kibble-commerce-session';
 
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
 	const { renderMode, observeMode } = await parent();
@@ -20,13 +21,14 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 		let cart = null;
 		let cartError: string | null = null;
 		if (commerceEnabled) {
+			const customerSession = await getKibbleCommerceSession(cookies);
 			const cartId = cookies.get('bc_cart_id');
 			if (cartId) {
 				try {
 					const cached = await getCachedKibbleCart(cartId);
-					if (cached) cart = cached.cart;
+					if (cached && !customerSession) cart = cached.cart;
 					else {
-						const result = await getKibbleCart(cartId, { sessionCookie: await getKibbleCartSessionCookie(cartId) });
+						const result = await getKibbleCart(cartId, { sessionCookie: cached?.sessionCookie ?? await getKibbleCartSessionCookie(cartId) ?? customerSession?.providerSessionCookie, customerAccessToken: customerSession?.accessToken });
 						cart = result.cart;
 						if (result.cart) await cacheKibbleCart(result.cart, result.sessionCookie);
 					}

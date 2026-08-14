@@ -155,6 +155,21 @@ export type KibbleCommerceCopy = {
 	viewCartLabel: string;
 };
 
+export type KibbleAccountSessionView = {
+	entityId: number;
+	firstName: string;
+	lastName: string;
+	email: string;
+};
+
+export type KibbleOrderView = {
+	entityId: number;
+	updatedAt: string | null;
+	subTotal: { value: number; currencyCode: string } | null;
+	totalIncTax: { value: number; currencyCode: string } | null;
+	itemCount: number;
+};
+
 export const KIBBLE_COMMERCE_COPY: KibbleCommerceCopy = {
 	addToCartLabel: 'Add to cart',
 	addingToCartLabel: 'Adding to cart…',
