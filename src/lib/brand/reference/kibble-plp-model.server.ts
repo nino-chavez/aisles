@@ -1,9 +1,7 @@
-import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
-import { model, withModelFallback } from '$lib/server/model';
-import { createKibbleDemoProviderDeadline } from '$lib/server/kibble-demo-ai-deadline.server';
-import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS } from '$lib/kibble-demo-ai-boundary';
+import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS, KIBBLE_DEMO_PROVIDER_DEADLINE_MS } from '$lib/kibble-demo-ai-boundary';
+import { runBoundedModelAction } from '$lib/server/bounded-model-action.server';
 import { getTrustedKibbleObservePlpProductRankingZonePolicy } from '$lib/brand/composition-policy';
 import { SHOPPER_ROUTE_MANIFEST_DIGEST, SHOPPER_ROUTE_MANIFEST_VERSION } from '$lib/foundation/autonomy-zone-route';
 import type { TrustedZoneFieldCatalog } from '$lib/foundation/zone-decision-schema';
@@ -75,43 +73,41 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 	let inputTokens: number | undefined;
 	let outputTokens: number | undefined;
 	let presentationDecision: KibblePlpPresentationDecision | null = null;
-	const deadline = createKibbleDemoProviderDeadline();
 	const runModel: ZoneModelRunner = async ({ outputSchema }) => {
-		const generated = await withModelFallback(async (candidateModelId) => {
-			modelCallCount += 1;
-			return generateText({ model: model(candidateModelId), abortSignal: deadline.signal, maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS, output: Output.object({ schema: providerOutputSchema }), prompt });
-		}, deadline.signal);
+		const generated = await runBoundedModelAction({
+			outputSchema: providerOutputSchema,
+			prompt,
+			maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
+			timeoutMs: KIBBLE_DEMO_PROVIDER_DEADLINE_MS,
+		});
+		modelCallCount = generated.callCount;
 		modelId = generated.modelId;
-		inputTokens = generated.result.usage?.inputTokens;
-		outputTokens = generated.result.usage?.outputTokens;
-		const providerResult = providerOutputSchema.parse(generated.result.output);
+		inputTokens = generated.inputTokens;
+		outputTokens = generated.outputTokens;
+		const providerResult = generated.output;
 		const { rankedProductIds, ...presentationFields } = providerResult;
 		presentationDecision = parseKibblePlpPresentationDecision(presentationFields);
 		if (!presentationDecision) throw new Error('Kibble PLP presentation decision left the merchant allow-list.');
 		return outputSchema.parse({ rankedProductIds });
 	};
-	try {
-		const execution = await executeZoneDecision({ policy, catalog, fallback: { identity, kind: 'content', content: productGridContent(prefixIds) }, runModel });
-		if (execution.status !== 'live' || execution.decisionMode !== 'model' || execution.render.kind !== 'content' || !modelId || modelCallCount < 1 || !presentationDecision) {
-			throw new Error(`Kibble PLP model ranking did not publish: ${execution.status === 'fallback' ? execution.reason : execution.status}.`);
-		}
-		const raw = execution.decision?.envelope.rawModelContent;
-		const rankedValue = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).rankedProductIds : null;
-		const rankedPrefixIds: string[] = Array.isArray(rankedValue) ? rankedValue.filter(isString) : [];
-		if (!sameExactSet(rankedPrefixIds, prefixIds)) throw new Error('Kibble PLP model output was not an exact approved prefix permutation.');
-		return {
-			policy, execution, prefixIds, tailIds, rankedPrefixIds, modelId, modelCallCount, prompt, presentationDecision,
-			productCatalogId: identity.productCatalogId, productCatalogVersion: identity.productCatalogVersion,
-			...(inputTokens === undefined ? {} : { inputTokens }), ...(outputTokens === undefined ? {} : { outputTokens }),
-			zoneAdapter: {
-				instanceId: 'plp.product-ranking', sharedStatus: 'live' as const, sharedContentKind: 'content' as const, decisionMode: 'model' as const,
-				modelCallCount, adapterId: 'kibble.zone.plp.product-ranking', componentVariantId: 'kibble.category-listing.ranked-prefix',
-				inputSha256: hashKibblePlpRankingInput(prefixIds, tailIds, input.routePath), content: execution.render.content,
-			},
-		};
-	} finally {
-		deadline.dispose();
+	const execution = await executeZoneDecision({ policy, catalog, fallback: { identity, kind: 'content', content: productGridContent(prefixIds) }, runModel });
+	if (execution.status !== 'live' || execution.decisionMode !== 'model' || execution.render.kind !== 'content' || !modelId || modelCallCount < 1 || !presentationDecision) {
+		throw new Error(`Kibble PLP model ranking did not publish: ${execution.status === 'fallback' ? execution.reason : execution.status}.`);
 	}
+	const raw = execution.decision?.envelope.rawModelContent;
+	const rankedValue = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).rankedProductIds : null;
+	const rankedPrefixIds: string[] = Array.isArray(rankedValue) ? rankedValue.filter(isString) : [];
+	if (!sameExactSet(rankedPrefixIds, prefixIds)) throw new Error('Kibble PLP model output was not an exact approved prefix permutation.');
+	return {
+		policy, execution, prefixIds, tailIds, rankedPrefixIds, modelId, modelCallCount, prompt, presentationDecision,
+		productCatalogId: identity.productCatalogId, productCatalogVersion: identity.productCatalogVersion,
+		...(inputTokens === undefined ? {} : { inputTokens }), ...(outputTokens === undefined ? {} : { outputTokens }),
+		zoneAdapter: {
+			instanceId: 'plp.product-ranking', sharedStatus: 'live' as const, sharedContentKind: 'content' as const, decisionMode: 'model' as const,
+			modelCallCount, adapterId: 'kibble.zone.plp.product-ranking', componentVariantId: 'kibble.category-listing.ranked-prefix',
+			inputSha256: hashKibblePlpRankingInput(prefixIds, tailIds, input.routePath), content: execution.render.content,
+		},
+	};
 }
 
 export function buildKibblePlpProviderOutputSchema(products: readonly Pick<KibblePlpCandidate, 'entityId'>[]) {

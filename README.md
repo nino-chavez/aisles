@@ -22,6 +22,10 @@ The result is a store that reorganizes itself for each visitor — **editorial f
 
 Four current configurations run on this single codebase. The seven Kibble subscription rules are gated to `BRAND_ID=kibble`; the other brands continue to use the original 31 rules. This is reuse inside the current generic renderer, not evidence that an unrelated merchant's reference storefront can be preserved by configuration alone.
 
+For new commerce presentation work, the canonical MVP is zone-scoped: the
+merchant owns the page and commerce state, while a bounded model may change an
+approved zone and must report exact before/after evidence. See the [generative-commerce MVP contract](docs/generative-commerce-mvp.md).
+
 ---
 
 ## Why it's different
@@ -43,6 +47,10 @@ And because it's AI-generated, the obvious risk is that the AI produces somethin
 ## How it works
 
 Every category page load runs the same three stages.
+
+The whole-page layout path described below remains for compatibility coverage.
+New commerce zones use the policy-bound provider and evidence path in the MVP
+contract instead of generating an entire page.
 
 ```
   Signals ─────────────▶ Inference ─────────────▶ Layout

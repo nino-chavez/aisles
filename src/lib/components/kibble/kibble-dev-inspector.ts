@@ -3,6 +3,12 @@
  * population; this component intentionally has no server or policy imports.
  */
 import type { KibblePresentationSnapshot } from '$lib/brand/reference/kibble-presentation-decisions';
+import {
+	buildPresentationDecisionEvidence,
+	hasPresentationDecisionChanged,
+	type PresentationChange,
+	type PresentationDecisionEvidence,
+} from '$lib/foundation/presentation-evidence';
 
 export type KibbleInspectorPersona = 'gatherer' | 'hunter' | 'researcher' | 'gifter';
 export type KibbleInspectorAuthority = 'fixed' | 'rules' | 'model';
@@ -73,35 +79,8 @@ export interface KibbleDevInspectorData {
 	};
 }
 
-export type KibbleDecisionEvidence = {
-	surface: 'home' | 'plp' | 'pdp' | 'search' | 'cart' | 'checkout';
-	zoneId: string;
-	zoneLabel: string;
-	policyVersion: string;
-	provider: 'anthropic' | null;
-	model: string | null;
-	calls: number | null;
-	before: KibbleInspectorProductSummary[];
-	after: KibbleInspectorProductSummary[];
-	moved: KibbleInspectorProductSummary[];
-	added: KibbleInspectorProductSummary[];
-	removed: KibbleInspectorProductSummary[];
-	unchanged: KibbleInspectorProductSummary[];
-	copy: KibblePresentationChange[];
-	components: KibblePresentationChange[];
-	sections: KibblePresentationChange[];
-	marketingBlocks: KibblePresentationChange[];
-	state: 'applied' | 'failed';
-	fallback: boolean;
-};
-
-export type KibblePresentationChange = {
-	id: string;
-	label: string;
-	before: string;
-	after: string;
-	changed: boolean;
-};
+export type KibbleDecisionEvidence = PresentationDecisionEvidence<'home' | 'plp' | 'pdp' | 'search' | 'cart' | 'checkout'>;
+export type KibblePresentationChange = PresentationChange;
 
 export type KibbleLivePreviewStatus =
 	| { state: 'waiting' | 'updating' | 'failed'; mode?: 'rules' | 'model'; evidence?: KibbleDecisionEvidence }
@@ -121,41 +100,11 @@ export function buildKibbleDecisionEvidence(input: {
 	presentationBefore?: KibblePresentationSnapshot;
 	presentationAfter?: KibblePresentationSnapshot;
 }): KibbleDecisionEvidence {
-	const before = input.before.map(({ id, name }) => ({ id, name }));
-	const after = input.after.map(({ id, name }) => ({ id, name }));
-	const beforeById = new Map(before.map((product, index) => [product.id, { product, index }]));
-	const afterIds = new Set(after.map(({ id }) => id));
-	const beforeIds = new Set(before.map(({ id }) => id));
-	const presentationBefore = input.presentationBefore ?? emptyPresentationSnapshot();
-	const presentationAfter = input.presentationAfter ?? presentationBefore;
-	return {
-		surface: input.surface,
-		zoneId: input.zoneId,
-		zoneLabel: input.zoneLabel,
-		policyVersion: input.policyVersion,
-		provider: input.provider,
-		model: input.model,
-		calls: input.calls,
-		before,
-		after,
-		moved: after.filter((product, index) => beforeById.has(product.id) && beforeById.get(product.id)?.index !== index),
-		added: after.filter(({ id }) => !beforeIds.has(id)),
-		removed: before.filter(({ id }) => !afterIds.has(id)),
-		unchanged: after.filter((product, index) => beforeById.get(product.id)?.index === index),
-		copy: comparePresentationEntries(presentationBefore.copy, presentationAfter.copy),
-		components: comparePresentationEntries(presentationBefore.components, presentationAfter.components),
-		sections: comparePresentationEntries(presentationBefore.sections, presentationAfter.sections),
-		marketingBlocks: comparePresentationEntries(presentationBefore.marketingBlocks, presentationAfter.marketingBlocks),
-		state: input.state,
-		fallback: input.state === 'failed',
-	};
+	return buildPresentationDecisionEvidence(input);
 }
 
 export function hasKibbleDecisionChanged(evidence: KibbleDecisionEvidence): boolean {
-	return evidence.moved.length > 0
-		|| evidence.added.length > 0
-		|| evidence.removed.length > 0
-		|| [...evidence.copy, ...evidence.components, ...evidence.sections, ...evidence.marketingBlocks].some(({ changed }) => changed);
+	return hasPresentationDecisionChanged(evidence);
 }
 
 export function describeKibbleDecisionDimensions(evidence: KibbleDecisionEvidence): string {
@@ -213,26 +162,6 @@ export function describeKibbleModelDecisionStatus(status: KibbleLivePreviewStatu
 			: `Bounded AI presentation applied for ${status.persona}.`;
 	}
 	return 'Bounded AI presentation is ready.';
-}
-
-function comparePresentationEntries(
-	before: KibblePresentationSnapshot['copy'],
-	after: KibblePresentationSnapshot['copy'],
-): KibblePresentationChange[] {
-	const beforeById = new Map(before.map((entry) => [entry.id, entry]));
-	const afterById = new Map(after.map((entry) => [entry.id, entry]));
-	const ids = [...new Set([...beforeById.keys(), ...afterById.keys()])];
-	return ids.map((id) => {
-		const beforeEntry = beforeById.get(id);
-		const afterEntry = afterById.get(id);
-		const beforeValue = beforeEntry?.value ?? 'Not shown';
-		const afterValue = afterEntry?.value ?? 'Not shown';
-		return { id, label: afterEntry?.label ?? beforeEntry?.label ?? id, before: beforeValue, after: afterValue, changed: beforeValue !== afterValue };
-	});
-}
-
-function emptyPresentationSnapshot(): KibblePresentationSnapshot {
-	return { copy: [], components: [], sections: [], marketingBlocks: [] };
 }
 
 export const KIBBLE_INSPECTOR_PERSONAS: readonly KibbleInspectorPersona[] = [

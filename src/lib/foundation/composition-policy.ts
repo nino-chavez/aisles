@@ -4,6 +4,7 @@ import {
 	isIssuedTrustedZoneIdentity,
 	type TrustedZoneIdentityDefinition,
 } from './trusted-zone-identity';
+import { assertCanonicalSurfaceAuthority } from './surface-authority';
 import { ZONES, type Surface, type ZoneId } from './zones';
 
 export const AUTONOMY_CAPABILITIES = [
@@ -233,6 +234,7 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 		);
 	}
 
+	const trustedHidden = zoneTarget.identity?.rendererContract === 'trusted-hidden';
 	const presetCapabilities = compileAutonomyPreset(surfacePolicy.preset);
 	const surfaceCapabilities = surfacePolicy.capabilities
 		? uniqueCapabilities(surfacePolicy.capabilities, `${input.surface} surface`)
@@ -245,6 +247,13 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 	assertPublicationNarrower(surfacePolicy.publicationMode, brand.maximum.publicationMode, `${input.surface} surface`);
 	if (surfacePolicy.preset === 'explore' && surfacePolicy.publicationMode === 'live') {
 		throw new CompositionPolicyValidationError('explore surface requires holdout or approval publication');
+	}
+	if (!trustedHidden) {
+		try {
+			assertCanonicalSurfaceAuthority(input.surface, surfacePolicy.decisionMode, surfaceCapabilities);
+		} catch (cause) {
+			throw new CompositionPolicyValidationError(cause instanceof Error ? cause.message : 'surface exceeds canonical authority');
+		}
 	}
 	const surfaceComponents = uniqueVariantIds(surfacePolicy.allowedComponentVariantIds, `${input.surface} surface components`);
 	const surfaceCss = uniqueVariantIds(surfacePolicy.allowedCssVariantIds, `${input.surface} surface CSS`);
@@ -265,7 +274,6 @@ export function compileCompositionPolicy(input: CompileCompositionPolicyInput): 
 		zonePolicy = surfacePolicy.zoneOverrides?.[zoneTarget.localZoneId];
 	}
 
-	const trustedHidden = zoneTarget.identity?.rendererContract === 'trusted-hidden';
 	const zoneLabel = zoneTarget.familyId ?? input.surface;
 	const zoneCapabilities = trustedHidden ? [] : zonePolicy?.capabilities
 		? uniqueCapabilities(zonePolicy.capabilities, `${zoneLabel} zone`)

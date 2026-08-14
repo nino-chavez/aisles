@@ -1,9 +1,7 @@
-import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
-import { model, withModelFallback } from '$lib/server/model';
-import { createKibbleDemoProviderDeadline } from '$lib/server/kibble-demo-ai-deadline.server';
-import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS } from '$lib/kibble-demo-ai-boundary';
+import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS, KIBBLE_DEMO_PROVIDER_DEADLINE_MS } from '$lib/kibble-demo-ai-boundary';
+import { runBoundedModelAction } from '$lib/server/bounded-model-action.server';
 import type { KibbleHomeCandidateProduct } from './kibble-home-decision';
 import { executeKibbleHomeModelShelf } from './kibble-zone-executor.server';
 import {
@@ -44,60 +42,45 @@ export async function rankKibbleHomeWithModel(input: {
 	let servedModelId = '';
 	let inputTokens: number | undefined;
 	let outputTokens: number | undefined;
-	const deadline = createKibbleDemoProviderDeadline();
-	try {
-		let presentationDecision: KibbleHomePresentationDecision | null = null;
-		const result = await executeKibbleHomeModelShelf({
-			products: input.products,
-			runModel: async ({ outputSchema }) => {
-				const generated = await withModelFallback(async (modelId) => {
-					modelCallCount += 1;
-					return generateText({
-						model: model(modelId),
-						abortSignal: deadline.signal,
-						maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
-						// Anthropic structured output rejects maxItems, which the
-						// reusable zone schema uses for its server-side bound. This
-						// provider hint retains the exact product enum and strict object
-						// shape without unsupported array keywords. The stricter derived
-						// zone schema validates the response immediately below and again
-						// inside executeZoneDecision before publication.
-						output: Output.object({ schema: providerOutputSchema }),
-						prompt,
-					});
-				}, deadline.signal);
-				servedModelId = generated.modelId;
-				inputTokens = generated.result.usage?.inputTokens;
-				outputTokens = generated.result.usage?.outputTokens;
-				const providerResult = providerOutputSchema.parse(generated.result.output);
-				const { rankedProductIds, ...presentationFields } = providerResult;
-				presentationDecision = parseKibbleHomePresentationDecision(presentationFields);
-				if (!presentationDecision) throw new Error('Kibble Home presentation decision left the merchant allow-list.');
-				return outputSchema.parse({ rankedProductIds });
-			},
-		});
-		if (!servedModelId || modelCallCount < 1 || !presentationDecision) throw new Error('Kibble Home model runner returned no provider evidence.');
-		const byId = new Map(input.products.map((product) => [String(product.entityId), product]));
-		const products: KibbleHomeCandidateProduct[] = result.rankedProductIds
-			.map((id: string) => byId.get(id))
-			.filter((product: KibbleHomeCandidateProduct | undefined): product is KibbleHomeCandidateProduct => !!product);
-		if (products.length !== input.products.length || new Set(products.map(({ entityId }) => entityId)).size !== input.products.length) {
-			throw new Error('Kibble Home model output was not an exact approved product permutation.');
-		}
-		return {
-			products,
-			zoneAdapter: { ...result.adapter, modelCallCount },
-			policy: result.policy,
-			modelId: servedModelId,
-			modelCallCount,
-			presentationDecision,
-			...(inputTokens === undefined ? {} : { inputTokens }),
-			...(outputTokens === undefined ? {} : { outputTokens }),
-			prompt,
-		};
-	} finally {
-		deadline.dispose();
+	let presentationDecision: KibbleHomePresentationDecision | null = null;
+	const result = await executeKibbleHomeModelShelf({
+		products: input.products,
+		runModel: async ({ outputSchema }) => {
+			const generated = await runBoundedModelAction({
+				outputSchema: providerOutputSchema,
+				prompt,
+				maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
+				timeoutMs: KIBBLE_DEMO_PROVIDER_DEADLINE_MS,
+			});
+			modelCallCount = generated.callCount;
+			servedModelId = generated.modelId;
+			inputTokens = generated.inputTokens;
+			outputTokens = generated.outputTokens;
+			const { rankedProductIds, ...presentationFields } = generated.output;
+			presentationDecision = parseKibbleHomePresentationDecision(presentationFields);
+			if (!presentationDecision) throw new Error('Kibble Home presentation decision left the merchant allow-list.');
+			return outputSchema.parse({ rankedProductIds });
+		},
+	});
+	if (!servedModelId || modelCallCount < 1 || !presentationDecision) throw new Error('Kibble Home model runner returned no provider evidence.');
+	const byId = new Map(input.products.map((product) => [String(product.entityId), product]));
+	const products: KibbleHomeCandidateProduct[] = result.rankedProductIds
+		.map((id: string) => byId.get(id))
+		.filter((product: KibbleHomeCandidateProduct | undefined): product is KibbleHomeCandidateProduct => !!product);
+	if (products.length !== input.products.length || new Set(products.map(({ entityId }) => entityId)).size !== input.products.length) {
+		throw new Error('Kibble Home model output was not an exact approved product permutation.');
 	}
+	return {
+		products,
+		zoneAdapter: { ...result.adapter, modelCallCount },
+		policy: result.policy,
+		modelId: servedModelId,
+		modelCallCount,
+		presentationDecision,
+		...(inputTokens === undefined ? {} : { inputTokens }),
+		...(outputTokens === undefined ? {} : { outputTokens }),
+		prompt,
+	};
 }
 
 export function buildKibbleHomeProviderOutputSchema(

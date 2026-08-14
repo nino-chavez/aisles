@@ -1,8 +1,6 @@
-import { generateText, Output } from 'ai';
 import type { PersonaInference } from '$lib/signals/types';
-import { model, withModelFallback } from '$lib/server/model';
-import { createKibbleDemoProviderDeadline } from '$lib/server/kibble-demo-ai-deadline.server';
-import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS } from '$lib/kibble-demo-ai-boundary';
+import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS, KIBBLE_DEMO_PROVIDER_DEADLINE_MS } from '$lib/kibble-demo-ai-boundary';
+import { runBoundedModelAction } from '$lib/server/bounded-model-action.server';
 import { executeKibbleBoundedCopyModelZone } from './kibble-zone-executor.server';
 import {
 	KIBBLE_CART_DEFAULT_PRESENTATION,
@@ -34,37 +32,31 @@ type Input =
 	| { surface: 'checkout'; routePath: '/checkout/gift' | '/checkout/prepaid'; subtype: 'gift' | 'prepaid'; inference: PersonaInference };
 
 export async function chooseKibbleBoundedCopyWithModel(input: Input) {
-	const deadline = createKibbleDemoProviderDeadline();
 	let modelCallCount = 0;
 	let modelId = '';
 	let inputTokens: number | undefined;
 	let outputTokens: number | undefined;
-	try {
-		const execution = await executeForSurface(input, async (outputSchema, prompt) => {
-			const generated = await withModelFallback(async (candidateModelId) => {
-				modelCallCount += 1;
-				return generateText({
-					model: model(candidateModelId), abortSignal: deadline.signal,
-					maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
-					output: Output.object({ schema: outputSchema }), prompt,
-				});
-			}, deadline.signal);
-			modelId = generated.modelId;
-			inputTokens = generated.result.usage?.inputTokens;
-			outputTokens = generated.result.usage?.outputTokens;
-			return generated.result.output;
+	const execution = await executeForSurface(input, async (outputSchema, prompt) => {
+		const generated = await runBoundedModelAction({
+			outputSchema,
+			prompt,
+			maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
+			timeoutMs: KIBBLE_DEMO_PROVIDER_DEADLINE_MS,
 		});
-		if (!modelId || modelCallCount < 1) throw new Error(`Kibble ${input.surface} model runner returned no provider evidence.`);
-		return {
-			...execution,
-			adapter: { ...execution.adapter, modelCallCount },
-			modelId, modelCallCount,
-			...(inputTokens === undefined ? {} : { inputTokens }),
-			...(outputTokens === undefined ? {} : { outputTokens }),
-		};
-	} finally {
-		deadline.dispose();
-	}
+		modelCallCount = generated.callCount;
+		modelId = generated.modelId;
+		inputTokens = generated.inputTokens;
+		outputTokens = generated.outputTokens;
+		return generated.output;
+	});
+	if (!modelId || modelCallCount < 1) throw new Error(`Kibble ${input.surface} model runner returned no provider evidence.`);
+	return {
+		...execution,
+		adapter: { ...execution.adapter, modelCallCount },
+		modelId, modelCallCount,
+		...(inputTokens === undefined ? {} : { inputTokens }),
+		...(outputTokens === undefined ? {} : { outputTokens }),
+	};
 }
 
 async function executeForSurface(
