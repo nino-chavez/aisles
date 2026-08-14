@@ -28,6 +28,12 @@ providers:
    an approved Kibble zone. It cannot set price, tax, shipping, promotion,
    payment, customer, cart, order, or subscription state.
 
+The merchant representation and shopper-intent amendment is recorded in
+[Decision 006](decisions/006-merchant-representation-and-intent.md). It is a
+prerequisite for expanding AI zones or exposing Auto-Refill controls. A
+category fallback may repair a sparse candidate set, but it must retain its
+source and must not be presented as a merchant-authored relationship.
+
 The first production-shaped slice is one-time purchase only:
 
 ```text
