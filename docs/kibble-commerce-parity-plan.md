@@ -91,18 +91,93 @@ authentication](https://docs.bigcommerce.com/developer/docs/storefront/guides/gr
 
 The preserve storefront now carries a pinned, display-safe capability
 projection alongside the live BigCommerce product read. The projection covers
-all 49 sandbox catalog rows: 34 subscription-eligible products and bundles,
-15 one-time-only products, and seven source capabilities. Home, category, and
-search cards render Auto-Refill price, cadence, savings, and the distinct trial,
-intro-offer, annual, prepaid, and gift labels when the source maps them to a
-product. Build-a-box remains explicitly portal-owned because the canonical
-reference has no storefront product URL for that flow.
+all 49 sandbox catalog rows. A generated offer snapshot contains 34 Auto-Refill
+rows, while the canonical storefront registry verified one day earlier lists
+10 products. Those are separate evidence classes, not one current eligibility
+claim. Home and category cards may render the hash-pinned Auto-Refill price,
+cadence, and savings when the current effective catalog price still supports
+the stated percentage. PDPs may additionally show trial, intro-offer, and
+annual evidence. Prepaid, gift, and build-a-box remain explicitly portal-owned
+and never appear as product capabilities. The offer file is undated, so the UI
+does not borrow the separate demo-state timestamp as an offer date.
 
 This projection makes the storefront demonstrable without pretending that a
 card label is a transaction. BigCommerce remains the live catalog and price
 authority; `bc-subscriptions` remains the plan and lifecycle authority. The
 projection must be replaced by a server-side plan lookup before any purchase
 mode, cart intent, or checkout action is enabled.
+
+### Merchant capability manifest and demo completeness
+
+The 1.9.0 display-only contract makes the catalog useful to both shoppers and the
+bounded presentation runtime. It does not add more marketing claims to the
+brand theme. It adds a separate merchant capability manifest with explicit
+provenance and ownership:
+
+```text
+BrandConfig
+  -> brand expression, navigation, and visual language
+
+Kibble merchant capability manifest
+  -> 49 catalog identities
+       -> consumable, durable, or bundle role
+       -> pinned offer projection and canonical-registry status
+       -> category shopper job and comparison dimensions
+       -> merchant-supported cadence options when the source supports them
+  -> seven capabilities reported live in the 2026-06-29 source snapshot
+       -> one local read-only review path each
+  -> seven configurable source models outside current Kibble intent
+       -> explicit not-claimed reason; no invented demo path
+  -> six enabled Kibble Aisles presentation capabilities
+       -> one Observe-ready review path each
+
+Provider services
+  -> cart, account, order, payment, plan, and subscription state
+```
+
+Category context is merchant-authored and category-specific. Dog food is
+compared by protein, life stage, food format, diet needs, and replenishment.
+Toys are compared by play style, size, durability, and supervision. A durable
+toy is therefore not treated as a weak Auto-Refill candidate merely because a
+global shopper persona favors repeat purchase. This folds in the Work Library
+finding that behavioral signals can invert across retail categories without
+turning the inference taxonomy into the product's differentiator.
+
+The manifest keeps the source records separate. The canonical storefront
+registry verified on 2026-06-28 lists 10 products and three PDP capabilities.
+A generated offer file contains 34 product rows. The broader demo-state,
+captured on 2026-06-29, names seven live capabilities: four storefront-facing
+and three portal-facing. The marketing registry also names seven configurable
+models that the Kibble demo does not claim: bundle plans, membership, metered
+usage, curation, allotment, multi-actor, and calendar-anchored billing.
+One source contradiction remains visible instead of being averaged away: the
+June 28 canonical registry calls gift absent because no `gift_tokens` table
+exists, while the June 29 demo-state reports one live gift portal scenario.
+That is evidence of source drift, not proof that gift is currently available.
+Aisles exposes the four storefront capabilities as catalog/PDP evidence and
+the three portal capabilities as fixed service-boundary previews. It does not
+claim that the Aisles storefront completed the source service's flow. The
+capability manifest never emits product links. It uses local evidence anchors;
+only ordinary catalog surfaces may emit PDP links through the existing
+publication and live-product gates.
+
+Acceptance for this slice is mechanical:
+
+- every one of the 49 catalog IDs resolves to exactly one category job and
+  product role;
+- every live-in-snapshot Kibble capability resolves to a local review path;
+- every configurable source model outside current Kibble intent carries an
+  explicit not-claimed reason;
+- pinned offer evidence is suppressed when the live BigCommerce effective price no
+  longer supports the pinned savings arithmetic;
+- every presentation capability enabled by the Kibble policies resolves to an
+  Observe-ready review path;
+- `generate_bounded_copy` and `select_page_recipe` remain absent because the
+  current Kibble policy does not enable them;
+- no manifest record carries a cart intent, plan ID, payment value, customer
+  identity, or transaction authorization; and
+- Observe labels merchant outcome proof as not measured. Capability coverage
+  is not conversion or revenue evidence.
 
 ## Reference behavior and internal patterns
 
@@ -889,7 +964,7 @@ The following external links were fetched directly and returned HTTP 200 on
 | Source | Claim checked |
 |---|---|
 | [GraphQL Storefront authentication](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/authentication) | Customer access tokens are server-to-server; private tokens are for server-side/headless use; customer token is sent in `X-Bc-Customer-Access-Token`. |
-| [GraphQL Storefront customers](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/customers) | Customer-specific headless requests use private token plus customer access token. |
+| [GraphQL Storefront customers](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/customers) | The customer surface supports registration, account updates, address-book operations, password changes, and stored payment-instrument reads. Authentication mechanics are cited separately above. |
 | [GraphQL Storefront orders](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/orders) | Customer order history is available through the Storefront GraphQL customer order surface, with current capability limits. |
 | [GraphQL Storefront carts and checkout](https://docs.bigcommerce.com/developer/docs/admin/checkout-and-cart/custom-checkouts/graphql-storefront) | GraphQL supports cart management, redirect URLs, cart metafields, checkout, and separates payment handling. |
 | [GraphQL headless end-to-end guide](https://docs.bigcommerce.com/developer/docs/storefront/headless/end-to-end-guides/graphql-storefront) | Headless cart creation uses customer context through the server-side customer access-token header. |
@@ -898,7 +973,7 @@ The following external links were fetched directly and returned HTTP 200 on
 | [Headless order handling](https://docs.bigcommerce.com/developer/docs/storefront/headless/orders) | Headless checkout order creation uses `POST /v3/checkouts/{checkoutId}/orders`. |
 | [Admin create order](https://docs.bigcommerce.com/developer/api-reference/rest/admin/management/orders/create-order) | The separate Admin Management API create-order path is `POST /v2/orders`; do not invent `POST /v3/orders`. |
 | [Payments API](https://docs.bigcommerce.com/developer/api-reference/rest/admin/payments) | BigCommerce payment processing is a separate PCI-compliant payment API. |
-| [Payment access token](https://docs.bigcommerce.com/developer/api-reference/rest/admin/payments/tokens/create-payment-access-token) | Payment access-token endpoint and required payment scopes are provider-specific and server-side. |
+| [Payment access token](https://docs.bigcommerce.com/developer/api-reference/rest/admin/payments/tokens/create-payment-access-token) | `POST /v3/payments/access_tokens` requires `X-Auth-Token`; the documentation names the `store_payments_access_token_create` and `store_payments_methods_read` scopes. |
 | [Payment methods](https://docs.bigcommerce.com/developer/api-reference/rest/admin/payments/methods/v3/get-payment-methods) | Accepted methods/stored instruments are read through the current V3 payment-method surface. |
 | [Webhook events](https://docs.bigcommerce.com/developer/docs/integrations/webhooks/event-reference/events) | Order-created includes incomplete/failed-payment orders; status, transaction, and refund events are distinct. |
 | [HTTP Webhooks](https://docs.bigcommerce.com/developer/docs/beta/webhooks/http-webhooks) | Validate webhook signature and timestamp to protect the callback and replay window. |

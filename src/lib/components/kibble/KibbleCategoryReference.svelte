@@ -2,6 +2,7 @@
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
 	import type { KibbleAutoRefillOffer, KibbleProduct, KibbleZoneAdapterBinding } from './types';
+	import type { KibbleCategoryJobProfile } from '$lib/brand/reference/kibble-catalog-enrichment';
 	import type { KibblePlpSort } from '$lib/brand/reference/kibble-plp';
 	import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
 	import type { materializeKibblePlpPresentation } from '$lib/brand/reference/kibble-presentation-decisions';
@@ -27,6 +28,7 @@
 		presentation = null,
 		presentationModelCallCount = 0,
 		subscriptionOffers = {},
+		categoryGuide,
 	}: {
 		eyebrow: string;
 		title: string;
@@ -48,6 +50,7 @@
 		presentation?: ReturnType<typeof materializeKibblePlpPresentation> | null;
 		presentationModelCallCount?: number;
 		subscriptionOffers?: Record<string, KibbleAutoRefillOffer>;
+		categoryGuide: KibbleCategoryJobProfile;
 	} = $props();
 
 	function submitSort(event: Event) {
@@ -88,6 +91,16 @@
 				</form>
 			</div>
 		</header>
+
+		<aside class="kc-reference-category__guide" data-aisles-zone-instance="plp.category-guide" data-aisles-zone-label="Merchant category guide" data-aisles-authority="fixed" data-aisles-model-calls="0" aria-labelledby="kibble-category-guide-heading">
+			<div>
+				<p class="kc-reference-eyebrow">How this shelf helps</p>
+				<h2 id="kibble-category-guide-heading">{categoryGuide.shopperJob}</h2>
+			</div>
+			<ul aria-label="Merchant-approved comparison dimensions">
+				{#each categoryGuide.decisionDimensions as dimension (dimension)}<li>{dimension}</li>{/each}
+			</ul>
+		</aside>
 
 		{#if presentation?.marketingBlock || productRanking?.eligible}
 			<KibbleMarketingBlock block={presentation?.marketingBlock ?? null} zoneId="plp.marketing-block" modelCallCount={presentationModelCallCount} modelEligible={Boolean(productRanking?.eligible)} />

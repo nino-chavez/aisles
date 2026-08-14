@@ -18,6 +18,7 @@ import { GET as getCart, POST as postCart } from './api/cart/+server';
 import type { Product } from '$lib/types';
 import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
+import { KIBBLE_CATEGORY_JOB_PROFILES } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 const route = (path: string) => readFileSync(resolve(import.meta.dirname, path), 'utf8');
 const product: Product = {
@@ -39,6 +40,7 @@ describe('Preserve route boundaries', () => {
 			const started = await loadLayout({ url: new URL('https://aisles.test/?observe=true&utm_source=demo'), cookies } as never);
 			if (!started) throw new Error('Expected observability PageData.');
 			expect(started.observeMode).toBe(true);
+			expect(started.kibbleCapabilityCoverage?.catalog).toMatchObject({ totalProducts: 49, pinnedOfferProducts: 34 });
 			expect(started.observeSessionId).toMatch(/^[0-9a-f-]{36}$/);
 			expect(started.observeEnableHref).toBe('/?observe=true&utm_source=demo');
 			expect(started.observeDisableHref).toBe('/?observe=false&utm_source=demo');
@@ -47,12 +49,14 @@ describe('Preserve route boundaries', () => {
 			const continued = await loadLayout({ url: new URL('https://aisles.test/category/dog-food?sort=NEWEST'), cookies } as never);
 			if (!continued) throw new Error('Expected persistent observability PageData.');
 			expect(continued.observeMode).toBe(true);
+			expect(continued.kibbleCapabilityCoverage).not.toBeNull();
 			expect(continued.observeEnableHref).toBe('/category/dog-food?sort=NEWEST&observe=true');
 			expect(continued.observeDisableHref).toBe('/category/dog-food?sort=NEWEST&observe=false');
 
 			const stopped = await loadLayout({ url: new URL('https://aisles.test/category/dog-food?observe=false'), cookies } as never);
 			if (!stopped) throw new Error('Expected stopped observability PageData.');
 			expect(stopped.observeMode).toBe(false);
+			expect(stopped.kibbleCapabilityCoverage).toBeNull();
 			expect(values.has('aisles_observe_demo')).toBe(false);
 		} finally {
 			if (previousBrand === undefined) delete process.env.BRAND_ID;
@@ -208,6 +212,7 @@ describe('Preserve route boundaries', () => {
 						],
 						selectedSort: 'FEATURED', productCount: 1, productSingular: 'product', productPlural: 'products',
 						emptyMessage: 'No products.', products: [product], productHrefs: { 'actual-product': '/product/actual-product' },
+						categoryGuide: KIBBLE_CATEGORY_JOB_PROFILES['dog-food'],
 						loadMoreHref: '?sort=FEATURED&after=next-cursor', loadMoreLabel: 'Load more',
 					},
 				} as never,

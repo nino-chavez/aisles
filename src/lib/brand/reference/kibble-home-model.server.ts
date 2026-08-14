@@ -3,6 +3,7 @@ import type { PersonaInference } from '$lib/signals/types';
 import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS, KIBBLE_DEMO_PROVIDER_DEADLINE_MS } from '$lib/kibble-demo-ai-boundary';
 import { runBoundedModelAction } from '$lib/server/bounded-model-action.server';
 import type { KibbleHomeCandidateProduct } from './kibble-home-decision';
+import { describeKibbleCatalogSignalsForPrompt } from './kibble-catalog-enrichment';
 import { executeKibbleHomeModelShelf } from './kibble-zone-executor.server';
 import {
 	KIBBLE_HOME_PRESENTATION_IDS,
@@ -113,10 +114,8 @@ export function buildKibbleHomeModelPrompt(
 	const candidates = products.map((product) => {
 		const fit = product.personaFit?.[inference.primary];
 		const fitLabel = typeof fit === 'number' && Number.isFinite(fit) ? fit.toFixed(3) : 'unavailable';
-		const subscription = product.catalogSignals?.subscriptionEligible
-			? ` | subscription: ${product.catalogSignals.subscriptionCapabilities.join(', ')} | save ${product.catalogSignals.subscriptionSavingsPercent}% | cadence ${product.catalogSignals.subscriptionCadenceMonths?.join('/')}`
-			: ' | subscription: one-time only';
-		return `- ${product.entityId} | ${product.name} | ${product.category} | USD ${product.price.toFixed(2)} | ${inference.primary} fit ${fitLabel}${subscription}`;
+		const catalogContext = describeKibbleCatalogSignalsForPrompt(product.catalogSignals);
+		return `- ${product.entityId} | ${product.name} | ${product.category} | USD ${product.price.toFixed(2)} | ${inference.primary} fit ${fitLabel} | ${catalogContext}`;
 	}).join('\n');
 	return [
 		'Compose one bounded Kibble & Co. storefront presentation for the inferred shopper.',

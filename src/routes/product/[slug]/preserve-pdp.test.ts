@@ -88,6 +88,34 @@ describe('Kibble Preserve PDP route', () => {
 		}));
 	});
 
+	it('projects an eligible product offer without creating subscription authority', async () => {
+		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce({ ...detail, entityId: 3023, prices: { price: { value: 34.99, currencyCode: 'USD' }, salePrice: null } });
+		const data = await load(preserveEvent('verified-food') as never);
+		if (!data || !('kibblePdp' in data)) throw new Error('Expected Kibble PDP data.');
+		expect(data.kibblePdp.autoRefill).toMatchObject({
+			price: 29.74,
+			savingsPercent: 15,
+			capabilityLabels: ['Intro offer'],
+			capabilityEvidence: [expect.objectContaining({ label: 'Intro offer', detail: expect.stringContaining('first-cycle offer') })],
+		});
+		expect(data.kibblePdp.purchaseUnavailableBody).toContain('subscription services are not available');
+		expect(JSON.stringify(data.kibblePdp.autoRefill)).not.toMatch(/planId|cart|checkout|payment/i);
+	});
+
+	it('suppresses pinned offer evidence when the live catalog price no longer supports its savings claim', async () => {
+		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce({ ...detail, entityId: 3023, prices: { price: { value: 40, currencyCode: 'USD' }, salePrice: null } });
+		const data = await load(preserveEvent('verified-food') as never);
+		if (!data || !('kibblePdp' in data)) throw new Error('Expected Kibble PDP data.');
+		expect(data.kibblePdp.autoRefill).toBeNull();
+	});
+
+	it('suppresses pinned offer evidence when a sale price invalidates the stated savings', async () => {
+		mocks.getKibbleProductDetailByPath.mockResolvedValueOnce({ ...detail, entityId: 3023, prices: { price: { value: 34.99, currencyCode: 'USD' }, salePrice: { value: 31.99, currencyCode: 'USD' } } });
+		const data = await load(preserveEvent('verified-food') as never);
+		if (!data || !('kibblePdp' in data)) throw new Error('Expected Kibble PDP data.');
+		expect(data.kibblePdp.autoRefill).toBeNull();
+	});
+
 	it('renders the bounded related zone when the server resolver supplies three catalog candidates', async () => {
 		const candidates = [8, 9, 10].map((entityId) => ({
 			...detail.relatedProducts.edges[0].node,

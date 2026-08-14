@@ -4,6 +4,7 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 import KibbleObserveRail from './KibbleObserveRail.svelte';
+import { buildKibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 const props = {
 	enableHref: '/category/dog-food?observe=true',
@@ -14,6 +15,7 @@ const props = {
 	referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
 	sessionId: 'session-one',
 	initialPersona: 'researcher',
+	capabilityCoverage: buildKibbleMerchantCapabilityCoverage(),
 };
 
 describe('KibbleObserveRail', () => {
@@ -35,6 +37,13 @@ describe('KibbleObserveRail', () => {
 		expect(result.body).toContain('/observe?session=session-one');
 		expect(result.body).toContain('https://storefront.bcsubs.app/');
 		expect(result.body).toContain('href="/category/dog-food?observe=false"');
+		expect(result.body).toContain('Merchant capability coverage');
+		expect(result.body).toContain('34 pinned offer rows');
+		expect(result.body).toContain('10 canonical storefront products');
+		expect(result.body).toContain('Not claimed for Kibble');
+		expect(result.body).toContain('6 Aisles presentation capabilities');
+		expect(result.body).toContain('Outcome proof:');
+		expect(result.body).toContain('not measured');
 	});
 
 	it('collapses when same-page navigation opens the full signal lab', () => {

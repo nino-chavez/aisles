@@ -3,6 +3,7 @@ import type { PageServerLoad } from './$types';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 import { getBrand } from '$lib/brand/config';
 import { getTrustedKibbleRoutePolicy } from '$lib/brand/composition-policy';
+import { buildKibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 export const load: PageServerLoad = async ({ url }) => {
 	const routePolicy = getTrustedKibbleRoutePolicy(getBrand().id, url.pathname);
@@ -14,6 +15,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			availabilityMessage: 'Subscription services are not available in this reference-preserved preview. No redirect, session, or subscriber-data request was started.',
 			recipeId: KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.id,
 			policyVersion: routePolicy.policy.policyVersion,
+			capabilityCoverage: buildKibbleMerchantCapabilityCoverage(),
 		},
 	};
 };

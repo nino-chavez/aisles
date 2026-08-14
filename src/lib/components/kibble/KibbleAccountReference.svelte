@@ -8,11 +8,13 @@
 		brandName,
 		availabilityMessage,
 		policyVersion,
+		pageHeadingLevel = 'h1',
 	}: {
 		subtype: AccountSubtype;
 		brandName: string;
 		availabilityMessage: string;
 		policyVersion?: string;
+		pageHeadingLevel?: 'h1' | 'h2';
 	} = $props();
 
 	const sections = [
@@ -44,7 +46,7 @@
 		</nav>
 
 		<header class="kc-reference-route__header kc-reference-account-page__header">
-			<h1 id="kibble-account-heading" class="kc-reference-display">My account</h1>
+			{#if pageHeadingLevel === 'h1'}<h1 id="kibble-account-heading" class="kc-reference-display">My account</h1>{:else}<h2 id="kibble-account-heading" class="kc-reference-display">My account</h2>{/if}
 		</header>
 
 		<div class="kc-reference-account-page__layout">
@@ -57,7 +59,7 @@
 			</nav>
 
 			<div class="kc-reference-account-page__content" data-kibble-backend-state="unavailable">
-				<h2>{routeHeading}</h2>
+				{#if pageHeadingLevel === 'h1'}<h2>{routeHeading}</h2>{:else}<h3>{routeHeading}</h3>{/if}
 				<p class="kc-reference-route__supporting">{availabilityMessage}</p>
 
 				{#if rendersIdentityEntry}

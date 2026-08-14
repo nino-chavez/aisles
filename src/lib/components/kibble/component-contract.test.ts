@@ -7,6 +7,7 @@ import { KIBBLE_PRESERVE_MANIFEST } from '$lib/brand/reference/kibble-manifest';
 import KibbleProductDetailReference from './KibbleProductDetailReference.svelte';
 import KibbleCategoryReference from './KibbleCategoryReference.svelte';
 import KibbleProductCard from './KibbleProductCard.svelte';
+import { KIBBLE_CATEGORY_JOB_PROFILES } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 const component = (name: string) => readFileSync(resolve(import.meta.dirname, name), 'utf8');
 
@@ -100,6 +101,22 @@ describe('Kibble reference components fail closed', () => {
 		expect(body).toContain('Intro offer');
 	});
 
+	it('renders hash-pinned capability evidence on the PDP without a commerce affordance', () => {
+		const body = render(KibbleProductDetailReference, {
+			props: {
+				...pdpProps([]),
+					autoRefill: {
+						price: 20.4, savingsPercent: 15, label: 'Auto-Refill', savingsLabel: 'Save', cadenceLabel: 'every 1, 2, or 3 months',
+						capabilityEvidence: [{ label: 'Free trial', detail: 'The canonical storefront registry records a 14-day trial for this product.' }],
+					},
+			},
+		}).body;
+		expect(body).toContain('Free trial');
+		expect(body).toContain('14-day trial');
+		expect(body).toContain('hash-pinned, display-only source projection');
+		expect(body).not.toContain('Subscribe now');
+	});
+
 	it('keeps the featured bundle below the page heading in the heading outline', () => {
 		const hero = component('KibbleHero.svelte');
 		expect(hero).toContain('<h3>{featured.name}</h3>');
@@ -122,7 +139,7 @@ describe('Kibble reference components fail closed', () => {
 				eyebrow: 'Catalog', title: 'Dog Food', breadcrumbs: [{ label: 'Home', href: '/' }, { label: 'Dog Food' }],
 				sortLabel: 'Sort by', sortOptions: [{ value: 'FEATURED', label: 'Featured' }], selectedSort: 'FEATURED',
 				productCount: 0, productSingular: 'product', productPlural: 'products', emptyMessage: 'No products.',
-				products: [], productHrefs: {}, loadMoreHref: null, loadMoreLabel: 'Load more',
+				products: [], productHrefs: {}, loadMoreHref: null, loadMoreLabel: 'Load more', categoryGuide: KIBBLE_CATEGORY_JOB_PROFILES['dog-food'],
 			},
 		}).body;
 		const browser = await chromium.launch({ headless: true });
@@ -142,7 +159,17 @@ describe('Kibble reference components fail closed', () => {
 	it('keeps the PDP catalog-only and routes every visible label through its adapter copy', () => {
 		const pdp = component('KibbleProductDetailReference.svelte');
 		expect(pdp).toContain('data-kibble-pdp-recipe="fixed-catalog-display-only"');
-		for (const forbidden of ['/api/cart', '/api/suggest', 'addToCart', 'Auto-Refill', 'subscription']) expect(pdp).not.toContain(forbidden);
+		for (const forbidden of ['/api/cart', '/api/suggest', 'addToCart', 'method="post"', 'use:enhance', 'Subscribe now', 'Manage plan']) expect(pdp).not.toContain(forbidden);
+		expect(pdp).toContain('Pinned subscription evidence');
+		expect(pdp).toContain('The subscription service owns plan eligibility');
+		const offerStart = pdp.indexOf('data-aisles-zone-instance="pdp.subscription-offer"');
+		const offerEnd = pdp.indexOf('{#if bundle}', offerStart);
+		expect(offerStart).toBeGreaterThan(-1);
+		expect(offerEnd).toBeGreaterThan(offerStart);
+		const offerBlock = pdp.slice(offerStart, offerEnd);
+		for (const forbidden of [/<form\b/i, /<button\b/i, /\bmethod\s*=/i, /use:enhance/i, /href\s*=\s*["'{][^\n]*(cart|checkout)/i]) {
+			expect(offerBlock).not.toMatch(forbidden);
+		}
 		for (const field of ['purchaseUnavailableLabel', 'purchaseUnavailableBody', 'breadcrumbLabel', 'galleryLabel', 'skuLabel', 'bundleEyebrow', 'bundleContentsHeading', 'detailsHeading']) expect(pdp).toContain(field);
 		expect(pdp).toContain('aria-pressed={activeImage === index}');
 		expect(pdp).toContain("aria-current={activeImage === index ? 'true' : undefined}");

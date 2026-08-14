@@ -31,6 +31,7 @@ import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
 import { executeKibblePdpRelatedZoneAdapter } from '$lib/brand/reference/kibble-zone-executor.server';
 import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
+import { materializeKibbleSubscriptionOffers } from '$lib/brand/reference/kibble-catalog-enrichment';
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 
@@ -129,6 +130,7 @@ async function loadKibblePreservePdp({
 		}
 
 		const product = materializeKibbleProduct(detail, slug);
+		const autoRefill = materializeKibbleSubscriptionOffers([product])[product.id] ?? null;
 		const manifest = materializeKibblePdpManifest(slug, product.name);
 		const categoryHref = materializeKibbleCategoryHref(product.categoryPath);
 		boundedArray(detail.relatedProducts?.edges, 'related products', KIBBLE_PDP_BOUNDS.arrays.relatedProducts);
@@ -183,6 +185,7 @@ async function loadKibblePreservePdp({
 			renderMode,
 			kibblePdp: {
 				product,
+				autoRefill,
 				breadcrumbs,
 				options,
 				relatedProducts,

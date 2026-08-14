@@ -100,7 +100,7 @@ async function attachReferenceEnrichment(
 	return products.map((product) => ({
 		...product,
 		personaFit: enrichment.get(product.entityId)?.personaFit ?? null,
-		catalogSignals: getKibbleCatalogSignals(product.entityId),
+		catalogSignals: getKibbleCatalogSignals(product.entityId, product.category, product),
 	}));
 }
 

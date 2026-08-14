@@ -120,7 +120,7 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		organizationId: 'kibble-demo-merchant',
 		brandId: 'kibble',
 		referenceId: 'kibble-shelf-native',
-		referenceVersion: '1.8.0',
+		referenceVersion: '1.9.0',
 		routePath: '/',
 		instanceId: 'home.featured-row.1',
 	}],
@@ -128,7 +128,7 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		organizationId: 'kibble-demo-merchant',
 		brandId: 'kibble',
 		referenceId: 'kibble-shelf-native',
-		referenceVersion: '1.8.0',
+		referenceVersion: '1.9.0',
 		routePath: '/product/[slug]',
 		instanceId: 'pdp.related',
 	}],
@@ -136,7 +136,7 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		organizationId: 'kibble-demo-merchant',
 		brandId: 'kibble',
 		referenceId: 'kibble-shelf-native',
-		referenceVersion: '1.8.0',
+		referenceVersion: '1.9.0',
 		routePath: '/category/[slug]',
 		instanceId: 'plp.product-ranking',
 	}],
@@ -144,7 +144,7 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		organizationId: 'kibble-demo-merchant',
 		brandId: 'kibble',
 		referenceId: 'kibble-shelf-native',
-		referenceVersion: '1.8.0',
+		referenceVersion: '1.9.0',
 		routePath: '/search',
 		instanceId: 'search.empty-state',
 	}],
@@ -152,23 +152,23 @@ export const LIVE_MODEL_APPROVALS: Readonly<Record<string, readonly LiveModelApp
 		organizationId: 'kibble-demo-merchant',
 		brandId: 'kibble',
 		referenceId: 'kibble-shelf-native',
-		referenceVersion: '1.8.0',
+		referenceVersion: '1.9.0',
 		routePath: '/cart',
 		instanceId: 'cart.empty-state',
 	}],
 	'checkout.assurance-strip': [
 		{
-			organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.8.0',
+			organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.9.0',
 			routePath: '/checkout/gift', instanceId: 'checkout.assurance-strip',
 		},
 		{
-			organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.8.0',
+			organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.9.0',
 			routePath: '/checkout/prepaid', instanceId: 'checkout.assurance-strip',
 		},
 	],
 });
 
-export const ZONE_CATALOG_VERSION = '2026-08-14.1';
+export const ZONE_CATALOG_VERSION = '2026-08-14.2';
 export const ZONE_CATALOG: Readonly<Record<string, ZoneCatalogEntry>> = freezeAuthorityGraph(Object.fromEntries(unionIds.map((zoneId) => {
 	const isAisles = Object.prototype.hasOwnProperty.call(ZONES, zoneId);
 	const aislesZoneId = zoneId as ZoneId;

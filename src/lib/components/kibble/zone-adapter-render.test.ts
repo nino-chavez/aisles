@@ -15,6 +15,7 @@ import KibbleHomeReference from './KibbleHomeReference.svelte';
 import KibbleProductDetailReference from './KibbleProductDetailReference.svelte';
 import KibbleSearchReference from './KibbleSearchReference.svelte';
 import type { KibbleProduct } from './types';
+import { KIBBLE_CATEGORY_JOB_PROFILES } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 const priorBrand = process.env.BRAND_ID;
 beforeAll(() => { process.env.BRAND_ID = 'kibble'; });
@@ -95,7 +96,7 @@ describe('Kibble native zone DOM bindings', () => {
 				eyebrow: 'Catalog', title: 'Dog Food', breadcrumbs: [{ label: 'Home', href: '/' }, { label: 'Dog Food' }],
 				sortLabel: 'Sort', sortOptions: [{ value: 'FEATURED', label: 'Featured' }], selectedSort: 'FEATURED',
 				productCount: 6, productSingular: 'product', productPlural: 'products', emptyMessage: 'No products.', products,
-				productHrefs: {}, loadMoreHref: null, loadMoreLabel: 'Load more', zoneAdapter: plp,
+				productHrefs: {}, loadMoreHref: null, loadMoreLabel: 'Load more', zoneAdapter: plp, categoryGuide: KIBBLE_CATEGORY_JOB_PROFILES['dog-food'],
 			} }).body,
 			render(KibbleProductDetailReference, { props: {
 				product: { ...products[0], sku: 'SKU-1', categoryPath: '/dog-food/', currencyCode: 'USD', isInStock: true, images: [], descriptionPlain: 'Catalog description.' },

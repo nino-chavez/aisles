@@ -109,9 +109,25 @@ describe('Kibble Preserve runtime adapter', () => {
 		}).loadMoreHref).toBeNull();
 	});
 
+	it('revalidates precomputed subscription evidence against the effective catalog price', () => {
+		const brand = getBrandById('kibble')!;
+		const goodgut = { ...product(3023, 'goodgut'), price: 34.99 };
+		const offer = {
+			price: 29.74, savingsPercent: 15, label: 'Auto-Refill', savingsLabel: 'Save', cadenceLabel: 'every 1, 2, or 3 months',
+		};
+		const valid = materializeKibbleCategory(brand, 'dog-food', [goodgut], {
+			sort: 'FEATURED', pageInfo: { hasNextPage: false, endCursor: null }, subscriptionOffers: { goodgut: offer },
+		});
+		expect(valid.subscriptionOffers).toEqual({ goodgut: offer });
+		const stale = materializeKibbleCategory(brand, 'dog-food', [{ ...goodgut, salePrice: 31.99 }], {
+			sort: 'FEATURED', pageInfo: { hasNextPage: false, endCursor: null }, subscriptionOffers: { goodgut: offer },
+		});
+		expect(stale.subscriptionOffers).toEqual({});
+	});
+
 	it('records every bounded copy divergence and withholds operational claims', () => {
 		expect(KIBBLE_PRESERVE_MANIFEST.copyProvenance.approvedBoundedDivergences.map(({ field }) => field)).toEqual([
-			'home.hero.eyebrow', 'home.hero.headline', 'home.hero.body', 'home.serviceProof', 'error.notFoundHeadline', 'pdp.purchaseUnavailable', 'pdp.description',
+			'home.hero.eyebrow', 'home.hero.headline', 'home.hero.body', 'home.serviceProof', 'error.notFoundHeadline', 'pdp.purchaseUnavailable', 'pdp.description', 'pdp.subscriptionOfferProjection',
 		]);
 		expect(KIBBLE_PRESERVE_MANIFEST.withheldSourceClaims).toContain('engine health');
 		expect(JSON.stringify(KIBBLE_PRESERVE_MANIFEST.display)).not.toContain('$30M');

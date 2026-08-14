@@ -8,6 +8,7 @@
 	import { KIBBLE_DEMO_ACTION_COOLDOWN_MS } from '$lib/kibble-demo-ai-boundary';
 	import { describeKibblePdpModelAction, type KibblePdpModelActionStatus } from './kibble-pdp-model-action';
 	import { describeKibblePlpModelAction, type KibblePlpModelActionStatus } from './kibble-plp-model-action';
+	import type { KibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 	type ZoneAuthority = 'fixed' | 'rules' | 'model';
 	type ZoneEvidence = {
@@ -30,6 +31,7 @@
 		referenceVersion,
 		sessionId = null,
 		initialPersona = null,
+		capabilityCoverage = null,
 	}: {
 		active: boolean;
 		enableHref: string;
@@ -40,6 +42,7 @@
 		referenceVersion: string;
 		sessionId?: string | null;
 		initialPersona?: string | null;
+		capabilityCoverage?: KibbleMerchantCapabilityCoverage | null;
 	} = $props();
 
 	let expanded = $state(true);
@@ -580,6 +583,21 @@
 				</ul>
 			</details>
 
+			{#if capabilityCoverage}
+				<details class="aisles-observe__capabilities">
+					<summary>Merchant capability coverage</summary>
+					<p>{capabilityCoverage.catalog.totalProducts} catalog products · {capabilityCoverage.catalog.pinnedOfferProducts} pinned offer rows · {capabilityCoverage.catalog.canonicalStorefrontRegistryProducts} canonical storefront products · {capabilityCoverage.subscriptionCapabilities.length} live capabilities in the {capabilityCoverage.source.demoStateGeneratedAt.slice(0, 10)} snapshot · {capabilityCoverage.aislesCapabilities.length} Aisles presentation capabilities.</p>
+					<h3>Subscription service</h3>
+					<ul>{#each capabilityCoverage.subscriptionCapabilities as capability (capability.id)}<li><a href={capability.demoHref}><b>{capability.label}</b><small>demo-state live · {capabilityCoverage.source.demoStateGeneratedAt.slice(0, 10)} · canonical registry {capability.canonicalRegistryDisposition} · {capability.sourceSurface} · Aisles {capability.aislesMode === 'catalog-offer-projection' ? 'catalog evidence' : 'fixed preview'}</small></a></li>{/each}</ul>
+					<h3>Aisles presentation</h3>
+					<ul>{#each capabilityCoverage.aislesCapabilities as capability (capability.id)}<li><a href={capability.demoHref}><b>{capability.label}</b><small>{capability.authority.join(' + ')} · {capability.surfaces.join(', ')}</small></a></li>{/each}</ul>
+					<h3>Not claimed for Kibble</h3>
+					<ul>{#each capabilityCoverage.sourceCapabilitiesOutsideKibble as capability (capability.id)}<li><b>{capability.label}</b><small>{capability.sourceTier} · demo-state {capability.demoStateStatus}</small></li>{/each}</ul>
+					<p>{capabilityCoverage.sourceRegistryNote}</p>
+					<p><b>Outcome proof:</b> not measured. This is capability evidence, not conversion or revenue evidence.</p>
+				</details>
+			{/if}
+
 			<section class="aisles-observe__boundary" aria-labelledby="aisles-commerce-boundary">
 				<h3 id="aisles-commerce-boundary">Why purchase controls stop here</h3>
 				<p>Aisles currently preserves this storefront and reads its catalog. Its cart, checkout, account, and Auto-Refill services are not connected, so the demo does not imitate transactions it cannot complete.</p>
@@ -659,6 +677,14 @@
 	.aisles-observe__tag--rules { border-color:#6d89cf; color:#1c4cab; }
 	.aisles-observe__tag--model { border-color:#d2978e; color:#963a2e; }
 	.aisles-observe__tag--fixed { border-color:#8696b6; color:#344a80; }
+	.aisles-observe__capabilities { border-bottom:1px solid var(--observe-line); background:#f4f7fd; padding:.7rem .8rem; }
+	.aisles-observe__capabilities summary { cursor:pointer; color:#1c4cab; font-weight:800; }
+	.aisles-observe__capabilities h3 { margin:.75rem 0 .35rem; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; }
+	.aisles-observe__capabilities p { margin:.55rem 0 0; color:var(--observe-muted); }
+	.aisles-observe__capabilities ul { display:grid; gap:.35rem; margin:0; padding:0; list-style:none; }
+	.aisles-observe__capabilities li a { display:block; min-height:44px; padding:.45rem .55rem; }
+	.aisles-observe__capabilities li b, .aisles-observe__capabilities li small { display:block; }
+	.aisles-observe__capabilities li small { margin-top:.08rem; color:var(--observe-muted); font-size:.58rem; }
 	.aisles-observe__boundary { border-bottom:1px solid var(--observe-line); background:#fff8ed; padding:.75rem .8rem; }
 	.aisles-observe__boundary h3, .aisles-observe__boundary p { margin:0; }
 	.aisles-observe__boundary h3 { font-size:.7rem; }

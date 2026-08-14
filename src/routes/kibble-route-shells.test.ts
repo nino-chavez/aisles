@@ -11,6 +11,7 @@ import SearchPage from './search/+page.svelte';
 import CartPage from './cart/+page.svelte';
 import AccountPage from './account/+page.svelte';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
+import { buildKibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 const route = (path: string) => readFileSync(resolve(import.meta.dirname, path), 'utf8');
 
@@ -79,11 +80,21 @@ describe('Kibble route-specific unavailable shells', () => {
 	});
 
 	it.each(['portal', 'account', 'detail'] as const)('renders the %s subscription subtype without subscriber data', (subtype) => {
-		const body = render(KibbleSubscriptionsReference, { props: { subtype, brandName: 'Trusted Tenant', availabilityMessage: 'Subscriptions unavailable.' } }).body;
+		const body = render(KibbleSubscriptionsReference, { props: { subtype, brandName: 'Trusted Tenant', availabilityMessage: 'Subscriptions unavailable.', capabilityCoverage: subtype === 'detail' ? null : buildKibbleMerchantCapabilityCoverage() } }).body;
 		expect(body).toContain(`data-kibble-subscriptions-subtype="${subtype}"`);
 		expect(body).toContain('disabled');
 		if (subtype !== 'detail') expect(body).toContain('Trusted Tenant');
 		expect(body).not.toMatch(/active subscription|next charge|renewal date|payment ending/i);
+		if (subtype !== 'detail') {
+			expect(body.match(/<h1\b/g)).toHaveLength(1);
+			expect(body).toContain('See every intended Kibble capability in one place.');
+			 expect(body).toContain('Snapshot: live · 2026-06-29');
+			expect(body).toContain('Canonical registry: absent');
+			expect(body).toContain('no gift_tokens table');
+			expect(body).toContain('rules + model · home, plp, pdp');
+			expect(body).toContain('Source models not claimed for this Kibble demo (7)');
+			expect(body).toContain('What remains unproven');
+		}
 	});
 
 	it('contracts the trusted tenant name consumed by subscription account shells', () => {

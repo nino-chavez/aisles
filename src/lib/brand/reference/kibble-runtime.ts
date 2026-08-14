@@ -18,7 +18,7 @@ import {
 import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
 import type { Surface } from '$lib/foundation/zones';
 import type { KibbleHomePresentationContext } from './kibble-presentation-decisions';
-import { materializeKibbleSubscriptionOffers } from './kibble-catalog-enrichment';
+import { getKibbleCategoryJobProfile, isKibblePinnedOfferPriceConsistent, materializeKibbleSubscriptionOffers } from './kibble-catalog-enrichment';
 import type { KibbleAutoRefillOffer } from '$lib/components/kibble/types';
 
 export type MerchantRenderMode =
@@ -169,6 +169,8 @@ export function materializeKibbleCategory(
 	const manifestCategory = KIBBLE_PRESERVE_MANIFEST.display.categories.find((item) => item.configSlug === slug);
 	if (!manifestCategory) throw new Error(`Kibble Preserve has no pinned category mapping for "${slug}".`);
 	const plp = KIBBLE_PRESERVE_MANIFEST.display.plp;
+	const categoryGuide = getKibbleCategoryJobProfile(slug);
+	if (!categoryGuide) throw new Error(`Kibble Preserve has no merchant category profile for "${slug}".`);
 	return {
 		eyebrow: plp.eyebrow,
 		title: brand.categories[slug].displayName,
@@ -183,6 +185,7 @@ export function materializeKibbleCategory(
 		productSingular: plp.productSingular,
 		productPlural: plp.productPlural,
 		emptyMessage: plp.emptyMessage,
+		categoryGuide,
 		products,
 		subscriptionOffers: materializeOffersForProducts(products, state.subscriptionOffers ?? materializeKibbleSubscriptionOffers(products)),
 		loadMoreLabel: plp.loadMoreLabel,
@@ -194,10 +197,13 @@ export function materializeKibbleCategory(
 }
 
 function materializeOffersForProducts(
-	products: readonly Pick<Product, 'id' | 'entityId'>[],
+	products: readonly Pick<Product, 'id' | 'entityId' | 'price' | 'salePrice'>[],
 	offers: Record<string, KibbleAutoRefillOffer>,
 ): Record<string, KibbleAutoRefillOffer> {
-	return Object.fromEntries(products.flatMap((product) => offers[product.id] ? [[product.id, offers[product.id]]] : []));
+	return Object.fromEntries(products.flatMap((product) => {
+		const offer = offers[product.id];
+		return offer && isKibblePinnedOfferPriceConsistent(product, offer) ? [[product.id, offer]] : [];
+	}));
 }
 
 /** Validated PDP destinations. Publication callers must also pass the approval gate. */

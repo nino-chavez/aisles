@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibblePdpBundle, KibblePdpCopy, KibblePdpProduct, KibbleProductOption, KibbleProduct, KibbleZoneAdapterBinding } from './types';
+	import type { KibbleAutoRefillOffer, KibblePdpBundle, KibblePdpCopy, KibblePdpProduct, KibbleProductOption, KibbleProduct, KibbleZoneAdapterBinding } from './types';
 	import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
 	import type { materializeKibblePdpPresentation } from '$lib/brand/reference/kibble-presentation-decisions';
 	type RelatedContent = { component: 'product-carousel'; props: { title: string; products: Array<{ productId: string; role: 'standard' }>; showQuickAdd: false } };
@@ -23,6 +23,7 @@
 		relatedModelDecision = null,
 		presentation = null,
 		presentationModelCallCount = 0,
+		autoRefill = null,
 	}: {
 		product: KibblePdpProduct;
 		bundle: KibblePdpBundle | null;
@@ -40,6 +41,7 @@
 		relatedModelDecision?: { zoneId: 'pdp.related'; routePath: string } | null;
 		presentation?: ReturnType<typeof materializeKibblePdpPresentation> | null;
 		presentationModelCallCount?: number;
+		autoRefill?: KibbleAutoRefillOffer | null;
 	} = $props();
 
 	let activeImage = $state(0);
@@ -97,6 +99,22 @@
 				</div>
 				{#if product.sku}<p class="kc-reference-pdp__sku">{copy.skuLabel}: {product.sku}</p>{/if}
 				<p class:kc-reference-pdp__stock--in={product.isInStock === true} class="kc-reference-pdp__stock">{product.isInStock === true ? copy.inStockLabel : product.isInStock === false ? copy.outOfStockLabel : copy.availabilityUnavailableLabel}</p>
+
+				{#if autoRefill}
+					<section class="kc-reference-pdp__autorefill" data-aisles-zone-instance="pdp.subscription-offer" data-aisles-zone-label="Merchant subscription offer" data-aisles-authority="fixed" data-aisles-model-calls="0" aria-labelledby="kibble-pdp-autorefill-heading">
+						<div>
+							<p class="kc-reference-eyebrow">Pinned subscription evidence</p>
+							<h2 id="kibble-pdp-autorefill-heading">{autoRefill.label}</h2>
+						</div>
+						<p><strong>{money(autoRefill.price)}</strong> · {autoRefill.savingsLabel} {autoRefill.savingsPercent}% · {autoRefill.cadenceLabel}</p>
+						{#if autoRefill.capabilityEvidence?.length}
+							<dl aria-label="Pinned subscription capability evidence">
+								{#each autoRefill.capabilityEvidence as evidence (evidence.label)}<div><dt>{evidence.label}</dt><dd>{evidence.detail}</dd></div>{/each}
+							</dl>
+						{/if}
+						<small>The subscription service owns plan eligibility, recurring price, and checkout. Aisles is showing a hash-pinned, display-only source projection.</small>
+					</section>
+				{/if}
 
 				{#if bundle}
 					<div class="kc-reference-pdp__bundle-contents">

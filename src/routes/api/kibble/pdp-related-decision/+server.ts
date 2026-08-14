@@ -114,12 +114,13 @@ function serverRelatedCandidates(products: BCProduct[], productEntityId: number)
 	const candidates: KibblePdpRelatedCandidate[] = products.map((node: BCProduct): KibblePdpRelatedCandidate => {
 		const entityId = node?.entityId;
 		const price = node?.prices?.price?.value;
+		const salePrice = node?.prices?.salePrice?.value ?? undefined;
 		const category = node?.categories?.edges?.[0]?.node?.name ?? '';
 		if (!Number.isInteger(entityId) || entityId <= 0 || entityId === productEntityId
 			|| typeof node?.name !== 'string' || node.name.length < 1 || node.name.length > 96
 			|| typeof price !== 'number' || !Number.isFinite(price) || price < 0
 			|| typeof category !== 'string' || category.length > 96) throw new Error('Kibble PDP related catalog data is invalid.');
-		return { entityId, name: node.name, category, price, catalogSignals: getKibbleCatalogSignals(entityId) };
+		return { entityId, name: node.name, category, price, catalogSignals: getKibbleCatalogSignals(entityId, category, { price, salePrice }) };
 	});
 	if (candidates.length > 4 || new Set(candidates.map(({ entityId }) => entityId)).size !== candidates.length) {
 		throw new Error('Kibble PDP related catalog identities are invalid.');
