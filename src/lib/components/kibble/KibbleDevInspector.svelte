@@ -85,10 +85,11 @@
 	const callStatus = (zone: KibbleInspectorZone) => zone.modelCallStatus ?? { calls: 0, authorized: false };
 	const productNames = (products: readonly KibbleInspectorProductSummary[] | undefined) =>
 		products?.map((product) => product.variant ? `${product.name} (${product.variant})` : product.name).join(' → ') ?? '—';
+	const evidenceNames = (products: readonly KibbleInspectorProductSummary[] | undefined) => products?.map(({ name }) => name).join(' · ') || 'none';
 	const raw = (value: unknown) => JSON.stringify(redactInspectorDebugValue(value), null, 2);
 	const previewMessage = (status: KibbleLivePreviewStatus) => {
 		if (status.state === 'updating') return 'updating preview';
-		if (status.state === 'applied') return `preview applied for ${status.persona}`;
+		if (status.state === 'applied') return status.evidence ? (status.evidence.moved.length || status.evidence.added.length || status.evidence.removed.length ? `AI changed the approved order for ${status.persona}` : 'AI kept the existing order and copy') : `rules applied for ${status.persona}`;
 		if (status.state === 'failed') return 'preview failed; last approved shelf retained';
 		return 'waiting for a signal';
 	};
@@ -290,6 +291,30 @@
 			{#if !rehearsalQueued && !rehearsalError && livePreview.state === 'applied' && livePreview.changed}
 				<a class="kc-dev-inspector__view-shelf" href="#kibble-featured-shelf" onclick={viewChangedShelf}>View changed shelf</a>
 			{/if}
+			{#if livePreview.evidence}
+				<section class="kc-dev-inspector__decision-evidence" aria-labelledby="kibble-decision-evidence-title">
+					<div class="kc-dev-inspector__section-heading">
+						<div>
+							<h4 id="kibble-decision-evidence-title">Model decision evidence</h4>
+							<p>{livePreview.evidence.state === 'failed' ? 'Fallback retained the approved zone.' : livePreview.evidence.moved.length || livePreview.evidence.added.length || livePreview.evidence.removed.length ? 'AI changed the approved order.' : 'AI kept the existing order and copy.'}</p>
+						</div>
+					</div>
+					<div class="kc-dev-inspector__decision-before-after">
+						<div><span>before</span><b>{evidenceNames(livePreview.evidence.before)}</b></div>
+						<div><span>after</span><b>{evidenceNames(livePreview.evidence.after)}</b></div>
+					</div>
+					<dl>
+						<div><dt>moved</dt><dd>{evidenceNames(livePreview.evidence.moved)}</dd></div>
+						<div><dt>added</dt><dd>{evidenceNames(livePreview.evidence.added)}</dd></div>
+						<div><dt>removed</dt><dd>{evidenceNames(livePreview.evidence.removed)}</dd></div>
+						<div><dt>unchanged</dt><dd>{evidenceNames(livePreview.evidence.unchanged)}</dd></div>
+						<div><dt>copy</dt><dd>unchanged · merchant-owned</dd></div>
+						<div><dt>provider / model</dt><dd>{livePreview.evidence.provider ?? 'not confirmed'} / {livePreview.evidence.model ?? 'not confirmed'}</dd></div>
+						<div><dt>calls</dt><dd>{livePreview.evidence.calls ?? 'not confirmed'}</dd></div>
+						<div><dt>policy / zone</dt><dd>{livePreview.evidence.policyVersion} / {livePreview.evidence.zoneId}</dd></div>
+					</dl>
+				</section>
+			{/if}
 		</section>
 	{/if}
 
@@ -419,6 +444,12 @@
 	.kc-dev-inspector__model-demo p { max-width:52rem; }
 	.kc-dev-inspector__model-demo button { flex:none; border-color:#d3a466; color:#704800; }
 	.kc-dev-inspector__view-shelf { margin-top:.55rem; }
+	.kc-dev-inspector__decision-evidence { margin-top:.75rem; border:1px solid #d3a466; background:#fffdf8; padding:.75rem; }
+	.kc-dev-inspector__decision-before-after { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.55rem; margin-top:.65rem; }
+	.kc-dev-inspector__decision-before-after div { min-width:0; border-top:1px solid var(--dev-border); padding-top:.4rem; }
+	.kc-dev-inspector__decision-before-after span { display:block; color:var(--dev-muted); font-size:.65rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+	.kc-dev-inspector__decision-before-after b { display:block; margin-top:.15rem; overflow-wrap:anywhere; font-size:.7rem; }
+	.kc-dev-inspector__decision-evidence dl { grid-template-columns:repeat(4, minmax(0, 1fr)); }
 	.kc-dev-inspector__zones ol { display:grid; gap:.65rem; margin:.7rem 0 0; padding:0; list-style:none; }
 	.kc-dev-inspector__zone { border:1px solid var(--dev-border); background:#fff; padding:.75rem; }
 	.kc-dev-inspector__ordinal { color:var(--dev-muted); font-weight:700; }
@@ -443,5 +474,5 @@
 	.kc-dev-inspector th, .kc-dev-inspector td { border-bottom:1px solid var(--dev-border); padding:.45rem; vertical-align:top; }
 	.kc-dev-inspector th { color:var(--dev-muted); font-size:.64rem; text-transform:uppercase; }
 	@media (max-width: 960px) { .kc-dev-inspector__rehearsal-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
-	@media (max-width: 760px) { .kc-dev-inspector { margin-inline:.75rem; } .kc-dev-inspector__probabilities, .kc-dev-inspector__facts, .kc-dev-inspector dl, .kc-dev-inspector__rehearsal-actions { grid-template-columns:1fr; } .kc-dev-inspector__header, .kc-dev-inspector__inference-heading, .kc-dev-inspector__zone-header, .kc-dev-inspector__section-heading, .kc-dev-inspector__model-demo { align-items:flex-start; flex-wrap:wrap; } .kc-dev-inspector__model-demo button { width:100%; justify-content:center; } .kc-dev-inspector__header { position:static; } .kc-dev-inspector__header-controls { width:100%; justify-content:flex-start; } .kc-dev-inspector__behavior { min-height:0 !important; } }
+	@media (max-width: 760px) { .kc-dev-inspector { margin-inline:.75rem; } .kc-dev-inspector__probabilities, .kc-dev-inspector__facts, .kc-dev-inspector dl, .kc-dev-inspector__rehearsal-actions, .kc-dev-inspector__decision-before-after { grid-template-columns:1fr; } .kc-dev-inspector__header, .kc-dev-inspector__inference-heading, .kc-dev-inspector__zone-header, .kc-dev-inspector__section-heading, .kc-dev-inspector__model-demo { align-items:flex-start; flex-wrap:wrap; } .kc-dev-inspector__model-demo button { width:100%; justify-content:center; } .kc-dev-inspector__header { position:static; } .kc-dev-inspector__header-controls { width:100%; justify-content:flex-start; } .kc-dev-inspector__behavior { min-height:0 !important; } }
 </style>

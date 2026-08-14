@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyKibbleLivePreview, expectationFromTrustedInspector, listenForKibbleLivePreview, validateKibbleLivePreview } from './kibble-live-preview';
-import type { KibbleDevInspectorData, KibbleLivePreviewStatus } from './kibble-dev-inspector';
+import { buildKibbleDecisionEvidence, type KibbleDevInspectorData, type KibbleLivePreviewStatus } from './kibble-dev-inspector';
 
 const expectation = {
 	reference: { id: 'kibble-shelf-native', version: '1.8.0' },
@@ -81,6 +81,7 @@ const modelResponse = () => {
 	return {
 		version: 'kibble-live-home-preview-v2', previewOnly: true, reference: expectation.reference,
 		policyVersion: expectation.modelDecision.policyVersion, persona: 'hunter', products: rankedProducts,
+		provider: 'anthropic', modelId: 'claude-haiku-4-5',
 		featuredZoneAdapters: [{
 			instanceId: 'home.featured-row.1', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: modelCalls,
 			adapterId: 'kibble.zone.home.featured-row.primary', componentVariantId: 'kibble.featured-grid.ranked-segment', inputSha256: 'b'.repeat(64),
@@ -95,6 +96,17 @@ describe('validateKibbleLivePreview', () => {
 		vi.useRealTimers();
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
+	});
+
+	it('describes changed and unchanged model order without implying copy generation', () => {
+		const before = products.map(({ id, name }) => ({ id, name }));
+		const changed = buildKibbleDecisionEvidence({ surface: 'home', zoneId: 'home.featured-row', zoneLabel: 'Featured product shelf', policyVersion: expectation.modelDecision!.policyVersion, before, after: [...before].reverse(), provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied' });
+		const same = buildKibbleDecisionEvidence({ surface: 'home', zoneId: 'home.featured-row', zoneLabel: 'Featured product shelf', policyVersion: expectation.modelDecision!.policyVersion, before, after: before, provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied' });
+		expect(changed.moved.map(({ id }) => id)).toEqual(['food-c', 'food-a']);
+		expect(changed.unchanged.map(({ id }) => id)).toEqual(['food-b']);
+		expect(changed.copy).toBe('unchanged');
+		expect(same.moved).toEqual([]);
+		expect(same.unchanged.map(({ id }) => id)).toEqual(['food-a', 'food-b', 'food-c']);
 	});
 
 	it('accepts a complete, pinned preview response', () => {
@@ -207,7 +219,7 @@ describe('validateKibbleLivePreview', () => {
 		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
 		await vi.waitFor(() => expect(applied).toHaveBeenCalledTimes(1));
 		expect(fetchMock).toHaveBeenCalledWith('/api/kibble/home-decision?observe=true', expect.objectContaining({ method: 'POST' }));
-		expect(statuses).toEqual([{ state: 'updating' }, { state: 'applied', persona: 'hunter', changed: true }]);
+		expect(statuses).toEqual([{ state: 'updating', mode: 'rules' }, { state: 'applied', mode: 'rules', persona: 'hunter', changed: true }]);
 
 		cleanup();
 		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
@@ -256,9 +268,9 @@ describe('validateKibbleLivePreview', () => {
 		});
 
 		eventTarget.dispatchEvent(new Event('aisles-inference-update'));
-		expect(statuses).toEqual([{ state: 'updating' }]);
+		expect(statuses).toEqual([{ state: 'updating', mode: 'rules' }]);
 		await vi.advanceTimersByTimeAsync(10_000);
-		expect(statuses).toEqual([{ state: 'updating' }, { state: 'failed' }]);
+		expect(statuses).toEqual([{ state: 'updating', mode: 'rules' }, { state: 'failed', mode: 'rules' }]);
 		cleanup();
 	});
 });

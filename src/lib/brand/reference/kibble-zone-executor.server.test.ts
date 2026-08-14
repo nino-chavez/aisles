@@ -166,7 +166,7 @@ describe('Kibble exact union-zone execution', () => {
 			version: 'kibble-pdp-related-preview-v1', previewOnly: true,
 			routePath: '/product/puppy-starter-kit', policyVersion: result.policy.policyVersion,
 			persona: 'researcher', rankedProductIds: result.rankedProductIds,
-			zoneAdapter: adapter, modelCallCount: 1, provenance: {},
+			zoneAdapter: adapter, modelCallCount: 1, provider: 'anthropic', modelId: 'claude-haiku-4-5', provenance: {},
 		}, {
 			routePath: '/product/puppy-starter-kit', policyVersion: result.policy.policyVersion,
 			productIds: relatedProducts.map(({ entityId }) => String(entityId)), relatedHeading: 'You may also like',

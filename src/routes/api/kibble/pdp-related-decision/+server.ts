@@ -21,6 +21,7 @@ import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
 import { infer } from '$lib/signals/inference';
 import { findSessionStore } from '$lib/signals/session';
+import { MODEL_PROVIDER } from '$lib/server/model';
 
 const SESSION_COOKIE = 'aisles_session';
 const PREVIEW_VERSION = 'kibble-pdp-related-preview-v1';
@@ -84,6 +85,8 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			rankedProductIds: modelDecision.rankedProductIds,
 			zoneAdapter: modelDecision.adapter,
 			modelCallCount: modelDecision.modelCallCount,
+			provider: MODEL_PROVIDER,
+			modelId: modelDecision.modelId,
 			provenance,
 		}, { headers: noStoreHeaders() });
 	} catch (error) {

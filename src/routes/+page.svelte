@@ -68,6 +68,7 @@
 			cleanup = listenForKibbleLivePreview({
 				expectation,
 				getCurrentProductIds: () => (previewProducts ?? data.kibbleHome?.products ?? []).map(({ id }) => id),
+				getCurrentProductSummaries: () => (previewProducts ?? data.kibbleHome?.products ?? []).map(({ id, name }) => ({ id, name })),
 				onApplied: (preview) => {
 					previewProducts = preview.products;
 					previewFeaturedZoneAdapters = preview.featuredZoneAdapters ?? null;
@@ -76,7 +77,7 @@
 				onStatus: (status) => {
 					livePreviewStatus = status;
 					if (status.state !== 'waiting') {
-						window.dispatchEvent(new CustomEvent('aisles-kibble-home-model-status', { detail: status.state }));
+						window.dispatchEvent(new CustomEvent('aisles-kibble-home-model-status', { detail: status }));
 					}
 				},
 			});

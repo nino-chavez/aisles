@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
 	import { buildObserveSessionHref } from '$lib/signals/observe-session-link';
 	import KibbleDevInspectorLauncher from './KibbleDevInspectorLauncher.svelte';
-	import type { KibbleInspectorPersona } from './kibble-dev-inspector';
+	import type { KibbleDecisionEvidence, KibbleInspectorPersona, KibbleLivePreviewStatus } from './kibble-dev-inspector';
 	import { describeKibblePdpModelAction, type KibblePdpModelActionStatus } from './kibble-pdp-model-action';
 	import { describeKibblePlpModelAction, type KibblePlpModelActionStatus } from './kibble-plp-model-action';
 
@@ -53,6 +53,7 @@
 	let plpModelActionEligible = $state(false);
 	let plpModelActionReady = $state(false);
 	let plpModelActionStatus = $state<KibblePlpModelActionStatus>('idle');
+	let decisionEvidence = $state<KibbleDecisionEvidence | null>(null);
 	const pdpModelAction = $derived(describeKibblePdpModelAction(pdpModelActionStatus));
 	const plpModelAction = $derived(describeKibblePlpModelAction(plpModelActionStatus));
 	const homeModelAction = $derived(describeHomeModelAction(homeModelActionStatus));
@@ -76,7 +77,7 @@
 		surface === 'home' ? homeModelActionStatus : surface === 'pdp' ? pdpModelActionStatus : plpModelActionStatus,
 	);
 	const railSummary = $derived(
-		modelCallCount > 0 ? `${surfaceLabel} · AI applied` : modelEligibleCount > 0 ? `${surfaceLabel} · AI available` : `${surfaceLabel} · Template and rules`,
+		modelActionStatus === 'updating' ? `${surfaceLabel} · AI running` : decisionEvidence?.state === 'failed' ? `${surfaceLabel} · Fallback` : decisionEvidence?.state === 'applied' ? `${surfaceLabel} · ${decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed' : 'AI kept'}` : modelCallCount > 0 ? `${surfaceLabel} · AI applied` : modelEligibleCount > 0 ? `${surfaceLabel} · AI available` : `${surfaceLabel} · Template and rules`,
 	);
 
 	$effect(() => {
@@ -96,9 +97,10 @@
 			const authority = parseAuthority(element.dataset.aislesAuthority, instanceId);
 			const modelCalls = boundedCount(element.dataset.aislesModelCalls);
 			const modelEligible = element.dataset.aislesModelEligible === 'true';
-			element.dataset.aislesObserveState = modelCalls > 0 || authority === 'model'
-				? 'AI applied'
-				: modelEligible ? 'AI available' : authority === 'rules' ? 'Rules' : 'Template';
+			const stateForZone = decisionEvidence && isDecisionZone(instanceId)
+				? decisionEvidence.state === 'failed' ? 'Fallback' : decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed' : 'AI kept'
+				: modelActionStatus === 'updating' && modelEligible ? 'AI running' : modelCalls > 0 || authority === 'model' ? 'AI applied' : modelEligible ? 'AI available' : authority === 'rules' ? 'Rules' : 'Template';
+			element.dataset.aislesObserveState = stateForZone;
 			evidence.set(instanceId, {
 				instanceId,
 				label: element.dataset.aislesZoneLabel || labelFromId(instanceId),
@@ -153,20 +155,11 @@
 				persona = inference.primary as KibbleInspectorPersona;
 			}
 		};
-		const onHomeModelStatus = (event: Event) => {
-			const status = event instanceof CustomEvent ? event.detail : null;
-			if (status === 'updating' || status === 'applied' || status === 'failed') homeModelActionStatus = status;
-		};
+		const onHomeModelStatus = (event: Event) => applyModelStatus(event, 'home');
 		const onHomeModelReady = () => { homeModelActionReady = true; };
-		const onPdpModelStatus = (event: Event) => {
-			const status = event instanceof CustomEvent ? event.detail : null;
-			if (status === 'updating' || status === 'applied' || status === 'failed') pdpModelActionStatus = status;
-		};
+		const onPdpModelStatus = (event: Event) => applyModelStatus(event, 'pdp');
 		const onPdpModelReady = () => { pdpModelActionReady = true; };
-		const onPlpModelStatus = (event: Event) => {
-			const status = event instanceof CustomEvent ? event.detail : null;
-			if (status === 'updating' || status === 'applied' || status === 'failed') plpModelActionStatus = status;
-		};
+		const onPlpModelStatus = (event: Event) => applyModelStatus(event, 'plp');
 		const onPlpModelReady = () => { plpModelActionReady = true; };
 		window.addEventListener('hashchange', collapseForSignalLab);
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
@@ -191,12 +184,33 @@
 
 	afterNavigate(({ to }) => {
 		if (to?.url.hash === '#kibble-signal-lab') expanded = false;
-		// A same-route sort/cursor navigation replaces the PLP listener. Do not
-		// let its prior readiness or terminal status govern the new page data.
+		// Each navigation replaces the lazy page listener. Reset every readiness
+		// bit before the new page can announce its handshake; otherwise a stale
+		// Home/PDP bit can enable a button while no listener is attached.
+		homeModelActionReady = false;
+		homeModelActionStatus = 'idle';
+		pdpModelActionReady = false;
+		pdpModelActionStatus = 'idle';
 		plpModelActionReady = false;
 		plpModelActionStatus = 'idle';
+		decisionEvidence = null;
 		void tick().then(scanZones);
 	});
+
+	function applyModelStatus(event: Event, statusSurface: 'home' | 'pdp' | 'plp') {
+		const detail = event instanceof CustomEvent ? event.detail : null;
+		const status = isLivePreviewStatus(detail) ? detail : null;
+		if (!status || (status.mode && status.mode !== 'model')) return;
+		if (statusSurface === 'home') homeModelActionStatus = status.state === 'waiting' ? 'idle' : status.state;
+		if (statusSurface === 'pdp') pdpModelActionStatus = status.state === 'waiting' ? 'idle' : status.state;
+		if (statusSurface === 'plp') plpModelActionStatus = status.state === 'waiting' ? 'idle' : status.state;
+		if (status.evidence) decisionEvidence = status.evidence;
+		void tick().then(scanZones);
+	}
+
+	function isLivePreviewStatus(value: unknown): value is KibbleLivePreviewStatus {
+		return !!value && typeof value === 'object' && 'state' in value && ['waiting', 'updating', 'applied', 'failed'].includes(String(value.state));
+	}
 
 	function toggleExpanded() {
 		expanded = !expanded;
@@ -234,7 +248,7 @@
 
 	function describeHomeModelAction(status: KibblePdpModelActionStatus) {
 		if (status === 'updating') return { label: 'AI-ranking featured products…', detail: 'One bounded AI ranking is running. The fixed shelf remains visible until its exact order is validated.', disabled: true };
-		if (status === 'applied') return { label: 'Run AI ranking again', detail: 'A model returned and applied the current featured-product order. The fixed Home content did not change.', disabled: false };
+		if (status === 'applied') return { label: 'Run AI ranking again', detail: decisionEvidence?.state === 'applied' ? (decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed the approved featured-product order. View the before and after below.' : 'AI kept the existing order and copy. View the unchanged result below.') : 'AI applied a validated featured-product order.', disabled: false };
 		if (status === 'failed') return { label: 'AI ranking failed — retry', detail: 'The model result was not applied. The last approved featured shelf remains visible.', disabled: false };
 		return { label: 'AI-rank featured products', detail: 'Ready to run one bounded AI ranking for the fixed featured-products shelf.', disabled: false };
 	}
@@ -262,6 +276,38 @@
 			.replace(/^error-/, 'error ')
 			.replace(/[._-]+/g, ' ')
 			.replace(/\b\w/g, (letter) => letter.toUpperCase());
+	}
+
+	function zoneState(zone: ZoneEvidence): string {
+		if (decisionEvidence && isDecisionZone(zone.instanceId)) return decisionEvidence.state === 'failed' ? 'Fallback' : decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed' : 'AI kept';
+		if (modelActionStatus === 'updating' && zone.modelEligible) return 'AI running';
+		return zone.modelCalls > 0 || zone.authority === 'model' ? 'AI applied' : zone.modelEligible ? 'AI available' : zone.authority === 'fixed' ? 'Template' : 'Rules';
+	}
+
+	function tagTone(zone: ZoneEvidence): string {
+		const state = zoneState(zone);
+		return state === 'Template' ? 'fixed' : state === 'Rules' ? 'rules' : 'model';
+	}
+
+	function isDecisionZone(instanceId: string): boolean {
+		if (!decisionEvidence) return false;
+		return decisionEvidence.surface === 'home' ? instanceId === 'home.featured-row.1' : instanceId === decisionEvidence.zoneId;
+	}
+
+	function formatProducts(products: readonly { name: string }[]): string {
+		return products.length ? products.map(({ name }) => name).join(' · ') : 'none';
+	}
+
+	function viewDecisionChanges() {
+		if (!decisionEvidence) return;
+		const instanceId = decisionEvidence.surface === 'home' ? 'home.featured-row.1' : decisionEvidence.zoneId;
+		const element = [...document.querySelectorAll<HTMLElement>('[data-aisles-zone-instance]')].find((candidate) => candidate.dataset.aislesZoneInstance === instanceId);
+		if (!element) return;
+		if (!element.id) element.id = `kibble-${instanceId.replaceAll('.', '-')}`;
+		element.setAttribute('tabindex', '-1');
+		replaceState(`#${element.id}`, {});
+		element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		element.focus({ preventScroll: true });
 	}
 </script>
 
@@ -304,8 +350,14 @@
 			</div>
 
 			<p class="aisles-observe__truth" aria-live="polite" aria-atomic="true">
-				{#if modelCallCount > 0}
-					A model returned the product order for the ranked shelf. The shelf component and all shopper-facing product fields remained fixed.
+				{#if decisionEvidence?.state === 'failed'}
+					AI failed. Fallback kept the existing order and copy. The provider result was not published.
+				{:else if decisionEvidence?.state === 'applied'}
+					{decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed the approved product order.' : 'AI kept the existing order and copy.'} The component, product fields, and merchant-owned copy stayed fixed.
+				{:else if modelActionStatus === 'updating'}
+					AI is running one bounded model call. The current approved zone remains visible until the result passes validation.
+				{:else if modelCallCount > 0}
+					AI returned a product order for the ranked shelf. Run the control again to record a new before-and-after result.
 				{:else if modelEligibleCount > 0}
 					{modelEligibleCount} bounded AI {modelEligibleCount === 1 ? 'zone is' : 'zones are'} available. The current result remains template- or rules-owned until you run the AI control.
 				{:else if rulesCount > 0}
@@ -331,13 +383,41 @@
 			</div>
 			{#if modelActionEligible && modelAction}<p class="aisles-observe__truth" role="status" aria-live="polite">{modelAction.detail}</p>{/if}
 
+			{#if decisionEvidence}
+				<section class="aisles-observe__evidence" aria-labelledby="aisles-decision-evidence">
+					<div class="aisles-observe__evidence-heading">
+						<div>
+							<h3 id="aisles-decision-evidence">Decision outcome</h3>
+							<p>{decisionEvidence.zoneLabel} · {decisionEvidence.state === 'failed' ? 'Fallback retained' : decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed the order' : 'AI kept the existing order'}</p>
+						</div>
+						<button type="button" onclick={viewDecisionChanges}>View changes</button>
+					</div>
+					<div class="aisles-observe__before-after">
+						<div><span>Before</span><b>{formatProducts(decisionEvidence.before)}</b></div>
+						<div><span>After</span><b>{formatProducts(decisionEvidence.after)}</b></div>
+					</div>
+					<div class="aisles-observe__diff" aria-label="Decision changes">
+						<div><span>moved</span><b>{formatProducts(decisionEvidence.moved)}</b></div>
+						<div><span>added</span><b>{formatProducts(decisionEvidence.added)}</b></div>
+						<div><span>removed</span><b>{formatProducts(decisionEvidence.removed)}</b></div>
+						<div><span>unchanged</span><b>{formatProducts(decisionEvidence.unchanged)}</b></div>
+					</div>
+					<div class="aisles-observe__evidence-facts">
+						<div><span>copy</span><b>unchanged · merchant-owned</b></div>
+						<div><span>provider / model</span><b>{decisionEvidence.provider ?? 'not confirmed'} / {decisionEvidence.model ?? 'not confirmed'}</b></div>
+						<div><span>calls</span><b>{decisionEvidence.calls ?? 'not confirmed'}</b></div>
+						<div><span>policy / zone</span><b>{decisionEvidence.policyVersion} / {decisionEvidence.zoneId}</b></div>
+					</div>
+				</section>
+			{/if}
+
 			<details class="aisles-observe__zones">
 				<summary>Visible page zones ({zones.length})</summary>
 				<ul>
 					{#each zones as zone (zone.instanceId)}
 						<li>
-							<span class={`aisles-observe__tag aisles-observe__tag--${zone.modelEligible ? 'model' : zone.authority}`}>
-								{zone.modelCalls > 0 || zone.authority === 'model' ? 'AI applied' : zone.modelEligible ? 'AI available' : zone.authority === 'fixed' ? 'Template' : 'Rules'}
+							<span class={`aisles-observe__tag aisles-observe__tag--${tagTone(zone)}`}>
+								{zoneState(zone)}
 							</span>
 							<div><b>{zone.label}</b><small>{zone.instanceId} · {zone.status}</small></div>
 						</li>
@@ -391,6 +471,19 @@
 	.aisles-observe__pip--rules { background:var(--observe-blue); }
 	.aisles-observe__pip--model { background:var(--observe-coral); }
 	.aisles-observe__truth { margin:0; border-bottom:1px solid var(--observe-line); background:#fff; padding:.72rem .8rem; color:#3e4961; }
+	.aisles-observe__evidence { border-bottom:1px solid var(--observe-line); background:#fffdf8; padding:.75rem .8rem; }
+	.aisles-observe__evidence h3, .aisles-observe__evidence p { margin:0; }
+	.aisles-observe__evidence h3 { font-size:.72rem; }
+	.aisles-observe__evidence p { margin-top:.12rem; color:var(--observe-muted); font-size:.62rem; }
+	.aisles-observe__evidence-heading { display:flex; align-items:start; justify-content:space-between; gap:.5rem; }
+	.aisles-observe__evidence-heading button { min-height:44px; }
+	.aisles-observe__before-after, .aisles-observe__diff, .aisles-observe__evidence-facts { display:grid; gap:.45rem; margin-top:.65rem; }
+	.aisles-observe__before-after { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+	.aisles-observe__diff { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+	.aisles-observe__evidence-facts { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+	.aisles-observe__before-after div, .aisles-observe__diff div, .aisles-observe__evidence-facts div { min-width:0; border-top:1px solid #e0e6f2; padding-top:.35rem; }
+	.aisles-observe__before-after span, .aisles-observe__diff span, .aisles-observe__evidence-facts span { display:block; color:var(--observe-muted); font-size:.58rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+	.aisles-observe__before-after b, .aisles-observe__diff b, .aisles-observe__evidence-facts b { display:block; margin-top:.12rem; overflow-wrap:anywhere; font-size:.63rem; }
 	.aisles-observe__facts { display:grid; grid-template-columns:repeat(3, 1fr); gap:.55rem; border-bottom:1px solid var(--observe-line); padding:.7rem .8rem; }
 	.aisles-observe__facts div { min-width:0; }
 	.aisles-observe__facts span, .aisles-observe__facts b { display:block; overflow-wrap:anywhere; }
@@ -410,6 +503,7 @@
 	.aisles-observe__tag { flex:none; min-width:4.5rem; border:1px solid #8696b6; color:#344a80; padding:.12rem .28rem; font-size:.57rem; font-weight:900; text-align:center; text-transform:uppercase; }
 	.aisles-observe__tag--rules { border-color:#6d89cf; color:#1c4cab; }
 	.aisles-observe__tag--model { border-color:#d2978e; color:#963a2e; }
+	.aisles-observe__tag--fixed { border-color:#8696b6; color:#344a80; }
 	.aisles-observe__boundary { border-bottom:1px solid var(--observe-line); background:#fff8ed; padding:.75rem .8rem; }
 	.aisles-observe__boundary h3, .aisles-observe__boundary p { margin:0; }
 	.aisles-observe__boundary h3 { font-size:.7rem; }
@@ -424,6 +518,6 @@
 	:global(body.aisles-observe-zone-map [data-aisles-authority='fixed']) { outline-color:#667796 !important; }
 	:global(body.aisles-observe-zone-map [data-aisles-model-eligible='true'][data-aisles-authority='fixed']) { outline-color:#b94a3b !important; }
 	:global(body.aisles-observe-zone-map [data-aisles-zone-instance]::before) { content:attr(data-aisles-zone-label) ' · ' attr(data-aisles-observe-state); position:absolute; top:0; left:0; z-index:60; max-width:calc(100% - .5rem); overflow:hidden; background:#17213b; color:#fff; padding:.2rem .35rem; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.6rem; font-weight:800; line-height:1.2; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; }
-	@media (max-width: 640px) { .aisles-observe { right:.65rem; bottom:.65rem; width:calc(100vw - 1.3rem); max-height:62vh; } .aisles-observe--collapsed { left:.65rem; width:auto; } .aisles-observe__header { align-items:flex-start; } .aisles-observe__header-actions { flex-wrap:wrap; justify-content:flex-end; } .aisles-observe__counts { grid-template-columns:repeat(2, 1fr); } .aisles-observe__counts div:nth-child(2) { border-right:0; } .aisles-observe__counts div:nth-child(-n+2) { border-bottom:1px solid var(--observe-line); } .aisles-observe__facts { grid-template-columns:1fr; } .aisles-observe__footer { align-items:flex-start; flex-direction:column; } }
+	@media (max-width: 640px) { .aisles-observe { right:.65rem; bottom:.65rem; width:calc(100vw - 1.3rem); max-height:62vh; } .aisles-observe--collapsed { left:.65rem; width:auto; } .aisles-observe__header { align-items:flex-start; } .aisles-observe__header-actions { flex-wrap:wrap; justify-content:flex-end; } .aisles-observe__counts { grid-template-columns:repeat(2, 1fr); } .aisles-observe__counts div:nth-child(2) { border-right:0; } .aisles-observe__counts div:nth-child(-n+2) { border-bottom:1px solid var(--observe-line); } .aisles-observe__facts, .aisles-observe__before-after, .aisles-observe__diff, .aisles-observe__evidence-facts { grid-template-columns:1fr; } .aisles-observe__footer { align-items:flex-start; flex-direction:column; } }
 	@media (prefers-reduced-motion: reduce) { .aisles-observe *, .aisles-observe *::before, .aisles-observe *::after { scroll-behavior:auto !important; transition:none !important; } }
 </style>

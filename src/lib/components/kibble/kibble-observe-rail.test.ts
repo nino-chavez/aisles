@@ -62,6 +62,9 @@ describe('KibbleObserveRail', () => {
 		expect(source).toContain('disabled={!modelActionReady || modelAction.disabled}');
 		expect(source).toContain('plpModelActionReady = false');
 		expect(source).toContain("plpModelActionStatus = 'idle'");
+		expect(source).toContain('homeModelActionReady = false');
+		expect(source).toContain('pdpModelActionReady = false');
+		expect(source).toContain('decisionEvidence = null');
 	});
 
 	it('makes bounded AI capability visible before the first model call on every approved surface', () => {
@@ -74,6 +77,7 @@ describe('KibbleObserveRail', () => {
 		expect(rail).toContain("return 'Run AI'");
 		expect(rail).toContain("window.dispatchEvent(new CustomEvent('aisles-kibble-model-request'))");
 		expect(rail).toContain("window.addEventListener('aisles-kibble-home-model-ready', onHomeModelReady)");
+		expect(rail).toContain('View changes');
 		expect(rail).toContain("zone.modelEligible ? 'AI available'");
 		for (const source of [home, plp, pdp]) expect(source).toContain('data-aisles-model-eligible');
 	});

@@ -2,13 +2,16 @@ import type { KibbleProduct, KibbleZoneAdapterBinding } from './types';
 import { KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS } from '$lib/kibble-demo-ai-boundary';
 import {
 	type KibbleDevInspectorData,
+	buildKibbleDecisionEvidence,
+	type KibbleDecisionEvidence,
 	type KibbleInspectorPersona,
+	type KibbleInspectorProductSummary,
 	type KibbleInspectorZone,
 	type KibbleLivePreviewStatus,
 } from './kibble-dev-inspector';
 
 const PERSONAS = new Set<KibbleInspectorPersona>(['gatherer', 'hunter', 'researcher', 'gifter']);
-const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'reference', 'policyVersion', 'persona', 'products', 'featuredZoneAdapters', 'inspector']);
+const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'reference', 'policyVersion', 'persona', 'products', 'featuredZoneAdapters', 'inspector', 'provider', 'modelId']);
 const PRODUCT_KEYS = new Set(['id', 'entityId', 'name', 'price', 'salePrice', 'image', 'imageAlt', 'description', 'specs', 'tags', 'category']);
 const INSPECTOR_KEYS = new Set(['reference', 'surface', 'preset', 'policyVersion', 'publicationMode', 'inference', 'dataSourceLabel', 'zones', 'provenance', 'availableModelDecision']);
 const ZONE_KEYS = new Set(['id', 'label', 'authority', 'componentVariant', 'capabilities', 'decisionSummary', 'changed', 'inputProducts', 'outputProducts', 'modelCallStatus', 'decision']);
@@ -70,6 +73,8 @@ export type KibbleLivePreview = {
 	products: KibbleProduct[];
 	featuredZoneAdapters?: KibbleZoneAdapterBinding<ProductGridContent>[];
 	inspector: KibbleDevInspectorData;
+	provider?: 'anthropic';
+	modelId?: string;
 };
 
 export type KibbleLivePreviewValidation =
@@ -79,6 +84,7 @@ export type KibbleLivePreviewValidation =
 export type KibbleLivePreviewListenerOptions = {
 	expectation: KibbleLivePreviewExpectation;
 	getCurrentProductIds: () => readonly string[];
+	getCurrentProductSummaries?: () => readonly KibbleInspectorProductSummary[];
 	onApplied: (preview: KibbleLivePreview) => void;
 	onStatus: (status: KibbleLivePreviewStatus) => void;
 };
@@ -90,6 +96,7 @@ export type KibbleLivePreviewListenerOptions = {
 export function listenForKibbleLivePreview({
 	expectation,
 	getCurrentProductIds,
+	getCurrentProductSummaries,
 	onApplied,
 	onStatus,
 }: KibbleLivePreviewListenerOptions): () => void {
@@ -107,7 +114,8 @@ export function listenForKibbleLivePreview({
 			timedOut = true;
 			requestController.abort();
 		}, mode === 'model' ? KIBBLE_MODEL_PREVIEW_TIMEOUT_MS : KIBBLE_LIVE_PREVIEW_TIMEOUT_MS);
-		onStatus({ state: 'updating' });
+		onStatus({ state: 'updating', mode });
+		const before = getCurrentProductSummaries?.() ?? getCurrentProductIds().map((id) => ({ id, name: id }));
 
 		try {
 			const response = await fetch('/api/kibble/home-decision?observe=true', {
@@ -126,12 +134,32 @@ export function listenForKibbleLivePreview({
 			const nextProductIds = validation.preview.products.map(({ id }) => id);
 			const changed = !sameStringArray(currentProductIds, nextProductIds);
 			onApplied(validation.preview);
-			onStatus({ state: 'applied', persona: validation.preview.persona, changed });
+			onStatus({
+				state: 'applied', mode, persona: validation.preview.persona, changed,
+				...(mode === 'model' ? {
+					evidence: buildKibbleDecisionEvidence({
+						surface: 'home', zoneId: expectation.modelDecision?.zoneId ?? 'home.featured-row', zoneLabel: 'Featured product shelf',
+						policyVersion: expectation.modelDecision?.policyVersion ?? validation.preview.inspector.policyVersion,
+						before, after: validation.preview.products, provider: validation.preview.provider ?? null,
+						model: validation.preview.modelId ?? null,
+						calls: validation.preview.featuredZoneAdapters?.[0]?.modelCallCount ?? null, state: 'applied',
+					}),
+				} : {}),
+			});
 		} catch (error) {
 			if (!active || requestGeneration !== generation) return;
 			if (requestController.signal.aborted && !timedOut) return;
 			console.warn('Kibble live preview was rejected; retaining the approved shelf.', error);
-			onStatus({ state: 'failed' });
+			onStatus({
+			state: 'failed', mode,
+			...(mode === 'model' ? {
+				evidence: buildKibbleDecisionEvidence({
+					surface: 'home', zoneId: expectation.modelDecision?.zoneId ?? 'home.featured-row', zoneLabel: 'Featured product shelf',
+					policyVersion: expectation.modelDecision?.policyVersion ?? expectation.policyVersion,
+					before, after: before, provider: null, model: null, calls: null, state: 'failed',
+				}),
+			} : {}),
+		});
 		} finally {
 			clearTimeout(timeout);
 			if (controller === requestController) controller = null;
@@ -187,6 +215,8 @@ export function validateKibbleLivePreview(
 		? 'rules'
 		: expected.modelDecision && value.policyVersion === expected.modelDecision.policyVersion ? 'model' : null;
 	if (!mode) return invalid('policy version');
+	if (mode === 'model' && (!isProvider(value.provider) || typeof value.modelId !== 'string' || value.modelId.length < 1)) return invalid('model provider evidence');
+	if (mode === 'rules' && ('provider' in value || 'modelId' in value)) return invalid('unexpected model provider evidence');
 	if (!isPersona(value.persona)) return invalid('persona');
 	if (!Array.isArray(value.products) || value.products.length < 1 || value.products.length > 8) return invalid('products');
 	if (!value.products.every(isKibbleProduct) || new Set(value.products.map((product) => product.id)).size !== value.products.length) return invalid('products');
@@ -200,6 +230,7 @@ export function validateKibbleLivePreview(
 			products: value.products,
 			featuredZoneAdapters: value.featuredZoneAdapters,
 			inspector: value.inspector,
+			...(mode === 'model' ? { provider: 'anthropic' as const, modelId: value.modelId as string } : {}),
 		},
 	};
 }
@@ -232,6 +263,10 @@ function matchesReference(value: unknown, expected: KibbleLivePreviewExpectation
 
 function isPersona(value: unknown): value is KibbleInspectorPersona {
 	return typeof value === 'string' && PERSONAS.has(value as KibbleInspectorPersona);
+}
+
+function isProvider(value: unknown): value is 'anthropic' {
+	return value === 'anthropic';
 }
 
 function isKibbleProduct(value: unknown): value is KibbleProduct {
