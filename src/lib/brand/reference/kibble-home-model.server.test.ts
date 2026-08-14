@@ -17,15 +17,23 @@ const inference: PersonaInference = {
 };
 
 describe('bounded Kibble Home model prompt', () => {
-	it('contains only approved ranking facts and denies every visual or commerce axis', () => {
+	it('contains only approved facts and merchant presentation IDs', () => {
 		const prompt = buildKibbleHomeModelPrompt(inference, [{
 			id: 'food-a', entityId: 3023, name: 'Food A', price: 24, image: 'https://example.com/a.jpg',
 			imageAlt: 'Food A', description: 'Private catalog description', specs: { secret: 'withheld' },
 			tags: ['private-tag'], category: 'dog-food', personaFit: { gatherer: 0.1, hunter: 0.2, researcher: 0.9, gifter: 0.1 },
-		}]);
+		}], {
+			hero: { eyebrow: 'Live eyebrow', headline: 'Live headline', body: 'Live body' },
+			featuredCopy: { eyebrow: 'Catalog', title: 'New arrivals', browseAllLabel: 'Browse Dog Food' },
+			catalogCopy: { eyebrow: 'Browse', title: 'Shop by category' },
+		});
 		expect(prompt).toContain('3023 | Food A | dog-food | USD 24.00 | researcher fit 0.900');
-		expect(prompt).toContain('Your only authority is rankedProductIds. Return every supplied product ID exactly once.');
-		expect(prompt).toContain('Do not write copy. Do not choose layout, components, CSS, prices, claims, links, or actions.');
+		expect(prompt).toContain('Return every supplied product ID exactly once, plus one ID for every approved presentation field.');
+		expect(prompt).toContain('heroCopyVariantId: merchant-baseline=');
+		expect(prompt).toContain('visit-fast-path=');
+		expect(prompt).toContain('compare-with-context=');
+		expect(prompt).toContain('featuredCopyVariantId: merchant-baseline=Catalog / New arrivals / Browse Dog Food');
+		expect(prompt).toContain('Do not write prose');
 		for (const forbidden of ['raw shopper search', 'Private catalog description', 'private-tag', 'withheld', 'https://example.com/a.jpg']) {
 			expect(prompt).not.toContain(forbidden);
 		}
@@ -37,9 +45,11 @@ describe('bounded Kibble Home model prompt', () => {
 			{ entityId: 3024 },
 			{ entityId: 3025 },
 		]);
-		expect(schema.safeParse({ rankedProductIds: ['3025', '3023', '3024'] }).success).toBe(true);
+		const decision = { rankedProductIds: ['3025', '3023', '3024'], heroCopyVariantId: 'visit-fast-path', featuredCopyVariantId: 'visit-start', catalogCopyVariantId: 'routine-builder', catalogComponentVariantId: 'two-column', sectionOrderId: 'catalog-then-featured' };
+		expect(schema.safeParse(decision).success).toBe(true);
 		expect(schema.safeParse({ rankedProductIds: ['3025', 'outside-catalog'] }).success).toBe(false);
-		expect(schema.safeParse({ rankedProductIds: ['3025'], copy: 'model-authored' }).success).toBe(false);
+		expect(schema.safeParse({ ...decision, heroCopyVariantId: 'model-authored' }).success).toBe(false);
+		expect(schema.safeParse({ ...decision, copy: 'model-authored' }).success).toBe(false);
 		const responseFormat = await Output.object({ schema }).responseFormat;
 		expect(JSON.stringify(responseFormat)).not.toContain('maxItems');
 		expect(JSON.stringify(responseFormat)).toContain('"enum":["3023","3024","3025"]');

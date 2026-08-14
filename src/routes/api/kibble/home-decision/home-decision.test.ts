@@ -34,9 +34,16 @@ vi.mock('$lib/brand/reference/kibble-home-decision', () => ({ decideKibbleHome: 
 vi.mock('$lib/server/layout-provenance', () => ({ buildContractedLayoutProvenance: mocks.buildContractedLayoutProvenance }));
 vi.mock('$lib/brand/reference/kibble', () => ({ KIBBLE_REFERENCE_CONTRACT: { version: '1.8.0', recipes: { home: { id: 'kibble-home-reference-v1' } } } }));
 vi.mock('$lib/brand/reference/kibble-zone-executor.server', () => ({ executeKibbleHomeFeaturedZoneAdapters: mocks.executeFeaturedAdapters }));
+vi.mock('$lib/brand/reference/kibble-runtime', () => ({
+	buildKibbleHomePresentationContext: () => ({
+		hero: { eyebrow: 'Live eyebrow', headline: 'Live headline', body: 'Live body' },
+		featuredCopy: { eyebrow: 'Catalog', title: 'New arrivals', browseAllLabel: 'Browse Dog Food' },
+		catalogCopy: { eyebrow: 'Browse', title: 'Shop by category' },
+	}),
+}));
 vi.mock('$lib/brand/reference/kibble-home-model.server', () => ({
-	KIBBLE_HOME_MODEL_PROMPT_VERSION: 'kibble-home-bounded-rank-v1',
-	KIBBLE_HOME_MODEL_SCHEMA_VERSION: 'kibble-home-zone-decision-v1',
+	KIBBLE_HOME_MODEL_PROMPT_VERSION: 'kibble-home-bounded-presentation-v2',
+	KIBBLE_HOME_MODEL_SCHEMA_VERSION: 'kibble-home-presentation-decision-v2',
 	rankKibbleHomeWithModel: mocks.rankWithModel,
 }));
 vi.mock('$lib/server/kibble-demo-ai-budget', () => ({ reserveKibbleDemoAiCall: mocks.reserveBudget }));
@@ -121,7 +128,7 @@ describe('POST /api/kibble/home-decision', () => {
 		expect(mocks.decideKibbleHome).toHaveBeenCalledWith({ policyVersion: 'policy-v1' }, inference, [candidate]);
 		const body = await response.json();
 		expect(body).toMatchObject({
-			version: 'kibble-live-home-preview-v2', previewOnly: true,
+			version: 'kibble-live-home-preview-v3', previewOnly: true,
 			reference: { id: 'kibble-shelf-native', version: '1.8.0' }, policyVersion: 'policy-v1', persona: 'gatherer',
 			inspector: { dataSourceLabel: 'runner-fixture', inference: { shift: { trigger: '[request detail withheld]' }, ruleMatches: [{ reason: 'Matched; raw request detail withheld.' }] }, provenance: { decisionSource: 'rules', synthetic: { scenarioId: 'runner-scenario' } } },
 		});
@@ -138,20 +145,30 @@ describe('POST /api/kibble/home-decision', () => {
 			zoneAdapter: { instanceId: 'home.featured-row.1', decisionMode: 'model', modelCallCount: 1 },
 			policy: { policyVersion: 'model-policy-v1', provenance: { zoneBinding: { familyId: 'home.featured-row' } } },
 			modelId: 'claude-haiku-4-5', modelCallCount: 1, inputTokens: 100, outputTokens: 12,
+			presentationDecision: { heroCopyVariantId: 'visit-fast-path', featuredCopyVariantId: 'visit-start', catalogCopyVariantId: 'routine-builder', catalogComponentVariantId: 'two-column', sectionOrderId: 'catalog-then-featured' },
 		});
 		mocks.buildContractedLayoutProvenance.mockReturnValueOnce({ decisionSource: 'model', synthetic: { value: true, scenarioId: 'runner-scenario' } });
 
 		const response = await POST(request(true, { mode: 'model' }));
 		expect(response.status).toBe(200);
 		expect(mocks.reserveBudget).toHaveBeenCalledWith('session-one');
-		expect(mocks.rankWithModel).toHaveBeenCalledWith({ inference, products: [candidate] });
+		expect(mocks.rankWithModel).toHaveBeenCalledWith({
+			inference,
+			products: [candidate],
+			presentationContext: {
+				hero: { eyebrow: 'Live eyebrow', headline: 'Live headline', body: 'Live body' },
+				featuredCopy: { eyebrow: 'Catalog', title: 'New arrivals', browseAllLabel: 'Browse Dog Food' },
+				catalogCopy: { eyebrow: 'Browse', title: 'Shop by category' },
+			},
+		});
 		const body = await response.json();
 		expect(body).toMatchObject({
-			version: 'kibble-live-home-preview-v2', policyVersion: 'model-policy-v1',
+			version: 'kibble-live-home-preview-v3', policyVersion: 'model-policy-v1',
+			presentationDecision: { heroCopyVariantId: 'visit-fast-path', catalogComponentVariantId: 'two-column' },
 			featuredZoneAdapters: [{ instanceId: 'home.featured-row.1', decisionMode: 'model', modelCallCount: 1 }],
 			inspector: {
 				preset: 'assist',
-				dataSourceLabel: 'bounded-model-ranking',
+				dataSourceLabel: 'bounded-model-presentation',
 				zones: [{
 					authority: 'model',
 					componentVariant: 'kibble.featured-grid.ranked-segment',

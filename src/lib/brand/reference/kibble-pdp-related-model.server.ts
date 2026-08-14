@@ -3,10 +3,17 @@ import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
 import { model, withModelFallback } from '$lib/server/model';
 import { createKibbleDemoProviderDeadline } from '$lib/server/kibble-demo-ai-deadline.server';
+import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS } from '$lib/kibble-demo-ai-boundary';
 import { executeKibblePdpRelatedModelShelf } from './kibble-zone-executor.server';
+import {
+	KIBBLE_PDP_PRESENTATION_IDS,
+	kibblePdpPresentationPromptOptions,
+	parseKibblePdpPresentationDecision,
+	type KibblePdpPresentationDecision,
+} from './kibble-presentation-decisions';
 
-export const KIBBLE_PDP_RELATED_MODEL_PROMPT_VERSION = 'kibble-pdp-related-bounded-rank-v1';
-export const KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION = 'kibble-pdp-related-zone-decision-v1';
+export const KIBBLE_PDP_RELATED_MODEL_PROMPT_VERSION = 'kibble-pdp-related-presentation-v2';
+export const KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION = 'kibble-pdp-presentation-decision-v2';
 
 export type KibblePdpRelatedCandidate = {
 	entityId: number;
@@ -30,6 +37,7 @@ export async function rankKibblePdpRelatedWithModel(input: {
 	let servedModelId = '';
 	let inputTokens: number | undefined;
 	let outputTokens: number | undefined;
+	let presentationDecision: KibblePdpPresentationDecision | null = null;
 	const deadline = createKibbleDemoProviderDeadline();
 	try {
 		const result = await executeKibblePdpRelatedModelShelf({
@@ -42,6 +50,7 @@ export async function rankKibblePdpRelatedWithModel(input: {
 					return generateText({
 						model: model(modelId),
 						abortSignal: deadline.signal,
+						maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
 						// Anthropic's schema subset cannot carry the generic array bounds.
 						// The generic contract parses this response here and revalidates it
 						// again before the adapter can publish it.
@@ -52,10 +61,14 @@ export async function rankKibblePdpRelatedWithModel(input: {
 				servedModelId = generated.modelId;
 				inputTokens = generated.result.usage?.inputTokens;
 				outputTokens = generated.result.usage?.outputTokens;
-				return outputSchema.parse(generated.result.output);
+				const providerResult = providerOutputSchema.parse(generated.result.output);
+				const { rankedProductIds, ...presentationFields } = providerResult;
+				presentationDecision = parseKibblePdpPresentationDecision(presentationFields);
+				if (!presentationDecision) throw new Error('Kibble PDP presentation decision left the merchant allow-list.');
+				return outputSchema.parse({ rankedProductIds });
 			},
 		});
-		if (!servedModelId || modelCallCount < 1) throw new Error('Kibble PDP model runner returned no provider evidence.');
+		if (!servedModelId || modelCallCount < 1 || !presentationDecision) throw new Error('Kibble PDP model runner returned no provider evidence.');
 		if (result.rankedProductIds.length !== input.products.length || new Set(result.rankedProductIds).size !== input.products.length) {
 			throw new Error('Kibble PDP model output was not an exact approved product permutation.');
 		}
@@ -64,6 +77,7 @@ export async function rankKibblePdpRelatedWithModel(input: {
 			adapter: withKibblePdpRelatedModelCallCount(result.adapter, modelCallCount),
 			modelId: servedModelId,
 			modelCallCount,
+			presentationDecision,
 			...(inputTokens === undefined ? {} : { inputTokens }),
 			...(outputTokens === undefined ? {} : { outputTokens }),
 			prompt,
@@ -87,7 +101,11 @@ export function buildKibblePdpRelatedProviderOutputSchema(products: readonly Pic
 	if (!first || productIds.length < 3 || productIds.length > 4 || new Set(productIds).size !== productIds.length) {
 		throw new Error('Kibble PDP provider schema requires three to four unique approved product IDs.');
 	}
-	return z.object({ rankedProductIds: z.array(z.enum([first, ...productIds.slice(1)])) }).strict();
+	return z.object({
+		rankedProductIds: z.array(z.enum([first, ...productIds.slice(1)])),
+		relatedCopyVariantId: z.enum(tuple(KIBBLE_PDP_PRESENTATION_IDS.relatedCopyVariantIds)),
+		marketingBlockVariantId: z.enum(tuple(KIBBLE_PDP_PRESENTATION_IDS.marketingBlockVariantIds)),
+	}).strict();
 }
 
 export function buildKibblePdpRelatedModelPrompt(
@@ -99,14 +117,18 @@ export function buildKibblePdpRelatedModelPrompt(
 	const candidates = products
 		.map((product) => `- ${product.entityId} | ${product.name} | ${product.category} | USD ${product.price.toFixed(2)}`).join('\n');
 	return [
-		'Rank one already-approved Kibble & Co. related-products rail for the inferred shopper.',
-		'Your only authority is rankedProductIds. Return every supplied product ID exactly once.',
-		'Do not add or remove products. Do not write copy. Do not choose layout, components, CSS, prices, claims, links, or actions.',
+		'Compose one bounded Kibble & Co. related-products presentation for the inferred shopper.',
+		'Return every supplied product ID exactly once, plus one ID for every approved presentation field.',
+		'You may only select the listed merchant-owned IDs. Do not write prose, add products, change prices, claims, links, actions, CSS, or invent components.',
 		`Primary persona: ${inference.primary}`,
 		`Persona probabilities: ${probabilities}`,
 		`Price sensitivity: ${inference.modifiers.priceSensitivity.toFixed(3)}`,
 		`Urgency: ${inference.modifiers.urgency.toFixed(3)}`,
 		'Approved related products:',
 		candidates,
+		'Approved presentation choices:',
+		...kibblePdpPresentationPromptOptions(),
 	].join('\n');
 }
+
+function tuple<T extends string>(values: readonly T[]): [T, ...T[]] { const first = values[0]; if (!first) throw new Error('Kibble PDP presentation allow-list is empty.'); return [first, ...values.slice(1)]; }

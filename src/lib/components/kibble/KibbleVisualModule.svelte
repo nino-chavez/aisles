@@ -9,6 +9,9 @@
 		tiles,
 		columns = variant === 'routine' ? 3 : 4,
 		zoneAdapter,
+		modelEligible = false,
+		modelCallCount = 0,
+		componentVariantId = 'four-column',
 	}: {
 		variant: 'routine' | 'category';
 		title: string;
@@ -16,16 +19,19 @@
 		tiles: KibbleVisualTile[];
 		columns?: 2 | 3 | 4;
 		zoneAdapter?: KibbleZoneAdapterBinding<{ component: 'editorial-header'; props: { eyebrow: string; headline: string; body: string } }>;
+		modelEligible?: boolean;
+		modelCallCount?: number;
+		componentVariantId?: string;
 	} = $props();
 
 	const headingId = $derived(`kibble-${variant}-heading`);
 </script>
 
 {#if tiles.length > 0}
-	<section class="kibble-reference kc-reference-section kc-reference-section--muted" aria-labelledby={headingId} data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256} data-aisles-zone-instance={zoneAdapter?.instanceId} data-aisles-zone-label={zoneAdapter?.instanceId} data-aisles-authority={zoneAdapter?.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter?.modelCallCount ?? 0}>
+	<section class="kibble-reference kc-reference-section kc-reference-section--muted" aria-labelledby={headingId} data-kibble-zone-instance={zoneAdapter?.instanceId} data-kibble-zone-status={zoneAdapter?.sharedStatus} data-kibble-zone-content-kind={zoneAdapter?.sharedContentKind} data-kibble-zone-adapter={zoneAdapter?.adapterId} data-kibble-zone-variant={modelCallCount > 0 ? componentVariantId : zoneAdapter?.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter?.inputSha256} data-aisles-zone-instance={zoneAdapter?.instanceId ?? 'home.catalog-entry'} data-aisles-zone-label="Catalog entry" data-aisles-authority={modelCallCount > 0 ? 'model' : (zoneAdapter?.decisionMode ?? 'fixed')} data-aisles-model-calls={modelCallCount} data-aisles-model-eligible={modelEligible ? 'true' : undefined}>
 		<div class="kc-reference-container">
-			<p class="kc-reference-eyebrow">{zoneAdapter?.content.props.eyebrow ?? eyebrow}</p>
-			<h2 id={headingId} class="kc-reference-section__title">{zoneAdapter?.content.props.headline ?? title}</h2>
+			<p class="kc-reference-eyebrow">{modelCallCount > 0 ? eyebrow : (zoneAdapter?.content.props.eyebrow ?? eyebrow)}</p>
+			<h2 id={headingId} class="kc-reference-section__title">{modelCallCount > 0 ? title : (zoneAdapter?.content.props.headline ?? title)}</h2>
 
 			<div class="kc-reference-visual-grid kc-reference-visual-grid--{columns}">
 				{#each tiles as tile (tile.href)}

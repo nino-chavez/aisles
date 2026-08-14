@@ -22,9 +22,10 @@ import { logGeneration } from '$lib/server/generation-log';
 import { infer } from '$lib/signals/inference';
 import { findSessionStore } from '$lib/signals/session';
 import { MODEL_PROVIDER } from '$lib/server/model';
+import { KIBBLE_PDP_PRESENTATION_POLICY } from '$lib/brand/reference/kibble-presentation-decisions';
 
 const SESSION_COOKIE = 'aisles_session';
-const PREVIEW_VERSION = 'kibble-pdp-related-preview-v1';
+const PREVIEW_VERSION = 'kibble-pdp-presentation-preview-v2';
 
 /** An exact-route, prospect-triggered model action with no browser-owned facts. */
 export const POST: RequestHandler = async ({ url, cookies, request }) => {
@@ -65,7 +66,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			decisionSource: 'model',
 			promptVersion: KIBBLE_PDP_RELATED_MODEL_PROMPT_VERSION,
 			schemaVersion: KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION,
-			contractInput: { zone: modelDecision.policy.provenance.zoneBinding, rankedProductIds: modelDecision.rankedProductIds, modelCallCount: modelDecision.modelCallCount },
+			contractInput: { zone: modelDecision.policy.provenance.zoneBinding, rankedProductIds: modelDecision.rankedProductIds, presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY, presentationDecision: modelDecision.presentationDecision, modelCallCount: modelDecision.modelCallCount },
 			catalogInput: { source: 'server-reloaded-pdp-related', candidates: products, rankedProductIds: modelDecision.rankedProductIds },
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
 			scenarioId,
@@ -83,6 +84,8 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			policyVersion: modelDecision.policy.policyVersion,
 			persona: inference.primary,
 			rankedProductIds: modelDecision.rankedProductIds,
+			presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY,
+			presentationDecision: modelDecision.presentationDecision,
 			zoneAdapter: modelDecision.adapter,
 			modelCallCount: modelDecision.modelCallCount,
 			provider: MODEL_PROVIDER,

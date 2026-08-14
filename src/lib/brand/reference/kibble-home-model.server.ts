@@ -3,11 +3,19 @@ import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
 import { model, withModelFallback } from '$lib/server/model';
 import { createKibbleDemoProviderDeadline } from '$lib/server/kibble-demo-ai-deadline.server';
+import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS } from '$lib/kibble-demo-ai-boundary';
 import type { KibbleHomeCandidateProduct } from './kibble-home-decision';
 import { executeKibbleHomeModelShelf } from './kibble-zone-executor.server';
+import {
+	KIBBLE_HOME_PRESENTATION_IDS,
+	kibbleHomePresentationPromptOptions,
+	parseKibbleHomePresentationDecision,
+	type KibbleHomePresentationDecision,
+	type KibbleHomePresentationContext,
+} from './kibble-presentation-decisions';
 
-export const KIBBLE_HOME_MODEL_PROMPT_VERSION = 'kibble-home-bounded-rank-v1';
-export const KIBBLE_HOME_MODEL_SCHEMA_VERSION = 'kibble-home-zone-decision-v1';
+export const KIBBLE_HOME_MODEL_PROMPT_VERSION = 'kibble-home-bounded-presentation-v2';
+export const KIBBLE_HOME_MODEL_SCHEMA_VERSION = 'kibble-home-presentation-decision-v2';
 
 export type KibbleHomeModelResult = {
 	products: KibbleHomeCandidateProduct[];
@@ -15,6 +23,7 @@ export type KibbleHomeModelResult = {
 	policy: Awaited<ReturnType<typeof executeKibbleHomeModelShelf>>['policy'];
 	modelId: string;
 	modelCallCount: number;
+	presentationDecision: KibbleHomePresentationDecision;
 	inputTokens?: number;
 	outputTokens?: number;
 	prompt: string;
@@ -27,8 +36,9 @@ export type KibbleHomeModelResult = {
 export async function rankKibbleHomeWithModel(input: {
 	inference: PersonaInference;
 	products: KibbleHomeCandidateProduct[];
+	presentationContext?: KibbleHomePresentationContext;
 }): Promise<KibbleHomeModelResult> {
-	const prompt = buildKibbleHomeModelPrompt(input.inference, input.products);
+	const prompt = buildKibbleHomeModelPrompt(input.inference, input.products, input.presentationContext);
 	const providerOutputSchema = buildKibbleHomeProviderOutputSchema(input.products);
 	let modelCallCount = 0;
 	let servedModelId = '';
@@ -36,6 +46,7 @@ export async function rankKibbleHomeWithModel(input: {
 	let outputTokens: number | undefined;
 	const deadline = createKibbleDemoProviderDeadline();
 	try {
+		let presentationDecision: KibbleHomePresentationDecision | null = null;
 		const result = await executeKibbleHomeModelShelf({
 			products: input.products,
 			runModel: async ({ outputSchema }) => {
@@ -44,6 +55,7 @@ export async function rankKibbleHomeWithModel(input: {
 					return generateText({
 						model: model(modelId),
 						abortSignal: deadline.signal,
+						maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
 						// Anthropic structured output rejects maxItems, which the
 						// reusable zone schema uses for its server-side bound. This
 						// provider hint retains the exact product enum and strict object
@@ -57,10 +69,14 @@ export async function rankKibbleHomeWithModel(input: {
 				servedModelId = generated.modelId;
 				inputTokens = generated.result.usage?.inputTokens;
 				outputTokens = generated.result.usage?.outputTokens;
-				return outputSchema.parse(generated.result.output);
+				const providerResult = providerOutputSchema.parse(generated.result.output);
+				const { rankedProductIds, ...presentationFields } = providerResult;
+				presentationDecision = parseKibbleHomePresentationDecision(presentationFields);
+				if (!presentationDecision) throw new Error('Kibble Home presentation decision left the merchant allow-list.');
+				return outputSchema.parse({ rankedProductIds });
 			},
 		});
-		if (!servedModelId || modelCallCount < 1) throw new Error('Kibble Home model runner returned no provider evidence.');
+		if (!servedModelId || modelCallCount < 1 || !presentationDecision) throw new Error('Kibble Home model runner returned no provider evidence.');
 		const byId = new Map(input.products.map((product) => [String(product.entityId), product]));
 		const products: KibbleHomeCandidateProduct[] = result.rankedProductIds
 			.map((id: string) => byId.get(id))
@@ -74,6 +90,7 @@ export async function rankKibbleHomeWithModel(input: {
 			policy: result.policy,
 			modelId: servedModelId,
 			modelCallCount,
+			presentationDecision,
 			...(inputTokens === undefined ? {} : { inputTokens }),
 			...(outputTokens === undefined ? {} : { outputTokens }),
 			prompt,
@@ -94,12 +111,18 @@ export function buildKibbleHomeProviderOutputSchema(
 	const ids: [string, ...string[]] = [first, ...productIds.slice(1)];
 	return z.object({
 		rankedProductIds: z.array(z.enum(ids)),
+		heroCopyVariantId: z.enum(tuple(KIBBLE_HOME_PRESENTATION_IDS.heroCopyVariantIds)),
+		featuredCopyVariantId: z.enum(tuple(KIBBLE_HOME_PRESENTATION_IDS.featuredCopyVariantIds)),
+		catalogCopyVariantId: z.enum(tuple(KIBBLE_HOME_PRESENTATION_IDS.catalogCopyVariantIds)),
+		catalogComponentVariantId: z.enum(tuple(KIBBLE_HOME_PRESENTATION_IDS.catalogComponentVariantIds)),
+		sectionOrderId: z.enum(tuple(KIBBLE_HOME_PRESENTATION_IDS.sectionOrderIds)),
 	}).strict();
 }
 
 export function buildKibbleHomeModelPrompt(
 	inference: PersonaInference,
 	products: readonly KibbleHomeCandidateProduct[],
+	presentationContext?: KibbleHomePresentationContext,
 ): string {
 	const probabilities = Object.entries(inference.probabilities)
 		.map(([persona, probability]) => `${persona}=${probability.toFixed(3)}`)
@@ -110,14 +133,22 @@ export function buildKibbleHomeModelPrompt(
 		return `- ${product.entityId} | ${product.name} | ${product.category} | USD ${product.price.toFixed(2)} | ${inference.primary} fit ${fitLabel}`;
 	}).join('\n');
 	return [
-		'Rank one already-approved Kibble & Co. product shelf for the inferred shopper.',
-		'Your only authority is rankedProductIds. Return every supplied product ID exactly once.',
-		'Do not add or remove products. Do not write copy. Do not choose layout, components, CSS, prices, claims, links, or actions.',
+		'Compose one bounded Kibble & Co. storefront presentation for the inferred shopper.',
+		'Return every supplied product ID exactly once, plus one ID for every approved presentation field.',
+		'You may only select the listed merchant-owned IDs. Do not write prose, add products, change prices, claims, links, actions, CSS, or invent components.',
 		`Primary persona: ${inference.primary}`,
 		`Persona probabilities: ${probabilities}`,
 		`Price sensitivity: ${inference.modifiers.priceSensitivity.toFixed(3)}`,
 		`Urgency: ${inference.modifiers.urgency.toFixed(3)}`,
 		'Approved products:',
 		candidates,
+		'Approved presentation choices:',
+		...kibbleHomePresentationPromptOptions(presentationContext),
 	].join('\n');
+}
+
+function tuple<T extends string>(values: readonly T[]): [T, ...T[]] {
+	const first = values[0];
+	if (!first) throw new Error('Kibble Home presentation allow-list is empty.');
+	return [first, ...values.slice(1)];
 }

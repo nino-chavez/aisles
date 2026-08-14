@@ -1,8 +1,16 @@
 import type { KibbleProduct, KibbleZoneAdapterBinding } from './types';
 import { KIBBLE_DEMO_PLP_CLIENT_TIMEOUT_MS } from '$lib/kibble-demo-ai-boundary';
 import { buildKibbleDecisionEvidence, type KibbleLivePreviewStatus } from './kibble-dev-inspector';
+import {
+	KIBBLE_PLP_PRESENTATION_POLICY,
+	materializeKibblePlpPresentation,
+	parseKibblePlpPresentationDecision,
+	snapshotKibblePlpPresentation,
+	type KibblePlpPresentationDecision,
+	type KibblePresentationSnapshot,
+} from '$lib/brand/reference/kibble-presentation-decisions';
 
-const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'routePath', 'sort', 'cursor', 'policyVersion', 'reference', 'persona', 'prefixIds', 'tailIds', 'rankedPrefixIds', 'zoneAdapter', 'modelCallCount', 'provider', 'modelId', 'provenance']);
+const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'routePath', 'sort', 'cursor', 'policyVersion', 'reference', 'persona', 'prefixIds', 'tailIds', 'rankedPrefixIds', 'presentationPolicy', 'presentationDecision', 'zoneAdapter', 'modelCallCount', 'provider', 'modelId', 'provenance']);
 const ADAPTER_KEYS = new Set(['instanceId', 'sharedStatus', 'sharedContentKind', 'decisionMode', 'modelCallCount', 'adapterId', 'componentVariantId', 'inputSha256', 'content']);
 const CONTENT_KEYS = new Set(['component', 'props']);
 const PROP_KEYS = new Set(['columns', 'products', 'imageRatio', 'showDescription', 'showSpecs', 'showQuickAdd']);
@@ -13,11 +21,13 @@ const REQUEST_TIMEOUT_MS = KIBBLE_DEMO_PLP_CLIENT_TIMEOUT_MS;
 export type KibblePlpLivePreviewExpectation = {
 	routePath: '/category/dog-food'; sort: 'FEATURED'; cursor: null; policyVersion: string;
 	reference: { id: string; version: string }; prefixIds: readonly string[]; tailIds: readonly string[]; expectedInputSha256: string;
+	title: string; productCount: number; productSingular: string; productPlural: string;
 };
-export type KibblePlpLivePreview = { products: KibbleProduct[]; zoneAdapter: KibbleZoneAdapterBinding; persona: 'gatherer' | 'hunter' | 'researcher' | 'gifter'; provider: 'anthropic'; modelId: string; modelCallCount: number };
+export type KibblePlpLivePreview = { products: KibbleProduct[]; zoneAdapter: KibbleZoneAdapterBinding; presentationDecision: KibblePlpPresentationDecision; persona: 'gatherer' | 'hunter' | 'researcher' | 'gifter'; provider: 'anthropic'; modelId: string; modelCallCount: number };
 
 export function listenForKibblePlpLivePreview(input: {
 	expectation: KibblePlpLivePreviewExpectation; products: readonly KibbleProduct[];
+	getCurrentPresentation: () => KibblePresentationSnapshot;
 	onApplied: (preview: KibblePlpLivePreview) => void; onStatus: (status: KibbleLivePreviewStatus) => void;
 }): () => void {
 	let active = true;
@@ -25,6 +35,7 @@ export function listenForKibblePlpLivePreview(input: {
 	const onRequest = async () => {
 		if (controller) return; // one paid dispatch at a time; a repeated click cannot replace it.
 		const next = new AbortController(); controller = next; input.onStatus({ state: 'updating', mode: 'model' });
+		const presentationBefore = input.getCurrentPresentation();
 		let timedOut = false;
 		const timeout = window.setTimeout(() => { timedOut = true; next.abort(); }, REQUEST_TIMEOUT_MS);
 		try {
@@ -34,10 +45,12 @@ export function listenForKibblePlpLivePreview(input: {
 			if (!preview || !active || next.signal.aborted) throw new Error('Preview response rejected');
 			const before = input.products.map(({ id, name }) => ({ id, name }));
 			const after = preview.products.map(({ id, name }) => ({ id, name }));
-			input.onApplied(preview); input.onStatus({ state: 'applied', mode: 'model', persona: preview.persona, changed: !sameProductOrder(before, after), evidence: buildKibbleDecisionEvidence({ surface: 'plp', zoneId: 'plp.product-ranking', zoneLabel: 'Catalog grid product ranking', policyVersion: input.expectation.policyVersion, before, after, provider: preview.provider, model: preview.modelId, calls: preview.modelCallCount, state: 'applied' }) });
+			const presentationAfter = snapshotKibblePlpPresentation(materializeKibblePlpPresentation(preview.presentationDecision, input.expectation));
+			const evidence = buildKibbleDecisionEvidence({ surface: 'plp', zoneId: 'plp.presentation', zoneLabel: 'Category presentation', policyVersion: KIBBLE_PLP_PRESENTATION_POLICY.policyVersion, before, after, provider: preview.provider, model: preview.modelId, calls: preview.modelCallCount, state: 'applied', presentationBefore, presentationAfter });
+			input.onApplied(preview); input.onStatus({ state: 'applied', mode: 'model', persona: preview.persona, changed: hasChanges(evidence), evidence });
 		} catch (error) {
 			if (!active || (next.signal.aborted && !timedOut)) return;
-			console.warn('Kibble PLP live preview was rejected; retaining the server-rendered catalog order.', error); const before = input.products.map(({ id, name }) => ({ id, name })); input.onStatus({ state: 'failed', mode: 'model', evidence: buildKibbleDecisionEvidence({ surface: 'plp', zoneId: 'plp.product-ranking', zoneLabel: 'Catalog grid product ranking', policyVersion: input.expectation.policyVersion, before, after: before, provider: null, model: null, calls: null, state: 'failed' }) });
+			console.warn('Kibble PLP live preview was rejected; retaining the server-rendered catalog presentation.', error); const before = input.products.map(({ id, name }) => ({ id, name })); input.onStatus({ state: 'failed', mode: 'model', evidence: buildKibbleDecisionEvidence({ surface: 'plp', zoneId: 'plp.presentation', zoneLabel: 'Category presentation', policyVersion: KIBBLE_PLP_PRESENTATION_POLICY.policyVersion, before, after: before, provider: null, model: null, calls: null, state: 'failed', presentationBefore, presentationAfter: presentationBefore }) });
 		} finally {
 			window.clearTimeout(timeout);
 			if (controller === next) controller = null;
@@ -49,11 +62,13 @@ export function listenForKibblePlpLivePreview(input: {
 
 /** A response may change exactly the prefix; the server-rendered tail is immutable. */
 export function validateKibblePlpLivePreview(value: unknown, expected: KibblePlpLivePreviewExpectation, products: readonly KibbleProduct[]): KibblePlpLivePreview | null {
-	if (!isRecord(value) || !hasOnlyKeys(value, RESPONSE_KEYS) || value.version !== 'kibble-plp-first-eight-preview-v1' || value.previewOnly !== true
+	if (!isRecord(value) || !hasOnlyKeys(value, RESPONSE_KEYS) || value.version !== 'kibble-plp-presentation-preview-v2' || value.previewOnly !== true
 		|| value.routePath !== expected.routePath || value.sort !== expected.sort || value.cursor !== expected.cursor || value.policyVersion !== expected.policyVersion
 		|| !sameReference(value.reference, expected.reference) || !sameIds(value.prefixIds, expected.prefixIds) || !sameIds(value.tailIds, expected.tailIds)
 		|| !sameIdSet(value.rankedPrefixIds, expected.prefixIds) || !isModelCallCount(value.modelCallCount)
 		|| !isPersona(value.persona) || value.provider !== 'anthropic' || typeof value.modelId !== 'string' || value.modelId.length < 1) return null;
+	const presentationDecision = parseKibblePlpPresentationDecision(value.presentationDecision);
+	if (!presentationDecision || !samePolicy(value.presentationPolicy)) return null;
 	const rankedPrefixIds = value.rankedPrefixIds as string[];
 	const tailIds = value.tailIds as string[];
 	const modelCallCount = value.modelCallCount as number;
@@ -62,7 +77,7 @@ export function validateKibblePlpLivePreview(value: unknown, expected: KibblePlp
 	if (!sameIds(products.map(({ entityId }) => String(entityId)), allOriginal)) return null;
 	const byId = new Map(products.map((product) => [String(product.entityId), product]));
 	const reordered = [...rankedPrefixIds, ...tailIds].map((id) => byId.get(id));
-	return reordered.some((product) => product === undefined) ? null : { products: reordered as KibbleProduct[], zoneAdapter: value.zoneAdapter, persona: value.persona, provider: value.provider, modelId: value.modelId, modelCallCount };
+	return reordered.some((product) => product === undefined) ? null : { products: reordered as KibbleProduct[], zoneAdapter: value.zoneAdapter, presentationDecision, persona: value.persona, provider: value.provider, modelId: value.modelId, modelCallCount };
 }
 
 function isAdapter(value: unknown, expectedInputSha256: string, rankedPrefixIds: readonly string[], tailIds: readonly string[], modelCallCount: number): value is KibbleZoneAdapterBinding {
@@ -82,3 +97,5 @@ function sameIdSet(value: unknown, expected: readonly string[]) { return Array.i
 function sameReference(value: unknown, expected: { id: string; version: string }) { return isRecord(value) && Object.keys(value).length === 2 && value.id === expected.id && value.version === expected.version; }
 function isPersona(value: unknown): value is KibblePlpLivePreview['persona'] { return value === 'gatherer' || value === 'hunter' || value === 'researcher' || value === 'gifter'; }
 function sameProductOrder(left: readonly { id: string }[], right: readonly { id: string }[]) { return left.length === right.length && left.every((product, index) => product.id === right[index]?.id); }
+function samePolicy(value: unknown) { return isRecord(value) && Object.keys(value).length === 3 && value.policyVersion === KIBBLE_PLP_PRESENTATION_POLICY.policyVersion && sameIds(value.zoneIds, KIBBLE_PLP_PRESENTATION_POLICY.zoneIds) && sameIds(value.capabilities, KIBBLE_PLP_PRESENTATION_POLICY.capabilities); }
+function hasChanges(evidence: ReturnType<typeof buildKibbleDecisionEvidence>) { return !sameProductOrder(evidence.before, evidence.after) || [...evidence.copy, ...evidence.components, ...evidence.sections, ...evidence.marketingBlocks].some(({ changed }) => changed); }

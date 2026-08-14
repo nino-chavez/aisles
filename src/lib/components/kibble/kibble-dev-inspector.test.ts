@@ -111,11 +111,11 @@ describe('KibbleDevInspector', () => {
 
 	it('keeps an explicit bounded-AI failure visible when no behavior control is active', () => {
 		expect(describeKibbleModelDecisionStatus({ state: 'updating' }))
-			.toBe('Bounded AI ranking is running.');
+			.toBe('Bounded AI presentation is running.');
 		expect(describeKibbleModelDecisionStatus({ state: 'failed' }))
-			.toBe('Bounded AI ranking failed; the last approved shelf was retained.');
+			.toBe('Bounded AI presentation failed; the last approved storefront was retained.');
 		expect(describeKibbleModelDecisionStatus({ state: 'applied', persona: 'hunter', changed: false }))
-			.toBe('Bounded AI ranking applied for hunter; AI kept the existing order and copy.');
+			.toBe('Bounded AI presentation applied for hunter.');
 	});
 
 	it('offers real behavior simulations only for a synthetic scenario', () => {
@@ -130,8 +130,8 @@ describe('KibbleDevInspector', () => {
 			expect(result.body).toContain(behavior);
 		}
 		expect(result.body).toContain('Start a fresh shopper');
-		expect(result.body).toContain('Run bounded AI ranking');
-		expect(result.body).toContain('It may only return the product order. Copy, layout, prices, links, and actions stay template-owned.');
+		expect(result.body).toContain('Run bounded AI presentation');
+		expect(result.body).toContain('merchant-approved copy, component, and section IDs');
 		expect(result.body).toContain('Choose a customer behavior to simulate.');
 		expect(result.body).toContain('aria-atomic="true"');
 		expect(result.body).toContain('aria-disabled="false"');

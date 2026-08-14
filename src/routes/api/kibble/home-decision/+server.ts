@@ -23,9 +23,11 @@ import { MODEL_PROVIDER } from '$lib/server/model';
 import { reserveKibbleDemoAiCall } from '$lib/server/kibble-demo-ai-budget';
 import { logGeneration } from '$lib/server/generation-log';
 import { executeKibbleHomeFeaturedZoneAdapters } from '$lib/brand/reference/kibble-zone-executor.server';
+import { KIBBLE_HOME_PRESENTATION_POLICY } from '$lib/brand/reference/kibble-presentation-decisions';
+import { buildKibbleHomePresentationContext } from '$lib/brand/reference/kibble-runtime';
 
 const SESSION_COOKIE = 'aisles_session';
-const PREVIEW_VERSION = 'kibble-live-home-preview-v2';
+const PREVIEW_VERSION = 'kibble-live-home-preview-v3';
 
 /** A public-demo, server-derived view of the bounded Kibble Preserve Home decision. */
 export const POST: RequestHandler = async ({ url, cookies, request }) => {
@@ -67,7 +69,11 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			const reservation = await reserveKibbleDemoAiCall(sessionId);
 			if (!reservation.ok) return budgetUnavailable(reservation.reason);
 			const startedAt = Date.now();
-			const modelDecision = await rankKibbleHomeWithModel({ inference, products: decision.products });
+			const modelDecision = await rankKibbleHomeWithModel({
+				inference,
+				products: decision.products,
+				presentationContext: buildKibbleHomePresentationContext(referenceProducts.source),
+			});
 			const products = modelDecision.products.map(({ personaFit: _personaFit, ...product }) => product);
 			const rankedProductIds = products.map(({ entityId }) => entityId);
 			const scenarioId = privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo';
@@ -84,6 +90,8 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 				contractInput: {
 					zone: modelDecision.policy.provenance.zoneBinding,
 					rankedProductIds,
+					presentationPolicy: KIBBLE_HOME_PRESENTATION_POLICY,
+					presentationDecision: modelDecision.presentationDecision,
 					modelCallCount: modelDecision.modelCallCount,
 				},
 				catalogInput: { source: referenceProducts.source, candidates: referenceProducts.products, rankedProductIds },
@@ -111,6 +119,8 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 				persona: inference.primary,
 				products,
 				featuredZoneAdapters: [modelDecision.zoneAdapter],
+				presentationPolicy: KIBBLE_HOME_PRESENTATION_POLICY,
+				presentationDecision: modelDecision.presentationDecision,
 				provider: MODEL_PROVIDER,
 				modelId: modelDecision.modelId,
 				inspector: buildModelInspector({
@@ -210,13 +220,13 @@ function buildModelInspector(input: {
 		preset: 'assist' as const,
 		policyVersion: input.policyVersion,
 		inference: sanitizeInspectorInference(input.inference),
-		dataSourceLabel: 'bounded-model-ranking',
+		dataSourceLabel: 'bounded-model-presentation',
 		zones: input.decision.inspector.zones.map((zone) => zone.id === 'ranked-products' ? {
 			...stripZoneScoreVariants(zone),
 			authority: 'model' as const,
 			componentVariant: 'kibble.featured-grid.ranked-segment',
 			capabilities: ['rank_products'],
-			decisionSummary: `The model returned one exact permutation of ${outputProducts.length} approved products. Copy, layout, pricing, CSS, links, and actions remained fixed.`,
+			decisionSummary: `One provider call returned an exact product permutation and merchant-approved presentation IDs. Product facts, pricing, links, actions, and CSS remained fixed.`,
 			changed: !sameProductOrder(zone.inputProducts, outputProducts),
 			outputProducts,
 			modelCallStatus: { calls: input.modelCallCount, authorized: true },

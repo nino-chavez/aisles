@@ -13,6 +13,7 @@ import {
 import { withKibblePdpRelatedModelCallCount } from './kibble-pdp-related-model.server';
 import { validateKibblePdpLivePreview } from '$lib/components/kibble/kibble-pdp-live-preview';
 import type { KibbleProduct } from '$lib/components/kibble/types';
+import { KIBBLE_PDP_DEFAULT_PRESENTATION, KIBBLE_PDP_PRESENTATION_POLICY } from './kibble-presentation-decisions';
 import {
 	KIBBLE_CANONICAL_UNION_ZONE_INSTANCE_IDS,
 	KIBBLE_ZONE_TERMINALS,
@@ -163,9 +164,10 @@ describe('Kibble exact union-zone execution', () => {
 		});
 		const adapter = withKibblePdpRelatedModelCallCount(result.adapter, 1);
 		const preview = validateKibblePdpLivePreview({
-			version: 'kibble-pdp-related-preview-v1', previewOnly: true,
+			version: 'kibble-pdp-presentation-preview-v2', previewOnly: true,
 			routePath: '/product/puppy-starter-kit', policyVersion: result.policy.policyVersion,
 			persona: 'researcher', rankedProductIds: result.rankedProductIds,
+			presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY, presentationDecision: KIBBLE_PDP_DEFAULT_PRESENTATION,
 			zoneAdapter: adapter, modelCallCount: 1, provider: 'anthropic', modelId: 'claude-haiku-4-5', provenance: {},
 		}, {
 			routePath: '/product/puppy-starter-kit', policyVersion: result.policy.policyVersion,

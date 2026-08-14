@@ -13,6 +13,11 @@
 	import { getEmitter } from '$lib/signals/emitter';
 	import { KibbleCategoryReference } from '$lib/components/kibble';
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
+	import {
+		KIBBLE_PLP_DEFAULT_PRESENTATION,
+		materializeKibblePlpPresentation,
+		snapshotKibblePlpPresentation,
+	} from '$lib/brand/reference/kibble-presentation-decisions';
 
 	let { data }: { data: PageData } = $props();
 
@@ -28,11 +33,15 @@
 	type KibblePlpData = NonNullable<PageData['kibbleCategory']>;
 	let previewProducts = $state<KibblePlpData['products'] | null>(null);
 	let previewRankingAdapter = $state<KibblePlpData['zoneAdapter'] | null>(null);
+	let previewPlpPresentation = $state<ReturnType<typeof materializeKibblePlpPresentation> | null>(null);
+	let defaultPlpPresentation = $derived(data.kibbleCategory ? materializeKibblePlpPresentation(KIBBLE_PLP_DEFAULT_PRESENTATION, data.kibbleCategory) : null);
+	let activePlpPresentation = $derived(previewPlpPresentation ?? defaultPlpPresentation);
 
 	$effect(() => {
 		data;
 		previewProducts = null;
 		previewRankingAdapter = null;
+		previewPlpPresentation = null;
 	});
 
 	$effect(() => {
@@ -45,11 +54,13 @@
 		void import('$lib/components/kibble/kibble-plp-live-preview').then(({ listenForKibblePlpLivePreview }) => {
 			if (!active) return;
 			cleanup = listenForKibblePlpLivePreview({
-				expectation: { routePath: decision.routePath, sort: decision.sort, cursor: decision.cursor, policyVersion: decision.policyVersion, reference: { id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version }, prefixIds: decision.prefixIds, tailIds: decision.tailIds, expectedInputSha256: decision.expectedInputSha256 },
+				expectation: { routePath: decision.routePath, sort: decision.sort, cursor: decision.cursor, policyVersion: decision.policyVersion, reference: { id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version }, prefixIds: decision.prefixIds, tailIds: decision.tailIds, expectedInputSha256: decision.expectedInputSha256, title: category.title, productCount: category.productCount, productSingular: category.productSingular, productPlural: category.productPlural },
 				products,
+				getCurrentPresentation: () => snapshotKibblePlpPresentation(activePlpPresentation ?? materializeKibblePlpPresentation(KIBBLE_PLP_DEFAULT_PRESENTATION, category)),
 				onApplied: (preview) => {
 					previewProducts = preview.products as KibblePlpData['products'];
 					previewRankingAdapter = preview.zoneAdapter as KibblePlpData['zoneAdapter'];
+					previewPlpPresentation = materializeKibblePlpPresentation(preview.presentationDecision, category);
 				},
 				onStatus: (status) => window.dispatchEvent(new CustomEvent('aisles-kibble-plp-model-status', { detail: status })),
 			});
@@ -246,7 +257,7 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleCategory}
-	<KibbleCategoryReference {...data.kibbleCategory} products={previewProducts ?? data.kibbleCategory.products} productRankingZoneAdapter={previewRankingAdapter} />
+	<KibbleCategoryReference {...data.kibbleCategory} products={previewProducts ?? data.kibbleCategory.products} productRankingZoneAdapter={previewRankingAdapter} presentation={activePlpPresentation} presentationModelCallCount={previewRankingAdapter?.modelCallCount ?? 0} />
 {:else}
 <div class="mx-auto max-w-7xl px-6 py-8">
 	<!-- Dev mode panel -->

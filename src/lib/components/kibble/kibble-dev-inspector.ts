@@ -2,6 +2,8 @@
  * Client-safe shape for the Kibble developer inspector. The route adapter owns
  * population; this component intentionally has no server or policy imports.
  */
+import type { KibblePresentationSnapshot } from '$lib/brand/reference/kibble-presentation-decisions';
+
 export type KibbleInspectorPersona = 'gatherer' | 'hunter' | 'researcher' | 'gifter';
 export type KibbleInspectorAuthority = 'fixed' | 'rules' | 'model';
 
@@ -85,9 +87,20 @@ export type KibbleDecisionEvidence = {
 	added: KibbleInspectorProductSummary[];
 	removed: KibbleInspectorProductSummary[];
 	unchanged: KibbleInspectorProductSummary[];
-	copy: 'unchanged';
+	copy: KibblePresentationChange[];
+	components: KibblePresentationChange[];
+	sections: KibblePresentationChange[];
+	marketingBlocks: KibblePresentationChange[];
 	state: 'applied' | 'failed';
 	fallback: boolean;
+};
+
+export type KibblePresentationChange = {
+	id: string;
+	label: string;
+	before: string;
+	after: string;
+	changed: boolean;
 };
 
 export type KibbleLivePreviewStatus =
@@ -105,12 +118,16 @@ export function buildKibbleDecisionEvidence(input: {
 	model: string | null;
 	calls: number | null;
 	state: KibbleDecisionEvidence['state'];
+	presentationBefore?: KibblePresentationSnapshot;
+	presentationAfter?: KibblePresentationSnapshot;
 }): KibbleDecisionEvidence {
 	const before = input.before.map(({ id, name }) => ({ id, name }));
 	const after = input.after.map(({ id, name }) => ({ id, name }));
 	const beforeById = new Map(before.map((product, index) => [product.id, { product, index }]));
 	const afterIds = new Set(after.map(({ id }) => id));
 	const beforeIds = new Set(before.map(({ id }) => id));
+	const presentationBefore = input.presentationBefore ?? emptyPresentationSnapshot();
+	const presentationAfter = input.presentationAfter ?? presentationBefore;
 	return {
 		surface: input.surface,
 		zoneId: input.zoneId,
@@ -125,10 +142,31 @@ export function buildKibbleDecisionEvidence(input: {
 		added: after.filter(({ id }) => !beforeIds.has(id)),
 		removed: before.filter(({ id }) => !afterIds.has(id)),
 		unchanged: after.filter((product, index) => beforeById.get(product.id)?.index === index),
-		copy: 'unchanged',
+		copy: comparePresentationEntries(presentationBefore.copy, presentationAfter.copy),
+		components: comparePresentationEntries(presentationBefore.components, presentationAfter.components),
+		sections: comparePresentationEntries(presentationBefore.sections, presentationAfter.sections),
+		marketingBlocks: comparePresentationEntries(presentationBefore.marketingBlocks, presentationAfter.marketingBlocks),
 		state: input.state,
 		fallback: input.state === 'failed',
 	};
+}
+
+export function hasKibbleDecisionChanged(evidence: KibbleDecisionEvidence): boolean {
+	return evidence.moved.length > 0
+		|| evidence.added.length > 0
+		|| evidence.removed.length > 0
+		|| [...evidence.copy, ...evidence.components, ...evidence.sections, ...evidence.marketingBlocks].some(({ changed }) => changed);
+}
+
+export function describeKibbleDecisionDimensions(evidence: KibbleDecisionEvidence): string {
+	if (evidence.state === 'failed') return 'Fallback kept the existing presentation.';
+	const changed: string[] = [];
+	if (evidence.moved.length || evidence.added.length || evidence.removed.length) changed.push('product order');
+	if (evidence.copy.some((entry) => entry.changed)) changed.push('copy');
+	if (evidence.components.some((entry) => entry.changed)) changed.push('component treatment');
+	if (evidence.sections.some((entry) => entry.changed)) changed.push('section order');
+	if (evidence.marketingBlocks.some((entry) => entry.changed)) changed.push('marketing block');
+	return changed.length ? `AI changed ${changed.join(', ')}.` : 'AI kept the existing order, copy, and presentation.';
 }
 
 export function describeKibbleRehearsalStatus(
@@ -167,14 +205,34 @@ export function describeKibbleBehaviorStatus(
 }
 
 export function describeKibbleModelDecisionStatus(status: KibbleLivePreviewStatus): string {
-	if (status.state === 'updating') return 'Bounded AI ranking is running.';
-	if (status.state === 'failed') return 'Bounded AI ranking failed; the last approved shelf was retained.';
+	if (status.state === 'updating') return 'Bounded AI presentation is running.';
+	if (status.state === 'failed') return 'Bounded AI presentation failed; the last approved storefront was retained.';
 	if (status.state === 'applied') {
-		return status.changed
-			? `Bounded AI ranking applied for ${status.persona}; the approved shelf order changed.`
-			: `Bounded AI ranking applied for ${status.persona}; AI kept the existing order and copy.`;
+		return status.evidence
+			? `Bounded AI presentation applied for ${status.persona}; ${describeKibbleDecisionDimensions(status.evidence)}`
+			: `Bounded AI presentation applied for ${status.persona}.`;
 	}
-	return 'Bounded AI ranking is ready.';
+	return 'Bounded AI presentation is ready.';
+}
+
+function comparePresentationEntries(
+	before: KibblePresentationSnapshot['copy'],
+	after: KibblePresentationSnapshot['copy'],
+): KibblePresentationChange[] {
+	const beforeById = new Map(before.map((entry) => [entry.id, entry]));
+	const afterById = new Map(after.map((entry) => [entry.id, entry]));
+	const ids = [...new Set([...beforeById.keys(), ...afterById.keys()])];
+	return ids.map((id) => {
+		const beforeEntry = beforeById.get(id);
+		const afterEntry = afterById.get(id);
+		const beforeValue = beforeEntry?.value ?? 'Not shown';
+		const afterValue = afterEntry?.value ?? 'Not shown';
+		return { id, label: afterEntry?.label ?? beforeEntry?.label ?? id, before: beforeValue, after: afterValue, changed: beforeValue !== afterValue };
+	});
+}
+
+function emptyPresentationSnapshot(): KibblePresentationSnapshot {
+	return { copy: [], components: [], sections: [], marketingBlocks: [] };
 }
 
 export const KIBBLE_INSPECTOR_PERSONAS: readonly KibbleInspectorPersona[] = [

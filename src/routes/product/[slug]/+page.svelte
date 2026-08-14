@@ -5,6 +5,11 @@
 	import { KIBBLE_PARITY_FIXED_DATA_IDENTITY } from '$lib/brand/reference/kibble-parity';
 	import { getEmitter } from '$lib/signals/emitter';
 	import { addPick, isPicked, removePick } from '$lib/stores/picks.svelte';
+	import {
+		KIBBLE_PDP_DEFAULT_PRESENTATION,
+		materializeKibblePdpPresentation,
+		snapshotKibblePdpPresentation,
+	} from '$lib/brand/reference/kibble-presentation-decisions';
 
 	let { data }: { data: PageData } = $props();
 	let product = $derived(data.product);
@@ -14,11 +19,15 @@
 	type KibblePdpData = NonNullable<PageData['kibblePdp']>;
 	let previewRelatedProducts = $state<KibblePdpData['relatedProducts'] | null>(null);
 	let previewRelatedZoneAdapter = $state<KibblePdpData['zoneAdapter'] | null>(null);
+	let previewPdpPresentation = $state<ReturnType<typeof materializeKibblePdpPresentation> | null>(null);
+	const defaultPdpPresentation = materializeKibblePdpPresentation(KIBBLE_PDP_DEFAULT_PRESENTATION);
+	let activePdpPresentation = $derived(previewPdpPresentation ?? defaultPdpPresentation);
 
 	$effect(() => {
 		data;
 		previewRelatedProducts = null;
 		previewRelatedZoneAdapter = null;
+		previewPdpPresentation = null;
 	});
 
 	$effect(() => {
@@ -39,10 +48,12 @@
 			const listener = listenForKibblePdpLivePreview({
 				expectation,
 				products,
+				getCurrentPresentation: () => snapshotKibblePdpPresentation(activePdpPresentation),
 				onApplied: (preview) => {
 					// Validation proves these are a reorder of this server-rendered rail.
 					previewRelatedProducts = preview.products as KibblePdpData['relatedProducts'];
 					previewRelatedZoneAdapter = preview.zoneAdapter as KibblePdpData['zoneAdapter'];
+					previewPdpPresentation = materializeKibblePdpPresentation(preview.presentationDecision);
 				},
 				onStatus: (status) => window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-status', { detail: status })),
 			});
@@ -104,6 +115,8 @@
 		{...data.kibblePdp}
 		relatedProducts={previewRelatedProducts ?? data.kibblePdp.relatedProducts}
 		zoneAdapter={previewRelatedZoneAdapter ?? data.kibblePdp.zoneAdapter}
+		presentation={activePdpPresentation}
+		presentationModelCallCount={previewRelatedZoneAdapter?.modelCallCount ?? 0}
 	/></div>
 {:else if product && relatedProducts}
 	<div class="mx-auto max-w-7xl px-6 py-8">

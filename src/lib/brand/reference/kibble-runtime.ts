@@ -17,6 +17,7 @@ import {
 } from './kibble-plp';
 import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '$lib/brand/composition-policy';
 import type { Surface } from '$lib/foundation/zones';
+import type { KibbleHomePresentationContext } from './kibble-presentation-decisions';
 
 export type MerchantRenderMode =
 	| 'reference-preserve'
@@ -24,6 +25,23 @@ export type MerchantRenderMode =
 	| 'reference-unavailable'
 	| 'legacy-generated';
 export type KibbleFeaturedSource = 'featured' | 'newest' | 'deterministic-catalog';
+
+export function buildKibbleHomePresentationContext(featuredSource: KibbleFeaturedSource): KibbleHomePresentationContext {
+	const home = KIBBLE_PRESERVE_MANIFEST.display.home;
+	return {
+		hero: { eyebrow: home.hero.eyebrow, headline: home.hero.headline, body: home.hero.body },
+		featuredCopy: {
+			eyebrow: home.featured.eyebrow,
+			title: featuredSource === 'featured'
+				? home.featured.titleWhenFeatured
+				: featuredSource === 'newest'
+					? home.featured.titleWhenNewest
+					: home.featured.titleWhenDeterministic,
+			browseAllLabel: home.featured.browseAllLabel,
+		},
+		catalogCopy: { eyebrow: home.categories.eyebrow, title: home.categories.title },
+	};
+}
 
 export function selectMerchantRenderMode(
 	brandId: unknown,
@@ -90,6 +108,7 @@ export function buildKibbleHomeReference(
 ) {
 	assertKibbleBrand(brand);
 	const manifest = KIBBLE_PRESERVE_MANIFEST.display;
+	const presentationContext = buildKibbleHomePresentationContext(featuredSource);
 	const featuredBundle = verifyAndMaterializeBundle(bundleProduct);
 	const categories = materializeCategoryTiles(brand);
 	assertExactHomeShelf(products, featuredBundle.entityId);
@@ -100,9 +119,7 @@ export function buildKibbleHomeReference(
 
 	return {
 		hero: {
-			eyebrow: manifest.home.hero.eyebrow,
-			headline: manifest.home.hero.headline,
-			body: manifest.home.hero.body,
+			...presentationContext.hero,
 			ctas: manifest.home.hero.ctas.map((cta) => {
 				assertCategory(brand, cta.categorySlug);
 				return { label: cta.label, href: `/category/${cta.categorySlug}`, primary: cta.primary };
@@ -116,18 +133,10 @@ export function buildKibbleHomeReference(
 		productHrefs: isKibblePdpPublished() ? materializeKibblePdpHrefs(featuredProducts) : {},
 		categories,
 		serviceProof: manifest.home.serviceProof.map((item): KibbleServiceProofItem => ({ ...item })),
-		featuredCopy: {
-			eyebrow: manifest.home.featured.eyebrow,
-			title: featuredSource === 'featured'
-				? manifest.home.featured.titleWhenFeatured
-				: featuredSource === 'newest'
-					? manifest.home.featured.titleWhenNewest
-					: manifest.home.featured.titleWhenDeterministic,
-			browseAllLabel: manifest.home.featured.browseAllLabel,
-		} satisfies KibbleFeaturedCopy,
+		featuredCopy: presentationContext.featuredCopy satisfies KibbleFeaturedCopy,
 		browseHref: '/category/dog-food',
-		categoryTitle: manifest.home.categories.title,
-		categoryEyebrow: manifest.home.categories.eyebrow,
+		categoryTitle: presentationContext.catalogCopy.title,
+		categoryEyebrow: presentationContext.catalogCopy.eyebrow,
 	};
 }
 

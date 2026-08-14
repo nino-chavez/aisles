@@ -9,9 +9,17 @@ import {
 	type KibbleInspectorZone,
 	type KibbleLivePreviewStatus,
 } from './kibble-dev-inspector';
+import {
+	KIBBLE_HOME_PRESENTATION_POLICY,
+	materializeKibbleHomePresentation,
+	parseKibbleHomePresentationDecision,
+	snapshotKibbleHomePresentation,
+	type KibbleHomePresentationDecision,
+	type KibblePresentationSnapshot,
+} from '$lib/brand/reference/kibble-presentation-decisions';
 
 const PERSONAS = new Set<KibbleInspectorPersona>(['gatherer', 'hunter', 'researcher', 'gifter']);
-const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'reference', 'policyVersion', 'persona', 'products', 'featuredZoneAdapters', 'inspector', 'provider', 'modelId']);
+const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'reference', 'policyVersion', 'persona', 'products', 'featuredZoneAdapters', 'presentationPolicy', 'presentationDecision', 'inspector', 'provider', 'modelId']);
 const PRODUCT_KEYS = new Set(['id', 'entityId', 'name', 'price', 'salePrice', 'image', 'imageAlt', 'description', 'specs', 'tags', 'category']);
 const INSPECTOR_KEYS = new Set(['reference', 'surface', 'preset', 'policyVersion', 'publicationMode', 'inference', 'dataSourceLabel', 'zones', 'provenance', 'availableModelDecision']);
 const ZONE_KEYS = new Set(['id', 'label', 'authority', 'componentVariant', 'capabilities', 'decisionSummary', 'changed', 'inputProducts', 'outputProducts', 'modelCallStatus', 'decision']);
@@ -75,6 +83,7 @@ export type KibbleLivePreview = {
 	inspector: KibbleDevInspectorData;
 	provider?: 'anthropic';
 	modelId?: string;
+	presentationDecision?: KibbleHomePresentationDecision;
 };
 
 export type KibbleLivePreviewValidation =
@@ -85,6 +94,8 @@ export type KibbleLivePreviewListenerOptions = {
 	expectation: KibbleLivePreviewExpectation;
 	getCurrentProductIds: () => readonly string[];
 	getCurrentProductSummaries?: () => readonly KibbleInspectorProductSummary[];
+	getCurrentPresentation?: () => KibblePresentationSnapshot;
+	snapshotPresentationDecision?: (decision: KibbleHomePresentationDecision) => KibblePresentationSnapshot;
 	onApplied: (preview: KibbleLivePreview) => void;
 	onStatus: (status: KibbleLivePreviewStatus) => void;
 };
@@ -97,6 +108,8 @@ export function listenForKibbleLivePreview({
 	expectation,
 	getCurrentProductIds,
 	getCurrentProductSummaries,
+	getCurrentPresentation,
+	snapshotPresentationDecision,
 	onApplied,
 	onStatus,
 }: KibbleLivePreviewListenerOptions): () => void {
@@ -116,6 +129,7 @@ export function listenForKibbleLivePreview({
 		}, mode === 'model' ? KIBBLE_MODEL_PREVIEW_TIMEOUT_MS : KIBBLE_LIVE_PREVIEW_TIMEOUT_MS);
 		onStatus({ state: 'updating', mode });
 		const before = getCurrentProductSummaries?.() ?? getCurrentProductIds().map((id) => ({ id, name: id }));
+		const presentationBefore = getCurrentPresentation?.();
 
 		try {
 			const response = await fetch('/api/kibble/home-decision?observe=true', {
@@ -132,19 +146,23 @@ export function listenForKibbleLivePreview({
 			if (!active || requestController.signal.aborted || requestGeneration !== generation) return;
 			const currentProductIds = getCurrentProductIds();
 			const nextProductIds = validation.preview.products.map(({ id }) => id);
-			const changed = !sameStringArray(currentProductIds, nextProductIds);
+			const presentationAfter = validation.preview.presentationDecision
+				? snapshotPresentationDecision?.(validation.preview.presentationDecision)
+					?? snapshotKibbleHomePresentation(materializeKibbleHomePresentation(validation.preview.presentationDecision))
+				: presentationBefore;
+			const evidence = mode === 'model' ? buildKibbleDecisionEvidence({
+				surface: 'home', zoneId: 'home.presentation', zoneLabel: 'Home presentation',
+				policyVersion: KIBBLE_HOME_PRESENTATION_POLICY.policyVersion,
+				before, after: validation.preview.products, provider: validation.preview.provider ?? null,
+				model: validation.preview.modelId ?? null,
+				calls: validation.preview.featuredZoneAdapters?.[0]?.modelCallCount ?? null, state: 'applied',
+				presentationBefore, presentationAfter,
+			}) : undefined;
+			const changed = evidence ? hasDecisionChanged(evidence) : !sameStringArray(currentProductIds, nextProductIds);
 			onApplied(validation.preview);
 			onStatus({
 				state: 'applied', mode, persona: validation.preview.persona, changed,
-				...(mode === 'model' ? {
-					evidence: buildKibbleDecisionEvidence({
-						surface: 'home', zoneId: expectation.modelDecision?.zoneId ?? 'home.featured-row', zoneLabel: 'Featured product shelf',
-						policyVersion: expectation.modelDecision?.policyVersion ?? validation.preview.inspector.policyVersion,
-						before, after: validation.preview.products, provider: validation.preview.provider ?? null,
-						model: validation.preview.modelId ?? null,
-						calls: validation.preview.featuredZoneAdapters?.[0]?.modelCallCount ?? null, state: 'applied',
-					}),
-				} : {}),
+				...(evidence ? { evidence } : {}),
 			});
 		} catch (error) {
 			if (!active || requestGeneration !== generation) return;
@@ -154,9 +172,10 @@ export function listenForKibbleLivePreview({
 			state: 'failed', mode,
 			...(mode === 'model' ? {
 				evidence: buildKibbleDecisionEvidence({
-					surface: 'home', zoneId: expectation.modelDecision?.zoneId ?? 'home.featured-row', zoneLabel: 'Featured product shelf',
-					policyVersion: expectation.modelDecision?.policyVersion ?? expectation.policyVersion,
+					surface: 'home', zoneId: 'home.presentation', zoneLabel: 'Home presentation',
+					policyVersion: KIBBLE_HOME_PRESENTATION_POLICY.policyVersion,
 					before, after: before, provider: null, model: null, calls: null, state: 'failed',
+					presentationBefore, presentationAfter: presentationBefore,
 				}),
 			} : {}),
 		});
@@ -209,7 +228,7 @@ export function validateKibbleLivePreview(
 ): KibbleLivePreviewValidation {
 	if (!isRecord(value) || !hasOnlyKeys(value, RESPONSE_KEYS)) return invalid('response shape');
 	if (containsPersonaFit(value)) return invalid('personaFit is not public preview data');
-	if (value.version !== 'kibble-live-home-preview-v2' || value.previewOnly !== true) return invalid('preview contract');
+	if (value.version !== 'kibble-live-home-preview-v3' || value.previewOnly !== true) return invalid('preview contract');
 	if (!matchesReference(value.reference, expected.reference)) return invalid('reference');
 	const mode = value.policyVersion === expected.policyVersion
 		? 'rules'
@@ -217,6 +236,9 @@ export function validateKibbleLivePreview(
 	if (!mode) return invalid('policy version');
 	if (mode === 'model' && (!isProvider(value.provider) || typeof value.modelId !== 'string' || value.modelId.length < 1)) return invalid('model provider evidence');
 	if (mode === 'rules' && ('provider' in value || 'modelId' in value)) return invalid('unexpected model provider evidence');
+	const presentationDecision = mode === 'model' ? parseKibbleHomePresentationDecision(value.presentationDecision) : null;
+	if (mode === 'model' && (!presentationDecision || !samePresentationPolicy(value.presentationPolicy, KIBBLE_HOME_PRESENTATION_POLICY))) return invalid('presentation contract');
+	if (mode === 'rules' && ('presentationDecision' in value || 'presentationPolicy' in value)) return invalid('unexpected presentation decision');
 	if (!isPersona(value.persona)) return invalid('persona');
 	if (!Array.isArray(value.products) || value.products.length < 1 || value.products.length > 8) return invalid('products');
 	if (!value.products.every(isKibbleProduct) || new Set(value.products.map((product) => product.id)).size !== value.products.length) return invalid('products');
@@ -231,6 +253,7 @@ export function validateKibbleLivePreview(
 			featuredZoneAdapters: value.featuredZoneAdapters,
 			inspector: value.inspector,
 			...(mode === 'model' ? { provider: 'anthropic' as const, modelId: value.modelId as string } : {}),
+			...(presentationDecision ? { presentationDecision } : {}),
 		},
 	};
 }
@@ -296,7 +319,7 @@ function isInspector(
 		|| value.surface !== 'home'
 		|| value.preset !== (mode === 'model' ? 'assist' : 'preserve')
 		|| value.publicationMode !== 'live'
-		|| value.dataSourceLabel !== (mode === 'model' ? 'bounded-model-ranking' : expected.dataSourceLabel)
+		|| value.dataSourceLabel !== (mode === 'model' ? 'bounded-model-presentation' : expected.dataSourceLabel)
 		|| !sameAvailableModelDecision(value.availableModelDecision, expected.modelDecision)
 		|| !Array.isArray(value.zones) || value.zones.length !== HOME_ZONES.length
 		|| !value.zones.every((zone, index) => isZone(zone, HOME_ZONES[index], products, mode))) return false;
@@ -359,8 +382,8 @@ function isContractedHomeProvenance(
 		|| value.brandId !== 'kibble' || value.policyVersion !== policyVersion
 		|| value.surface !== 'home' || value.route !== '/' || value.persona !== persona
 		|| value.viewportClass !== 'responsive' || value.decisionSource !== mode
-		|| value.promptVersion !== (mode === 'model' ? 'kibble-home-bounded-rank-v1' : 'no-model-preserve-v1')
-		|| value.schemaVersion !== (mode === 'model' ? 'kibble-home-zone-decision-v1' : `kibble-reference-${expected.reference.version}`)
+		|| value.promptVersion !== (mode === 'model' ? 'kibble-home-bounded-presentation-v2' : 'no-model-preserve-v1')
+		|| value.schemaVersion !== (mode === 'model' ? 'kibble-home-presentation-decision-v2' : `kibble-reference-${expected.reference.version}`)
 		|| typeof value.inputHash !== 'string' || !HEX_16.test(value.inputHash)
 		|| typeof value.catalogVersion !== 'string' || !CATALOG_HASH.test(value.catalogVersion)
 		|| typeof value.shopperContextHash !== 'string' || !HEX_16.test(value.shopperContextHash)
@@ -501,4 +524,17 @@ function containsPersonaFit(value: unknown): boolean {
 	if (Array.isArray(value)) return value.some(containsPersonaFit);
 	if (!isRecord(value)) return false;
 	return Object.entries(value).some(([key, entry]) => key === 'personaFit' || containsPersonaFit(entry));
+}
+
+function samePresentationPolicy(value: unknown, expected: typeof KIBBLE_HOME_PRESENTATION_POLICY): boolean {
+	return isRecord(value)
+		&& Object.keys(value).length === 3
+		&& value.policyVersion === expected.policyVersion
+		&& sameStringArray(value.zoneIds, expected.zoneIds)
+		&& sameStringArray(value.capabilities, expected.capabilities);
+}
+
+function hasDecisionChanged(evidence: KibbleDecisionEvidence): boolean {
+	return evidence.moved.length > 0 || evidence.added.length > 0 || evidence.removed.length > 0
+		|| [...evidence.copy, ...evidence.components, ...evidence.sections, ...evidence.marketingBlocks].some(({ changed }) => changed);
 }

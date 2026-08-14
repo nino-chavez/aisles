@@ -3,7 +3,8 @@
 	import { onMount, tick } from 'svelte';
 	import { buildObserveSessionHref } from '$lib/signals/observe-session-link';
 	import KibbleDevInspectorLauncher from './KibbleDevInspectorLauncher.svelte';
-	import type { KibbleDecisionEvidence, KibbleInspectorPersona, KibbleLivePreviewStatus } from './kibble-dev-inspector';
+	import { describeKibbleDecisionDimensions, hasKibbleDecisionChanged, type KibbleDecisionEvidence, type KibbleInspectorPersona, type KibbleLivePreviewStatus, type KibblePresentationChange } from './kibble-dev-inspector';
+	import { KIBBLE_HOME_PRESENTATION_POLICY, KIBBLE_PDP_PRESENTATION_POLICY, KIBBLE_PLP_PRESENTATION_POLICY } from '$lib/brand/reference/kibble-presentation-decisions';
 	import { describeKibblePdpModelAction, type KibblePdpModelActionStatus } from './kibble-pdp-model-action';
 	import { describeKibblePlpModelAction, type KibblePlpModelActionStatus } from './kibble-plp-model-action';
 
@@ -62,7 +63,7 @@
 	const templateCount = $derived(zones.filter(({ authority }) => authority === 'fixed').length);
 	const rulesCount = $derived(zones.filter(({ authority }) => authority === 'rules').length);
 	const modelEligibleCount = $derived(zones.filter(({ modelEligible }) => modelEligible).length);
-	const modelCallCount = $derived(zones.reduce((sum, zone) => sum + zone.modelCalls, 0));
+	const modelCallCount = $derived(decisionEvidence?.calls ?? Math.max(0, ...zones.map(({ modelCalls }) => modelCalls)));
 	const surfaceLabel = $derived(labelFromId(surface));
 	const modelActionEligible = $derived(
 		surface === 'home' ? homeModelActionEligible : surface === 'pdp' ? pdpModelActionEligible : surface === 'plp' ? plpModelActionEligible : false,
@@ -73,11 +74,16 @@
 	const modelAction = $derived(
 		surface === 'home' ? homeModelAction : surface === 'pdp' ? pdpModelAction : surface === 'plp' ? plpModelAction : null,
 	);
+	const modelZoneCount = $derived(!modelActionEligible ? modelEligibleCount
+		: surface === 'home' ? KIBBLE_HOME_PRESENTATION_POLICY.zoneIds.length
+			: surface === 'plp' ? KIBBLE_PLP_PRESENTATION_POLICY.zoneIds.length
+				: surface === 'pdp' ? KIBBLE_PDP_PRESENTATION_POLICY.zoneIds.length
+					: modelEligibleCount);
 	const modelActionStatus = $derived(
 		surface === 'home' ? homeModelActionStatus : surface === 'pdp' ? pdpModelActionStatus : plpModelActionStatus,
 	);
 	const railSummary = $derived(
-		modelActionStatus === 'updating' ? `${surfaceLabel} · AI running` : decisionEvidence?.state === 'failed' ? `${surfaceLabel} · Fallback` : decisionEvidence?.state === 'applied' ? `${surfaceLabel} · ${decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed' : 'AI kept'}` : modelCallCount > 0 ? `${surfaceLabel} · AI applied` : modelEligibleCount > 0 ? `${surfaceLabel} · AI available` : `${surfaceLabel} · Template and rules`,
+		modelActionStatus === 'updating' ? `${surfaceLabel} · AI running` : decisionEvidence?.state === 'failed' ? `${surfaceLabel} · AI failed · fallback` : decisionEvidence?.state === 'applied' ? `${surfaceLabel} · ${hasKibbleDecisionChanged(decisionEvidence) ? 'AI changed' : 'AI kept'}` : modelCallCount > 0 ? `${surfaceLabel} · AI evidence missing` : modelZoneCount > 0 ? `${surfaceLabel} · AI available` : `${surfaceLabel} · Template and rules`,
 	);
 
 	$effect(() => {
@@ -98,8 +104,8 @@
 			const modelCalls = boundedCount(element.dataset.aislesModelCalls);
 			const modelEligible = element.dataset.aislesModelEligible === 'true';
 			const stateForZone = decisionEvidence && isDecisionZone(instanceId)
-				? decisionEvidence.state === 'failed' ? 'Fallback' : decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed' : 'AI kept'
-				: modelActionStatus === 'updating' && modelEligible ? 'AI running' : modelCalls > 0 || authority === 'model' ? 'AI applied' : modelEligible ? 'AI available' : authority === 'rules' ? 'Rules' : 'Template';
+				? decisionEvidence.state === 'failed' ? 'Fallback' : hasKibbleDecisionChanged(decisionEvidence) ? 'AI changed' : 'AI kept'
+				: modelActionStatus === 'updating' && modelEligible ? 'AI running' : modelCalls > 0 || authority === 'model' ? 'AI evidence missing' : modelEligible ? 'AI available' : authority === 'rules' ? 'Rules' : 'Template';
 			element.dataset.aislesObserveState = stateForZone;
 			evidence.set(instanceId, {
 				instanceId,
@@ -247,10 +253,10 @@
 	}
 
 	function describeHomeModelAction(status: KibblePdpModelActionStatus) {
-		if (status === 'updating') return { label: 'AI-ranking featured products…', detail: 'One bounded AI ranking is running. The fixed shelf remains visible until its exact order is validated.', disabled: true };
-		if (status === 'applied') return { label: 'Run AI ranking again', detail: decisionEvidence?.state === 'applied' ? (decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed the approved featured-product order. View the before and after below.' : 'AI kept the existing order and copy. View the unchanged result below.') : 'AI applied a validated featured-product order.', disabled: false };
-		if (status === 'failed') return { label: 'AI ranking failed — retry', detail: 'The model result was not applied. The last approved featured shelf remains visible.', disabled: false };
-		return { label: 'AI-rank featured products', detail: 'Ready to run one bounded AI ranking for the fixed featured-products shelf.', disabled: false };
+		if (status === 'updating') return { label: 'AI composing presentation…', detail: 'One bounded provider call is selecting approved product, copy, component, and section decisions.', disabled: true };
+		if (status === 'applied') return { label: 'Run AI presentation again', detail: decisionEvidence?.state === 'applied' ? `${describeKibbleDecisionDimensions(decisionEvidence)} View the exact before and after below.` : 'The model response returned without before-and-after evidence, so the rail does not claim success.', disabled: false };
+		if (status === 'failed') return { label: 'AI presentation failed — retry', detail: 'The model result was not applied. The last approved storefront remains visible.', disabled: false };
+		return { label: 'Run AI presentation', detail: 'Ready to run one bounded provider call across the approved Home presentation zones.', disabled: false };
 	}
 
 	function compactModelActionLabel(status: KibblePdpModelActionStatus | KibblePlpModelActionStatus) {
@@ -279,9 +285,9 @@
 	}
 
 	function zoneState(zone: ZoneEvidence): string {
-		if (decisionEvidence && isDecisionZone(zone.instanceId)) return decisionEvidence.state === 'failed' ? 'Fallback' : decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed' : 'AI kept';
+		if (decisionEvidence && isDecisionZone(zone.instanceId)) return decisionEvidence.state === 'failed' ? 'Fallback' : hasKibbleDecisionChanged(decisionEvidence) ? 'AI changed' : 'AI kept';
 		if (modelActionStatus === 'updating' && zone.modelEligible) return 'AI running';
-		return zone.modelCalls > 0 || zone.authority === 'model' ? 'AI applied' : zone.modelEligible ? 'AI available' : zone.authority === 'fixed' ? 'Template' : 'Rules';
+		return zone.modelCalls > 0 || zone.authority === 'model' ? 'AI evidence missing' : zone.modelEligible ? 'AI available' : zone.authority === 'fixed' ? 'Template' : 'Rules';
 	}
 
 	function tagTone(zone: ZoneEvidence): string {
@@ -291,7 +297,8 @@
 
 	function isDecisionZone(instanceId: string): boolean {
 		if (!decisionEvidence) return false;
-		return decisionEvidence.surface === 'home' ? instanceId === 'home.featured-row.1' : instanceId === decisionEvidence.zoneId;
+		const policy = decisionEvidence.surface === 'home' ? KIBBLE_HOME_PRESENTATION_POLICY : decisionEvidence.surface === 'plp' ? KIBBLE_PLP_PRESENTATION_POLICY : KIBBLE_PDP_PRESENTATION_POLICY;
+		return (policy.zoneIds as readonly string[]).includes(instanceId);
 	}
 
 	function formatProducts(products: readonly { name: string }[]): string {
@@ -300,7 +307,9 @@
 
 	function viewDecisionChanges() {
 		if (!decisionEvidence) return;
-		const instanceId = decisionEvidence.surface === 'home' ? 'home.featured-row.1' : decisionEvidence.zoneId;
+		const changedPresentation = [...decisionEvidence.copy, ...decisionEvidence.components, ...decisionEvidence.sections, ...decisionEvidence.marketingBlocks].find(({ changed }) => changed)?.id;
+		const productChanged = decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length;
+		const instanceId = changedPresentation ?? (productChanged ? (decisionEvidence.surface === 'home' ? 'home.featured-row.1' : decisionEvidence.surface === 'plp' ? 'plp.product-ranking' : 'pdp.related') : decisionEvidence.surface === 'home' ? 'home.hero' : decisionEvidence.surface === 'plp' ? 'plp.editorial-header' : 'pdp.related');
 		const element = [...document.querySelectorAll<HTMLElement>('[data-aisles-zone-instance]')].find((candidate) => candidate.dataset.aislesZoneInstance === instanceId);
 		if (!element) return;
 		if (!element.id) element.id = `kibble-${instanceId.replaceAll('.', '-')}`;
@@ -308,6 +317,10 @@
 		replaceState(`#${element.id}`, {});
 		element.scrollIntoView({ block: 'center', behavior: 'smooth' });
 		element.focus({ preventScroll: true });
+	}
+
+	function formatPresentationChanges(changes: readonly KibblePresentationChange[]): string {
+		return changes.length ? changes.map(({ label, before, after, changed }) => `${label}: ${changed ? `${before} → ${after}` : `${after} (unchanged)`}`).join(' · ') : 'not enabled for this surface';
 	}
 </script>
 
@@ -345,21 +358,21 @@
 			<div class="aisles-observe__counts" aria-label="Visible decision authority">
 				<div><span class="aisles-observe__pip aisles-observe__pip--fixed"></span><b>Template</b><strong>{templateCount}</strong></div>
 				<div><span class="aisles-observe__pip aisles-observe__pip--rules"></span><b>Rules</b><strong>{rulesCount}</strong></div>
-				<div><span class="aisles-observe__pip aisles-observe__pip--model"></span><b>AI zones</b><strong>{modelEligibleCount}</strong></div>
+				<div><span class="aisles-observe__pip aisles-observe__pip--model"></span><b>AI zones</b><strong>{modelZoneCount}</strong></div>
 				<div><span class="aisles-observe__pip aisles-observe__pip--model"></span><b>AI calls</b><strong>{modelCallCount}</strong></div>
 			</div>
 
 			<p class="aisles-observe__truth" aria-live="polite" aria-atomic="true">
 				{#if decisionEvidence?.state === 'failed'}
-					AI failed. Fallback kept the existing order and copy. The provider result was not published.
+					AI failed. Fallback kept the existing order, copy, and presentation. The provider result was not published.
 				{:else if decisionEvidence?.state === 'applied'}
-					{decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed the approved product order.' : 'AI kept the existing order and copy.'} The component, product fields, and merchant-owned copy stayed fixed.
+					{describeKibbleDecisionDimensions(decisionEvidence)} Every visible result came from merchant-approved IDs; product facts, prices, links, actions, and styling remained merchant-owned.
 				{:else if modelActionStatus === 'updating'}
-					AI is running one bounded model call. The current approved zone remains visible until the result passes validation.
+					AI is running one bounded provider call. The current approved presentation remains visible until every returned ID passes validation.
 				{:else if modelCallCount > 0}
-					AI returned a product order for the ranked shelf. Run the control again to record a new before-and-after result.
-				{:else if modelEligibleCount > 0}
-					{modelEligibleCount} bounded AI {modelEligibleCount === 1 ? 'zone is' : 'zones are'} available. The current result remains template- or rules-owned until you run the AI control.
+					A model call is recorded, but no validated before-and-after evidence is available. The rail does not claim a successful change.
+				{:else if modelZoneCount > 0}
+					{modelZoneCount} bounded AI {modelZoneCount === 1 ? 'zone is' : 'zones are'} available. The current result remains template- or rules-owned until you run the AI control.
 				{:else if rulesCount > 0}
 					Signals can change approved product order. The page structure remains the merchant template. No model generated this page.
 				{:else}
@@ -388,7 +401,7 @@
 					<div class="aisles-observe__evidence-heading">
 						<div>
 							<h3 id="aisles-decision-evidence">Decision outcome</h3>
-							<p>{decisionEvidence.zoneLabel} · {decisionEvidence.state === 'failed' ? 'Fallback retained' : decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length ? 'AI changed the order' : 'AI kept the existing order'}</p>
+							<p>{decisionEvidence.zoneLabel} · {decisionEvidence.state === 'failed' ? 'Fallback retained' : describeKibbleDecisionDimensions(decisionEvidence)}</p>
 						</div>
 						<button type="button" onclick={viewDecisionChanges}>View changes</button>
 					</div>
@@ -403,7 +416,10 @@
 						<div><span>unchanged</span><b>{formatProducts(decisionEvidence.unchanged)}</b></div>
 					</div>
 					<div class="aisles-observe__evidence-facts">
-						<div><span>copy</span><b>unchanged · merchant-owned</b></div>
+						<div><span>copy</span><b>{formatPresentationChanges(decisionEvidence.copy)}</b></div>
+						<div><span>component</span><b>{formatPresentationChanges(decisionEvidence.components)}</b></div>
+						<div><span>section order</span><b>{formatPresentationChanges(decisionEvidence.sections)}</b></div>
+						<div><span>marketing block</span><b>{formatPresentationChanges(decisionEvidence.marketingBlocks)}</b></div>
 						<div><span>provider / model</span><b>{decisionEvidence.provider ?? 'not confirmed'} / {decisionEvidence.model ?? 'not confirmed'}</b></div>
 						<div><span>calls</span><b>{decisionEvidence.calls ?? 'not confirmed'}</b></div>
 						<div><span>policy / zone</span><b>{decisionEvidence.policyVersion} / {decisionEvidence.zoneId}</b></div>

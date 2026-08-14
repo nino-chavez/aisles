@@ -19,6 +19,8 @@
 		KIBBLE_INSPECTOR_PERSONAS,
 		describeKibbleBehaviorStatus,
 		describeKibbleModelDecisionStatus,
+		describeKibbleDecisionDimensions,
+		hasKibbleDecisionChanged,
 		isKibbleInspectorInference,
 		redactInspectorDebugValue,
 		sanitizeInspectorInference,
@@ -89,7 +91,7 @@
 	const raw = (value: unknown) => JSON.stringify(redactInspectorDebugValue(value), null, 2);
 	const previewMessage = (status: KibbleLivePreviewStatus) => {
 		if (status.state === 'updating') return 'updating preview';
-		if (status.state === 'applied') return status.evidence ? (status.evidence.moved.length || status.evidence.added.length || status.evidence.removed.length ? `AI changed the approved order for ${status.persona}` : 'AI kept the existing order and copy') : `rules applied for ${status.persona}`;
+		if (status.state === 'applied') return status.evidence ? (hasKibbleDecisionChanged(status.evidence) ? `AI changed the approved presentation for ${status.persona}` : 'AI kept the existing order, copy, and presentation') : `rules applied for ${status.persona}`;
 		if (status.state === 'failed') return 'preview failed; last approved shelf retained';
 		return 'waiting for a signal';
 	};
@@ -275,8 +277,8 @@
 			{#if modelDecision}
 				<div class="kc-dev-inspector__model-demo">
 					<div>
-						<h4>Bounded AI shelf ranking</h4>
-						<p id="kibble-model-decision-help">Send the current sanitized inference and a bounded set of approved catalog facts—ID, name, category, price, and persona fit—to the configured model. It may only return the product order. Copy, layout, prices, links, and actions stay template-owned. A provider fallback can make a second call.</p>
+						<h4>Bounded AI presentation</h4>
+						<p id="kibble-model-decision-help">Send the current sanitized inference and approved catalog facts to the configured model. It may return one exact product permutation plus merchant-approved copy, component, and section IDs. Product facts, prices, links, actions, and styling stay merchant-owned. A provider fallback can make a second call.</p>
 					</div>
 					<button
 						type="button"
@@ -284,7 +286,7 @@
 						aria-describedby="kibble-model-decision-help"
 						onclick={runBoundedModelDecision}
 					>
-						{livePreview.state === 'updating' ? 'Decision running…' : modelDecisionApplied ? 'Run AI ranking again' : 'Run bounded AI ranking'}
+						{livePreview.state === 'updating' ? 'Decision running…' : modelDecisionApplied ? 'Run AI presentation again' : 'Run bounded AI presentation'}
 					</button>
 				</div>
 			{/if}
@@ -296,7 +298,7 @@
 					<div class="kc-dev-inspector__section-heading">
 						<div>
 							<h4 id="kibble-decision-evidence-title">Model decision evidence</h4>
-							<p>{livePreview.evidence.state === 'failed' ? 'Fallback retained the approved zone.' : livePreview.evidence.moved.length || livePreview.evidence.added.length || livePreview.evidence.removed.length ? 'AI changed the approved order.' : 'AI kept the existing order and copy.'}</p>
+							<p>{livePreview.evidence.state === 'failed' ? 'Fallback retained the approved presentation.' : describeKibbleDecisionDimensions(livePreview.evidence)}</p>
 						</div>
 					</div>
 					<div class="kc-dev-inspector__decision-before-after">

@@ -1,8 +1,16 @@
 import type { KibbleProduct, KibbleZoneAdapterBinding } from './types';
 import { KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS } from '$lib/kibble-demo-ai-boundary';
 import { buildKibbleDecisionEvidence, type KibbleLivePreviewStatus } from './kibble-dev-inspector';
+import {
+	KIBBLE_PDP_PRESENTATION_POLICY,
+	materializeKibblePdpPresentation,
+	parseKibblePdpPresentationDecision,
+	snapshotKibblePdpPresentation,
+	type KibblePdpPresentationDecision,
+	type KibblePresentationSnapshot,
+} from '$lib/brand/reference/kibble-presentation-decisions';
 
-const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'routePath', 'policyVersion', 'persona', 'rankedProductIds', 'zoneAdapter', 'modelCallCount', 'provider', 'modelId', 'provenance']);
+const RESPONSE_KEYS = new Set(['version', 'previewOnly', 'routePath', 'policyVersion', 'persona', 'rankedProductIds', 'presentationPolicy', 'presentationDecision', 'zoneAdapter', 'modelCallCount', 'provider', 'modelId', 'provenance']);
 const ADAPTER_KEYS = new Set(['instanceId', 'sharedStatus', 'sharedContentKind', 'decisionMode', 'modelCallCount', 'adapterId', 'componentVariantId', 'inputSha256', 'content']);
 const CONTENT_KEYS = new Set(['component', 'props']);
 const PROPS_KEYS = new Set(['title', 'products', 'showQuickAdd']);
@@ -28,11 +36,13 @@ export type KibblePdpLivePreview = {
 	provider: 'anthropic';
 	modelId: string;
 	modelCallCount: number;
+	presentationDecision: KibblePdpPresentationDecision;
 };
 
 export function listenForKibblePdpLivePreview(input: {
 	expectation: KibblePdpLivePreviewExpectation;
 	products: readonly KibbleProduct[];
+	getCurrentPresentation: () => KibblePresentationSnapshot;
 	onApplied: (preview: KibblePdpLivePreview) => void;
 	onStatus: (status: KibbleLivePreviewStatus) => void;
 }): () => void {
@@ -43,6 +53,7 @@ export function listenForKibblePdpLivePreview(input: {
 		const next = new AbortController();
 		controller = next;
 		input.onStatus({ state: 'updating', mode: 'model' });
+		const presentationBefore = input.getCurrentPresentation();
 		let timedOut = false;
 		const timeout = window.setTimeout(() => { timedOut = true; next.abort(); }, KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS);
 		try {
@@ -54,20 +65,22 @@ export function listenForKibblePdpLivePreview(input: {
 			if (!preview || !active || next.signal.aborted) throw new Error('Preview response rejected');
 			const before = input.products.map(({ id, name }) => ({ id, name }));
 			const after = preview.products.map(({ id, name }) => ({ id, name }));
+			const presentationAfter = snapshotKibblePdpPresentation(materializeKibblePdpPresentation(preview.presentationDecision));
+			const evidence = buildKibbleDecisionEvidence({
+				surface: 'pdp', zoneId: 'pdp.presentation', zoneLabel: 'Product-detail presentation', policyVersion: KIBBLE_PDP_PRESENTATION_POLICY.policyVersion,
+				before, after, provider: preview.provider, model: preview.modelId, calls: preview.modelCallCount, state: 'applied', presentationBefore, presentationAfter,
+			});
 			input.onApplied(preview);
 			input.onStatus({
 				state: 'applied', mode: 'model', persona: preview.persona,
-				changed: !sameIds(before, after),
-				evidence: buildKibbleDecisionEvidence({
-					surface: 'pdp', zoneId: 'pdp.related', zoneLabel: 'Related products', policyVersion: input.expectation.policyVersion,
-					before, after, provider: preview.provider, model: preview.modelId, calls: preview.modelCallCount, state: 'applied',
-				}),
+				changed: hasChanges(evidence),
+				evidence,
 			});
 		} catch (error) {
 			if (!active || (next.signal.aborted && !timedOut)) return;
 			console.warn('Kibble PDP live preview was rejected; retaining the approved related rail.', error);
 			const before = input.products.map(({ id, name }) => ({ id, name }));
-			input.onStatus({ state: 'failed', mode: 'model', evidence: buildKibbleDecisionEvidence({ surface: 'pdp', zoneId: 'pdp.related', zoneLabel: 'Related products', policyVersion: input.expectation.policyVersion, before, after: before, provider: null, model: null, calls: null, state: 'failed' }) });
+			input.onStatus({ state: 'failed', mode: 'model', evidence: buildKibbleDecisionEvidence({ surface: 'pdp', zoneId: 'pdp.presentation', zoneLabel: 'Product-detail presentation', policyVersion: KIBBLE_PDP_PRESENTATION_POLICY.policyVersion, before, after: before, provider: null, model: null, calls: null, state: 'failed', presentationBefore, presentationAfter: presentationBefore }) });
 		} finally {
 			window.clearTimeout(timeout);
 			if (controller === next) controller = null;
@@ -88,19 +101,21 @@ export function validateKibblePdpLivePreview(
 	products: readonly KibbleProduct[],
 ): KibblePdpLivePreview | null {
 	if (!isRecord(value) || !hasOnlyKeys(value, RESPONSE_KEYS)
-		|| value.version !== 'kibble-pdp-related-preview-v1' || value.previewOnly !== true
+		|| value.version !== 'kibble-pdp-presentation-preview-v2' || value.previewOnly !== true
 		|| value.routePath !== expected.routePath || value.policyVersion !== expected.policyVersion
 		|| !isPersona(value.persona)
 		|| !Array.isArray(value.rankedProductIds) || value.rankedProductIds.some((id) => typeof id !== 'string')
 		|| !sameIdSet(value.rankedProductIds, expected.productIds)) return null;
 	const modelCallCount = value.modelCallCount;
+	const presentationDecision = parseKibblePdpPresentationDecision(value.presentationDecision);
 	if (!isModelCallCount(modelCallCount)
 		|| value.provider !== 'anthropic' || typeof value.modelId !== 'string' || value.modelId.length < 1
+		|| !presentationDecision || !samePolicy(value.presentationPolicy)
 		|| !isRelatedAdapter(value.zoneAdapter, value.rankedProductIds, modelCallCount, expected.relatedHeading)) return null;
 	const byEntityId = new Map(products.map((product) => [String(product.entityId), product]));
 	const reordered = value.rankedProductIds.map((id) => byEntityId.get(id));
 	if (reordered.some((product): product is undefined => product === undefined)) return null;
-	return { products: reordered as KibbleProduct[], zoneAdapter: value.zoneAdapter, persona: value.persona, provider: value.provider, modelId: value.modelId, modelCallCount };
+	return { products: reordered as KibbleProduct[], zoneAdapter: value.zoneAdapter, presentationDecision, persona: value.persona, provider: value.provider, modelId: value.modelId, modelCallCount };
 }
 
 function isRelatedAdapter(value: unknown, ids: readonly string[], modelCallCount: number, relatedHeading: string): value is KibbleZoneAdapterBinding<RelatedContent> {
@@ -127,3 +142,6 @@ function sameIds(left: readonly { id: string }[], right: readonly { id: string }
 	return left.length === right.length && left.every((product, index) => product.id === right[index]?.id);
 }
 function isPersona(value: unknown): value is KibblePdpLivePreview['persona'] { return value === 'gatherer' || value === 'hunter' || value === 'researcher' || value === 'gifter'; }
+function samePolicy(value: unknown) { return isRecord(value) && Object.keys(value).length === 3 && value.policyVersion === KIBBLE_PDP_PRESENTATION_POLICY.policyVersion && sameStringArray(value.zoneIds, KIBBLE_PDP_PRESENTATION_POLICY.zoneIds) && sameStringArray(value.capabilities, KIBBLE_PDP_PRESENTATION_POLICY.capabilities); }
+function sameStringArray(value: unknown, expected: readonly string[]) { return Array.isArray(value) && value.length === expected.length && value.every((entry, index) => entry === expected[index]); }
+function hasChanges(evidence: ReturnType<typeof buildKibbleDecisionEvidence>) { return !sameIds(evidence.before, evidence.after) || [...evidence.copy, ...evidence.components, ...evidence.sections, ...evidence.marketingBlocks].some(({ changed }) => changed); }
