@@ -19,7 +19,7 @@ const HEX_64 = /^[0-9a-f]{64}$/;
 const REQUEST_TIMEOUT_MS = KIBBLE_DEMO_PLP_CLIENT_TIMEOUT_MS;
 
 export type KibblePlpLivePreviewExpectation = {
-	routePath: '/category/dog-food'; sort: 'FEATURED'; cursor: null; policyVersion: string;
+	routePath: string; sort: 'FEATURED'; cursor: null; policyVersion: string;
 	reference: { id: string; version: string }; prefixIds: readonly string[]; tailIds: readonly string[]; expectedInputSha256: string;
 	title: string; productCount: number; productSingular: string; productPlural: string;
 };
@@ -39,7 +39,7 @@ export function listenForKibblePlpLivePreview(input: {
 		let timedOut = false;
 		const timeout = window.setTimeout(() => { timedOut = true; next.abort(); }, REQUEST_TIMEOUT_MS);
 		try {
-			const response = await fetch('/api/kibble/plp-product-ranking-decision?observe=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'model' }), signal: next.signal });
+			const response = await fetch('/api/kibble/plp-product-ranking-decision?observe=true', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'model', routePath: input.expectation.routePath }), signal: next.signal });
 			if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
 			const preview = validateKibblePlpLivePreview(await response.json(), input.expectation, input.products);
 			if (!preview || !active || next.signal.aborted) throw new Error('Preview response rejected');

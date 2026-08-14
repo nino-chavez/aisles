@@ -26,10 +26,11 @@ describe('Kibble PLP model boundary', () => {
 	});
 	it('hashes the immutable original route input and exact live candidate facts', () => {
 		expect(sha256Hex('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
-		const inputHash = hashKibblePlpRankingInput(['1', '2', '3'], ['4', '5']);
+		const inputHash = hashKibblePlpRankingInput(['1', '2', '3'], ['4', '5'], '/category/dog-food');
 		expect(inputHash).toMatch(/^[0-9a-f]{64}$/);
-		expect(hashKibblePlpRankingInput(['3', '2', '1'], ['4', '5'])).not.toBe(inputHash);
-		expect(hashKibblePlpRankingInput(['1', '2', '3'], ['5', '4'])).not.toBe(inputHash);
+		expect(hashKibblePlpRankingInput(['3', '2', '1'], ['4', '5'], '/category/dog-food')).not.toBe(inputHash);
+		expect(hashKibblePlpRankingInput(['1', '2', '3'], ['5', '4'], '/category/dog-food')).not.toBe(inputHash);
+		expect(hashKibblePlpRankingInput(['1', '2', '3'], ['4', '5'], '/category/treats')).not.toBe(inputHash);
 		const catalogVersion = hashKibblePlpCandidateCatalog(products);
 		expect(hashKibblePlpCandidateCatalog([...products.slice(0, 7), { ...products[7]!, price: 999 }])).not.toBe(catalogVersion);
 	});

@@ -8,9 +8,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('$env/dynamic/private', () => ({ env: new Proxy({}, { get: (_target, key) => key === 'KIBBLE_DEMO_AI_ENABLED' ? state.enabled : undefined }) }));
 vi.mock('$lib/brand/config', () => ({ getBrand: () => ({ id: state.brandId }) }));
 vi.mock('$lib/brand/composition-policy', () => ({
-	KIBBLE_OBSERVE_PDP_RELATED_ROUTE: '/product/puppy-starter-kit',
-	KIBBLE_OBSERVE_PDP_RELATED_SLUG: 'puppy-starter-kit',
-	getKibbleObservePdpRelatedModelPolicyDescriptor: () => ({ policyVersion: 'pdp-assist-v1', zoneId: 'pdp.related', routePath: '/product/puppy-starter-kit' }),
+	getKibbleObservePdpRelatedModelPolicyDescriptor: (routePath: string) => ({ policyVersion: 'pdp-assist-v1', zoneId: 'pdp.related', routePath }),
 }));
 vi.mock('$lib/brand/reference/kibble', () => ({ KIBBLE_REFERENCE_CONTRACT: { recipes: { pdp: { variantId: 'kibble.product-detail.catalog-display-only' } } } }));
 vi.mock('$lib/brand/reference/kibble-manifest', () => ({ KIBBLE_PRESERVE_MANIFEST: { display: { pdp: { relatedHeading: 'You may also like' } } } }));
@@ -46,7 +44,7 @@ const adapter = {
 	content: { component: 'product-carousel', props: { title: 'You may also like', products: [{ productId: '13', role: 'standard' }, { productId: '11', role: 'standard' }, { productId: '12', role: 'standard' }], showQuickAdd: false } },
 };
 
-function request(body: unknown = { mode: 'model' }, query = '?observe=true') {
+function request(body: unknown = { mode: 'model', routePath: '/product/puppy-starter-kit' }, query = '?observe=true') {
 	const url = `https://aisles.test/api/kibble/pdp-related-decision${query}`;
 	return {
 		url: new URL(url), request: new Request(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
@@ -66,8 +64,8 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 		mocks.logGeneration.mockReset().mockResolvedValue(undefined);
 	});
 
-	it('always reloads the one approved PDP route and ignores browser route or product facts', async () => {
-		const response = await POST(request({ mode: 'model' }, '?observe=true&route=/product/adjacent-slug&products=browser-owned'));
+	it('reloads the requested trusted PDP route while ignoring query-string product facts', async () => {
+		const response = await POST(request({ mode: 'model', routePath: '/product/puppy-starter-kit' }, '?observe=true&route=/product/adjacent-slug&products=browser-owned'));
 		expect(response.status).toBe(200);
 		expect(response.headers.get('cache-control')).toBe('no-store');
 		expect(mocks.getDetail).toHaveBeenCalledWith('/puppy-starter-kit/');
@@ -88,6 +86,13 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 		expect((await POST(request({ mode: 'model', route: '/product/adjacent-slug', products: [999] }))).status).toBe(400);
 		expect(mocks.getDetail).not.toHaveBeenCalled();
 		expect(mocks.reserveBudget).not.toHaveBeenCalled();
+	});
+
+	it('accepts another trusted PDP slug and binds the provider call to that route', async () => {
+		const response = await POST(request({ mode: 'model', routePath: '/product/adult-dog-bundle' }));
+		expect(response.status).toBe(200);
+		expect(mocks.getDetail).toHaveBeenCalledWith('/adult-dog-bundle/');
+		expect(mocks.rankWithModel).toHaveBeenCalledWith(expect.objectContaining({ routePath: '/product/adult-dog-bundle' }));
 	});
 
 	it('does not call a model for fewer than three server-reloaded candidates or a rejected budget', async () => {

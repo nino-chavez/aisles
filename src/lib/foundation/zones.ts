@@ -89,6 +89,9 @@ export const ZONES = freezeAuthorityGraph({
 	// Cart — fixed scaffold (line items, summary, CTA render directly from
 	// cart state); only the upsell zone is zone-targeted.
 	'cart.above-checkout-cta': { surface: 'cart', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
+	// Copy-only recovery for a disconnected or empty cart. It never supplies
+	// line items, prices, totals, checkout state, or an upsell candidate.
+	'cart.empty-state': { surface: 'cart', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 
 	// Checkout — narrowest latitude
 	'checkout.assurance-strip': { surface: 'checkout', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },

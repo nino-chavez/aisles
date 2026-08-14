@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
 	getTrustedKibbleObserveHomeZonePolicy,
 	getTrustedKibbleObservePdpRelatedZonePolicy,
+	getTrustedKibbleObserveCopyZonePolicy,
 	getTrustedKibbleZonePolicy,
 } from '$lib/brand/composition-policy';
 import { getBrand } from '$lib/brand/config';
@@ -244,7 +245,7 @@ export async function executeKibblePdpRelatedZoneAdapter(
 export async function executeKibblePdpRelatedModelShelf(input: {
 	relatedProducts: Array<{ entityId: number }>;
 	heading: string;
-	routePath: '/product/puppy-starter-kit';
+	routePath: string;
 	runModel: ZoneModelRunner;
 }) {
 	if (input.relatedProducts.length < 3 || input.relatedProducts.length > 4) {
@@ -307,6 +308,83 @@ export async function executeKibbleSearchEmptyZoneAdapter(input: { query: string
 			body: input.body,
 		},
 	}));
+}
+
+export async function executeKibbleCartEmptyZoneAdapter(copy: { eyebrow: string; headline: string; body: string }) {
+	return kibbleNativeAdapterBinding(await executeKibbleZoneTerminal(terminalById('cart.empty-state'), '/cart', {
+		component: 'editorial-header', props: copy,
+	}));
+}
+
+export async function executeKibbleCheckoutAssuranceZoneAdapter(input: {
+	routePath: '/checkout/gift' | '/checkout/prepaid';
+	assurance: { columns: 3; callouts: Array<{ icon: string; label: string; body: string }> | readonly { icon: string; label: string; body: string }[] };
+}) {
+	return kibbleNativeAdapterBinding(await executeKibbleZoneTerminal(terminalById('checkout.assurance-strip'), input.routePath, {
+		component: 'service-callouts-grid',
+		props: { columns: 3, callouts: input.assurance.callouts.map((item) => ({ ...item })) },
+	}));
+}
+
+type BoundedCopyModelZoneInput =
+	| { surface: 'search'; instanceId: 'search.empty-state'; routePath: '/search' }
+	| { surface: 'cart'; instanceId: 'cart.empty-state'; routePath: '/cart' }
+	| { surface: 'checkout'; instanceId: 'checkout.assurance-strip'; routePath: '/checkout/gift' | '/checkout/prepaid' };
+
+/** Execute one copy-variant choice through the same identity-bound model gate. */
+export async function executeKibbleBoundedCopyModelZone(input: BoundedCopyModelZoneInput & {
+	copyVariantIds: readonly string[];
+	baselineCopyVariantId: string;
+	contentForCopyVariant: (copyVariantId: string) => unknown;
+	runModel: ZoneModelRunner;
+}) {
+	if (input.copyVariantIds.length < 2 || new Set(input.copyVariantIds).size !== input.copyVariantIds.length
+		|| !input.copyVariantIds.includes(input.baselineCopyVariantId)) {
+		throw new Error(`Kibble ${input.surface} copy model requires a unique approved allow-list and baseline.`);
+	}
+	const familyId = input.instanceId;
+	const terminal = terminalById(input.instanceId);
+	if (!terminal.adapterId || !terminal.componentVariantId) throw new Error(`Kibble ${input.surface} model terminal lacks a native adapter binding.`);
+	const policy = getTrustedKibbleObserveCopyZonePolicy({
+		surface: input.surface, familyId, instanceId: input.instanceId, routePath: input.routePath,
+	} as Parameters<typeof getTrustedKibbleObserveCopyZonePolicy>[0]);
+	const allowedDecisionModes = policy.provenance.zoneBinding?.allowedDecisionModes;
+	if (!allowedDecisionModes) throw new Error(`Kibble observe ${input.surface} policy lacks an attested zone binding.`);
+	const identity = executionIdentity(terminal, policy.policyVersion, input.routePath, allowedDecisionModes);
+	const baseline = input.contentForCopyVariant(input.baselineCopyVariantId);
+	const fields: TrustedZoneFieldCatalog = {
+		registeredComponentVariantIds: [terminal.componentVariantId],
+		registeredCssVariantIds: [],
+		registeredCopyVariantIds: [...input.copyVariantIds],
+		registeredRecipeIds: [], registeredProductIds: [], registeredPlacementIds: [],
+		completeComponentVariants: [{ componentVariantId: terminal.componentVariantId, compatibleCopyVariantIds: [...input.copyVariantIds] }],
+		allowedRecipeIds: [], allowedProductIds: [], allowedPlacementIds: [], boundedCopyFields: [],
+		fixed: { componentVariantId: terminal.componentVariantId, copyVariantId: input.baselineCopyVariantId },
+	};
+	const catalogVersion = createHash('sha256').update(JSON.stringify({ surface: input.surface, routePath: input.routePath, copyVariantIds: input.copyVariantIds })).digest('hex');
+	const catalog: TrustedBoundZoneCatalog = {
+		identity: { ...identity, productCatalogId: `kibble-${input.surface}-presentation-copy`, productCatalogVersion: catalogVersion },
+		fields,
+		products: {
+			organizationId: ORGANIZATION_ID, brandId: 'kibble', referenceId: KIBBLE_REFERENCE_CONTRACT.id,
+			referenceVersion: KIBBLE_REFERENCE_CONTRACT.version, catalogId: `kibble-${input.surface}-presentation-copy`,
+			catalogVersion, productIds: [],
+		},
+		materialize: ({ decision }) => input.contentForCopyVariant(decision?.envelope.copyVariantId ?? input.baselineCopyVariantId),
+	};
+	const execution = await executeZoneDecision({ policy, catalog, fallback: { identity: catalog.identity, kind: 'content', content: baseline }, runModel: input.runModel });
+	if (execution.status !== 'live' || execution.decisionMode !== 'model' || execution.render.kind !== 'content') {
+		throw new Error(`Kibble ${input.surface} copy decision did not publish: ${execution.status === 'fallback' ? execution.reason : execution.status}.`);
+	}
+	const copyVariantId = execution.decision?.envelope.copyVariantId;
+	if (!copyVariantId || !input.copyVariantIds.includes(copyVariantId)) throw new Error(`Kibble ${input.surface} copy decision left the merchant allow-list.`);
+	return {
+		policy, execution, copyVariantId,
+		adapter: kibbleNativeAdapterBinding({ terminal, execution, adapter: {
+			adapterId: terminal.adapterId, componentVariantId: terminal.componentVariantId,
+			inputSha256: hashAdapterInput(terminal, execution.render.content), content: execution.render.content,
+		} }),
+	};
 }
 
 export async function executeKibbleSearchEmptyZoneTerminal(input: { query: string; body: string } | null) {

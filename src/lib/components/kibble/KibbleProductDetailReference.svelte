@@ -130,8 +130,8 @@
 		</div>
 	</div>
 
-	{#if presentation?.marketingBlock}
-		<KibbleMarketingBlock block={presentation.marketingBlock} zoneId="pdp.marketing-block" modelCallCount={presentationModelCallCount} modelEligible={Boolean(relatedModelDecision)} />
+	{#if presentation?.marketingBlock || relatedModelDecision}
+		<KibbleMarketingBlock block={presentation?.marketingBlock ?? null} zoneId="pdp.marketing-block" modelCallCount={presentationModelCallCount} modelEligible={Boolean(relatedModelDecision)} />
 	{/if}
 
 	{#if zoneAdapter}

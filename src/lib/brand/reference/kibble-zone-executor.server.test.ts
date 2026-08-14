@@ -4,6 +4,8 @@ import {
 	executeKibbleHiddenZoneTerminalsForRoute,
 	executeKibbleHomeZoneAdapters,
 	executeKibbleHomeModelShelf,
+	executeKibbleCartEmptyZoneAdapter,
+	executeKibbleCheckoutAssuranceZoneAdapter,
 	executeKibblePdpRelatedModelShelf,
 	executeKibblePdpRelatedZoneAdapter,
 	executeKibblePlpZoneAdapter,
@@ -13,7 +15,7 @@ import {
 import { withKibblePdpRelatedModelCallCount } from './kibble-pdp-related-model.server';
 import { validateKibblePdpLivePreview } from '$lib/components/kibble/kibble-pdp-live-preview';
 import type { KibbleProduct } from '$lib/components/kibble/types';
-import { KIBBLE_PDP_DEFAULT_PRESENTATION, KIBBLE_PDP_PRESENTATION_POLICY } from './kibble-presentation-decisions';
+import { KIBBLE_CART_DEFAULT_PRESENTATION, KIBBLE_CHECKOUT_DEFAULT_PRESENTATION, KIBBLE_PDP_DEFAULT_PRESENTATION, KIBBLE_PDP_PRESENTATION_POLICY, materializeKibbleCartPresentation, materializeKibbleCheckoutPresentation } from './kibble-presentation-decisions';
 import {
 	KIBBLE_CANONICAL_UNION_ZONE_INSTANCE_IDS,
 	KIBBLE_ZONE_TERMINALS,
@@ -65,10 +67,12 @@ describe('Kibble exact union-zone execution', () => {
 			await executeKibblePlpZoneAdapter({ routePath: '/category/dog-food', eyebrow: 'Catalog', title: 'Dog Food', productCount: 6 }),
 			await executeKibblePdpRelatedZoneAdapter([{ entityId: 3023 }, { entityId: 3024 }, { entityId: 3025 }], 'You may also like', '/product/reference-product'),
 			await executeKibbleSearchEmptyZoneAdapter({ query: 'missing', body: 'Try a different keyword.' }),
+			await executeKibbleCartEmptyZoneAdapter(materializeKibbleCartPresentation(KIBBLE_CART_DEFAULT_PRESENTATION).copy),
+			await executeKibbleCheckoutAssuranceZoneAdapter({ routePath: '/checkout/gift', assurance: materializeKibbleCheckoutPresentation(KIBBLE_CHECKOUT_DEFAULT_PRESENTATION).assurance }),
 			await executeKibbleErrorZoneAdapter({ surface: 'error-404', routePath: '/missing', status: 404, message: 'Page unavailable.' }),
 			await executeKibbleErrorZoneAdapter({ surface: 'error-empty', routePath: '/search', status: 503, message: 'Shelf unavailable.' }),
 		].filter((binding): binding is NonNullable<typeof binding> => binding !== null);
-		expect(visible).toHaveLength(11);
+		expect(visible).toHaveLength(13);
 		const exactVariants = {
 			'home.hero': 'kibble.hero.zone-editorial-header',
 			'home.featured-row.1': 'kibble.featured-grid.ranked-segment',
@@ -79,6 +83,8 @@ describe('Kibble exact union-zone execution', () => {
 			'plp.editorial-header': 'kibble.category-listing.editorial-header',
 			'pdp.related': 'kibble.product-detail.related-products',
 			'search.empty-state': 'kibble.search.empty-state',
+			'cart.empty-state': 'kibble.cart.reference-shell',
+			'checkout.assurance-strip': 'kibble.checkout.reference-shell',
 			'error-404.rescue': 'kibble.error.rescue',
 			'error-empty.rescue': 'kibble.error.rescue',
 		} as const;
@@ -91,7 +97,7 @@ describe('Kibble exact union-zone execution', () => {
 		}
 
 		const hidden = (await Promise.all(shopperRoutes.map(executeKibbleHiddenZoneTerminalsForRoute))).flat();
-		expect(hidden).toHaveLength(25);
+		expect(hidden).toHaveLength(23);
 		for (const result of hidden) {
 			expect(result.adapter).toBeNull();
 			expect(['live', 'approval_candidate']).toContain(result.execution.status);
@@ -110,8 +116,8 @@ describe('Kibble exact union-zone execution', () => {
 	it('does not let a visible declaration execute without semantic content', async () => {
 		const visible = KIBBLE_ZONE_TERMINALS.filter(({ terminal }) => terminal === 'kibble-native');
 		const hidden = KIBBLE_ZONE_TERMINALS.filter(({ terminal }) => terminal === 'trusted-hidden');
-		expect(visible).toHaveLength(11);
-		expect(hidden).toHaveLength(25);
+		expect(visible).toHaveLength(13);
+		expect(hidden).toHaveLength(23);
 		expect(hidden.find(({ instanceId }) => instanceId === 'cart.above-checkout-cta')).toBeTruthy();
 		await expect(executeKibbleZoneTerminal(visible[0])).rejects.toThrow('requires semantic adapter content');
 	});
@@ -134,7 +140,7 @@ describe('Kibble exact union-zone execution', () => {
 		});
 	});
 
-	it('permits the PDP model boundary only at the one approved product route', async () => {
+	it('permits the PDP model boundary on trusted product routes only', async () => {
 		const products = [{ entityId: 3023 }, { entityId: 3024 }, { entityId: 3025 }];
 		const result = await executeKibblePdpRelatedModelShelf({
 			relatedProducts: products,
@@ -145,9 +151,9 @@ describe('Kibble exact union-zone execution', () => {
 		expect(result.rankedProductIds).toEqual(['3025', '3023', '3024']);
 		expect(result.adapter).toMatchObject({ instanceId: 'pdp.related', decisionMode: 'model', content: { component: 'product-carousel' } });
 		await expect(executeKibblePdpRelatedModelShelf({
-			relatedProducts: products, heading: 'You may also like', routePath: '/product/puppy-starter-kit-plus' as never,
+			relatedProducts: products, heading: 'You may also like', routePath: '/category/dog-food',
 			runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'] }),
-		})).rejects.toThrow(/not explicitly approved/);
+		})).rejects.toThrow(/not approved/);
 	});
 
 	it('feeds the real executor adapter through client validation with the actual provider call count', async () => {

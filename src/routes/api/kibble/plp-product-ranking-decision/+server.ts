@@ -2,7 +2,8 @@ import { json } from '@sveltejs/kit';
 import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { getBrand } from '$lib/brand/config';
-import { KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE, KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, getKibbleObservePlpProductRankingModelPolicyDescriptor } from '$lib/brand/composition-policy';
+import { KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, getKibbleObservePlpProductRankingModelPolicyDescriptor } from '$lib/brand/composition-policy';
+import { tryNormalizeTrustedShopperRoute } from '$lib/foundation/autonomy-zone-route';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 import { KIBBLE_PLP_MODEL_PROMPT_VERSION, KIBBLE_PLP_MODEL_SCHEMA_VERSION, rankKibblePlpFirstEightWithModel, type KibblePlpCandidate } from '$lib/brand/reference/kibble-plp-model.server';
 import { loadReferenceCategoryProducts } from '$lib/server/catalog';
@@ -20,7 +21,11 @@ const VERSION = 'kibble-plp-presentation-preview-v2';
 /** Browser input contains no route, catalog, product, persona, policy, or cursor authority. */
 export const POST: RequestHandler = async ({ url, cookies, request }) => {
 	if (url.searchParams.get('observe') !== 'true' || cookies.get('aisles_observe_demo') !== '1' || getBrand().id !== 'kibble') return unavailable();
-	if (!await parseModelMode(request)) return invalidRequest();
+	const modelRequest = await parseModelRequest(request);
+	if (!modelRequest) return invalidRequest();
+	const trustedRoute = tryNormalizeTrustedShopperRoute(modelRequest.routePath);
+	if (!trustedRoute || trustedRoute.surface !== 'plp') return invalidRequest();
+	const slug = trustedRoute.routePath.slice('/category/'.length);
 	const sessionId = cookies.get(SESSION_COOKIE);
 	if (!sessionId) return sessionUnavailable();
 	try {
@@ -28,7 +33,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		if (!store) return sessionUnavailable();
 		// The route, selected BigCommerce sort, cursor, and full current page are
 		// reloaded here. No browser payload can swap any of those bindings.
-		const page = await loadReferenceCategoryProducts('dog-food', { sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, after: null });
+		const page = await loadReferenceCategoryProducts(slug, { sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, after: null });
 		if (!page) return unavailable();
 		const candidates = page.products.map(toCandidate);
 		const prefix = candidates.slice(0, Math.min(8, candidates.length));
@@ -38,18 +43,18 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		if (!reservation.ok) return budgetUnavailable(reservation.reason);
 		const inference = infer(store.toInferenceContext());
 		const startedAt = Date.now();
-		const result = await rankKibblePlpFirstEightWithModel({ inference, prefix, tail });
+		const result = await rankKibblePlpFirstEightWithModel({ inference, prefix, tail, routePath: trustedRoute.routePath });
 		const scenarioId = privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo';
 		const provenance = buildContractedLayoutProvenance({
-			policy: result.policy, surface: 'plp', route: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE, persona: inference.primary,
+			policy: result.policy, surface: 'plp', route: trustedRoute.routePath, persona: inference.primary,
 			rendererComponentId: 'kibble.category-listing', rendererVariantId: KIBBLE_REFERENCE_CONTRACT.recipes.plp.id,
 			decisionSource: 'model', promptVersion: KIBBLE_PLP_MODEL_PROMPT_VERSION, schemaVersion: KIBBLE_PLP_MODEL_SCHEMA_VERSION,
 			contractInput: { zone: result.policy.provenance.zoneBinding, productCatalogId: result.productCatalogId, productCatalogVersion: result.productCatalogVersion, rankedPrefixIds: result.rankedPrefixIds, prefixIds: result.prefixIds, tailIds: result.tailIds, presentationPolicy: KIBBLE_PLP_PRESENTATION_POLICY, presentationDecision: result.presentationDecision, modelCallCount: result.modelCallCount },
-			catalogInput: { source: 'server-reloaded-category-page', productCatalogId: result.productCatalogId, productCatalogVersion: result.productCatalogVersion, routePath: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE, sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, cursor: null, prefix, tail },
+			catalogInput: { source: 'server-reloaded-category-page', productCatalogId: result.productCatalogId, productCatalogVersion: result.productCatalogVersion, routePath: trustedRoute.routePath, sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, cursor: null, prefix, tail },
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities }, scenarioId,
 		});
-		await logGeneration({ type: 'preserve_render', persona: inference.primary, categorySlug: 'dog-food', cacheHit: false, generationTimeMs: Date.now() - startedAt, productCount: page.products.length, inputTokens: result.inputTokens, outputTokens: result.outputTokens, model: `anthropic/${result.modelId}`, sessionId, provenance });
-		return json({ version: VERSION, previewOnly: true, routePath: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_ROUTE, sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, cursor: null, policyVersion: result.policy.policyVersion, reference: { id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version }, persona: inference.primary, prefixIds: result.prefixIds, tailIds: result.tailIds, rankedPrefixIds: result.rankedPrefixIds, presentationPolicy: KIBBLE_PLP_PRESENTATION_POLICY, presentationDecision: result.presentationDecision, zoneAdapter: result.zoneAdapter, modelCallCount: result.modelCallCount, provider: MODEL_PROVIDER, modelId: result.modelId, provenance }, { headers: noStoreHeaders() });
+		await logGeneration({ type: 'preserve_render', persona: inference.primary, categorySlug: slug, cacheHit: false, generationTimeMs: Date.now() - startedAt, productCount: page.products.length, inputTokens: result.inputTokens, outputTokens: result.outputTokens, model: `anthropic/${result.modelId}`, sessionId, provenance });
+		return json({ version: VERSION, previewOnly: true, routePath: trustedRoute.routePath, sort: KIBBLE_OBSERVE_PLP_PRODUCT_RANKING_SORT, cursor: null, policyVersion: result.policy.policyVersion, reference: { id: KIBBLE_REFERENCE_CONTRACT.id, version: KIBBLE_REFERENCE_CONTRACT.version }, persona: inference.primary, prefixIds: result.prefixIds, tailIds: result.tailIds, rankedPrefixIds: result.rankedPrefixIds, presentationPolicy: KIBBLE_PLP_PRESENTATION_POLICY, presentationDecision: result.presentationDecision, zoneAdapter: result.zoneAdapter, modelCallCount: result.modelCallCount, provider: MODEL_PROVIDER, modelId: result.modelId, provenance }, { headers: noStoreHeaders() });
 	} catch (error) {
 		console.error('[kibble-plp-product-ranking-decision] operational failure:', error);
 		return json({ error: 'Failed to preview Kibble PLP product ranking' }, { status: 500, headers: noStoreHeaders() });
@@ -60,11 +65,11 @@ function toCandidate(product: { entityId: number; name: string; category: string
 	if (!Number.isInteger(product.entityId) || product.entityId <= 0 || typeof product.name !== 'string' || !product.name || typeof product.category !== 'string' || !Number.isFinite(product.price) || product.price < 0) throw new Error('Kibble PLP catalog data is invalid.');
 	return { entityId: product.entityId, name: product.name, category: product.category, price: product.price };
 }
-async function parseModelMode(request: Request) { const raw = await request.text(); if (!raw || raw.length > 128) return false; try { const value = JSON.parse(raw); return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 1 && Object.prototype.hasOwnProperty.call(value, 'mode') && value.mode === 'model'; } catch { return false; } }
+async function parseModelRequest(request: Request) { const raw = await request.text(); if (!raw || raw.length > 256) return null; try { const value = JSON.parse(raw); return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 2 && value.mode === 'model' && typeof value.routePath === 'string' ? { mode: 'model' as const, routePath: value.routePath } : null; } catch { return null; } }
 function budgetUnavailable(reason: 'disabled' | 'cooldown' | 'session_limit' | 'global_limit' | 'unavailable') { const retryable = reason === 'cooldown' || reason === 'session_limit' || reason === 'global_limit'; return json({ error: retryable ? 'Kibble AI demo budget is temporarily exhausted' : 'Kibble AI demo is unavailable' }, { status: retryable ? 429 : 503, headers: noStoreHeaders() }); }
 function unavailable() { return json({ error: 'Not found' }, { status: 404, headers: noStoreHeaders() }); }
 function invalidRequest() { return json({ error: 'Invalid Kibble decision request' }, { status: 400, headers: noStoreHeaders() }); }
 function sessionUnavailable() { return json({ error: 'Kibble preview session is unavailable' }, { status: 409, headers: noStoreHeaders() }); }
 function ineligible() { return json({ error: 'Kibble PLP product-ranking model action is unavailable' }, { status: 409, headers: noStoreHeaders() }); }
 function noStoreHeaders() { return { 'Cache-Control': 'no-store' }; }
-export const _test = { parseModelMode, toCandidate, descriptor: getKibbleObservePlpProductRankingModelPolicyDescriptor };
+export const _test = { parseModelRequest, toCandidate, descriptor: getKibbleObservePlpProductRankingModelPolicyDescriptor };

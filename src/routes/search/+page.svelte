@@ -5,10 +5,44 @@
 	import RefinementChat from '$lib/components/RefinementChat.svelte';
 	import type { Layout } from '$lib/schema/layout';
 	import { KibbleSearchReference } from '$lib/components/kibble';
+	import {
+		KIBBLE_SEARCH_DEFAULT_PRESENTATION,
+		materializeKibbleSearchPresentation,
+		snapshotKibbleSearchPresentation,
+	} from '$lib/brand/reference/kibble-presentation-decisions';
 
 	let { data }: { data: PageData } = $props();
 	let refinedLayout = $state<Layout | null>(null);
 	const results = $derived(data.results ?? []);
+	type KibbleSearchData = NonNullable<PageData['kibbleSearch']>;
+	let previewZoneAdapter = $state<KibbleSearchData['zoneAdapter'] | null>(null);
+	let searchModelCallCount = $state(0);
+
+	$effect(() => {
+		data;
+		previewZoneAdapter = null;
+		searchModelCallCount = 0;
+	});
+
+	$effect(() => {
+		const search = data.kibbleSearch;
+		const decision = search?.searchModelDecision;
+		if (data.renderMode !== 'reference-preserve' || !search || !decision || !search.zoneAdapter) return;
+		let active = true;
+		let cleanup: (() => void) | undefined;
+		void import('$lib/components/kibble/kibble-bounded-copy-live-preview').then(({ listenForKibbleBoundedCopyLivePreview }) => {
+			if (!active) return;
+			cleanup = listenForKibbleBoundedCopyLivePreview({
+				expectation: { surface: 'search', routePath: '/search', query: search.query, policyVersion: decision.policyVersion },
+				requestEvent: 'aisles-kibble-search-model-request',
+				getCurrentPresentation: () => snapshotKibbleSearchPresentation(materializeKibbleSearchPresentation(KIBBLE_SEARCH_DEFAULT_PRESENTATION, search.query)),
+				onApplied: (preview) => { previewZoneAdapter = preview.zoneAdapter as KibbleSearchData['zoneAdapter']; searchModelCallCount = preview.modelCallCount; },
+				onStatus: (status) => window.dispatchEvent(new CustomEvent('aisles-kibble-search-model-status', { detail: status })),
+			});
+			window.dispatchEvent(new CustomEvent('aisles-kibble-search-model-ready'));
+		});
+		return () => { active = false; cleanup?.(); };
+	});
 </script>
 
 <svelte:head>
@@ -16,7 +50,7 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleSearch}
-	<KibbleSearchReference {...data.kibbleSearch} />
+	<KibbleSearchReference {...data.kibbleSearch} zoneAdapter={previewZoneAdapter ?? data.kibbleSearch.zoneAdapter} presentationModelCallCount={searchModelCallCount} />
 {:else}
 <div class="mx-auto max-w-7xl px-6 py-8">
 	<!-- Dev mode: persona shift detection -->

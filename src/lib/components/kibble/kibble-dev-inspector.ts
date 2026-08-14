@@ -74,7 +74,7 @@ export interface KibbleDevInspectorData {
 }
 
 export type KibbleDecisionEvidence = {
-	surface: 'home' | 'plp' | 'pdp';
+	surface: 'home' | 'plp' | 'pdp' | 'search' | 'cart' | 'checkout';
 	zoneId: string;
 	zoneLabel: string;
 	policyVersion: string;

@@ -23,7 +23,6 @@ import {
 	assertKibblePreserveRoutePolicy,
 	getContractSurfaceDecision,
 	getKibbleObservePdpRelatedModelPolicyDescriptor,
-	KIBBLE_OBSERVE_PDP_RELATED_ROUTE,
 } from '$lib/brand/composition-policy';
 import { infer } from '$lib/signals/inference';
 import { createStoreFromRequest } from '$lib/signals/request';
@@ -139,7 +138,6 @@ async function loadKibblePreservePdp({
 		const relatedModelDecision = (
 			observeMode &&
 			privateEnv.KIBBLE_DEMO_AI_ENABLED === 'true' &&
-			url.pathname === KIBBLE_OBSERVE_PDP_RELATED_ROUTE &&
 			relatedProducts.length >= 3 && relatedProducts.length <= 4
 		) ? getKibbleObservePdpRelatedModelPolicyDescriptor(url.pathname) : null;
 		const options = materializeKibbleOptions(detail);

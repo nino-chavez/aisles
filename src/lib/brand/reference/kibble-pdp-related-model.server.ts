@@ -25,7 +25,7 @@ export type KibblePdpRelatedCandidate = {
 export async function rankKibblePdpRelatedWithModel(input: {
 	inference: PersonaInference;
 	products: KibblePdpRelatedCandidate[];
-	routePath: '/product/puppy-starter-kit';
+	routePath: string;
 	heading: string;
 }) {
 	if (input.products.length < 3 || input.products.length > 4) {

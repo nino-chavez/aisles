@@ -23,7 +23,7 @@ type RelatedContent = {
 };
 
 export type KibblePdpLivePreviewExpectation = {
-	routePath: '/product/puppy-starter-kit';
+	routePath: string;
 	policyVersion: string;
 	productIds: readonly string[];
 	relatedHeading: string;
@@ -58,7 +58,7 @@ export function listenForKibblePdpLivePreview(input: {
 		const timeout = window.setTimeout(() => { timedOut = true; next.abort(); }, KIBBLE_DEMO_MAX_PUBLIC_CLIENT_TIMEOUT_MS);
 		try {
 			const response = await fetch('/api/kibble/pdp-related-decision?observe=true', {
-				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'model' }), signal: next.signal,
+				method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'model', routePath: input.expectation.routePath }), signal: next.signal,
 			});
 			if (!response.ok) throw new Error(`Preview request failed (${response.status})`);
 			const preview = validateKibblePdpLivePreview(await response.json(), input.expectation, input.products);

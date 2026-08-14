@@ -1,8 +1,16 @@
 <script lang="ts">
 	import './kibble-reference.css';
+	import type { KibbleZoneAdapterBinding } from './types';
 
 type CheckoutSubtype = 'gift' | 'prepaid' | 'confirmation';
-let { subtype, availabilityMessage, policyVersion }: { subtype: CheckoutSubtype; availabilityMessage: string; policyVersion?: string } = $props();
+let {
+	subtype, availabilityMessage, policyVersion, assuranceZoneAdapter = null, checkoutModelDecision = null, presentationModelCallCount = 0,
+}: {
+	subtype: CheckoutSubtype; availabilityMessage: string; policyVersion?: string;
+	assuranceZoneAdapter?: KibbleZoneAdapterBinding<any> | null;
+	checkoutModelDecision?: { zoneId: 'checkout.assurance-strip'; routePath: '/checkout/gift' | '/checkout/prepaid'; policyVersion: string } | null;
+	presentationModelCallCount?: number;
+} = $props();
 
 const heading = $derived(subtype === 'gift' ? 'Give as a gift' : subtype === 'prepaid' ? 'Pay upfront' : 'Order confirmation');
 </script>
@@ -23,6 +31,13 @@ const heading = $derived(subtype === 'gift' ? 'Give as a gift' : subtype === 'pr
 			<div class="kc-reference-checkout-page__card" data-kibble-backend-state="unavailable">
 				<h1 id="kibble-checkout-heading">{heading}</h1>
 				<p>{availabilityMessage}</p>
+				{#if assuranceZoneAdapter}
+					<section id="kibble-checkout-assurance-strip" tabindex="-1" class="kc-reference-checkout-page__assurance" data-kibble-zone-instance={assuranceZoneAdapter.instanceId} data-kibble-zone-status={assuranceZoneAdapter.sharedStatus} data-kibble-zone-content-kind={assuranceZoneAdapter.sharedContentKind} data-kibble-zone-adapter={assuranceZoneAdapter.adapterId} data-kibble-zone-variant={assuranceZoneAdapter.componentVariantId} data-kibble-zone-input-sha256={assuranceZoneAdapter.inputSha256} data-aisles-zone-instance={assuranceZoneAdapter.instanceId} data-aisles-zone-label="Checkout assurance" data-aisles-authority={presentationModelCallCount > 0 ? 'model' : (assuranceZoneAdapter.decisionMode ?? 'fixed')} data-aisles-model-calls={presentationModelCallCount} data-aisles-model-eligible={checkoutModelDecision ? 'true' : undefined} data-aisles-checkout-model-eligible={checkoutModelDecision ? 'true' : undefined}>
+						{#each assuranceZoneAdapter.content.props.callouts as callout}
+							<div><strong>{callout.label}</strong><p>{callout.body}</p></div>
+						{/each}
+					</section>
+				{/if}
 
 				{#if subtype === 'gift'}
 					<div class="kc-reference-checkout-page__plan-box">

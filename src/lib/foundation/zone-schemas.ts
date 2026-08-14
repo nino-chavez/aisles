@@ -125,6 +125,7 @@ export const ZoneSchemas = {
 	'pdp.cross-sell': productCarousel,
 	'pdp.recently-viewed': productCarousel,
 	'cart.above-checkout-cta': productCarousel,
+	'cart.empty-state': editorialHeader,
 	'checkout.assurance-strip': serviceCalloutsGrid,
 	'checkout.last-chance-upsell': productCarousel,
 	'search.empty-state': editorialHeader,

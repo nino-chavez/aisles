@@ -28,7 +28,7 @@ describe('Kibble demo AI budget', () => {
 		expect(await reserveKibbleDemoAiCall('session-12345')).toEqual({ ok: false, reason: 'disabled' });
 	});
 
-	it('holds one shared session gate past the 12s deadline and both 15s/30s public retries', async () => {
+	it('holds one shared session gate past the provider and public-client deadlines', async () => {
 		state.enabled = 'true';
 		const now = new Date('2026-08-13T12:00:00.000Z');
 		expect(await reserveKibbleDemoAiCall('session-12345', now)).toMatchObject({ ok: true, sessionUsed: 2, globalUsed: 2 });
@@ -51,7 +51,7 @@ describe('Kibble demo AI budget', () => {
 
 		expect(await reserveKibbleDemoAiCall('session-prod-1')).toEqual({ ok: true, sessionUsed: 2, globalUsed: 2 });
 		expect(redisEval).toHaveBeenCalledOnce();
-		expect(redisEval.mock.calls[0]?.[2]).toEqual(['45', '12', '120', '86400', String(KIBBLE_DEMO_MAX_PROVIDER_CALLS_PER_ACTION)]);
+		expect(redisEval.mock.calls[0]?.[2]).toEqual(['18', '12', '120', '86400', String(KIBBLE_DEMO_MAX_PROVIDER_CALLS_PER_ACTION)]);
 	});
 
 	it('caps one local session at six two-call reservations per day', async () => {
