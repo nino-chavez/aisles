@@ -14,6 +14,13 @@ export function getCommerceServiceBoundary(): CommerceServiceBoundary {
 		env.KIBBLE_COMMERCE_MODE === 'sandbox' &&
 		providerConfigured &&
 		durableSessionConfigured;
+	const bigCommerceIdentitySelected = env.KIBBLE_CUSTOMER_IDENTITY_MODE === 'bigcommerce';
+	const customerPrivateTokenConfigured = Boolean(env.BIGCOMMERCE_PRIVATE_TOKEN);
+	const account = !bigCommerceIdentitySelected
+		? 'merchant_decision_required'
+		: !customerPrivateTokenConfigured || !enabled
+			? 'private_token_required'
+			: 'bigcommerce_login_ready';
 	return {
 		mode: enabled ? 'sandbox' : 'off',
 		cart: enabled ? 'bigcommerce_sandbox' : 'not_connected',
@@ -25,7 +32,7 @@ export function getCommerceServiceBoundary(): CommerceServiceBoundary {
 		// https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/orders
 		orderCreation: 'not_exposed',
 		orderHistory: 'customer_session_required',
-		account: 'merchant_decision_required',
+		account,
 		payment: 'provider_owned',
 		subscription: 'provider_not_connected',
 		subscriptionPortal: 'portal_session_required',
@@ -34,4 +41,8 @@ export function getCommerceServiceBoundary(): CommerceServiceBoundary {
 
 export function isKibbleCommerceEnabled(): boolean {
 	return getCommerceServiceBoundary().mode === 'sandbox';
+}
+
+export function isKibbleCustomerIdentityEnabled(): boolean {
+	return getCommerceServiceBoundary().account === 'bigcommerce_login_ready';
 }

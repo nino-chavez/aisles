@@ -9,15 +9,22 @@ import { env } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
 import type { BigCommerceCategoryProductSort } from '$lib/brand/reference/kibble-plp';
 
-function getGraphQLConfig() {
+function getGraphQLConfig(requirePrivateToken = false) {
 	const brand = getBrand();
 	// Brand-specific storefront tokens: VOLT_STOREFRONT_TOKEN, EMBER_STOREFRONT_TOKEN, etc.
 	const tokenKey = `${brand.id.toUpperCase()}_STOREFRONT_TOKEN`;
 	const storeHash = env.BIGCOMMERCE_STORE_HASH;
 	const storefrontToken = env[tokenKey] || env.BIGCOMMERCE_STOREFRONT_TOKEN;
+	const token = requirePrivateToken ? env.BIGCOMMERCE_PRIVATE_TOKEN : storefrontToken;
 
 	if (!storeHash) throw new Error('BIGCOMMERCE_STORE_HASH not configured');
-	if (!storefrontToken) throw new Error(`Storefront token not configured (tried ${tokenKey} and BIGCOMMERCE_STOREFRONT_TOKEN)`);
+	if (!token) {
+		throw new Error(
+			requirePrivateToken
+				? 'BigCommerce private token not configured'
+				: `Storefront token not configured (tried ${tokenKey} and BIGCOMMERCE_STOREFRONT_TOKEN)`,
+		);
+	}
 
 	// Non-default channels need channel ID in the URL hostname
 	const channelId = brand.bc.channelId;
@@ -27,7 +34,7 @@ function getGraphQLConfig() {
 
 	return {
 		url: `https://${host}/graphql`,
-		token: storefrontToken,
+		token,
 	};
 }
 
@@ -57,21 +64,28 @@ export class BigCommerceGraphQLError extends Error {
 	}
 }
 
-async function query<T>(gql: string, variables?: Record<string, unknown>): Promise<T> {
-	const { url, token } = getGraphQLConfig();
+export class BigCommerceCustomerSessionError extends Error {}
+
+interface GraphQLAuthContext {
+	requirePrivateToken?: boolean;
+	customerAccessToken?: string;
+}
+
+async function query<T>(gql: string, variables?: Record<string, unknown>, auth: GraphQLAuthContext = {}): Promise<T> {
+	const { url, token } = getGraphQLConfig(auth.requirePrivateToken);
 	const isMutation = /\bmutation\b/.test(gql);
-	// This is the documented stateless server-to-server mode: a Storefront
-	// bearer token plus an opaque cart entity ID. Do not add Origin/Set-Cookie
-	// replay unless this channel deliberately moves to BigCommerce's stateful
-	// shopper-session mode.
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json',
+		Authorization: `Bearer ${token}`,
+	};
+	if (auth.customerAccessToken) {
+		headers['X-Bc-Customer-Access-Token'] = auth.customerAccessToken;
+	}
 	let res: Response;
 	try {
 		res = await fetch(url, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: `Bearer ${token}`,
-			},
+			headers,
 			body: JSON.stringify({ query: gql, variables }),
 			signal: AbortSignal.timeout(20_000),
 		});
@@ -551,8 +565,12 @@ export interface CartProductEligibility {
 	hasOptions: boolean;
 }
 
+export interface BigCommerceCustomerContext {
+	customerAccessToken: string;
+}
+
 /** Revalidate the minimum one-time cart boundary from provider-owned catalog data. */
-export async function getCartProductEligibility(entityId: number): Promise<CartProductEligibility | null> {
+export async function getCartProductEligibility(entityId: number, customer?: BigCommerceCustomerContext): Promise<CartProductEligibility | null> {
 	const data = await query<{
 		site: {
 			product: {
@@ -574,6 +592,7 @@ export async function getCartProductEligibility(entityId: number): Promise<CartP
 		}
 	`,
 		{ entityId },
+		customerAuth(customer),
 	);
 	const product = data.site.product;
 	if (!product) return null;
@@ -663,7 +682,7 @@ const CART_FRAGMENT = /* GraphQL */ `
  * and the current official Catalyst-generated GraphQL schema for Cart.version.
  */
 
-export async function createCart(productEntityId: number, quantity = 1): Promise<CartResponse> {
+export async function createCart(productEntityId: number, quantity = 1, customer?: BigCommerceCustomerContext): Promise<CartResponse> {
 	interface CreateCartResponse {
 		cart?: { createCart?: { cart?: CartResponse | null } | null } | null;
 	}
@@ -683,12 +702,13 @@ export async function createCart(productEntityId: number, quantity = 1): Promise
 		}
 	`,
 		{ productId: productEntityId, quantity },
+		customerAuth(customer),
 	);
 
 	return requireMutationCart(data.cart?.createCart?.cart, 'BigCommerce did not confirm cart creation.');
 }
 
-export async function addToCart(cartEntityId: string, productEntityId: number, quantity = 1, version?: number): Promise<CartResponse> {
+export async function addToCart(cartEntityId: string, productEntityId: number, quantity = 1, version?: number, customer?: BigCommerceCustomerContext): Promise<CartResponse> {
 	interface AddToCartResponse {
 		cart?: { addCartLineItems?: { cart?: CartResponse | null } | null } | null;
 	}
@@ -710,12 +730,13 @@ export async function addToCart(cartEntityId: string, productEntityId: number, q
 		}
 	`,
 		{ cartId: cartEntityId, productId: productEntityId, quantity, version },
+		customerAuth(customer),
 	);
 
 	return requireMutationCart(data.cart?.addCartLineItems?.cart, 'BigCommerce did not confirm the added item.');
 }
 
-export async function getCart(cartEntityId: string): Promise<CartResponse | null> {
+export async function getCart(cartEntityId: string, customer?: BigCommerceCustomerContext): Promise<CartResponse | null> {
 	interface GetCartResponse {
 		site: { cart: CartResponse | null };
 	}
@@ -731,12 +752,13 @@ export async function getCart(cartEntityId: string): Promise<CartResponse | null
 		}
 	`,
 		{ cartId: cartEntityId },
+		customerAuth(customer),
 	);
 
 	return data.site.cart;
 }
 
-export async function updateCartLineItem(cartEntityId: string, lineItemEntityId: string, productEntityId: number, quantity: number, version: number): Promise<CartResponse> {
+export async function updateCartLineItem(cartEntityId: string, lineItemEntityId: string, productEntityId: number, quantity: number, version: number, customer?: BigCommerceCustomerContext): Promise<CartResponse> {
 	const data = await query<{
 		cart?: { updateCartLineItem?: { cart?: CartResponse | null } | null } | null;
 	}>(
@@ -761,11 +783,12 @@ export async function updateCartLineItem(cartEntityId: string, lineItemEntityId:
 			quantity,
 			version,
 		},
+		customerAuth(customer),
 	);
 	return requireMutationCart(data.cart?.updateCartLineItem?.cart, 'BigCommerce did not confirm the quantity update.');
 }
 
-export async function deleteCartLineItem(cartEntityId: string, lineItemEntityId: string, version: number): Promise<CartResponse | null> {
+export async function deleteCartLineItem(cartEntityId: string, lineItemEntityId: string, version: number, customer?: BigCommerceCustomerContext): Promise<CartResponse | null> {
 	const data = await query<{
 		cart?: {
 			deleteCartLineItem?: {
@@ -789,6 +812,7 @@ export async function deleteCartLineItem(cartEntityId: string, lineItemEntityId:
 		}
 	`,
 		{ cartId: cartEntityId, lineId: lineItemEntityId, version },
+		customerAuth(customer),
 	);
 	const result = data.cart?.deleteCartLineItem;
 	if (result?.cart) return result.cart;
@@ -796,7 +820,7 @@ export async function deleteCartLineItem(cartEntityId: string, lineItemEntityId:
 	throw new BigCommerceGraphQLError('BigCommerce did not confirm line removal.', { outcomeUnknown: true });
 }
 
-export async function deleteCart(cartEntityId: string): Promise<void> {
+export async function deleteCart(cartEntityId: string, customer?: BigCommerceCustomerContext): Promise<void> {
 	const data = await query<{
 		cart: { deleteCart: { deletedCartEntityId: string | null } | null };
 	}>(
@@ -808,6 +832,7 @@ export async function deleteCart(cartEntityId: string): Promise<void> {
 		}
 	`,
 		{ cartId: cartEntityId },
+		customerAuth(customer),
 	);
 	if (data.cart.deleteCart?.deletedCartEntityId !== cartEntityId) {
 		throw new BigCommerceGraphQLError('BigCommerce did not confirm the empty-cart operation.', { outcomeUnknown: true });
@@ -820,7 +845,7 @@ export async function deleteCart(cartEntityId: string): Promise<void> {
  * Verified 2026-08-14 against:
  * https://docs.bigcommerce.com/developer/learn/courses/graphql-storefront-api/checkout/lab-query-practice
  */
-export async function createCartRedirectUrl(cartEntityId: string): Promise<string> {
+export async function createCartRedirectUrl(cartEntityId: string, customer?: BigCommerceCustomerContext): Promise<string> {
 	const data = await query<{
 		cart?: {
 			createCartRedirectUrls?: {
@@ -838,6 +863,7 @@ export async function createCartRedirectUrl(cartEntityId: string): Promise<strin
 		}
 	`,
 		{ cartId: cartEntityId },
+		customerAuth(customer),
 	);
 	const value = data.cart?.createCartRedirectUrls?.redirectUrls?.redirectedCheckoutUrl;
 	if (!value) throw new BigCommerceGraphQLError('BigCommerce did not confirm a checkout handoff URL.', { outcomeUnknown: true });
@@ -851,6 +877,151 @@ export async function createCartRedirectUrl(cartEntityId: string): Promise<strin
 		throw new BigCommerceGraphQLError('BigCommerce returned an insecure checkout handoff URL.');
 	}
 	return url.toString();
+}
+
+export interface BigCommerceCustomerLoginResult {
+	customerEntityId: number;
+	customerAccessToken: string;
+	expiresAt: string;
+	cartEntityId: string | null;
+}
+
+/**
+ * Server-to-server login may assign an anonymous cart to the customer and
+ * returns the customer access token in the GraphQL body. The private bearer
+ * token and customer token never cross the server boundary.
+ * Verified 2026-08-15 against:
+ * https://docs.bigcommerce.com/developer/api-reference/graphql/storefront/mutations/login
+ * https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/authentication
+ */
+export async function loginBigCommerceCustomer(input: {
+	email: string;
+	password: string;
+	guestCartEntityId: string | null;
+}): Promise<BigCommerceCustomerLoginResult> {
+	const data = await query<{
+		login: {
+			customer: { entityId: number } | null;
+			cart: { entityId: string } | null;
+			customerAccessToken: { value: string; expiresAt: string } | null;
+		} | null;
+	}>(
+		`
+		mutation LoginCustomer($email: String!, $password: String!, $guestCartEntityId: String) {
+			login(email: $email, password: $password, guestCartEntityId: $guestCartEntityId) {
+				customer { entityId }
+				cart { entityId }
+				customerAccessToken { value expiresAt }
+			}
+		}
+	`,
+		input,
+		{ requirePrivateToken: true },
+	);
+	const login = data.login;
+	const expiresAt = login?.customerAccessToken?.expiresAt ?? '';
+	if (!login?.customer || !login.customerAccessToken?.value || !Number.isFinite(Date.parse(expiresAt))) {
+		throw new BigCommerceGraphQLError('BigCommerce did not confirm a customer session.');
+	}
+	return {
+		customerEntityId: login.customer.entityId,
+		customerAccessToken: login.customerAccessToken.value,
+		expiresAt,
+		cartEntityId: login.cart?.entityId ?? null,
+	};
+}
+
+export interface BigCommerceCustomerOrderSummary {
+	entityId: number;
+	orderedAt: string;
+	status: string;
+	total: { value: number; currencyCode: string };
+	itemCount: number;
+}
+
+/** Customer order reads require a customer access token and create no order. */
+export async function getBigCommerceCustomerOrders(
+	customer: BigCommerceCustomerContext,
+	limit = 25,
+): Promise<BigCommerceCustomerOrderSummary[]> {
+	const first = Math.min(Math.max(Math.trunc(limit), 1), 50);
+	const data = await query<{
+		customer: {
+			orders: {
+				edges: Array<{ node: {
+					entityId: number;
+					orderedAt: { utc: string };
+					status: { label: string };
+					totalIncTax: { value: number; currencyCode: string };
+					totalProductQuantity: number;
+				} }>;
+			};
+		} | null;
+	}>(
+		`
+		query CustomerOrders($first: Int!) {
+			customer {
+				orders(first: $first) {
+					edges { node {
+						entityId
+						orderedAt { utc }
+						status { label }
+						totalIncTax { value currencyCode }
+						totalProductQuantity
+					} }
+				}
+			}
+		}
+	`,
+		{ first },
+		customerAuth(customer),
+	);
+	if (!data.customer) throw new BigCommerceCustomerSessionError('BigCommerce did not confirm an authenticated customer.');
+	return data.customer.orders.edges.map(({ node }) => ({
+		entityId: node.entityId,
+		orderedAt: node.orderedAt.utc,
+		status: node.status.label,
+		total: node.totalIncTax,
+		itemCount: node.totalProductQuantity,
+	}));
+}
+
+/**
+ * Logout invalidates the customer token and may return an unassigned anonymous
+ * cart reference. Local state is updated only after this mutation confirms.
+ * https://docs.bigcommerce.com/developer/api-reference/graphql/storefront/mutations/logout
+ */
+export async function logoutBigCommerceCustomer(
+	customer: BigCommerceCustomerContext,
+	cartEntityId: string | null,
+): Promise<string | null> {
+	const data = await query<{
+		logout: {
+			result: string | null;
+			cartUnassignResult: { cart: { entityId: string } | null } | null;
+		} | null;
+	}>(
+		`
+		mutation LogoutCustomer($cartEntityId: String) {
+			logout(cartEntityId: $cartEntityId) {
+				result
+				cartUnassignResult { cart { entityId } }
+			}
+		}
+	`,
+		{ cartEntityId },
+		customerAuth(customer),
+	);
+	if (!data.logout?.result) {
+		throw new BigCommerceGraphQLError('BigCommerce did not confirm customer logout.', { outcomeUnknown: true });
+	}
+	return data.logout.cartUnassignResult?.cart?.entityId ?? null;
+}
+
+function customerAuth(customer?: BigCommerceCustomerContext): GraphQLAuthContext {
+	return customer
+		? { requirePrivateToken: true, customerAccessToken: customer.customerAccessToken }
+		: {};
 }
 
 function requireMutationCart(cart: CartResponse | null | undefined, message: string): CartResponse {

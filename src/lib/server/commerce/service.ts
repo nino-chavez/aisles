@@ -1,11 +1,13 @@
-import { addToCart, BigCommerceGraphQLError, createCart, createCartRedirectUrl, deleteCart, deleteCartLineItem, getCart, getCartProductEligibility, updateCartLineItem, type CartResponse } from '$lib/server/bigcommerce';
+import { addToCart, BigCommerceGraphQLError, createCart, createCartRedirectUrl, deleteCart, deleteCartLineItem, getCart, getCartProductEligibility, updateCartLineItem, type BigCommerceCustomerContext, type CartResponse } from '$lib/server/bigcommerce';
 import { operationEvidence, productPath, type CartPayload, type CommerceCart, type CommerceError, type CommerceOperation, type CommerceServiceBoundary } from '$lib/commerce/cart-contract';
-import { getCommerceServiceBoundary } from './boundary';
+import { getCommerceServiceBoundary, isKibbleCustomerIdentityEnabled } from './boundary';
 import {
 	CommerceIdempotencyMismatchError,
 	CommerceOperationInProgressError,
 	CommerceSessionUnavailableError,
 	coordinateCommerceMutation,
+	activeCustomerSession,
+	clearExpiredCustomerSession,
 	loadCommerceSession,
 	type CommerceSessionState,
 } from './session';
@@ -54,11 +56,12 @@ export function createCommerceService(provider: Provider = defaultProvider) {
 		read: (sessionId: string) => readCart(sessionId, provider),
 		add: (sessionId: string, key: string, input: { productEntityId: number; quantity: number }) =>
 			mutateCart(sessionId, key, 'cart.add', input, provider, async (state, current, callProvider) => {
-				const product = await callProvider(() => provider.getCartProductEligibility(input.productEntityId));
+				const customer = customerContext(state);
+				const product = await callProvider(() => provider.getCartProductEligibility(input.productEntityId, customer));
 				if (!product || !product.isInStock || product.hasOptions) throw knownError('product_not_available');
 				const cart = current
-					? await callProvider(() => provider.addToCart(current.entityId, input.productEntityId, input.quantity, current.version))
-					: await callProvider(() => provider.createCart(input.productEntityId, input.quantity));
+					? await callProvider(() => provider.addToCart(current.entityId, input.productEntityId, input.quantity, current.version, customer))
+					: await callProvider(() => provider.createCart(input.productEntityId, input.quantity, customer));
 				state.cartEntityId = cart.entityId;
 				return cart;
 			}),
@@ -68,7 +71,7 @@ export function createCommerceService(provider: Provider = defaultProvider) {
 				const line = current.lineItems.physicalItems.find(({ entityId }) => entityId === input.lineId);
 				if (!line) throw knownError('line_not_found');
 				if (!line.isMutable) throw knownError('line_not_mutable');
-				return callProvider(() => provider.updateCartLineItem(current.entityId, line.entityId, line.productEntityId, input.quantity, current.version));
+				return callProvider(() => provider.updateCartLineItem(current.entityId, line.entityId, line.productEntityId, input.quantity, current.version, customerContext(state)));
 			}),
 		remove: (sessionId: string, key: string, input: { lineId: string }) =>
 			mutateCart(sessionId, key, 'cart.remove', input, provider, async (state, current, callProvider) => {
@@ -76,14 +79,14 @@ export function createCommerceService(provider: Provider = defaultProvider) {
 				const line = current.lineItems.physicalItems.find(({ entityId }) => entityId === input.lineId);
 				if (!line) throw knownError('line_not_found');
 				if (!line.isMutable) throw knownError('line_not_mutable');
-				const cart = await callProvider(() => provider.deleteCartLineItem(current.entityId, line.entityId, current.version));
+				const cart = await callProvider(() => provider.deleteCartLineItem(current.entityId, line.entityId, current.version, customerContext(state)));
 				if (!cart) state.cartEntityId = null;
 				return cart;
 			}),
 		empty: (sessionId: string, key: string) =>
 			mutateCart(sessionId, key, 'cart.empty', {}, provider, async (state, current, callProvider) => {
 				if (!current) throw knownError('cart_not_found');
-				await callProvider(() => provider.deleteCart(current.entityId));
+				await callProvider(() => provider.deleteCart(current.entityId, customerContext(state)));
 				state.cartEntityId = null;
 				return null;
 			}),
@@ -104,7 +107,7 @@ async function readCart(sessionId: string, provider: Provider): Promise<Commerce
 			});
 		}
 		providerAttempted = true;
-		const cart = await provider.getCart(state.cartEntityId);
+		const cart = await provider.getCart(state.cartEntityId, customerContext(state));
 		// Reads never write session state. A delayed stale-cart read must not
 		// overwrite a newer cart reference persisted by a concurrent mutation.
 		// The next serialized mutation performs confirmed stale-cart recovery.
@@ -137,7 +140,8 @@ async function mutateCart<T extends Record<string, unknown>>(
 			fingerprint: JSON.stringify({ operation, ...input }),
 			execute: async (state) => {
 				try {
-					const providerCurrent = state.cartEntityId ? await callProvider(() => provider.getCart(state.cartEntityId!)) : null;
+					clearExpiredCustomerSession(state);
+					const providerCurrent = state.cartEntityId ? await callProvider(() => provider.getCart(state.cartEntityId!, customerContext(state))) : null;
 					const current = providerCurrent ? requireCommerceCartVersion(providerCurrent, false) : null;
 					if (state.cartEntityId && !current) state.cartEntityId = null;
 					const providerCart = await apply(state, current, callProvider);
@@ -204,13 +208,14 @@ async function checkoutHandoff(
 				persistResult: false,
 				execute: async (state) => {
 				try {
+					clearExpiredCustomerSession(state);
 					if (!state.cartEntityId) throw knownError('cart_not_found');
-					const cart = await callProvider(() => provider.getCart(state.cartEntityId!));
+					const cart = await callProvider(() => provider.getCart(state.cartEntityId!, customerContext(state)));
 					if (!cart || cart.lineItems.physicalItems.length === 0) {
 						state.cartEntityId = null;
 						throw knownError('cart_not_found');
 					}
-					const redirectUrl = await callProvider(() => provider.createCartRedirectUrl(cart.entityId));
+					const redirectUrl = await callProvider(() => provider.createCartRedirectUrl(cart.entityId, customerContext(state)));
 					return {
 						state,
 						value: {
@@ -242,6 +247,12 @@ async function checkoutHandoff(
 	} catch (cause) {
 		return failureFrom(infrastructureCause(cause), 'checkout.handoff', correlationId, services, providerAttempted);
 	}
+}
+
+function customerContext(state: CommerceSessionState): BigCommerceCustomerContext | undefined {
+	if (!isKibbleCustomerIdentityEnabled()) return undefined;
+	const customer = activeCustomerSession(state);
+	return customer ? { customerAccessToken: customer.customerAccessToken } : undefined;
 }
 
 function successCart(

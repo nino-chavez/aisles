@@ -12,6 +12,7 @@ import { executeKibbleHiddenZoneTerminalsForRoute } from '$lib/brand/reference/k
 import { buildKibblePreserveErrorState, throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
 import { buildKibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibble-catalog-enrichment';
 import { getCommerceServiceBoundary } from '$lib/server/commerce/boundary';
+import { customerService } from '$lib/server/commerce/customer-service';
 import { commerceSessionId } from '$lib/server/commerce/session';
 
 function routeAudience(pathname: string): 'shopper' | 'operator' | 'development' {
@@ -94,10 +95,14 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		observeParam === 'true' || (observeParam !== 'false' && cookies.get('aisles_observe_demo') === '1')
 	);
 	const kibbleCommerceServices = chromeMode === 'reference' ? getCommerceServiceBoundary() : null;
+	let kibbleCustomerSessionState: 'disabled' | 'anonymous' | 'authenticated' | 'unavailable' = 'disabled';
 	if (audience === 'shopper' && kibbleCommerceServices?.mode === 'sandbox') {
 		// Establish one opaque server-owned session during SSR. Mutation routes
 		// reject a missing cookie so concurrent first adds cannot fork carts.
-		commerceSessionId(cookies);
+		const sessionId = commerceSessionId(cookies);
+		if (kibbleCommerceServices.account === 'bigcommerce_login_ready') {
+			kibbleCustomerSessionState = (await customerService.status(sessionId)).state;
+		}
 	}
 	let observeSessionId = cookies.get('aisles_session') || null;
 	if (observeMode && !observeSessionId) {
@@ -144,6 +149,7 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		observeInitialPersona: cookies.get('aisles_persona') || null,
 		kibbleCapabilityCoverage: observeMode ? buildKibbleMerchantCapabilityCoverage() : null,
 		kibbleCommerceServices,
+		kibbleCustomerSessionState,
 	};
 };
 
