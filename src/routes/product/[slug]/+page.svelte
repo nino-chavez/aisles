@@ -10,6 +10,7 @@
 		materializeKibblePdpPresentation,
 		snapshotKibblePdpPresentation,
 	} from '$lib/brand/reference/kibble-presentation-decisions';
+	import type { KibblePdpLivePreview } from '$lib/components/kibble/kibble-pdp-live-preview';
 
 	let { data }: { data: PageData } = $props();
 	let product = $derived(data.product);
@@ -18,7 +19,8 @@
 	let isKibblePdp = $derived(data.renderMode === 'reference-preserve' || data.renderMode === 'reference-review');
 	type KibblePdpData = NonNullable<PageData['kibblePdp']>;
 	let previewRelatedProducts = $state<KibblePdpData['relatedProducts'] | null>(null);
-	let previewRelatedZoneAdapter = $state<KibblePdpData['zoneAdapter'] | null>(null);
+	let previewRelatedZoneAdapter = $state<KibblePdpLivePreview['zoneAdapter'] | null>(null);
+	let previewPdpZoneArtifacts = $state<KibblePdpLivePreview['zoneArtifacts'] | null>(null);
 	let previewPdpPresentation = $state<ReturnType<typeof materializeKibblePdpPresentation> | null>(null);
 	const defaultPdpPresentation = materializeKibblePdpPresentation(KIBBLE_PDP_DEFAULT_PRESENTATION);
 	let activePdpPresentation = $derived(previewPdpPresentation ?? defaultPdpPresentation);
@@ -27,6 +29,7 @@
 		data;
 		previewRelatedProducts = null;
 		previewRelatedZoneAdapter = null;
+		previewPdpZoneArtifacts = null;
 		previewPdpPresentation = null;
 	});
 
@@ -52,7 +55,8 @@
 				onApplied: (preview) => {
 					// Validation proves these are a reorder of this server-rendered rail.
 					previewRelatedProducts = preview.products as KibblePdpData['relatedProducts'];
-					previewRelatedZoneAdapter = preview.zoneAdapter as KibblePdpData['zoneAdapter'];
+					previewRelatedZoneAdapter = preview.zoneAdapter;
+					previewPdpZoneArtifacts = preview.zoneArtifacts;
 					previewPdpPresentation = materializeKibblePdpPresentation(preview.presentationDecision);
 				},
 				onStatus: (status) => window.dispatchEvent(new CustomEvent('aisles-kibble-pdp-model-status', { detail: status })),
@@ -115,8 +119,7 @@
 		{...data.kibblePdp}
 		relatedProducts={previewRelatedProducts ?? data.kibblePdp.relatedProducts}
 		zoneAdapter={previewRelatedZoneAdapter ?? data.kibblePdp.zoneAdapter}
-		presentation={activePdpPresentation}
-		presentationModelCallCount={previewRelatedZoneAdapter?.modelCallCount ?? 0}
+		marketingZoneArtifact={previewPdpZoneArtifacts?.marketing ?? null}
 	/></div>
 {:else if product && relatedProducts}
 	<div class="mx-auto max-w-7xl px-6 py-8">

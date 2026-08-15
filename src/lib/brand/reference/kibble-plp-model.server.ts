@@ -1,18 +1,21 @@
 import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
 import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS, KIBBLE_DEMO_PROVIDER_DEADLINE_MS } from '$lib/kibble-demo-ai-boundary';
-import { runBoundedModelAction } from '$lib/server/bounded-model-action.server';
+import { BoundedModelActionError, runBoundedModelAction } from '$lib/server/bounded-model-action.server';
 import { getTrustedKibbleObservePlpProductRankingZonePolicy } from '$lib/brand/composition-policy';
 import { SHOPPER_ROUTE_MANIFEST_DIGEST, SHOPPER_ROUTE_MANIFEST_VERSION } from '$lib/foundation/autonomy-zone-route';
 import type { TrustedZoneFieldCatalog } from '$lib/foundation/zone-decision-schema';
 import { executeZoneDecision, type TrustedBoundZoneCatalog, type TrustedZoneExecutionIdentity, type ZoneModelRunner } from '$lib/server/zone-decision-executor';
 import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
 import {
+	KIBBLE_PLP_DEFAULT_PRESENTATION,
 	KIBBLE_PLP_PRESENTATION_IDS,
 	kibblePlpPresentationPromptOptions,
+	materializeKibblePlpPresentation,
 	parseKibblePlpPresentationDecision,
 	type KibblePlpPresentationDecision,
 } from './kibble-presentation-decisions';
+import { bindExistingKibbleModelZoneAdapter, executeKibblePresentationModelZone } from './kibble-zone-executor.server';
 import {
 	hashKibblePlpCandidateCatalog,
 	hashKibblePlpRankingInput,
@@ -79,6 +82,9 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 			prompt,
 			maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
 			timeoutMs: KIBBLE_DEMO_PROVIDER_DEADLINE_MS,
+		}).catch((error: unknown) => {
+			if (error instanceof BoundedModelActionError) modelCallCount = error.callCount;
+			throw error;
 		});
 		modelCallCount = generated.callCount;
 		modelId = generated.modelId;
@@ -90,23 +96,83 @@ export async function rankKibblePlpFirstEightWithModel(input: {
 		if (!presentationDecision) throw new Error('Kibble PLP presentation decision left the merchant allow-list.');
 		return outputSchema.parse({ rankedProductIds });
 	};
-	const execution = await executeZoneDecision({ policy, catalog, fallback: { identity, kind: 'content', content: productGridContent(prefixIds) }, runModel });
-	if (execution.status !== 'live' || execution.decisionMode !== 'model' || execution.render.kind !== 'content' || !modelId || modelCallCount < 1 || !presentationDecision) {
-		throw new Error(`Kibble PLP model ranking did not publish: ${execution.status === 'fallback' ? execution.reason : execution.status}.`);
+	const execution = await (async () => {
+		try {
+			const published = await executeZoneDecision({ policy, catalog, fallback: { identity, kind: 'content', content: productGridContent(prefixIds) }, runModel });
+			if (published.status !== 'live' || published.decisionMode !== 'model' || published.render.kind !== 'content' || !modelId || modelCallCount < 1 || !presentationDecision) {
+				throw new Error(`Kibble PLP model ranking did not publish: ${published.status === 'fallback' ? published.reason : published.status}.`);
+			}
+			return published;
+		} catch (cause) {
+			return rethrowModelPublicationFailure(cause, modelCallCount);
+		}
+	})();
+	const validatedPresentationDecision = parseKibblePlpPresentationDecision(presentationDecision);
+	if (!validatedPresentationDecision) rethrowModelPublicationFailure(new Error('Kibble PLP presentation evidence is unavailable.'), modelCallCount);
+	const presentationContext = {
+		title: input.prefix[0]?.category ?? 'Catalog',
+		productCount: input.prefix.length + input.tail.length,
+		productSingular: 'product',
+		productPlural: 'products',
+	};
+	const baselinePresentation = materializeKibblePlpPresentation(KIBBLE_PLP_DEFAULT_PRESENTATION, presentationContext);
+	const selectedPresentation = materializeKibblePlpPresentation(validatedPresentationDecision, presentationContext);
+	let presentationZoneAdapters: {
+		header: Awaited<ReturnType<typeof executeKibblePresentationModelZone>>['adapter'];
+		marketing: Awaited<ReturnType<typeof executeKibblePresentationModelZone>>['adapter'];
+	};
+	try {
+		const [headerZone, marketingZone] = await Promise.all([
+		executeKibblePresentationModelZone({
+			surface: 'plp', familyId: 'plp.editorial-header', instanceId: 'plp.editorial-header', routePath: input.routePath,
+			componentVariantIds: ['kibble.category-listing.editorial-header'], baselineComponentVariantId: 'kibble.category-listing.editorial-header',
+			copyVariantIds: KIBBLE_PLP_PRESENTATION_IDS.headerCopyVariantIds,
+			baselineCopyVariantId: KIBBLE_PLP_DEFAULT_PRESENTATION.headerCopyVariantId,
+			modelOutput: { copyVariantId: validatedPresentationDecision.headerCopyVariantId },
+			modelCallCount,
+			fallbackContent: editorialHeaderContent(baselinePresentation.header),
+			contentForDecision: () => editorialHeaderContent(selectedPresentation.header),
+		}),
+		executeKibblePresentationModelZone({
+			surface: 'plp', familyId: 'plp.marketing-block', instanceId: 'plp.marketing-block', routePath: input.routePath,
+			componentVariantIds: ['kibble.hero.zone-editorial-header'], baselineComponentVariantId: 'kibble.hero.zone-editorial-header',
+			copyVariantIds: KIBBLE_PLP_PRESENTATION_IDS.marketingBlockVariantIds,
+			baselineCopyVariantId: KIBBLE_PLP_DEFAULT_PRESENTATION.marketingBlockVariantId,
+			modelOutput: {
+				copyVariantId: validatedPresentationDecision.marketingBlockVariantId,
+				visible: validatedPresentationDecision.marketingBlockVariantId !== 'none',
+			},
+			modelCallCount,
+			fallbackContent: null,
+			contentForDecision: (decision) => decision.visible === true && selectedPresentation.marketingBlock
+				? editorialHeaderContent(selectedPresentation.marketingBlock)
+				: null,
+		}),
+		]);
+		presentationZoneAdapters = { header: headerZone.adapter, marketing: marketingZone.adapter };
+	} catch (cause) {
+		rethrowModelPublicationFailure(cause, modelCallCount);
 	}
 	const raw = execution.decision?.envelope.rawModelContent;
 	const rankedValue = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).rankedProductIds : null;
 	const rankedPrefixIds: string[] = Array.isArray(rankedValue) ? rankedValue.filter(isString) : [];
-	if (!sameExactSet(rankedPrefixIds, prefixIds)) throw new Error('Kibble PLP model output was not an exact approved prefix permutation.');
+	if (!sameExactSet(rankedPrefixIds, prefixIds)) {
+		rethrowModelPublicationFailure(new Error('Kibble PLP model output was not an exact approved prefix permutation.'), modelCallCount);
+	}
+	if (execution.status !== 'live' || execution.render.kind !== 'content') {
+		rethrowModelPublicationFailure(new Error('Kibble PLP model render evidence is unavailable.'), modelCallCount);
+	}
+	const rankedAdapter = bindExistingKibbleModelZoneAdapter({
+		instanceId: 'plp.product-ranking', sharedStatus: 'live' as const, sharedContentKind: 'content' as const, decisionMode: 'model' as const,
+		modelCallCount, adapterId: 'kibble.zone.plp.product-ranking', componentVariantId: 'kibble.category-listing.ranked-prefix',
+		inputSha256: hashKibblePlpRankingInput(prefixIds, tailIds, input.routePath), content: execution.render.content,
+	}, execution, modelCallCount);
 	return {
-		policy, execution, prefixIds, tailIds, rankedPrefixIds, modelId, modelCallCount, prompt, presentationDecision,
+		policy, execution, prefixIds, tailIds, rankedPrefixIds, modelId, modelCallCount, prompt, presentationDecision: validatedPresentationDecision,
+		zoneArtifacts: { header: presentationZoneAdapters.header, ranking: rankedAdapter, marketing: presentationZoneAdapters.marketing },
 		productCatalogId: identity.productCatalogId, productCatalogVersion: identity.productCatalogVersion,
 		...(inputTokens === undefined ? {} : { inputTokens }), ...(outputTokens === undefined ? {} : { outputTokens }),
-		zoneAdapter: {
-			instanceId: 'plp.product-ranking', sharedStatus: 'live' as const, sharedContentKind: 'content' as const, decisionMode: 'model' as const,
-			modelCallCount, adapterId: 'kibble.zone.plp.product-ranking', componentVariantId: 'kibble.category-listing.ranked-prefix',
-			inputSha256: hashKibblePlpRankingInput(prefixIds, tailIds, input.routePath), content: execution.render.content,
-		},
+		zoneAdapter: rankedAdapter,
 	};
 }
 
@@ -139,3 +205,9 @@ function productGridContent(productIds: readonly string[]) { return { component:
 function isString(value: unknown): value is string { return typeof value === 'string'; }
 function sameExactSet(actual: readonly string[], expected: readonly string[]) { return actual.length === expected.length && new Set(actual).size === actual.length && actual.every((id) => expected.includes(id)); }
 function tuple<T extends string>(values: readonly T[]): [T, ...T[]] { const first = values[0]; if (!first) throw new Error('Kibble PLP presentation allow-list is empty.'); return [first, ...values.slice(1)]; }
+function editorialHeaderContent(copy: { eyebrow: string; title?: string; headline?: string; body: string }) { return { component: 'editorial-header' as const, props: { eyebrow: copy.eyebrow, headline: copy.headline ?? copy.title ?? '', body: copy.body } }; }
+function rethrowModelPublicationFailure(cause: unknown, callCount: number): never {
+	if (cause instanceof BoundedModelActionError) throw cause;
+	if (callCount > 0) throw new BoundedModelActionError('invalid_output', 'validated PLP presentation did not publish', callCount);
+	throw cause;
+}

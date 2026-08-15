@@ -2,6 +2,10 @@ import { KIBBLE_REFERENCE_CONTRACT } from './reference/kibble';
 import {
 	KIBBLE_CART_PRESENTATION_IDS,
 	KIBBLE_CHECKOUT_PRESENTATION_IDS,
+	KIBBLE_HOME_PRESENTATION_IDS,
+	KIBBLE_HOME_PRESENTATION_POLICY,
+	KIBBLE_PDP_PRESENTATION_IDS,
+	KIBBLE_PLP_PRESENTATION_IDS,
 	KIBBLE_SEARCH_PRESENTATION_IDS,
 } from './reference/kibble-presentation-decisions';
 import {
@@ -36,6 +40,13 @@ const registeredComponentVariantIds = KIBBLE_REFERENCE_CONTRACT.components.flatM
 	(component) => component.variants.map((variant) => variant.id),
 );
 const registeredCopyVariantIds = [...new Set([
+	...KIBBLE_HOME_PRESENTATION_IDS.heroCopyVariantIds,
+	...KIBBLE_HOME_PRESENTATION_IDS.featuredCopyVariantIds,
+	...KIBBLE_HOME_PRESENTATION_IDS.catalogCopyVariantIds,
+	...KIBBLE_PLP_PRESENTATION_IDS.headerCopyVariantIds,
+	...KIBBLE_PLP_PRESENTATION_IDS.marketingBlockVariantIds,
+	...KIBBLE_PDP_PRESENTATION_IDS.relatedCopyVariantIds,
+	...KIBBLE_PDP_PRESENTATION_IDS.marketingBlockVariantIds,
 	...KIBBLE_SEARCH_PRESENTATION_IDS.emptyCopyVariantIds,
 	...KIBBLE_CART_PRESENTATION_IDS.emptyCopyVariantIds,
 	...KIBBLE_CHECKOUT_PRESENTATION_IDS.assuranceCopyVariantIds,
@@ -220,28 +231,74 @@ const kibble: BrandCompositionPolicy = {
  */
 const kibbleObserveAssist: BrandCompositionPolicy = {
 	...kibble,
-	policyVersion: `kibble-observe-assist-policy-${KIBBLE_REFERENCE_CONTRACT.version}-v2`,
+	policyVersion: `kibble-observe-presentation-policy-${KIBBLE_REFERENCE_CONTRACT.version}-v3`,
 	surfaces: {
 		...kibble.surfaces,
 		home: {
-			...kibble.surfaces.home!, preset: 'assist', capabilities: ['rank_products'], decisionMode: 'model',
+			...kibble.surfaces.home!, preset: 'compose', capabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'], decisionMode: 'model',
+			allowedComponentVariantIds: [...homeComponentVariantIds, 'kibble.visual-module.routine'],
+			allowedCssVariantIds: cssFor([...homeComponentVariantIds, 'kibble.visual-module.routine']),
+			allowedCopyVariantIds: [
+				...KIBBLE_HOME_PRESENTATION_IDS.heroCopyVariantIds,
+				...KIBBLE_HOME_PRESENTATION_IDS.featuredCopyVariantIds,
+				...KIBBLE_HOME_PRESENTATION_IDS.catalogCopyVariantIds,
+			],
 			zoneOverrides: {
 				...kibble.surfaces.home!.zoneOverrides,
-				'home.featured-row': { capabilities: ['rank_products'], decisionMode: 'model', publicationMode: 'live', allowedComponentVariantIds: ['kibble.featured-grid.ranked-segment'] },
+				'home.hero': {
+					capabilities: ['select_copy_variant'], decisionMode: 'model', publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.hero.zone-editorial-header'],
+					allowedCopyVariantIds: KIBBLE_HOME_PRESENTATION_IDS.heroCopyVariantIds,
+				},
+				'home.featured-row': {
+					capabilities: ['rank_products', 'select_copy_variant', 'reorder_zones'], decisionMode: 'model', publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.featured-grid.ranked-segment'],
+					allowedCopyVariantIds: KIBBLE_HOME_PRESENTATION_IDS.featuredCopyVariantIds,
+				},
+				'home.editorial-strip': {
+					capabilities: ['select_copy_variant', 'select_component_variant'], decisionMode: 'model', publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.visual-module.category', 'kibble.visual-module.routine'],
+					allowedCopyVariantIds: KIBBLE_HOME_PRESENTATION_IDS.catalogCopyVariantIds,
+				},
 			},
 		},
 		pdp: {
-			...kibble.surfaces.pdp!, preset: 'assist', capabilities: ['rank_products'], decisionMode: 'model',
+			...kibble.surfaces.pdp!, preset: 'compose', capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'], decisionMode: 'model',
+			allowedComponentVariantIds: [...pdpComponentVariantIds, 'kibble.hero.zone-editorial-header'],
+			allowedCssVariantIds: cssFor([...pdpComponentVariantIds, 'kibble.hero.zone-editorial-header']),
+			allowedCopyVariantIds: [...KIBBLE_PDP_PRESENTATION_IDS.relatedCopyVariantIds, ...KIBBLE_PDP_PRESENTATION_IDS.marketingBlockVariantIds],
 			zoneOverrides: {
 				...kibble.surfaces.pdp!.zoneOverrides,
-				'pdp.related': { capabilities: ['rank_products'], decisionMode: 'model', publicationMode: 'live', allowedComponentVariantIds: ['kibble.product-detail.related-products'] },
+				'pdp.related': {
+					capabilities: ['rank_products', 'select_copy_variant'], decisionMode: 'model', publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.product-detail.related-products'],
+					allowedCopyVariantIds: KIBBLE_PDP_PRESENTATION_IDS.relatedCopyVariantIds,
+				},
+				'pdp.below-description': {
+					capabilities: ['select_copy_variant', 'toggle_zone'], decisionMode: 'model', publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.hero.zone-editorial-header'],
+					allowedCopyVariantIds: KIBBLE_PDP_PRESENTATION_IDS.marketingBlockVariantIds,
+				},
 			},
 		},
 		plp: {
-			...kibble.surfaces.plp!, preset: 'assist', capabilities: ['rank_products'], decisionMode: 'model',
+			...kibble.surfaces.plp!, preset: 'compose', capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'], decisionMode: 'model',
+			allowedComponentVariantIds: [...plpComponentVariantIds, 'kibble.hero.zone-editorial-header'],
+			allowedCssVariantIds: cssFor([...plpComponentVariantIds, 'kibble.hero.zone-editorial-header']),
+			allowedCopyVariantIds: [...KIBBLE_PLP_PRESENTATION_IDS.headerCopyVariantIds, ...KIBBLE_PLP_PRESENTATION_IDS.marketingBlockVariantIds],
 			zoneOverrides: {
 				...kibble.surfaces.plp!.zoneOverrides,
 				'plp.product-ranking': { capabilities: ['rank_products'], decisionMode: 'model', publicationMode: 'live', allowedComponentVariantIds: ['kibble.category-listing.ranked-prefix'] },
+				'plp.editorial-header': {
+					capabilities: ['select_copy_variant'], decisionMode: 'model', publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.category-listing.editorial-header'],
+					allowedCopyVariantIds: KIBBLE_PLP_PRESENTATION_IDS.headerCopyVariantIds,
+				},
+				'plp.marketing-block': {
+					capabilities: ['select_copy_variant', 'toggle_zone'], decisionMode: 'model', publicationMode: 'live',
+					allowedComponentVariantIds: ['kibble.hero.zone-editorial-header'],
+					allowedCopyVariantIds: KIBBLE_PLP_PRESENTATION_IDS.marketingBlockVariantIds,
+				},
 			},
 		},
 		search: {
@@ -427,34 +484,113 @@ export function getTrustedKibbleZonePolicy(input: {
 	});
 }
 
-/** Compile the one live model boundary exposed by the explicit demo control. */
+export type KibbleObservePresentationZoneInput =
+	| { surface: 'home'; familyId: 'home.hero'; instanceId: 'home.hero'; routePath: '/' }
+	| { surface: 'home'; familyId: 'home.featured-row'; instanceId: 'home.featured-row.1'; routePath: '/' }
+	| { surface: 'home'; familyId: 'home.editorial-strip'; instanceId: 'home.editorial-strip'; routePath: '/' }
+	| { surface: 'plp'; familyId: 'plp.editorial-header'; instanceId: 'plp.editorial-header'; routePath: string }
+	| { surface: 'plp'; familyId: 'plp.product-ranking'; instanceId: 'plp.product-ranking'; routePath: string }
+	| { surface: 'plp'; familyId: 'plp.marketing-block'; instanceId: 'plp.marketing-block'; routePath: string }
+	| { surface: 'pdp'; familyId: 'pdp.related'; instanceId: 'pdp.related'; routePath: string }
+	| { surface: 'pdp'; familyId: 'pdp.below-description'; instanceId: 'pdp.below-description'; routePath: string };
+
+const KIBBLE_PRESENTATION_CAPABILITIES_BY_INSTANCE = {
+	'home.hero': ['select_copy_variant'],
+	'home.featured-row.1': ['rank_products', 'select_copy_variant', 'reorder_zones'],
+	'home.editorial-strip': ['select_copy_variant', 'select_component_variant'],
+	'plp.editorial-header': ['select_copy_variant'],
+	'plp.product-ranking': ['rank_products'],
+	'plp.marketing-block': ['select_copy_variant', 'toggle_zone'],
+	'pdp.related': ['rank_products', 'select_copy_variant'],
+	'pdp.below-description': ['select_copy_variant', 'toggle_zone'],
+} as const;
+
+/** Compile one exact presentation instance used by an explicit demo action. */
+export function getTrustedKibbleObservePresentationZonePolicy(
+	input: KibbleObservePresentationZoneInput,
+): EffectiveCompositionPolicy {
+	const route = tryNormalizeTrustedShopperRoute(input.routePath);
+	if (!route || route.surface !== input.surface) throw new Error(`Kibble observe ${input.surface} route is not approved.`);
+	const identity = findTrustedZoneIdentity('aisles', input.familyId, input.instanceId);
+	if (!identity || identity.surface !== input.surface) {
+		throw new Error(`Kibble observe zone identity is not registered: aisles:${input.instanceId}.`);
+	}
+	const policy = compileCompositionPolicy({
+		organizationId: KIBBLE_ORGANIZATION_ID,
+		brandId: 'kibble',
+		surface: input.surface,
+		zoneIdentity: identity,
+		routeSource: 'pathname',
+		routePath: input.routePath,
+		registry: KIBBLE_OBSERVE_ASSIST_POLICY,
+	});
+	const expected = KIBBLE_PRESENTATION_CAPABILITIES_BY_INSTANCE[input.instanceId];
+	if (
+		policy.decisionMode !== 'model' ||
+		policy.publicationMode !== 'live' ||
+		policy.provenance.preset !== 'compose' ||
+		policy.capabilities.length !== expected.length ||
+		policy.capabilities.some((capability) => !expected.includes(capability as never))
+	) {
+		throw new Error(`Kibble observe ${input.instanceId} policy exceeds or misses its approved presentation boundary.`);
+	}
+	return policy;
+}
+
+/** Compile the Home ranked-shelf boundary exposed by the explicit demo control. */
 export function getTrustedKibbleObserveHomeZonePolicy(input: {
 	origin: TrustedZoneIdentityDefinition['origin'];
 	familyId: 'home.featured-row';
 	instanceId: string;
 	routePath: '/';
 }): EffectiveCompositionPolicy {
-	const identity = findTrustedZoneIdentity(input.origin, input.familyId, input.instanceId);
-	if (!identity || identity.surface !== 'home') {
+	if (input.origin !== 'aisles' || input.instanceId !== 'home.featured-row.1') {
 		throw new Error(`Kibble observe zone identity is not registered: ${input.origin}:${input.instanceId}.`);
 	}
+	return getTrustedKibbleObservePresentationZonePolicy({
+		surface: 'home', familyId: 'home.featured-row', instanceId: 'home.featured-row.1', routePath: '/',
+	});
+}
+
+/**
+ * Compile the complete Home presentation boundary recorded by one explicit
+ * action. Individual artifacts still execute against their own named-zone
+ * policies; this surface policy exists only to describe their aggregate
+ * provenance without pretending the featured shelf owns the other zones.
+ */
+export function getTrustedKibbleObserveHomePresentationPolicy(): EffectiveCompositionPolicy {
 	const policy = compileCompositionPolicy({
 		organizationId: KIBBLE_ORGANIZATION_ID,
 		brandId: 'kibble',
 		surface: 'home',
-		zoneIdentity: identity,
-		routeSource: 'pathname',
-		routePath: input.routePath,
 		registry: KIBBLE_OBSERVE_ASSIST_POLICY,
 	});
 	if (
-		policy.decisionMode !== 'model' ||
-		policy.publicationMode !== 'live' ||
-		policy.provenance.preset !== 'assist' ||
-		policy.capabilities.length !== 1 ||
-		policy.capabilities[0] !== 'rank_products'
+		policy.decisionMode !== 'model'
+		|| policy.publicationMode !== 'live'
+		|| policy.provenance.preset !== 'compose'
+		|| policy.provenance.zoneBinding !== null
 	) {
-		throw new Error('Kibble observe Home policy exceeds or misses its approved model boundary.');
+		throw new Error('Kibble observe Home aggregate policy is not a compiled Compose surface boundary.');
+	}
+	assertExactSet(policy.capabilities, KIBBLE_HOME_PRESENTATION_POLICY.capabilities, 'Home aggregate capabilities');
+	const zonePolicies = [
+		getTrustedKibbleObservePresentationZonePolicy({ surface: 'home', familyId: 'home.hero', instanceId: 'home.hero', routePath: '/' }),
+		getTrustedKibbleObservePresentationZonePolicy({ surface: 'home', familyId: 'home.featured-row', instanceId: 'home.featured-row.1', routePath: '/' }),
+		getTrustedKibbleObservePresentationZonePolicy({ surface: 'home', familyId: 'home.editorial-strip', instanceId: 'home.editorial-strip', routePath: '/' }),
+	];
+	if (zonePolicies.some((zonePolicy, index) => zonePolicy.provenance.zoneBinding?.instanceId !== KIBBLE_HOME_PRESENTATION_POLICY.zoneIds[index])) {
+		throw new Error('Kibble observe Home named-zone bindings do not match the aggregate descriptor.');
+	}
+	if (zonePolicies.some((zonePolicy) => zonePolicy.policyVersion !== policy.policyVersion)) {
+		throw new Error('Kibble observe Home named-zone policies do not share the aggregate policy version.');
+	}
+	const compiledCapabilityUnion = AUTONOMY_CAPABILITIES.filter((capability) =>
+		zonePolicies.some((zonePolicy) => zonePolicy.capabilities.includes(capability)),
+	);
+	if (compiledCapabilityUnion.length !== policy.capabilities.length
+		|| compiledCapabilityUnion.some((capability, index) => capability !== policy.capabilities[index])) {
+		throw new Error('Kibble observe Home named-zone capabilities do not compose the aggregate boundary.');
 	}
 	return policy;
 }
@@ -465,16 +601,11 @@ export function getTrustedKibbleObserveHomeZonePolicy(input: {
  * the browser reject a response that claims a different authority boundary.
  */
 export function getKibbleObserveHomeModelPolicyDescriptor() {
-	const policy = getTrustedKibbleObserveHomeZonePolicy({
-		origin: 'aisles',
-		familyId: 'home.featured-row',
-		instanceId: 'home.featured-row.1',
-		routePath: '/',
-	});
+	const policy = getTrustedKibbleObserveHomePresentationPolicy();
 	return {
 		policyVersion: policy.policyVersion,
-		zoneId: 'home.featured-row' as const,
-		capabilities: ['rank_products'] as const,
+		zoneIds: KIBBLE_HOME_PRESENTATION_POLICY.zoneIds,
+		capabilities: KIBBLE_HOME_PRESENTATION_POLICY.capabilities,
 		publicationMode: 'live' as const,
 	};
 }
@@ -489,31 +620,10 @@ export function getTrustedKibbleObservePdpRelatedZonePolicy(input: {
 	instanceId: 'pdp.related';
 	routePath: string;
 }): EffectiveCompositionPolicy {
-	const route = tryNormalizeTrustedShopperRoute(input.routePath);
-	if (!route || route.surface !== 'pdp') throw new Error('Kibble observe PDP route is not approved.');
-	const identity = findTrustedZoneIdentity(input.origin, input.familyId, input.instanceId);
-	if (!identity || identity.surface !== 'pdp') {
-		throw new Error(`Kibble observe zone identity is not registered: ${input.origin}:${input.instanceId}.`);
-	}
-	const policy = compileCompositionPolicy({
-		organizationId: KIBBLE_ORGANIZATION_ID,
-		brandId: 'kibble',
-		surface: 'pdp',
-		zoneIdentity: identity,
-		routeSource: 'pathname',
-		routePath: input.routePath,
-		registry: KIBBLE_OBSERVE_ASSIST_POLICY,
+	if (input.origin !== 'aisles') throw new Error(`Kibble observe zone identity is not registered: ${input.origin}:${input.instanceId}.`);
+	return getTrustedKibbleObservePresentationZonePolicy({
+		surface: 'pdp', familyId: 'pdp.related', instanceId: 'pdp.related', routePath: input.routePath,
 	});
-	if (
-		policy.decisionMode !== 'model' ||
-		policy.publicationMode !== 'live' ||
-		policy.provenance.preset !== 'assist' ||
-		policy.capabilities.length !== 1 ||
-		policy.capabilities[0] !== 'rank_products'
-	) {
-		throw new Error('Kibble observe PDP policy exceeds or misses its approved model boundary.');
-	}
-	return policy;
 }
 
 export function getKibbleObservePdpRelatedModelPolicyDescriptor(routePath: string) {
@@ -540,26 +650,10 @@ export function getTrustedKibbleObservePlpProductRankingZonePolicy(input: {
 	instanceId: 'plp.product-ranking';
 	routePath: string;
 }): EffectiveCompositionPolicy {
-	const route = tryNormalizeTrustedShopperRoute(input.routePath);
-	if (!route || route.surface !== 'plp') throw new Error('Kibble observe PLP route is not approved.');
-	const identity = findTrustedZoneIdentity(input.origin, input.familyId, input.instanceId);
-	if (!identity || identity.surface !== 'plp') {
-		throw new Error(`Kibble observe zone identity is not registered: ${input.origin}:${input.instanceId}.`);
-	}
-	const policy = compileCompositionPolicy({
-		organizationId: KIBBLE_ORGANIZATION_ID,
-		brandId: 'kibble',
-		surface: 'plp',
-		zoneIdentity: identity,
-		routeSource: 'pathname',
-		routePath: input.routePath,
-		registry: KIBBLE_OBSERVE_ASSIST_POLICY,
+	if (input.origin !== 'aisles') throw new Error(`Kibble observe zone identity is not registered: ${input.origin}:${input.instanceId}.`);
+	return getTrustedKibbleObservePresentationZonePolicy({
+		surface: 'plp', familyId: 'plp.product-ranking', instanceId: 'plp.product-ranking', routePath: input.routePath,
 	});
-	if (policy.decisionMode !== 'model' || policy.publicationMode !== 'live' || policy.provenance.preset !== 'assist'
-		|| policy.capabilities.length !== 1 || policy.capabilities[0] !== 'rank_products') {
-		throw new Error('Kibble observe PLP policy exceeds or misses its approved model boundary.');
-	}
-	return policy;
 }
 
 export function getKibbleObservePlpProductRankingModelPolicyDescriptor(routePath: string) {

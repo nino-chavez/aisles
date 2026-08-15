@@ -460,8 +460,11 @@ describe('identity-bound zone decision executor', () => {
 		expect(Reflect.set(heroDefinition, 'engineComposable', false)).toBe(false);
 		expect(Reflect.set(fallbackMap, fallbackBrand, originalFallback === 'content' ? 'hidden' : 'content')).toBe(false);
 		expect(ZONE_CATALOG['home.hero']).toBe(heroEntry);
-		expect(heroEntry.liveModelApprovals).toEqual([]);
-		expect(rankedApproval).toMatchObject({ organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.8.0', routePath: '/', instanceId: 'home.featured-row.1' });
+			expect(heroEntry.liveModelApprovals).toEqual([{
+				organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native',
+				referenceVersion: '1.9.0', routePath: '/', instanceId: 'home.hero',
+			}]);
+		expect(rankedApproval).toMatchObject({ organizationId: 'kibble-demo-merchant', brandId: 'kibble', referenceId: 'kibble-shelf-native', referenceVersion: '1.9.0', routePath: '/', instanceId: 'home.featured-row.1' });
 		expect(aislesFacts.routeRendered).toBe(false);
 		expect(heroEntry.definitions[0]).toBe(heroDefinition);
 		expect(heroDefinition.engineComposable).toBe(true);

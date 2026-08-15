@@ -3,6 +3,7 @@ import { env as privateEnv } from '$env/dynamic/private';
 import {
 	customFieldsToRecord,
 	getKibbleProductDetailByPath,
+	resolveKibblePdpRelatedProducts,
 	getProductByPath,
 	getProductsByCategory,
 	type BCProduct,
@@ -30,6 +31,7 @@ import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
 import { executeKibblePdpRelatedZoneAdapter } from '$lib/brand/reference/kibble-zone-executor.server';
 import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
+import { materializeKibbleSubscriptionOffers } from '$lib/brand/reference/kibble-catalog-enrichment';
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 
@@ -128,12 +130,13 @@ async function loadKibblePreservePdp({
 		}
 
 		const product = materializeKibbleProduct(detail, slug);
+		const autoRefill = materializeKibbleSubscriptionOffers([product])[product.id] ?? null;
 		const manifest = materializeKibblePdpManifest(slug, product.name);
 		const categoryHref = materializeKibbleCategoryHref(product.categoryPath);
-		const relatedEdges = boundedArray(detail.relatedProducts?.edges, 'related products', KIBBLE_PDP_BOUNDS.arrays.relatedProducts);
-		const relatedProducts = relatedEdges
-			.map(({ node }) => materializeKibbleCatalogProduct(node, 'related product'))
-			.filter((candidate) => candidate.entityId !== product.entityId);
+		boundedArray(detail.relatedProducts?.edges, 'related products', KIBBLE_PDP_BOUNDS.arrays.relatedProducts);
+		const relatedResolution = await resolveKibblePdpRelatedProducts(detail);
+		const relatedProducts = relatedResolution.products
+			.map((candidate) => materializeKibbleCatalogProduct(candidate, 'related product'));
 		assertUnique(relatedProducts.map(({ entityId }) => entityId), 'related product entity ids');
 		const relatedModelDecision = (
 			observeMode &&
@@ -162,7 +165,13 @@ async function loadKibblePreservePdp({
 				renderedManifest: manifest,
 				bundleProjectionSha256: KIBBLE_PDP_BUNDLE_PROJECTION_VERIFIED_SHA256,
 			},
-			catalogInput: { product, options, relatedProducts },
+			catalogInput: {
+				product,
+				options,
+				relatedProducts,
+				relatedCandidateSource: relatedResolution.candidateSource,
+				relatedRelationKind: relatedResolution.relationKind,
+			},
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
 			scenarioId: store.getCrossSessionContext().scenarioId,
 		});
@@ -176,6 +185,7 @@ async function loadKibblePreservePdp({
 			renderMode,
 			kibblePdp: {
 				product,
+				autoRefill,
 				breadcrumbs,
 				options,
 				relatedProducts,
@@ -184,6 +194,8 @@ async function loadKibblePreservePdp({
 				purchaseUnavailableLabel: manifest.purchaseUnavailableLabel,
 				purchaseUnavailableBody: manifest.purchaseUnavailableBody,
 				relatedHeading: manifest.relatedHeading,
+				relatedCandidateSource: relatedResolution.candidateSource,
+				relatedRelationKind: relatedResolution.relationKind,
 				copy: manifest.copy,
 				zoneAdapter: await executeKibblePdpRelatedZoneAdapter(relatedProducts, manifest.relatedHeading, url.pathname),
 				relatedModelDecision,

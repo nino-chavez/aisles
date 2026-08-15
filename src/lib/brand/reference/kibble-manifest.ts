@@ -36,6 +36,7 @@ export const KIBBLE_PRESERVE_MANIFEST = {
 			{ field: 'error.notFoundHeadline', reason: 'Names the actual 404 state instead of implying a temporary catalog outage.' },
 			{ field: 'pdp.purchaseUnavailable', reason: 'The pinned source provides purchase controls. Aisles cannot transact, so the contracted difference states that boundary instead of imitating a purchasable flow.' },
 			{ field: 'pdp.description', reason: 'Omits catalog description blocks that advertise Auto-Refill, subscription, savings, or one-time offers this read-only sibling cannot fulfill.' },
+			{ field: 'pdp.subscriptionOfferProjection', reason: 'Adds a separate hash-pinned, display-only merchant evidence zone. It is hidden on price drift and never exposes a subscription action.' },
 		] as const,
 	},
 	display: {

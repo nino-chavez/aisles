@@ -41,11 +41,12 @@ describe('Kibble merchant presentation allow-lists', () => {
 			sectionOrderId: 'catalog-then-featured',
 		}));
 		const evidence = buildKibbleDecisionEvidence({
-			surface: 'home', zoneId: 'home.presentation', zoneLabel: 'Home presentation', policyVersion: 'home-v1',
+			surface: 'home', zoneIds: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'], zoneLabel: 'Home presentation', policyVersion: 'home-v1',
 			before: products, after: products, provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied',
 			presentationBefore: before, presentationAfter: after,
 		});
 		expect(evidence.moved).toEqual([]);
+		expect(evidence.zoneIds).toEqual(['home.hero', 'home.featured-row.1', 'home.editorial-strip']);
 		expect(evidence.copy.filter(({ changed }) => changed)).toHaveLength(3);
 		expect(evidence.components).toEqual([expect.objectContaining({ changed: true, before: 'Four-column category grid', after: 'Two-column category grid' })]);
 		expect(evidence.sections).toEqual([expect.objectContaining({ changed: true })]);
@@ -56,7 +57,7 @@ describe('Kibble merchant presentation allow-lists', () => {
 	it('states plainly when the model keeps the existing order and presentation', () => {
 		const snapshot = snapshotKibbleHomePresentation(materializeKibbleHomePresentation(KIBBLE_HOME_DEFAULT_PRESENTATION));
 		const evidence = buildKibbleDecisionEvidence({
-			surface: 'home', zoneId: 'home.presentation', zoneLabel: 'Home presentation', policyVersion: 'home-v1',
+			surface: 'home', zoneIds: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'], zoneLabel: 'Home presentation', policyVersion: 'home-v1',
 			before: products, after: products, provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied',
 			presentationBefore: snapshot, presentationAfter: snapshot,
 		});

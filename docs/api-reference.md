@@ -382,12 +382,14 @@ Postgres after response validation; the rules path writes no telemetry.
 
 ### POST /api/kibble/pdp-related-decision?observe=true
 
-Runs one opt-in model ranking for the `pdp.related` rail on the single approved
-route `/product/puppy-starter-kit`. The request body must be exactly
-`{"mode":"model"}`. The browser cannot provide a route, candidate, product
-fact, or order. The server reloads the approved PDP and refuses to call a model
-unless it finds three or four unique related products. It reserves the same
-session/global Redis budget as the Home action before contacting a provider.
+Runs one opt-in model ranking for the `pdp.related` rail on a trusted Kibble PDP
+route. The request body must be exactly `{"mode":"model"}`. The browser cannot
+provide a route, candidate, product fact, or order. The server reloads the
+requested PDP and refuses to call a model unless it finds three or four unique
+related products. Native merchant relationships are preferred; bounded
+category-sibling fallback candidates remain explicitly marked as fallback
+provenance. It reserves the same session/global Redis budget as the Home action
+before contacting a provider.
 
 The no-store response contains only the route identity, provenance, model-call
 count, a strict permutation of the server-reloaded related IDs, and the exact
@@ -396,9 +398,9 @@ actions, component, and CSS are unchanged.
 
 | Status | Condition |
 |---|---|
-| 200 | Explicit observe session, exact approved route, eligible server-reloaded rail, and budget reservation |
+| 200 | Explicit observe session, trusted Kibble PDP, eligible server-reloaded rail, and budget reservation |
 | 400 | Body is not exactly `{"mode":"model"}` |
-| 404 | Missing demo flag or wrong brand |
+| 404 | Missing demo flag, wrong brand, or untrusted PDP route |
 | 409 | Missing session or fewer than three related candidates |
 | 429 | Session cooldown or daily provider-call budget exhausted |
 | 503 | Bounded AI is disabled or its production Redis budget is unavailable |

@@ -1,41 +1,34 @@
 <script lang="ts">
 	import './kibble-reference.css';
+	import type { KibbleModelZoneAdapterBinding } from './types';
+	type MarketingContent = { component: 'editorial-header'; props: { eyebrow: string; headline: string; body: string } };
+	type VisibleMarketingArtifact = KibbleModelZoneAdapterBinding<MarketingContent> & { sharedContentKind: 'content'; content: MarketingContent };
 
 	let {
-		block,
-		zoneId,
-		modelCallCount,
-		modelEligible = true,
+		zoneArtifact,
 	}: {
-		block: { eyebrow: string; headline: string; body: string } | null;
-		zoneId: 'plp.marketing-block' | 'pdp.marketing-block';
-		modelCallCount: number;
-		modelEligible?: boolean;
+		zoneArtifact: VisibleMarketingArtifact;
 	} = $props();
 </script>
 
 <aside
-	id={`kibble-${zoneId.replace('.', '-')}`}
+	id={`kibble-${zoneArtifact.instanceId.replace('.', '-')}`}
 	tabindex="-1"
 	class="kibble-reference kc-reference-marketing-block"
-	data-aisles-zone-instance={zoneId}
+	data-aisles-zone-instance={zoneArtifact.instanceId}
 	data-aisles-zone-label="Marketing block"
-	data-aisles-authority={modelCallCount > 0 ? 'model' : 'fixed'}
-	data-aisles-model-calls={modelCallCount}
-	data-aisles-model-eligible={modelEligible ? 'true' : undefined}
-	data-kibble-zone-status="live"
-	data-kibble-zone-variant="kibble.marketing-block.copy-led"
+	data-aisles-authority={zoneArtifact.decisionMode}
+	data-aisles-model-calls={zoneArtifact.modelCallCount}
+	data-kibble-zone-status={zoneArtifact.sharedStatus}
+	data-kibble-zone-content-kind={zoneArtifact.sharedContentKind}
+	data-kibble-zone-adapter={zoneArtifact.adapterId}
+	data-kibble-zone-variant={zoneArtifact.selection.copyVariantId}
+	data-kibble-zone-input-sha256={zoneArtifact.inputSha256}
 >
 	<div class="kc-reference-container kc-reference-marketing-block__inner">
-		{#if block}
-			<p class="kc-reference-eyebrow">{block.eyebrow}</p>
-			<h2>{block.headline}</h2>
-			<p>{block.body}</p>
-		{:else}
-			<p class="kc-reference-eyebrow">AI zone available</p>
-			<h2>Optional marketing block</h2>
-			<p>The model may show one merchant-approved block here, or keep this slot empty.</p>
-		{/if}
+		<p class="kc-reference-eyebrow">{zoneArtifact.content.props.eyebrow}</p>
+		<h2>{zoneArtifact.content.props.headline}</h2>
+		<p>{zoneArtifact.content.props.body}</p>
 	</div>
 </aside>
 

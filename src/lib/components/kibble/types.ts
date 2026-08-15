@@ -78,6 +78,8 @@ export type KibbleAutoRefillOffer = {
 	label: string;
 	savingsLabel: string;
 	cadenceLabel?: string;
+	capabilityLabels?: readonly string[];
+	capabilityEvidence?: readonly { label: string; detail: string }[];
 };
 
 export type KibbleFeaturedCopy = {
@@ -154,6 +156,37 @@ export type KibbleZoneAdapterBinding<TContent = unknown> = {
 	adapterId: string;
 	componentVariantId: string;
 	inputSha256: string;
+	content: TContent;
+};
+
+/**
+ * The effective, executor-validated fields that selected a model rendering.
+ * Product order remains inside the validated renderer content itself.
+ */
+export type KibbleModelZoneSelection = {
+	componentVariantId: string;
+	copyVariantId?: string;
+	placementId?: string;
+	visible?: boolean;
+};
+
+/** A model adapter may be content or a validated hidden result. */
+export type KibbleModelZoneAdapterBinding<TContent = unknown> = {
+	instanceId: string;
+	sharedStatus: 'live';
+	decisionMode: 'model';
+	modelCallCount: number;
+	adapterId: string;
+	componentVariantId: string;
+	inputSha256: string;
+	selection: KibbleModelZoneSelection;
+} & (
+	| { sharedContentKind: 'content'; content: TContent }
+	| { sharedContentKind: 'hidden' }
+);
+
+export type KibbleRenderedModelZoneAdapterBinding<TContent = unknown> = KibbleModelZoneAdapterBinding<TContent> & {
+	sharedContentKind: 'content';
 	content: TContent;
 };
 

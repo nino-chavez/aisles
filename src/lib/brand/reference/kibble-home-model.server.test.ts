@@ -5,6 +5,7 @@ import {
 	buildKibbleHomeModelPrompt,
 	buildKibbleHomeProviderOutputSchema,
 } from './kibble-home-model.server';
+import { getKibbleCatalogSignals } from './kibble-catalog-enrichment';
 
 const inference: PersonaInference = {
 	primary: 'researcher',
@@ -22,12 +23,18 @@ describe('bounded Kibble Home model prompt', () => {
 			id: 'food-a', entityId: 3023, name: 'Food A', price: 24, image: 'https://example.com/a.jpg',
 			imageAlt: 'Food A', description: 'Private catalog description', specs: { secret: 'withheld' },
 			tags: ['private-tag'], category: 'dog-food', personaFit: { gatherer: 0.1, hunter: 0.2, researcher: 0.9, gifter: 0.1 },
+			catalogSignals: getKibbleCatalogSignals(3023),
 		}], {
 			hero: { eyebrow: 'Live eyebrow', headline: 'Live headline', body: 'Live body' },
 			featuredCopy: { eyebrow: 'Catalog', title: 'New arrivals', browseAllLabel: 'Browse Dog Food' },
 			catalogCopy: { eyebrow: 'Browse', title: 'Shop by category' },
 		});
 		expect(prompt).toContain('3023 | Food A | dog-food | USD 24.00 | researcher fit 0.900');
+		expect(prompt).toContain('capabilities: subscribe-and-save, intro-offer | save 15% | cadence 1/2/3');
+		expect(prompt).toContain('role: consumable | category source: pinned-seed');
+		expect(prompt).toContain('offer projection: pinned Auto-Refill | canonical storefront registry: listed');
+		expect(prompt).toContain('shopper job: Choose an everyday nutrition routine');
+		expect(prompt).toContain('compare: protein, life stage, food format, diet needs, replenishment');
 		expect(prompt).toContain('Return every supplied product ID exactly once, plus one ID for every approved presentation field.');
 		expect(prompt).toContain('heroCopyVariantId: merchant-baseline=');
 		expect(prompt).toContain('visit-fast-path=');

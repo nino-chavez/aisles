@@ -6,6 +6,7 @@ import {
 	getContractSurfaceDecision,
 	assertKibblePreserveRoutePolicy,
 	getKibbleObserveHomeModelPolicyDescriptor,
+	getTrustedKibbleObserveHomePresentationPolicy,
 } from '$lib/brand/composition-policy';
 import { decideKibbleHome } from '$lib/brand/reference/kibble-home-decision';
 import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
@@ -18,13 +19,15 @@ import {
 	KIBBLE_HOME_MODEL_PROMPT_VERSION,
 	KIBBLE_HOME_MODEL_SCHEMA_VERSION,
 	rankKibbleHomeWithModel,
+	type KibbleHomeModelResult,
 } from '$lib/brand/reference/kibble-home-model.server';
 import { MODEL_PROVIDER } from '$lib/server/model';
 import { reserveKibbleDemoAiCall } from '$lib/server/kibble-demo-ai-budget';
 import { logGeneration } from '$lib/server/generation-log';
 import { executeKibbleHomeFeaturedZoneAdapters } from '$lib/brand/reference/kibble-zone-executor.server';
-import { KIBBLE_HOME_PRESENTATION_POLICY } from '$lib/brand/reference/kibble-presentation-decisions';
+import { KIBBLE_HOME_DEFAULT_PRESENTATION, KIBBLE_HOME_PRESENTATION_POLICY } from '$lib/brand/reference/kibble-presentation-decisions';
 import { buildKibbleHomePresentationContext } from '$lib/brand/reference/kibble-runtime';
+import { BoundedModelActionError } from '$lib/server/bounded-model-action.server';
 
 const SESSION_COOKIE = 'aisles_session';
 const PREVIEW_VERSION = 'kibble-live-home-preview-v3';
@@ -44,8 +47,10 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 	const surfaceDecision = getContractSurfaceDecision('kibble', 'home');
 	if (surfaceDecision.mode !== 'reference-preserve') return unavailable();
 
+	let modelSurfacePolicy: ReturnType<typeof getTrustedKibbleObserveHomePresentationPolicy> | null = null;
 	try {
 		assertKibblePreserveRoutePolicy(surfaceDecision.policy, 'home');
+		if (mode === 'model') modelSurfacePolicy = getTrustedKibbleObserveHomePresentationPolicy();
 	} catch {
 		return unavailable();
 	}
@@ -66,19 +71,21 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		const referenceProducts = await loadReferenceHomeProducts(9);
 		const decision = decideKibbleHome(surfaceDecision.policy, inference, referenceProducts.products);
 		if (mode === 'model') {
+			if (!modelSurfacePolicy) return unavailable();
 			const reservation = await reserveKibbleDemoAiCall(sessionId);
 			if (!reservation.ok) return budgetUnavailable(reservation.reason);
 			const startedAt = Date.now();
+			const presentationContext = buildKibbleHomePresentationContext(referenceProducts.source);
 			const modelDecision = await rankKibbleHomeWithModel({
 				inference,
 				products: decision.products,
-				presentationContext: buildKibbleHomePresentationContext(referenceProducts.source),
+				presentationContext,
 			});
-			const products = modelDecision.products.map(({ personaFit: _personaFit, ...product }) => product);
+			const products = modelDecision.products.map(({ personaFit: _personaFit, catalogSignals: _catalogSignals, ...product }) => product);
 			const rankedProductIds = products.map(({ entityId }) => entityId);
 			const scenarioId = privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo';
 			const provenance = buildContractedLayoutProvenance({
-				policy: modelDecision.policy,
+				policy: modelSurfacePolicy,
 				surface: 'home',
 				route: '/',
 				persona: inference.primary,
@@ -88,7 +95,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 				promptVersion: KIBBLE_HOME_MODEL_PROMPT_VERSION,
 				schemaVersion: KIBBLE_HOME_MODEL_SCHEMA_VERSION,
 				contractInput: {
-					zone: modelDecision.policy.provenance.zoneBinding,
+					zones: KIBBLE_HOME_PRESENTATION_POLICY.zoneIds,
 					rankedProductIds,
 					presentationPolicy: KIBBLE_HOME_PRESENTATION_POLICY,
 					presentationDecision: modelDecision.presentationDecision,
@@ -115,27 +122,29 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 				version: PREVIEW_VERSION,
 				previewOnly: true,
 				reference: decision.inspector.reference,
-				policyVersion: modelDecision.policy.policyVersion,
+				policyVersion: modelSurfacePolicy.policyVersion,
 				persona: inference.primary,
 				products,
-				featuredZoneAdapters: [modelDecision.zoneAdapter],
+				zoneArtifacts: modelDecision.zoneArtifacts,
 				presentationPolicy: KIBBLE_HOME_PRESENTATION_POLICY,
-				presentationDecision: modelDecision.presentationDecision,
 				provider: MODEL_PROVIDER,
 				modelId: modelDecision.modelId,
+				modelCallCount: modelDecision.modelCallCount,
 				inspector: buildModelInspector({
 					decision,
 					inference,
 					products,
-					policyVersion: modelDecision.policy.policyVersion,
+					policyVersion: modelSurfacePolicy.policyVersion,
 					modelId: modelDecision.modelId,
 					modelCallCount: modelDecision.modelCallCount,
+					presentationDecision: modelDecision.presentationDecision,
+					zoneArtifacts: modelDecision.zoneArtifacts,
 					provenance,
 				}),
 			});
 		}
 
-		const products = decision.products.map(({ personaFit: _personaFit, ...product }) => product);
+		const products = decision.products.map(({ personaFit: _personaFit, catalogSignals: _catalogSignals, ...product }) => product);
 		const featuredZoneAdapters = await executeKibbleHomeFeaturedZoneAdapters(products);
 		const rankedProductIds = products.map(({ entityId }) => entityId);
 		const scenarioId = privateEnv.KIBBLE_SHOWCASE_SCENARIO_ID?.trim() || 'kibble-public-observe-demo';
@@ -181,7 +190,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		});
 	} catch (error) {
 		console.error('[kibble-home-decision] operational failure:', error);
-		return json({ error: 'Failed to preview Kibble Home decision' }, { status: 500, headers: noStoreHeaders() });
+		return json({ error: 'Failed to preview Kibble Home decision', modelCallCount: attemptedModelCalls(error) }, { status: 500, headers: noStoreHeaders() });
 	}
 };
 
@@ -211,27 +220,64 @@ function buildModelInspector(input: {
 	policyVersion: string;
 	modelId: string;
 	modelCallCount: number;
+	presentationDecision: KibbleHomeModelResult['presentationDecision'];
+	zoneArtifacts: KibbleHomeModelResult['zoneArtifacts'];
 	provenance: ReturnType<typeof buildContractedLayoutProvenance>;
 }) {
+	const inputProducts = input.decision.products.map(({ id, name }) => ({ id, name }));
 	const outputProducts = input.products.map(({ id, name }) => ({ id, name }));
+	const productOrderChanged = !sameProductOrder(inputProducts, outputProducts);
+	const modelCallStatus = { calls: input.modelCallCount, authorized: true } as const;
 	return {
 		...input.decision.inspector,
 		availableModelDecision: getKibbleObserveHomeModelPolicyDescriptor(),
-		preset: 'assist' as const,
+		preset: 'compose' as const,
 		policyVersion: input.policyVersion,
 		inference: sanitizeInspectorInference(input.inference),
 		dataSourceLabel: 'bounded-model-presentation',
-		zones: input.decision.inspector.zones.map((zone) => zone.id === 'ranked-products' ? {
-			...stripZoneScoreVariants(zone),
-			authority: 'model' as const,
-			componentVariant: 'kibble.featured-grid.ranked-segment',
-			capabilities: ['rank_products'],
-			decisionSummary: `One provider call returned an exact product permutation and merchant-approved presentation IDs. Product facts, pricing, links, actions, and CSS remained fixed.`,
-			changed: !sameProductOrder(zone.inputProducts, outputProducts),
-			outputProducts,
-			modelCallStatus: { calls: input.modelCallCount, authorized: true },
-			decision: { model: input.modelId, outputField: 'rankedProductIds', productCount: outputProducts.length },
-		} : stripZoneScoreVariants(zone)),
+		zones: input.decision.inspector.zones.map((zone) => {
+			const safeZone = stripZoneScoreVariants(zone);
+			if (zone.id === 'opening-merchandising') return {
+				...safeZone,
+				id: input.zoneArtifacts.hero.instanceId,
+				label: 'Opening hero',
+				authority: 'model' as const,
+				componentVariant: input.zoneArtifacts.hero.componentVariantId,
+				capabilities: ['select_copy_variant'],
+				decisionSummary: `Selected the approved ${input.presentationDecision.heroCopyVariantId} copy variant for home.hero.`,
+				changed: input.presentationDecision.heroCopyVariantId !== KIBBLE_HOME_DEFAULT_PRESENTATION.heroCopyVariantId,
+				modelCallStatus,
+			};
+			if (zone.id === 'ranked-products') return {
+				...safeZone,
+				id: input.zoneArtifacts.featured.instanceId,
+				label: 'Featured product shelf',
+				authority: 'model' as const,
+				componentVariant: input.zoneArtifacts.featured.componentVariantId,
+				capabilities: ['rank_products', 'select_copy_variant', 'reorder_zones'],
+				decisionSummary: `Selected an exact product permutation, the approved ${input.presentationDecision.featuredCopyVariantId} copy variant, and the approved ${input.presentationDecision.sectionOrderId} section order.`,
+				changed: productOrderChanged
+					|| input.presentationDecision.featuredCopyVariantId !== KIBBLE_HOME_DEFAULT_PRESENTATION.featuredCopyVariantId
+					|| input.presentationDecision.sectionOrderId !== KIBBLE_HOME_DEFAULT_PRESENTATION.sectionOrderId,
+				inputProducts,
+				outputProducts,
+				modelCallStatus,
+				decision: { model: input.modelId, outputField: 'rankedProductIds', productCount: outputProducts.length },
+			};
+			if (zone.id === 'catalog-entry') return {
+				...safeZone,
+				id: input.zoneArtifacts.editorial.instanceId,
+				label: 'Catalog entry',
+				authority: 'model' as const,
+				componentVariant: input.zoneArtifacts.editorial.componentVariantId,
+				capabilities: ['select_copy_variant', 'select_component_variant'],
+				decisionSummary: `Selected the approved ${input.presentationDecision.catalogCopyVariantId} copy and ${input.presentationDecision.catalogComponentVariantId} component variants for home.editorial-strip.`,
+				changed: input.presentationDecision.catalogCopyVariantId !== KIBBLE_HOME_DEFAULT_PRESENTATION.catalogCopyVariantId
+					|| input.presentationDecision.catalogComponentVariantId !== KIBBLE_HOME_DEFAULT_PRESENTATION.catalogComponentVariantId,
+				modelCallStatus,
+			};
+			return safeZone;
+		}),
 		provenance: input.provenance,
 	};
 }
@@ -265,4 +311,8 @@ function previewJson(body: Record<string, unknown>) {
 
 function noStoreHeaders() {
 	return { 'Cache-Control': 'no-store' };
+}
+
+function attemptedModelCalls(error: unknown): number {
+	return error instanceof BoundedModelActionError ? error.callCount : 0;
 }

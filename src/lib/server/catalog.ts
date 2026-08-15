@@ -27,6 +27,7 @@ import {
 import { MAX_LAYOUT_PRODUCTS } from './layout-prompt';
 import type { Product } from '$lib/types';
 import type { PersonaFitScores, PetProfile } from './enrichment/types';
+import { getKibbleCatalogSignals, materializeKibbleSubscriptionOffers } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 /** Category map — driven by the active brand config */
 export const CATEGORY_MAP: Record<string, { bcName: string; displayName: string }> = getBrand().categories;
@@ -40,8 +41,9 @@ export interface EnrichedProduct extends Product {
 }
 
 export type ReferenceHomeProducts = {
-	products: Array<Product & { personaFit: PersonaFitScores | null }>;
+	products: Array<Product & { personaFit: PersonaFitScores | null; catalogSignals: ReturnType<typeof getKibbleCatalogSignals> }>;
 	source: 'featured' | 'newest' | 'deterministic-catalog';
+	subscriptionOffers: Record<string, import('$lib/components/kibble/types').KibbleAutoRefillOffer>;
 };
 
 export type ReferenceCategoryProducts = {
@@ -49,6 +51,7 @@ export type ReferenceCategoryProducts = {
 	categoryName: string;
 	categoryDescription: string;
 	pageInfo: BCPageInfo;
+	subscriptionOffers: Record<string, import('$lib/components/kibble/types').KibbleAutoRefillOffer>;
 };
 
 /**
@@ -60,14 +63,14 @@ export type ReferenceCategoryProducts = {
 export async function loadReferenceHomeProducts(limit = 8): Promise<ReferenceHomeProducts> {
 	try {
 		const featured = uniqueProductsByEntityId((await getFeaturedProducts(limit)).map(transformProduct));
-		if (featured.length > 0) return { products: await attachReferenceEnrichment(featured), source: 'featured' };
+		if (featured.length > 0) return materializeReferenceHomeResult(featured, 'featured');
 	} catch (error) {
 		console.warn('[kibble-preserve] featured product query unavailable; trying newest products', error);
 	}
 
 	try {
 		const newest = uniqueProductsByEntityId((await getNewestProducts(limit)).map(transformProduct));
-		if (newest.length > 0) return { products: await attachReferenceEnrichment(newest), source: 'newest' };
+		if (newest.length > 0) return materializeReferenceHomeResult(newest, 'newest');
 	} catch (error) {
 		console.warn('[kibble-preserve] newest product query unavailable; using deterministic catalog order', error);
 	}
@@ -75,16 +78,29 @@ export async function loadReferenceHomeProducts(limit = 8): Promise<ReferenceHom
 	const products = uniqueProductsByEntityId((await getProducts(Math.max(limit, 30))).map(transformProduct))
 		.sort((a, b) => b.entityId - a.entityId)
 		.slice(0, limit);
-	return { products: await attachReferenceEnrichment(products), source: 'deterministic-catalog' };
+	return materializeReferenceHomeResult(products, 'deterministic-catalog');
+}
+
+async function materializeReferenceHomeResult(
+	products: Product[],
+	source: ReferenceHomeProducts['source'],
+): Promise<ReferenceHomeProducts> {
+	const enrichedProducts = await attachReferenceEnrichment(products);
+	return {
+		products: enrichedProducts,
+		source,
+		subscriptionOffers: materializeKibbleSubscriptionOffers(enrichedProducts),
+	};
 }
 
 async function attachReferenceEnrichment(
 	products: Product[],
-): Promise<Array<Product & { personaFit: PersonaFitScores | null }>> {
+): Promise<Array<Product & { personaFit: PersonaFitScores | null; catalogSignals: ReturnType<typeof getKibbleCatalogSignals> }>> {
 	const enrichment = await getEnrichmentByEntityIds(products.map(({ entityId }) => entityId));
 	return products.map((product) => ({
 		...product,
 		personaFit: enrichment.get(product.entityId)?.personaFit ?? null,
+		catalogSignals: getKibbleCatalogSignals(product.entityId, product.category, product),
 	}));
 }
 
@@ -140,11 +156,13 @@ export async function loadReferenceCategoryProducts(
 		sortBy: KIBBLE_PLP_GRAPHQL_SORT[options.sort],
 	});
 
+	const products = uniqueProductsByEntityId(result.products.map(transformProduct));
 	return {
-		products: uniqueProductsByEntityId(result.products.map(transformProduct)),
+		products,
 		categoryName: catConfig.displayName,
 		categoryDescription: result.category.description,
 		pageInfo: result.pageInfo,
+		subscriptionOffers: materializeKibbleSubscriptionOffers(products),
 	};
 }
 

@@ -10,6 +10,7 @@ import {
 import { tryNormalizeTrustedShopperRoute } from '$lib/foundation/autonomy-zone-route';
 import { executeKibbleHiddenZoneTerminalsForRoute } from '$lib/brand/reference/kibble-zone-executor.server';
 import { buildKibblePreserveErrorState, throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
+import { buildKibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 function routeAudience(pathname: string): 'shopper' | 'operator' | 'development' {
 	if (pathname === '/observe' || pathname.startsWith('/observe/')) return 'operator';
@@ -133,6 +134,7 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		observeDisableHref: buildObserveModeHref(url, false),
 		observeSessionId,
 		observeInitialPersona: cookies.get('aisles_persona') || null,
+		kibbleCapabilityCoverage: observeMode ? buildKibbleMerchantCapabilityCoverage() : null,
 	};
 };
 

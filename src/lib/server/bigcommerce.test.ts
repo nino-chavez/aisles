@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getKibbleProductDetailByPath, getProductsByCategory, type BCProduct } from './bigcommerce';
+import { getKibblePdpRelatedProducts, getKibbleProductDetailByPath, getProductsByCategory, resolveKibblePdpRelatedProducts, type BCProduct } from './bigcommerce';
 
 vi.mock('$env/dynamic/private', () => ({
 	env: {
@@ -114,5 +114,61 @@ describe('BigCommerce Kibble Preserve PDP query', () => {
 			data: { site: { route: { node: { __typename: 'Category' } } } },
 		}), { status: 200, headers: { 'content-type': 'application/json' } }));
 		await expect(getKibbleProductDetailByPath('dog-food')).resolves.toBeNull();
+	});
+
+	it('fills a sparse native related list from the canonical category catalog and keeps the 3–4 bound', async () => {
+		const detail = {
+			...product(7),
+			images: { edges: [] }, inventory: null, productOptions: { edges: [] },
+			relatedProducts: { edges: [] },
+		};
+		const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => categoryResponse(
+			[product(7), product(8), product(9), product(10)],
+			{ hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null },
+		));
+
+		const result = await getKibblePdpRelatedProducts(detail);
+
+		expect(result.map(({ entityId }) => entityId)).toEqual([8, 9, 10]);
+		const resolution = await resolveKibblePdpRelatedProducts(detail);
+		expect(resolution).toMatchObject({ candidateSource: 'category_sibling', relationKind: null, products: result });
+		const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+		expect(request.variables).toMatchObject({ categoryId: 10, first: 8 });
+	});
+
+	it('keeps native merchant relationships distinct from category-sibling fallback candidates', async () => {
+		const detail = {
+			...product(7),
+			images: { edges: [] }, inventory: null, productOptions: { edges: [] },
+			relatedProducts: { edges: [product(8), product(9), product(10)].map((node) => ({ node })) },
+		};
+
+		const resolution = await resolveKibblePdpRelatedProducts(detail);
+
+		expect(resolution).toMatchObject({
+			candidateSource: 'native_related',
+			relationKind: 'related',
+			products: [product(8), product(9), product(10)],
+		});
+	});
+
+	it('fills the Surf & Turf bundle PDP from its BigCommerce Bundles category', async () => {
+		const detail = {
+			...product(3071),
+			categories: { edges: [{ node: { entityId: 332, name: 'Bundles', path: '/bundles-ch1/' } }] },
+			images: { edges: [] }, inventory: null, productOptions: { edges: [] },
+			relatedProducts: { edges: [] },
+		};
+		const categoryProducts = [3064, 3065, 3066, 3067, 3068, 3069, 3070, 3071].map(product);
+		vi.spyOn(globalThis, 'fetch').mockImplementation(async () => categoryResponse(
+			categoryProducts,
+			{ hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null },
+		));
+
+		const resolution = await resolveKibblePdpRelatedProducts(detail);
+
+		expect(resolution.products.map(({ entityId }) => entityId)).toEqual([3064, 3065, 3066, 3067]);
+		expect(resolution.candidateSource).toBe('category_sibling');
+		expect(resolution.relationKind).toBeNull();
 	});
 });

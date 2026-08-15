@@ -3,7 +3,9 @@ import {
 	getTrustedKibbleObserveHomeZonePolicy,
 	getTrustedKibbleObservePdpRelatedZonePolicy,
 	getTrustedKibbleObserveCopyZonePolicy,
+	getTrustedKibbleObservePresentationZonePolicy,
 	getTrustedKibbleZonePolicy,
+	type KibbleObservePresentationZoneInput,
 } from '$lib/brand/composition-policy';
 import { getBrand } from '$lib/brand/config';
 import {
@@ -24,6 +26,7 @@ import {
 import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
 import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
 import { KIBBLE_ZONE_TERMINALS, type KibbleZoneTerminal } from './kibble-zone-union';
+import type { KibbleModelZoneAdapterBinding, KibbleZoneAdapterBinding } from '$lib/components/kibble/types';
 
 const ORGANIZATION_ID = 'kibble-demo-merchant';
 const CATALOG_ID = 'kibble-preserve-catalog';
@@ -53,6 +56,170 @@ export type KibbleZoneTerminalExecution = {
 		content: unknown;
 	};
 };
+
+export type KibblePresentationZoneExecution = {
+	policy: Awaited<ReturnType<typeof getTrustedKibbleObservePresentationZonePolicy>>;
+	execution: ZoneDecisionExecution;
+	adapter: KibbleModelZoneAdapterBinding;
+};
+
+/**
+ * Validate one field fragment from an already-completed provider response
+ * against the exact named-zone policy. This runner never calls a provider;
+ * it lets one paid aggregate response pass through each affected zone's own
+ * compiler, schema, live approval, and renderer validation before publication.
+ */
+export async function executeKibblePresentationModelZone(input: KibbleObservePresentationZoneInput & {
+	componentVariantIds: readonly string[];
+	baselineComponentVariantId: string;
+	copyVariantIds?: readonly string[];
+	baselineCopyVariantId?: string;
+	productIds?: readonly string[];
+	placementIds?: readonly string[];
+	baselinePlacementId?: string;
+	modelOutput: Record<string, unknown>;
+	modelCallCount: number;
+	fallbackContent: unknown | null;
+	contentForDecision: (decision: Record<string, unknown>) => unknown | null;
+}): Promise<KibblePresentationZoneExecution> {
+	if (!Number.isInteger(input.modelCallCount) || input.modelCallCount < 1 || input.modelCallCount > 2) {
+		throw new Error(`Kibble presentation zone ${input.instanceId} lacks bounded provider-call evidence.`);
+	}
+	const policy = getTrustedKibbleObservePresentationZonePolicy(input);
+	const allowedDecisionModes = policy.provenance.zoneBinding?.allowedDecisionModes;
+	if (!allowedDecisionModes) throw new Error(`Kibble observe ${input.instanceId} policy lacks an attested zone binding.`);
+	if (input.componentVariantIds.length === 0 || !input.componentVariantIds.includes(input.baselineComponentVariantId)) {
+		throw new Error(`Kibble presentation zone ${input.instanceId} lacks a registered baseline component.`);
+	}
+	const copyVariantIds = [...(input.copyVariantIds ?? [])];
+	if ((copyVariantIds.length > 0) !== Boolean(input.baselineCopyVariantId)
+		|| (input.baselineCopyVariantId && !copyVariantIds.includes(input.baselineCopyVariantId))) {
+		throw new Error(`Kibble presentation zone ${input.instanceId} has an invalid copy baseline.`);
+	}
+	const productIds = [...(input.productIds ?? [])];
+	const placementIds = [...(input.placementIds ?? [])];
+	if (new Set(productIds).size !== productIds.length || new Set(placementIds).size !== placementIds.length
+		|| (input.baselinePlacementId && !placementIds.includes(input.baselinePlacementId))) {
+		throw new Error(`Kibble presentation zone ${input.instanceId} has duplicate or invalid candidates.`);
+	}
+	const catalogVersion = createHash('sha256').update(JSON.stringify({
+		instanceId: input.instanceId, routePath: input.routePath,
+		componentVariantIds: input.componentVariantIds, copyVariantIds, productIds, placementIds,
+	})).digest('hex');
+	const identity: TrustedZoneExecutionIdentity = {
+		organizationId: ORGANIZATION_ID, brandId: 'kibble', referenceId: KIBBLE_REFERENCE_CONTRACT.id,
+		referenceVersion: KIBBLE_REFERENCE_CONTRACT.version, policyVersion: policy.policyVersion,
+		routeSource: 'pathname', routePath: input.routePath, surface: input.surface,
+		routeManifestVersion: SHOPPER_ROUTE_MANIFEST_VERSION, routeManifestDigest: SHOPPER_ROUTE_MANIFEST_DIGEST,
+		zoneOrigin: 'aisles', familyId: input.familyId, instanceId: input.instanceId,
+		productCatalogId: `kibble-presentation-${input.instanceId}`, productCatalogVersion: catalogVersion,
+		allowedDecisionModes,
+	};
+	const fields: TrustedZoneFieldCatalog = {
+		registeredComponentVariantIds: [...input.componentVariantIds], registeredCssVariantIds: [],
+		registeredCopyVariantIds: copyVariantIds, registeredRecipeIds: [], registeredProductIds: productIds,
+		registeredPlacementIds: placementIds,
+		completeComponentVariants: input.componentVariantIds.map((componentVariantId) => ({
+			componentVariantId, compatibleCopyVariantIds: copyVariantIds,
+		})),
+		allowedRecipeIds: [], allowedProductIds: productIds, allowedPlacementIds: placementIds, boundedCopyFields: [],
+		fixed: {
+			componentVariantId: input.baselineComponentVariantId,
+			...(input.baselineCopyVariantId ? { copyVariantId: input.baselineCopyVariantId } : {}),
+			...(productIds.length > 0 ? { productIds } : {}),
+			...(input.baselinePlacementId ? { placementId: input.baselinePlacementId } : {}),
+		},
+	};
+	const catalog: TrustedBoundZoneCatalog = {
+		identity, fields,
+		products: {
+			organizationId: identity.organizationId, brandId: identity.brandId,
+			referenceId: identity.referenceId, referenceVersion: identity.referenceVersion,
+			catalogId: identity.productCatalogId, catalogVersion: identity.productCatalogVersion, productIds,
+		},
+		materialize: ({ decision }) => input.contentForDecision(
+			(decision?.envelope.rawModelContent as Record<string, unknown> | undefined) ?? {},
+		),
+	};
+	const execution = await executeZoneDecision({
+		policy,
+		catalog,
+		fallback: input.fallbackContent === null
+			? { identity, kind: 'hidden' }
+			: { identity, kind: 'content', content: input.fallbackContent },
+		runModel: async ({ outputSchema }) => outputSchema.parse(input.modelOutput),
+	});
+	if (execution.status !== 'live' || execution.decisionMode !== 'model') {
+		throw new Error(`Kibble presentation zone ${input.instanceId} did not publish: ${execution.status === 'fallback' ? execution.reason : execution.status}.`);
+	}
+	return {
+		policy,
+		execution,
+		adapter: bindKibbleModelZoneAdapter({
+			instanceId: input.instanceId,
+			execution,
+			modelCallCount: input.modelCallCount,
+			adapterId: `kibble.zone.${input.instanceId}`,
+			inputSha256: createHash('sha256').update(JSON.stringify({
+				instanceId: input.instanceId,
+				routePath: input.routePath,
+				selection: execution.decision?.envelope.rawModelContent,
+				render: execution.render,
+			})).digest('hex'),
+		}),
+	};
+}
+
+/** Bind only fields that survived the exact zone executor to public evidence. */
+export function bindKibbleModelZoneAdapter<TContent>(input: {
+	instanceId: string;
+	execution: ZoneDecisionExecution;
+	modelCallCount: number;
+	adapterId: string;
+	inputSha256: string;
+}): KibbleModelZoneAdapterBinding<TContent> {
+	if (input.execution.status !== 'live' || input.execution.decisionMode !== 'model' || !input.execution.decision) {
+		throw new Error(`Kibble model zone ${input.instanceId} has no validated model decision.`);
+	}
+	if (!Number.isInteger(input.modelCallCount) || input.modelCallCount < 1 || input.modelCallCount > 2) {
+		throw new Error(`Kibble model zone ${input.instanceId} has invalid provider-call evidence.`);
+	}
+	const envelope = input.execution.decision.envelope;
+	const raw = envelope.rawModelContent as Record<string, unknown>;
+	const selection = {
+		componentVariantId: envelope.componentVariantId,
+		...(envelope.copyVariantId === undefined ? {} : { copyVariantId: envelope.copyVariantId }),
+		...(typeof raw.placementId === 'string' ? { placementId: raw.placementId } : {}),
+		...(typeof raw.visible === 'boolean' ? { visible: raw.visible } : {}),
+	};
+	const common = {
+		instanceId: input.instanceId,
+		sharedStatus: 'live' as const,
+		decisionMode: 'model' as const,
+		modelCallCount: input.modelCallCount,
+		adapterId: input.adapterId,
+		componentVariantId: envelope.componentVariantId,
+		inputSha256: input.inputSha256,
+		selection,
+	};
+	return input.execution.render.kind === 'content'
+		? { ...common, sharedContentKind: 'content', content: input.execution.render.content as TContent }
+		: { ...common, sharedContentKind: 'hidden' };
+}
+
+export function bindExistingKibbleModelZoneAdapter<TContent>(
+	adapter: KibbleZoneAdapterBinding<TContent>,
+	execution: ZoneDecisionExecution,
+	modelCallCount: number,
+): KibbleModelZoneAdapterBinding<TContent> {
+	return bindKibbleModelZoneAdapter({
+		instanceId: adapter.instanceId,
+		execution,
+		modelCallCount,
+		adapterId: adapter.adapterId,
+		inputSha256: adapter.inputSha256,
+	});
+}
 
 export function kibbleNativeAdapterBinding(result: KibbleZoneTerminalExecution) {
 	if (!result.adapter) throw new Error(`Kibble terminal ${result.terminal.instanceId} has no native adapter binding.`);
@@ -143,12 +310,17 @@ export async function executeKibbleHomeFeaturedZoneAdapters(
 }
 
 /**
- * One explicit live-model boundary for the prospect demo. The model receives
- * only the strict rank_products schema and the eight server-approved product
- * IDs. The fixed Kibble component and every product field remain server-owned.
+ * One explicit live-model boundary for the prospect demo. The model may rank
+ * up to eight approved product IDs and choose only allow-listed Home copy and
+ * section IDs. Product fields, links, actions, and component rendering remain
+ * server-owned.
  */
 export async function executeKibbleHomeModelShelf(input: {
 	products: Array<{ entityId: number }>;
+	featuredCopyVariantIds: readonly string[];
+	baselineFeaturedCopyVariantId: string;
+	sectionOrderIds: readonly string[];
+	baselineSectionOrderId: string;
 	runModel: ZoneModelRunner;
 }) {
 	if (input.products.length < 1 || input.products.length > 8) {
@@ -171,7 +343,23 @@ export async function executeKibbleHomeModelShelf(input: {
 	if (new Set(productIds).size !== productIds.length) {
 		throw new Error('Kibble Home model ranking received duplicate product identities.');
 	}
-	const fields = fieldsFor(terminal, policy.allowedComponentVariantIds, productIds);
+	if (!input.featuredCopyVariantIds.includes(input.baselineFeaturedCopyVariantId)
+		|| !input.sectionOrderIds.includes(input.baselineSectionOrderId)) {
+		throw new Error('Kibble Home model ranking lacks approved copy or placement baselines.');
+	}
+	const fields: TrustedZoneFieldCatalog = {
+		registeredComponentVariantIds: [terminal.componentVariantId], registeredCssVariantIds: [],
+		registeredCopyVariantIds: [...input.featuredCopyVariantIds], registeredRecipeIds: [],
+		registeredProductIds: productIds, registeredPlacementIds: [...input.sectionOrderIds],
+		completeComponentVariants: [{ componentVariantId: terminal.componentVariantId, compatibleCopyVariantIds: [...input.featuredCopyVariantIds] }],
+		allowedRecipeIds: [], allowedProductIds: productIds, allowedPlacementIds: [...input.sectionOrderIds], boundedCopyFields: [],
+		fixed: {
+			componentVariantId: terminal.componentVariantId,
+			copyVariantId: input.baselineFeaturedCopyVariantId,
+			productIds,
+			placementId: input.baselineSectionOrderId,
+		},
+	};
 	const baseline = productGridContent(productIds);
 	const catalog: TrustedBoundZoneCatalog = {
 		identity,
@@ -245,6 +433,9 @@ export async function executeKibblePdpRelatedZoneAdapter(
 export async function executeKibblePdpRelatedModelShelf(input: {
 	relatedProducts: Array<{ entityId: number }>;
 	heading: string;
+	relatedCopyVariantIds: readonly string[];
+	baselineRelatedCopyVariantId: string;
+	headingForCopyVariant: (copyVariantId: string) => string;
 	routePath: string;
 	runModel: ZoneModelRunner;
 }) {
@@ -265,11 +456,20 @@ export async function executeKibblePdpRelatedModelShelf(input: {
 	if (!allowedDecisionModes) throw new Error('Kibble observe PDP policy lacks an attested zone binding.');
 	const productIds = input.relatedProducts.map(({ entityId }) => String(entityId));
 	if (new Set(productIds).size !== productIds.length) throw new Error('Kibble PDP model ranking received duplicate product identities.');
+	if (!input.relatedCopyVariantIds.includes(input.baselineRelatedCopyVariantId)) throw new Error('Kibble PDP model ranking lacks an approved copy baseline.');
 	const identity = executionIdentity(terminal, policy.policyVersion, input.routePath, allowedDecisionModes);
 	const baseline = pdpRelatedContent(input.heading, productIds);
+	const fields: TrustedZoneFieldCatalog = {
+		registeredComponentVariantIds: [terminal.componentVariantId], registeredCssVariantIds: [],
+		registeredCopyVariantIds: [...input.relatedCopyVariantIds], registeredRecipeIds: [],
+		registeredProductIds: productIds, registeredPlacementIds: [],
+		completeComponentVariants: [{ componentVariantId: terminal.componentVariantId, compatibleCopyVariantIds: [...input.relatedCopyVariantIds] }],
+		allowedRecipeIds: [], allowedProductIds: productIds, allowedPlacementIds: [], boundedCopyFields: [],
+		fixed: { componentVariantId: terminal.componentVariantId, copyVariantId: input.baselineRelatedCopyVariantId, productIds },
+	};
 	const catalog: TrustedBoundZoneCatalog = {
 		identity,
-		fields: fieldsFor(terminal, policy.allowedComponentVariantIds, productIds),
+		fields,
 		products: {
 			organizationId: ORGANIZATION_ID, brandId: 'kibble',
 			referenceId: KIBBLE_REFERENCE_CONTRACT.id, referenceVersion: KIBBLE_REFERENCE_CONTRACT.version,
@@ -278,7 +478,10 @@ export async function executeKibblePdpRelatedModelShelf(input: {
 		materialize: ({ decision }) => {
 			const raw = decision?.envelope.rawModelContent;
 			const ranked = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).rankedProductIds : null;
-			return pdpRelatedContent(input.heading, Array.isArray(ranked) ? ranked.filter(isString) : productIds);
+			const copyVariantId = raw && typeof raw === 'object' && typeof (raw as Record<string, unknown>).copyVariantId === 'string'
+				? (raw as Record<string, unknown>).copyVariantId as string
+				: input.baselineRelatedCopyVariantId;
+			return pdpRelatedContent(input.headingForCopyVariant(copyVariantId), Array.isArray(ranked) ? ranked.filter(isString) : productIds);
 		},
 	};
 	const execution = await executeZoneDecision({

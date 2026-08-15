@@ -46,6 +46,7 @@ function contrast(foreground: string, background: string): number {
 
 describe('Kibble reference contract', () => {
 	it('pins the approved source revision and locked Shelf-Native artifacts', () => {
+		expect(KIBBLE_REFERENCE_CONTRACT.version).toBe('1.9.0');
 		expect(KIBBLE_REFERENCE_CONTRACT.source).toEqual({
 			repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
 			commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', referenceContractVersion: '1.5.0', applicationPath: 'apps/storefront-svelte',
@@ -53,11 +54,24 @@ describe('Kibble reference contract', () => {
 			fixturePath: 'scripts/kibble-demo/data/seed-output.json', fixtureSha256: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
 			canonicalBoundary: expect.stringContaining('pinned storefront source'),
 		});
+		expect(KIBBLE_REFERENCE_CONTRACT.merchantCapabilityManifest).toMatchObject({
+			version: 'kibble-merchant-capability-manifest-v1',
+			mode: 'display-only-no-commerce-authority',
+			outcomeProof: 'not-measured',
+			sourceHashes: {
+				eligibleProductsSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+				canonicalRegistrySha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+				marketingCapabilitiesSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+				demoStateSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+				seedOutputSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+			},
+		});
 	});
 
 	it.each([
 		['source commit', ['source', 'commit']],
 		['source contract version', ['source', 'referenceContractVersion']],
+		['merchant capability manifest', ['merchantCapabilityManifest']],
 		['semantic action token', ['tokens', 'colors', 'action']],
 		['full component variants', ['components', 0, 'variants']],
 		['home recipe anatomy', ['recipes', 'home', 'orderedAnatomy']],
@@ -175,10 +189,18 @@ describe('Kibble reference contract', () => {
 		expect(pdp.variants.map(({ id }) => id)).toContain(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.variantId);
 	});
 
+	it('contracts the merchant enrichment props on each rendered surface', () => {
+		const variants = new Map(KIBBLE_REFERENCE_CONTRACT.components.map((component) => [component.id, component.variants[0]]));
+		expect(variants.get('kibble.category-listing')?.dynamicPropFields).toContain('categoryGuide');
+		expect(variants.get('kibble.product-detail')?.dynamicPropFields).toContain('autoRefill');
+		expect(variants.get('kibble.subscriptions')?.dynamicPropFields).toContain('capabilityCoverage');
+		expect(variants.get('kibble.product-detail')?.copyFields.map(({ field }) => field)).toContain('autoRefill.capabilityEvidence[].detail');
+	});
+
 	it('pins the full PLP request and rendering contract', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.plp).toMatchObject({
 			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4' },
-			orderedAnatomy: ['breadcrumbs', 'category-header', 'sort-control', 'product-grid', 'cursor-continuation'],
+			orderedAnatomy: ['breadcrumbs', 'category-header', 'merchant-category-guide', 'sort-control', 'product-grid', 'cursor-continuation'],
 			defaultSort: 'FEATURED', pageSize: 24,
 			pagination: { strategy: 'forward-cursor', cursorParam: 'after', actionLabel: 'Load more' },
 			productCards: 'links-to-catalog-display-only-pdp', modelLayoutRequest: false,
@@ -203,7 +225,7 @@ describe('Kibble reference contract', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp).toMatchObject({
 			acceptance: 'approved',
 			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4' },
-			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-bundle-contents', 'catalog-options', 'truthful-purchase-unavailable', 'description-and-specifications', 'related-products'],
+			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-pinned-subscription-evidence', 'conditional-bundle-contents', 'catalog-options', 'truthful-purchase-unavailable', 'description-and-specifications', 'related-products'],
 			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'truthful-purchase-unavailable' },
 			publication: { mode: 'live-read-only', reviewAvailability: 'production-and-development', productLinks: 'enabled-to-catalog-display-only-pdp' },
 			modelLayoutRequest: false,
@@ -215,7 +237,7 @@ describe('Kibble reference contract', () => {
 			adapted: KIBBLE_PDP_ADAPTED_SOURCE_FILES,
 			excluded: KIBBLE_PDP_EXCLUDED_DEPENDENCIES,
 			external: KIBBLE_PDP_EXTERNAL_DEPENDENCIES,
-			exclusionInvariant: 'Excluded commerce and subscription dependencies must not be imported, invoked, or represented as claims in the Aisles catalog-display-only PDP.',
+			exclusionInvariant: 'Excluded commerce and subscription runtime dependencies must not be imported or invoked. Only the contracted local merchant capability projection may be represented, and it grants no transaction authority.',
 		});
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.adapted).toEqual([
 			{ path: 'apps/storefront-svelte/src/routes/products/[slug]/+page.server.ts', sha256: '61546d7a03e180c02dba320ea10b95c5d590f616ae60ce85adcb31292070ef68' },
@@ -233,7 +255,7 @@ describe('Kibble reference contract', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.dependencyClosure.excluded).toEqual([
 			{ module: '$lib/subscriptions/SubscriptionWidget.svelte', reason: 'Aisles does not implement the canonical subscription selector or subscribe-to-cart flow.' },
 			{ module: '$lib/subscriptions/api-client', reason: 'Aisles does not call the subscription API from its catalog-display-only PDP.' },
-			{ module: '$lib/subscriptions/eligible-products.json', reason: 'Aisles excludes Auto-Refill eligibility, subscribe pricing, and savings claims from related-product cards.' },
+			{ module: '$lib/subscriptions/eligible-products.json', reason: 'The source runtime file is not imported. Aisles uses only a local hash-pinned, display-only projection with a live-price drift guard.' },
 			{ module: '$lib/server/cart', reason: 'Aisles does not create or mutate a cart from the review-only PDP.' },
 			{ module: '$lib/server/cart-intents', reason: 'Aisles does not persist subscription intents from the review-only PDP.' },
 			{ module: 'products/[slug]/+page.server.ts#actions.addToCart', reason: 'Aisles replaces canonical purchase actions with a truthful purchase-unavailable state while parity remains pending.' },
@@ -251,13 +273,25 @@ describe('Kibble reference contract', () => {
 			bundleCount: 8,
 			sha256: KIBBLE_PDP_BUNDLE_PROJECTION_SHA256,
 		});
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.merchantCapabilityProjection).toEqual({
+			mode: 'display-only',
+			owner: 'merchant-config-projection',
+			sourceAuthority: 'subscription-service-snapshot',
+			manifestVersion: 'kibble-merchant-capability-manifest-v1',
+			evidenceDate: 'not-asserted-source-offer-file-is-undated',
+			allowedFields: ['price', 'savingsPercent', 'cadenceMonths', 'capabilityLabels', 'capabilityEvidence'],
+			storefrontCapabilities: ['subscribe-and-save', 'free-trial', 'intro-offer', 'annual'],
+			portalCapabilities: 'not-rendered-on-pdp',
+			driftGuard: 'hide-when-effective-catalog-price-does-not-support-the-pinned-rounded-savings',
+			transactionAuthority: 'none',
+		});
 		expect(new Set([
 			KIBBLE_REFERENCE_CONTRACT.source.commit,
 			KIBBLE_REFERENCE_CONTRACT.recipes.plp.source.commit,
 			KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.commit,
 		])).toEqual(new Set(['ef122b8e17b9eb0b327c9d42491c44a61577ead4']));
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('add-to-cart');
-		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('subscription');
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('subscription-action');
 	});
 
 	it('rejects PDP source, projection, and cross-contract provenance tampering', () => {
@@ -272,6 +306,14 @@ describe('Kibble reference contract', () => {
 		const badProjectionHash = cloneContract();
 		(badProjectionHash.recipes.pdp.bundleProjection as { sha256: string }).sha256 = 'f'.repeat(64);
 		expect(KibbleReferenceContractSchema.safeParse(badProjectionHash).success).toBe(false);
+
+		const missingMerchantProjection = cloneContract();
+		delete (missingMerchantProjection.recipes.pdp as unknown as Record<string, unknown>).merchantCapabilityProjection;
+		expect(KibbleReferenceContractSchema.safeParse(missingMerchantProjection).success).toBe(false);
+
+		const changedCapabilitySourceHash = cloneContract();
+		changedCapabilitySourceHash.merchantCapabilityManifest.sourceHashes.demoStateSha256 = '0'.repeat(64) as never;
+		expect(KibbleReferenceContractSchema.safeParse(changedCapabilitySourceHash).success).toBe(false);
 
 		const mismatchedCanonicalCommit = cloneContract();
 		(mismatchedCanonicalCommit.source as { commit: string }).commit = 'a'.repeat(40);

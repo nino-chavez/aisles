@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({ brandId: 'kibble', enabled: 'true', store: null as Record<string, unknown> | null }));
 const mocks = vi.hoisted(() => ({
-	findSessionStore: vi.fn(), infer: vi.fn(), getDetail: vi.fn(), reserveBudget: vi.fn(), rankWithModel: vi.fn(), provenance: vi.fn(), logGeneration: vi.fn(),
+	findSessionStore: vi.fn(), infer: vi.fn(), getDetail: vi.fn(), resolveRelated: vi.fn(), reserveBudget: vi.fn(), rankWithModel: vi.fn(), provenance: vi.fn(), logGeneration: vi.fn(),
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: new Proxy({}, { get: (_target, key) => key === 'KIBBLE_DEMO_AI_ENABLED' ? state.enabled : undefined }) }));
@@ -17,7 +17,7 @@ vi.mock('$lib/brand/reference/kibble-pdp-related-model.server', () => ({
 	KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION: 'kibble-pdp-presentation-decision-v2',
 	rankKibblePdpRelatedWithModel: mocks.rankWithModel,
 }));
-vi.mock('$lib/server/bigcommerce', () => ({ getKibbleProductDetailByPath: mocks.getDetail }));
+vi.mock('$lib/server/bigcommerce', () => ({ getKibbleProductDetailByPath: mocks.getDetail, resolveKibblePdpRelatedProducts: mocks.resolveRelated }));
 vi.mock('$lib/server/kibble-demo-ai-budget', () => ({ reserveKibbleDemoAiCall: mocks.reserveBudget }));
 vi.mock('$lib/server/layout-provenance', () => ({ buildContractedLayoutProvenance: mocks.provenance }));
 vi.mock('$lib/server/generation-log', () => ({ logGeneration: mocks.logGeneration }));
@@ -33,7 +33,7 @@ const inference = {
 const detail = {
 	entityId: 100,
 	relatedProducts: { edges: [
-		{ node: { entityId: 11, name: 'Starter Bundle', prices: { price: { value: 90 } }, categories: { edges: [{ node: { name: 'Bundles' } }] } } },
+		{ node: { entityId: 3023, name: 'GoodGut Grass-Fed Beef', prices: { price: { value: 34.99 }, salePrice: { value: 31.99 } }, categories: { edges: [{ node: { name: 'Dog Food' } }] } } },
 		{ node: { entityId: 12, name: 'Mealtime Kit', prices: { price: { value: 55 } }, categories: { edges: [{ node: { name: 'Care' } }] } } },
 		{ node: { entityId: 13, name: 'Dog Toy Kit', prices: { price: { value: 32 } }, categories: { edges: [{ node: { name: 'Toys' } }] } } },
 	] },
@@ -41,7 +41,12 @@ const detail = {
 const adapter = {
 	instanceId: 'pdp.related', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1,
 	adapterId: 'kibble.zone.pdp.related', componentVariantId: 'kibble.product-detail.related-products', inputSha256: 'a'.repeat(64),
-	content: { component: 'product-carousel', props: { title: 'You may also like', products: [{ productId: '13', role: 'standard' }, { productId: '11', role: 'standard' }, { productId: '12', role: 'standard' }], showQuickAdd: false } },
+	selection: { componentVariantId: 'kibble.product-detail.related-products', copyVariantId: 'continue-routine' },
+	content: { component: 'product-carousel', props: { title: 'You may also like', products: [{ productId: '13', role: 'standard' }, { productId: '3023', role: 'standard' }, { productId: '12', role: 'standard' }], showQuickAdd: false } },
+};
+const zoneArtifacts = {
+	related: adapter,
+	marketing: { instanceId: 'pdp.below-description', decisionMode: 'model', modelCallCount: 1 },
 };
 
 function request(body: unknown = { mode: 'model', routePath: '/product/puppy-starter-kit' }, query = '?observe=true') {
@@ -58,8 +63,13 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 		mocks.findSessionStore.mockReset().mockResolvedValue(state.store);
 		mocks.infer.mockReset().mockReturnValue(inference);
 		mocks.getDetail.mockReset().mockResolvedValue(structuredClone(detail));
+		mocks.resolveRelated.mockReset().mockImplementation(async (value: typeof detail) => ({
+			products: value.relatedProducts.edges.map(({ node }) => node),
+			candidateSource: 'native_related',
+			relationKind: 'related',
+		}));
 		mocks.reserveBudget.mockReset().mockResolvedValue({ ok: true, sessionUsed: 1, globalUsed: 1 });
-		mocks.rankWithModel.mockReset().mockResolvedValue({ policy: { policyVersion: 'pdp-assist-v1', provenance: { zoneBinding: { instanceId: 'pdp.related' } } }, rankedProductIds: ['13', '11', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, adapter, modelId: 'claude-haiku-4-5', modelCallCount: 1 });
+		mocks.rankWithModel.mockReset().mockResolvedValue({ policy: { policyVersion: 'pdp-assist-v1', provenance: { zoneBinding: { instanceId: 'pdp.related' } } }, rankedProductIds: ['13', '3023', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, zoneArtifacts, modelId: 'claude-haiku-4-5', modelCallCount: 1 });
 		mocks.provenance.mockReset().mockReturnValue({ decisionSource: 'model' });
 		mocks.logGeneration.mockReset().mockResolvedValue(undefined);
 	});
@@ -69,17 +79,25 @@ describe('POST /api/kibble/pdp-related-decision', () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get('cache-control')).toBe('no-store');
 		expect(mocks.getDetail).toHaveBeenCalledWith('/puppy-starter-kit/');
-		expect(mocks.rankWithModel).toHaveBeenCalledWith(expect.objectContaining({
-			routePath: '/product/puppy-starter-kit',
-			products: [
-				{ entityId: 11, name: 'Starter Bundle', category: 'Bundles', price: 90 },
-				{ entityId: 12, name: 'Mealtime Kit', category: 'Care', price: 55 },
-				{ entityId: 13, name: 'Dog Toy Kit', category: 'Toys', price: 32 },
-			],
-		}));
+		expect(mocks.rankWithModel).toHaveBeenCalledTimes(1);
+		const rankInput = mocks.rankWithModel.mock.calls[0][0];
+		expect(rankInput.routePath).toBe('/product/puppy-starter-kit');
+		expect(rankInput.products).toEqual([
+			expect.objectContaining({ entityId: 3023, name: 'GoodGut Grass-Fed Beef', category: 'Dog Food', price: 34.99, catalogSignals: expect.objectContaining({ offerProjection: 'suppressed-price-drift', categorySlug: 'dog-food', subscriptionSavingsPercent: null }) }),
+			expect.objectContaining({ entityId: 12, name: 'Mealtime Kit', category: 'Care', price: 55, catalogSignals: expect.objectContaining({ offerProjection: 'unclassified', categorySlug: null }) }),
+			expect.objectContaining({ entityId: 13, name: 'Dog Toy Kit', category: 'Toys', price: 32, catalogSignals: expect.objectContaining({ offerProjection: 'unclassified', categorySlug: 'toys' }) }),
+		]);
 		const body = await response.json();
-		expect(body).toMatchObject({ version: 'kibble-pdp-presentation-preview-v2', routePath: '/product/puppy-starter-kit', rankedProductIds: ['13', '11', '12'], presentationDecision: { relatedCopyVariantId: 'continue-routine', marketingBlockVariantId: 'compare-current' }, presentationPolicy: { capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'] } });
+		expect(body).toMatchObject({ version: 'kibble-pdp-presentation-preview-v2', routePath: '/product/puppy-starter-kit', rankedProductIds: ['13', '3023', '12'], zoneArtifacts: { related: { instanceId: 'pdp.related' }, marketing: { instanceId: 'pdp.below-description' } }, presentationPolicy: { capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'] } });
+		expect(Object.keys(body.zoneArtifacts)).toEqual(['related', 'marketing']);
+		expect(body).not.toHaveProperty('presentationDecision');
+		expect(body).not.toHaveProperty('zoneAdapter');
+		expect(JSON.stringify(body)).not.toContain('rawModelContent');
+		for (const artifact of Object.values(body.zoneArtifacts) as Array<{ modelCallCount: number }>) expect(artifact.modelCallCount).toBe(1);
 		expect(JSON.stringify(body)).not.toContain('browser-owned');
+		expect(mocks.provenance).toHaveBeenCalledWith(expect.objectContaining({
+			catalogInput: expect.objectContaining({ candidateSource: 'native_related', relationKind: 'related' }),
+		}));
 	});
 
 	it('rejects bodies that try to inject browser facts before catalog or budget work', async () => {

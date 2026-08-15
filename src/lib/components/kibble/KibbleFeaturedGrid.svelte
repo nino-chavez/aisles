@@ -25,12 +25,19 @@
 	} = $props();
 	const productsByEntityId = $derived(new Map(products.map((product) => [String(product.entityId), product])));
 	const resolvedAdapters = $derived(zoneAdapters ?? []);
+	const modelSectionAdapter = $derived(resolvedAdapters.length === 1 && resolvedAdapters[0]?.decisionMode === 'model' ? resolvedAdapters[0] : null);
 </script>
 
 {#if products.length > 0}
-	<section id="kibble-featured-shelf" tabindex="-1" class="kibble-reference kc-reference-section" aria-labelledby="kibble-featured-heading">
+	<section id="kibble-featured-shelf" tabindex="-1" class="kibble-reference kc-reference-section" aria-labelledby="kibble-featured-heading"
+		data-kibble-zone-instance={modelSectionAdapter?.instanceId} data-kibble-zone-status={modelSectionAdapter?.sharedStatus}
+		data-kibble-zone-content-kind={modelSectionAdapter?.sharedContentKind} data-kibble-zone-adapter={modelSectionAdapter?.adapterId}
+		data-kibble-zone-variant={modelSectionAdapter?.componentVariantId} data-kibble-zone-input-sha256={modelSectionAdapter?.inputSha256}
+		data-aisles-zone-instance={modelSectionAdapter?.instanceId} data-aisles-zone-label={modelSectionAdapter?.instanceId}
+		data-aisles-authority={modelSectionAdapter?.decisionMode} data-aisles-model-calls={modelSectionAdapter?.modelCallCount}
+		data-aisles-model-eligible={modelSectionAdapter && modelEligible ? 'true' : undefined}>
 		<div class="kc-reference-container">
-			<div class="kc-reference-section__header" data-aisles-zone-instance="home.featured-copy" data-aisles-zone-label="Featured shelf copy" data-aisles-authority={copyModelCallCount > 0 ? 'model' : 'fixed'} data-aisles-model-calls={copyModelCallCount} data-aisles-model-eligible={modelEligible ? 'true' : undefined} data-kibble-zone-status="live" data-kibble-zone-variant="kibble.featured-copy.selected">
+			<div class="kc-reference-section__header" data-kibble-featured-copy-authority={copyModelCallCount > 0 ? 'model' : 'fixed'}>
 				<div>
 					<p class="kc-reference-eyebrow">{copy.eyebrow}</p>
 					<h2 id="kibble-featured-heading" class="kc-reference-section__title">{copy.title}</h2>
@@ -40,7 +47,8 @@
 
 			<div class="kc-reference-product-grid">
 				{#each resolvedAdapters as adapter (adapter.instanceId)}
-					<div class="kc-reference-zone-segment" data-kibble-zone-instance={adapter.instanceId} data-kibble-zone-status={adapter.sharedStatus} data-kibble-zone-content-kind={adapter.sharedContentKind} data-kibble-zone-adapter={adapter.adapterId} data-kibble-zone-variant={adapter.componentVariantId} data-kibble-zone-input-sha256={adapter.inputSha256} data-aisles-zone-instance={adapter.instanceId} data-aisles-zone-label={adapter.instanceId} data-aisles-authority={adapter.decisionMode ?? 'fixed'} data-aisles-model-calls={adapter.modelCallCount ?? 0} data-aisles-model-eligible={modelEligible && adapter.instanceId === 'home.featured-row.1' ? 'true' : undefined}>
+					{@const carriedBySection = modelSectionAdapter === adapter}
+					<div class="kc-reference-zone-segment" data-kibble-zone-instance={carriedBySection ? undefined : adapter.instanceId} data-kibble-zone-status={carriedBySection ? undefined : adapter.sharedStatus} data-kibble-zone-content-kind={carriedBySection ? undefined : adapter.sharedContentKind} data-kibble-zone-adapter={carriedBySection ? undefined : adapter.adapterId} data-kibble-zone-variant={carriedBySection ? undefined : adapter.componentVariantId} data-kibble-zone-input-sha256={carriedBySection ? undefined : adapter.inputSha256} data-aisles-zone-instance={carriedBySection ? undefined : adapter.instanceId} data-aisles-zone-label={carriedBySection ? undefined : adapter.instanceId} data-aisles-authority={carriedBySection ? undefined : (adapter.decisionMode ?? 'fixed')} data-aisles-model-calls={carriedBySection ? undefined : (adapter.modelCallCount ?? 0)} data-aisles-model-eligible={!carriedBySection && modelEligible && adapter.instanceId === 'home.featured-row.1' ? 'true' : undefined}>
 						{#each adapter.content.props.products as productRef (productRef.productId)}
 							{@const product = productsByEntityId.get(productRef.productId)}
 							{#if product}

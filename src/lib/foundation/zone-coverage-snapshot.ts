@@ -38,6 +38,7 @@ export const AISLES_ZONE_REGISTRY_SNAPSHOT = [
 	{ zoneId: 'home.below-fold', surface: 'home', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	{ zoneId: 'plp.editorial-header', surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	{ zoneId: 'plp.product-ranking', surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: false },
+	{ zoneId: 'plp.marketing-block', surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	{ zoneId: 'plp.cluster-row', surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	{ zoneId: 'plp.below-grid', surface: 'plp', multiplicity: 'singleton', engineComposable: false, adminAuthorable: true },
 	{ zoneId: 'pdp.below-description', surface: 'pdp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
@@ -57,7 +58,7 @@ export const AISLES_RENDERER_CONTRACT_SNAPSHOT = {
 	files: [
 		{ path: 'src/lib/foundation/ZoneRenderer.svelte', sha256: '8867a76190f5070bdedf431cad5bc05dbdf53c647e7870f86d2d81fbb4f8ec4f' },
 		{ path: 'src/lib/foundation/autonomy-zone-materializer.ts', sha256: '93810d4fbf6debe3880f146ca21531a6fdaa8da67bd1ff89b924826adb208b31' },
-		{ path: 'src/lib/foundation/zone-schemas.ts', sha256: '551a856ca551373f7a95b219ba8f10982980a450fcca8ff7243132b8bd414a56' },
+		{ path: 'src/lib/foundation/zone-schemas.ts', sha256: 'c36f36006f3095b98439a3b8151db9cd03e3fd1f392e6daff5d721e5ee07f00b' },
 		{ path: 'src/lib/components/layouts/LayoutRenderer.svelte', sha256: '351eda569ba54d6f9419d7b042b68afbc64d337935269542397ad8da63b28827' },
 		{ path: 'src/lib/schema/layout.ts', sha256: 'e35307b2541757991d26ae54e54d1bc274177ffe4a0eb976581a95e79ca20ced' },
 	],

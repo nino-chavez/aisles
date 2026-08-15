@@ -41,21 +41,27 @@ describe('runBoundedModelAction', () => {
 			abortSignal.addEventListener('abort', () => reject(abortSignal.reason), { once: true });
 		}));
 
-		await expect(runBoundedModelAction({ ...input, timeoutMs: 5 })).rejects.toMatchObject({ reason: 'timeout' });
+		await expect(runBoundedModelAction({ ...input, timeoutMs: 5 })).rejects.toMatchObject({ reason: 'timeout', callCount: 1 });
 		expect(generateText).toHaveBeenCalledTimes(1);
 	});
 
 	it('maps caller cancellation and schema rejection without publishing output', async () => {
 		const controller = new AbortController();
 		controller.abort();
-		await expect(runBoundedModelAction({ ...input, signal: controller.signal })).rejects.toMatchObject({ reason: 'aborted' });
+		await expect(runBoundedModelAction({ ...input, signal: controller.signal })).rejects.toMatchObject({ reason: 'aborted', callCount: 0 });
 
 		generateText.mockResolvedValueOnce({ output: { decision: 'outside-allow-list' }, usage: {} });
-		await expect(runBoundedModelAction(input)).rejects.toMatchObject({ reason: 'invalid_output' });
+		await expect(runBoundedModelAction(input)).rejects.toMatchObject({ reason: 'invalid_output', callCount: 1 });
+	});
+
+	it('retains both failed provider attempts in the sanitized error evidence', async () => {
+		generateText.mockRejectedValueOnce(new Error('primary unavailable')).mockRejectedValueOnce(new Error('fallback unavailable'));
+		await expect(runBoundedModelAction(input)).rejects.toMatchObject({ reason: 'provider_failed', callCount: 2 });
+		expect(generateText).toHaveBeenCalledTimes(2);
 	});
 
 	it('rejects unbounded action parameters before a provider call', async () => {
-		await expect(runBoundedModelAction({ ...input, maxOutputTokens: 0 })).rejects.toMatchObject({ reason: 'provider_failed' });
+		await expect(runBoundedModelAction({ ...input, maxOutputTokens: 0 })).rejects.toMatchObject({ reason: 'provider_failed', callCount: 0 });
 		expect(generateText).not.toHaveBeenCalled();
 	});
 });

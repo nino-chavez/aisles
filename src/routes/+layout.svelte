@@ -189,6 +189,7 @@
 				referenceVersion={data.kibbleProvenance.referenceVersion}
 				sessionId={data.observeSessionId}
 				initialPersona={data.observeInitialPersona}
+				capabilityCoverage={data.kibbleCapabilityCoverage}
 			/>
 		{/if}
 	{/if}

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import KibbleDevInspector from './KibbleDevInspector.svelte';
 import {
+	buildKibbleDecisionEvidence,
 	redactInspectorDebugValue,
 	describeKibbleRehearsalStatus,
 	describeKibbleBehaviorStatus,
@@ -15,7 +16,10 @@ const inspector: KibbleDevInspectorData = {
 	reference: { id: 'kibble-preserve-home-v1', version: '2026-08-12' },
 	surface: 'home', preset: 'preserve', policyVersion: 'kibble-policy-v1', publicationMode: 'approval_required',
 	dataSourceLabel: 'local catalog fixture',
-	availableModelDecision: { policyVersion: 'kibble-observe-model-v1', zoneId: 'home.featured-row', capabilities: ['rank_products'], publicationMode: 'live' },
+	availableModelDecision: {
+		policyVersion: 'kibble-observe-model-v1', zoneIds: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'],
+		capabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'], publicationMode: 'live',
+	},
 	inference: {
 		primary: 'researcher', probabilities: { gatherer: 0.15, hunter: 0.2, researcher: 0.55, gifter: 0.1 }, confidence: 0.35,
 		dominantSource: 'request', signalCount: 2, modifiers: { priceSensitivity: 0.2, urgency: 0.1, familiarityWithStore: 0.3 },
@@ -89,6 +93,44 @@ describe('KibbleDevInspector', () => {
 		expect(result.body).toContain('rules applied for hunter');
 		expect(result.body).toContain('Signals update deterministic rules first. The explicit AI control may reorder the same approved shelf; the Kibble template remains fixed.');
 		expect(result.body).not.toContain('View changed shelf');
+	});
+
+	it('renders every named Home model zone and its exact presentation changes', () => {
+		const synthetic = {
+			...inspector,
+			provenance: { synthetic: { value: true, scenarioId: 'local-showcase' } },
+		};
+		const evidence = buildKibbleDecisionEvidence({
+			surface: 'home',
+			zoneIds: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'],
+			zoneLabel: 'Home presentation',
+			policyVersion: 'kibble-home-presentation-assist-v2',
+			before: [{ id: 'a', name: 'A' }],
+			after: [{ id: 'a', name: 'A' }],
+			provider: 'anthropic',
+			model: 'claude-haiku-4-5',
+			calls: 1,
+			state: 'applied',
+			presentationBefore: {
+				copy: [{ id: 'home.hero.copy', label: 'Hero copy', value: 'Merchant baseline' }],
+				components: [{ id: 'home.editorial-strip.component', label: 'Catalog component', value: 'Four-column category grid' }],
+				sections: [{ id: 'home.sections', label: 'Section order', value: 'Featured shelf → category browse' }],
+				marketingBlocks: [],
+			},
+			presentationAfter: {
+				copy: [{ id: 'home.hero.copy', label: 'Hero copy', value: 'Compare with context' }],
+				components: [{ id: 'home.editorial-strip.component', label: 'Catalog component', value: 'Two-column category grid' }],
+				sections: [{ id: 'home.sections', label: 'Section order', value: 'Category browse → featured shelf' }],
+				marketingBlocks: [],
+			},
+		});
+		const result = render(KibbleDevInspector, {
+			props: { inspector: synthetic, livePreview: { state: 'applied', persona: 'hunter', changed: true, evidence } },
+		});
+		expect(result.body).toContain('policy / named zones');
+		for (const zoneId of ['home.hero', 'home.featured-row.1', 'home.editorial-strip']) expect(result.body).toContain(zoneId);
+		for (const dimension of ['Hero copy', 'Catalog component', 'Section order']) expect(result.body).toContain(dimension);
+		expect(result.body).not.toContain('copy unchanged');
 	});
 
 	it('reports the requested signal separately from the applied persona and actual shelf change', () => {

@@ -8,6 +8,7 @@
 	import { KIBBLE_DEMO_ACTION_COOLDOWN_MS } from '$lib/kibble-demo-ai-boundary';
 	import { describeKibblePdpModelAction, type KibblePdpModelActionStatus } from './kibble-pdp-model-action';
 	import { describeKibblePlpModelAction, type KibblePlpModelActionStatus } from './kibble-plp-model-action';
+	import type { KibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 	type ZoneAuthority = 'fixed' | 'rules' | 'model';
 	type ZoneEvidence = {
@@ -30,6 +31,7 @@
 		referenceVersion,
 		sessionId = null,
 		initialPersona = null,
+		capabilityCoverage = null,
 	}: {
 		active: boolean;
 		enableHref: string;
@@ -40,6 +42,7 @@
 		referenceVersion: string;
 		sessionId?: string | null;
 		initialPersona?: string | null;
+		capabilityCoverage?: KibbleMerchantCapabilityCoverage | null;
 	} = $props();
 
 	let expanded = $state(true);
@@ -77,7 +80,6 @@
 	const observeHref = $derived(buildObserveSessionHref(sessionId));
 	const templateCount = $derived(zones.filter(({ authority }) => authority === 'fixed').length);
 	const rulesCount = $derived(zones.filter(({ authority }) => authority === 'rules').length);
-	const modelEligibleCount = $derived(zones.filter(({ modelEligible }) => modelEligible).length);
 	const modelCallCount = $derived(decisionEvidence?.calls ?? Math.max(0, ...zones.map(({ modelCalls }) => modelCalls)));
 	const surfaceLabel = $derived(labelFromId(surface));
 	const surfaceLatitude = $derived(latitudeForSurface(surface));
@@ -85,25 +87,19 @@
 	const modelActionEligible = $derived(
 		surface === 'home' ? homeModelActionEligible : surface === 'pdp' ? pdpModelActionEligible : surface === 'plp' ? plpModelActionEligible : surface === 'search' ? searchModelActionEligible : surface === 'cart' ? cartModelActionEligible : surface === 'checkout' ? checkoutModelActionEligible : false,
 	);
+	const modelReadyCount = $derived(modelActionEligible ? readyZoneIds(surface).length : 0);
 	const modelActionReady = $derived(
 		surface === 'home' ? homeModelActionReady : surface === 'pdp' ? pdpModelActionReady : surface === 'plp' ? plpModelActionReady : surface === 'search' ? searchModelActionReady : surface === 'cart' ? cartModelActionReady : surface === 'checkout' ? checkoutModelActionReady : false,
 	);
 	const modelAction = $derived(
 		surface === 'home' ? homeModelAction : surface === 'pdp' ? pdpModelAction : surface === 'plp' ? plpModelAction : surface === 'search' ? searchModelAction : surface === 'cart' ? cartModelAction : surface === 'checkout' ? checkoutModelAction : null,
 	);
-	const modelZoneCount = $derived(!modelActionEligible ? modelEligibleCount
-		: surface === 'home' ? KIBBLE_HOME_PRESENTATION_POLICY.zoneIds.length
-			: surface === 'plp' ? KIBBLE_PLP_PRESENTATION_POLICY.zoneIds.length
-				: surface === 'pdp' ? KIBBLE_PDP_PRESENTATION_POLICY.zoneIds.length
-					: surface === 'search' ? KIBBLE_SEARCH_PRESENTATION_POLICY.zoneIds.length
-						: surface === 'cart' ? KIBBLE_CART_PRESENTATION_POLICY.zoneIds.length
-							: surface === 'checkout' ? KIBBLE_CHECKOUT_PRESENTATION_POLICY.zoneIds.length
-					: modelEligibleCount);
+	const modelZoneCount = $derived(zones.filter(({ authority, modelCalls }) => authority === 'model' && modelCalls > 0).length);
 	const modelActionStatus = $derived(
 		surface === 'home' ? homeModelActionStatus : surface === 'pdp' ? pdpModelActionStatus : surface === 'plp' ? plpModelActionStatus : surface === 'search' ? searchModelActionStatus : surface === 'cart' ? cartModelActionStatus : surface === 'checkout' ? checkoutModelActionStatus : 'idle',
 	);
 	const railSummary = $derived(
-		modelActionStatus === 'updating' ? `${surfaceLabel} · AI running` : decisionEvidence?.state === 'failed' ? `${surfaceLabel} · AI failed · fallback` : decisionEvidence?.state === 'applied' ? `${surfaceLabel} · ${hasKibbleDecisionChanged(decisionEvidence) ? 'AI changed' : 'AI kept'}` : modelCallCount > 0 ? `${surfaceLabel} · AI evidence missing` : modelZoneCount > 0 ? `${surfaceLabel} · AI available` : `${surfaceLabel} · Template and rules`,
+		modelActionStatus === 'updating' ? `${surfaceLabel} · AI running` : decisionEvidence?.state === 'failed' ? `${surfaceLabel} · AI failed · fallback` : decisionEvidence?.state === 'applied' ? `${surfaceLabel} · ${hasKibbleDecisionChanged(decisionEvidence) ? 'AI changed' : 'AI kept'}` : modelCallCount > 0 ? `${surfaceLabel} · AI evidence missing` : modelReadyCount > 0 ? `${surfaceLabel} · AI ready` : `${surfaceLabel} · Template and rules`,
 	);
 
 	$effect(() => {
@@ -125,7 +121,7 @@
 			const modelEligible = element.dataset.aislesModelEligible === 'true';
 			const stateForZone = decisionEvidence && isDecisionZone(instanceId)
 				? decisionEvidence.state === 'failed' ? 'Fallback' : hasDecisionZoneChanged(instanceId) ? 'AI changed' : 'AI kept'
-				: modelActionStatus === 'updating' && modelEligible ? 'AI running' : modelCalls > 0 || authority === 'model' ? 'AI evidence missing' : modelEligible ? 'AI available' : authority === 'rules' ? 'Rules' : 'Template';
+				: modelActionStatus === 'updating' && modelEligible ? 'AI running' : modelCalls > 0 || authority === 'model' ? 'AI evidence missing' : modelEligible ? 'AI ready' : authority === 'rules' ? 'Rules' : 'Template';
 			element.dataset.aislesObserveState = stateForZone;
 			evidence.set(instanceId, {
 				instanceId,
@@ -333,10 +329,10 @@
 	}
 
 	function describeHomeModelAction(status: KibblePdpModelActionStatus) {
-		if (status === 'updating') return { label: 'AI composing presentation…', detail: 'One bounded provider call is selecting approved product, copy, component, and section decisions.', disabled: true };
+		if (status === 'updating') return { label: 'AI composing presentation…', detail: 'A bounded provider action is selecting approved product, copy, component, and section decisions, with at most two attempts.', disabled: true };
 		if (status === 'applied') return { label: 'Run AI presentation again', detail: decisionEvidence?.state === 'applied' ? `${describeKibbleDecisionDimensions(decisionEvidence)} View the exact before and after below.` : 'The model response returned without before-and-after evidence, so the rail does not claim success.', disabled: false };
 		if (status === 'failed') return { label: 'AI presentation failed — retry', detail: 'The model result was not applied. The last approved storefront remains visible.', disabled: false };
-		return { label: 'Run AI presentation', detail: 'Ready to run one bounded provider call across the approved Home presentation zones.', disabled: false };
+		return { label: 'Run AI presentation', detail: 'Ready to run one bounded action with up to two provider attempts across the approved Home presentation zones.', disabled: false };
 	}
 
 	function compactModelActionLabel(status: KibblePdpModelActionStatus | KibblePlpModelActionStatus) {
@@ -355,10 +351,10 @@
 	function describeNarrowModelAction(actionSurface: 'search' | 'cart' | 'checkout', status: KibblePdpModelActionStatus) {
 		const noun = actionSurface === 'search' ? 'search recovery' : actionSurface === 'cart' ? 'cart recovery' : 'checkout assurance';
 		const boundary = actionSurface === 'search' ? 'The result list and query stay fixed.' : actionSurface === 'cart' ? 'No cart contents, prices, or operations are created.' : 'Payment, order, and customer state stay fixed and unavailable.';
-		if (status === 'updating') return { label: `AI selecting ${noun}…`, detail: `One bounded provider call is selecting one merchant-approved copy variant. ${boundary}`, disabled: true };
+		if (status === 'updating') return { label: `AI selecting ${noun}…`, detail: `A bounded provider action is selecting one merchant-approved copy variant, with at most two attempts. ${boundary}`, disabled: true };
 		if (status === 'applied') return { label: `Run AI ${noun} again`, detail: `The model selected a validated merchant-approved variant. ${boundary}`, disabled: false };
 		if (status === 'failed') return { label: `AI ${noun} failed — retry`, detail: `The model result was not applied. The existing approved copy remains visible. ${boundary}`, disabled: false };
-		return { label: `Run AI ${noun}`, detail: `Ready to run one bounded provider call that may select one approved copy variant. ${boundary}`, disabled: false };
+		return { label: `Run AI ${noun}`, detail: `Ready to run one bounded action with up to two provider attempts that may select one approved copy variant. ${boundary}`, disabled: false };
 	}
 
 	function parseAuthority(value: string | undefined, instanceId: string): ZoneAuthority {
@@ -394,7 +390,7 @@
 	function zoneState(zone: ZoneEvidence): string {
 		if (decisionEvidence && isDecisionZone(zone.instanceId)) return decisionEvidence.state === 'failed' ? 'Fallback' : hasDecisionZoneChanged(zone.instanceId) ? 'AI changed' : 'AI kept';
 		if (modelActionStatus === 'updating' && zone.modelEligible) return 'AI running';
-		return zone.modelCalls > 0 || zone.authority === 'model' ? 'AI evidence missing' : zone.modelEligible ? 'AI available' : zone.authority === 'fixed' ? 'Template' : 'Rules';
+		return zone.modelCalls > 0 || zone.authority === 'model' ? 'AI evidence missing' : zone.modelEligible ? 'AI ready' : zone.authority === 'fixed' ? 'Template' : 'Rules';
 	}
 
 	function tagTone(zone: ZoneEvidence): string {
@@ -403,15 +399,7 @@
 	}
 
 	function isDecisionZone(instanceId: string): boolean {
-		if (!decisionEvidence) return false;
-		const policy = decisionEvidence.surface === 'home' ? KIBBLE_HOME_PRESENTATION_POLICY
-			: decisionEvidence.surface === 'plp' ? KIBBLE_PLP_PRESENTATION_POLICY
-				: decisionEvidence.surface === 'pdp' ? KIBBLE_PDP_PRESENTATION_POLICY
-					: decisionEvidence.surface === 'search' ? KIBBLE_SEARCH_PRESENTATION_POLICY
-						: decisionEvidence.surface === 'cart' ? KIBBLE_CART_PRESENTATION_POLICY
-							: KIBBLE_CHECKOUT_PRESENTATION_POLICY;
-		const decisionInstanceId = instanceId === 'home.editorial-strip' ? 'home.catalog-entry' : instanceId;
-		return (policy.zoneIds as readonly string[]).includes(decisionInstanceId);
+		return decisionEvidence?.zoneIds.includes(instanceId) ?? false;
 	}
 
 	function hasDecisionZoneChanged(instanceId: string): boolean {
@@ -421,13 +409,13 @@
 		const changedComponent = (id: string) => decisionEvidence?.components.some((entry) => entry.id === id && entry.changed) ?? false;
 		const changedSection = (id: string) => decisionEvidence?.sections.some((entry) => entry.id === id && entry.changed) ?? false;
 		const changedMarketing = (id: string) => decisionEvidence?.marketingBlocks.some((entry) => entry.id === id && entry.changed) ?? false;
-		if (instanceId === 'home.featured-row.1' || instanceId === 'plp.product-ranking') return productOrderChanged;
+		if (instanceId === 'home.featured-row.1') return productOrderChanged || changedCopy(instanceId) || changedSection(instanceId);
+		if (instanceId === 'plp.product-ranking') return productOrderChanged;
 		if (instanceId === 'pdp.related') return productOrderChanged || changedCopy('pdp.related');
-		if (instanceId === 'home.hero' || instanceId === 'home.featured-copy' || instanceId === 'plp.editorial-header'
+		if (instanceId === 'home.hero' || instanceId === 'plp.editorial-header'
 			|| instanceId === 'search.empty-state' || instanceId === 'cart.empty-state' || instanceId === 'checkout.assurance-strip') return changedCopy(instanceId);
-		if (instanceId === 'home.editorial-strip') return changedCopy('home.catalog-entry') || changedComponent('home.catalog-entry');
-		if (instanceId === 'home.recipe-order') return changedSection('home.recipe-order');
-		if (instanceId === 'plp.marketing-block' || instanceId === 'pdp.marketing-block') return changedMarketing(instanceId);
+		if (instanceId === 'home.editorial-strip') return changedCopy(instanceId) || changedComponent(instanceId);
+		if (instanceId === 'plp.marketing-block' || instanceId === 'pdp.below-description') return changedMarketing(instanceId);
 		return false;
 	}
 
@@ -438,7 +426,7 @@
 	function viewDecisionChanges() {
 		if (!decisionEvidence) return;
 		const changedPresentationId = [...decisionEvidence.copy, ...decisionEvidence.components, ...decisionEvidence.sections, ...decisionEvidence.marketingBlocks].find(({ changed }) => changed)?.id;
-		const changedPresentation = changedPresentationId === 'home.catalog-entry' ? 'home.editorial-strip' : changedPresentationId;
+		const changedPresentation = changedPresentationId;
 		const productChanged = decisionEvidence.moved.length || decisionEvidence.added.length || decisionEvidence.removed.length;
 		const defaultZone = decisionEvidence.surface === 'home' ? 'home.hero'
 			: decisionEvidence.surface === 'plp' ? 'plp.editorial-header'
@@ -459,6 +447,16 @@
 
 	function formatPresentationChanges(changes: readonly KibblePresentationChange[]): string {
 		return changes.length ? changes.map(({ label, before, after, changed }) => `${label}: ${changed ? `${before} → ${after}` : `${after} (unchanged)`}`).join(' · ') : 'not enabled for this surface';
+	}
+
+	function readyZoneIds(currentSurface: string): readonly string[] {
+		if (currentSurface === 'home') return KIBBLE_HOME_PRESENTATION_POLICY.zoneIds;
+		if (currentSurface === 'plp') return KIBBLE_PLP_PRESENTATION_POLICY.zoneIds;
+		if (currentSurface === 'pdp') return KIBBLE_PDP_PRESENTATION_POLICY.zoneIds;
+		if (currentSurface === 'search') return KIBBLE_SEARCH_PRESENTATION_POLICY.zoneIds;
+		if (currentSurface === 'cart') return KIBBLE_CART_PRESENTATION_POLICY.zoneIds;
+		if (currentSurface === 'checkout') return KIBBLE_CHECKOUT_PRESENTATION_POLICY.zoneIds;
+		return [];
 	}
 </script>
 
@@ -493,9 +491,10 @@
 		</header>
 
 		<div id="aisles-observe-body" class="aisles-observe__body" hidden={!expanded}>
-			<div class="aisles-observe__counts" aria-label="Visible decision authority">
+			<div class="aisles-observe__counts" aria-label="Visible decision authority and model evidence">
 				<div><span class="aisles-observe__pip aisles-observe__pip--fixed"></span><b>Template</b><strong>{templateCount}</strong></div>
 				<div><span class="aisles-observe__pip aisles-observe__pip--rules"></span><b>Rules</b><strong>{rulesCount}</strong></div>
+				<div><span class="aisles-observe__pip aisles-observe__pip--ready"></span><b>AI ready</b><strong>{modelReadyCount}</strong></div>
 				<div><span class="aisles-observe__pip aisles-observe__pip--model"></span><b>AI zones</b><strong>{modelZoneCount}</strong></div>
 				<div><span class="aisles-observe__pip aisles-observe__pip--model"></span><b>AI calls</b><strong>{modelCallCount}</strong></div>
 			</div>
@@ -506,11 +505,11 @@
 				{:else if decisionEvidence?.state === 'applied'}
 					{describeKibbleDecisionDimensions(decisionEvidence)} Every visible result came from merchant-approved IDs; product facts, prices, links, actions, and styling remained merchant-owned.
 				{:else if modelActionStatus === 'updating'}
-					AI is running one bounded provider call. The current approved presentation remains visible until every returned ID passes validation.
+					AI is running a bounded provider action with at most two attempts. The current approved presentation remains visible until every returned ID passes validation.
 				{:else if modelCallCount > 0}
 					A model call is recorded, but no validated before-and-after evidence is available. The rail does not claim a successful change.
-				{:else if modelZoneCount > 0}
-					{modelZoneCount} bounded AI {modelZoneCount === 1 ? 'zone is' : 'zones are'} available. The current result remains template- or rules-owned until you run the AI control.
+				{:else if modelReadyCount > 0}
+					{modelReadyCount} named {modelReadyCount === 1 ? 'zone is' : 'zones are'} ready for an explicit model action. AI zones and AI calls stay zero until validated model-selected output is rendered.
 				{:else if rulesCount > 0}
 					Signals can change approved product order. The page structure remains the merchant template. No model generated this page.
 				{:else}
@@ -561,7 +560,7 @@
 						<div><span>marketing block</span><b>{formatPresentationChanges(decisionEvidence.marketingBlocks)}</b></div>
 						<div><span>provider / model</span><b>{decisionEvidence.provider ?? 'not confirmed'} / {decisionEvidence.model ?? 'not confirmed'}</b></div>
 						<div><span>calls</span><b>{decisionEvidence.calls ?? 'not confirmed'}</b></div>
-						<div><span>policy / zone</span><b>{decisionEvidence.policyVersion} / {decisionEvidence.zoneId}</b></div>
+						<div><span>policy / named zones</span><b>{decisionEvidence.policyVersion} / {decisionEvidence.zoneIds.join(' · ')}</b></div>
 					</div>
 				</section>
 			{/if}
@@ -579,6 +578,21 @@
 					{/each}
 				</ul>
 			</details>
+
+			{#if capabilityCoverage}
+				<details class="aisles-observe__capabilities">
+					<summary>Merchant capability coverage</summary>
+					<p>{capabilityCoverage.catalog.totalProducts} catalog products · {capabilityCoverage.catalog.pinnedOfferProducts} pinned offer rows · {capabilityCoverage.catalog.canonicalStorefrontRegistryProducts} canonical storefront products · {capabilityCoverage.subscriptionCapabilities.length} live capabilities in the {capabilityCoverage.source.demoStateGeneratedAt.slice(0, 10)} snapshot · {capabilityCoverage.aislesCapabilities.length} Aisles presentation capabilities.</p>
+					<h3>Subscription service</h3>
+					<ul>{#each capabilityCoverage.subscriptionCapabilities as capability (capability.id)}<li><a href={capability.demoHref}><b>{capability.label}</b><small>demo-state live · {capabilityCoverage.source.demoStateGeneratedAt.slice(0, 10)} · canonical registry {capability.canonicalRegistryDisposition} · {capability.sourceSurface} · Aisles {capability.aislesMode === 'catalog-offer-projection' ? 'catalog evidence' : 'fixed preview'}</small></a></li>{/each}</ul>
+					<h3>Aisles presentation</h3>
+					<ul>{#each capabilityCoverage.aislesCapabilities as capability (capability.id)}<li><a href={capability.demoHref}><b>{capability.label}</b><small>{capability.authority.join(' + ')} · {capability.surfaces.join(', ')}</small></a></li>{/each}</ul>
+					<h3>Not claimed for Kibble</h3>
+					<ul>{#each capabilityCoverage.sourceCapabilitiesOutsideKibble as capability (capability.id)}<li><b>{capability.label}</b><small>{capability.sourceTier} · demo-state {capability.demoStateStatus}</small></li>{/each}</ul>
+					<p>{capabilityCoverage.sourceRegistryNote}</p>
+					<p><b>Outcome proof:</b> not measured. This is capability evidence, not conversion or revenue evidence.</p>
+				</details>
+			{/if}
 
 			<section class="aisles-observe__boundary" aria-labelledby="aisles-commerce-boundary">
 				<h3 id="aisles-commerce-boundary">Why purchase controls stop here</h3>
@@ -617,13 +631,14 @@
 	.aisles-observe .aisles-observe__model-action { border-color:#c9796d; background:#fff2ef; color:#8f3025; }
 	.aisles-observe .aisles-observe__model-action:hover { background:#ffe4df; }
 	.aisles-observe button:focus-visible, .aisles-observe a:focus-visible, .aisles-observe summary:focus-visible { outline:3px solid var(--observe-blue); outline-offset:3px; }
-	.aisles-observe__counts { display:grid; grid-template-columns:repeat(4, 1fr); border-bottom:1px solid var(--observe-line); background:#fff; }
+	.aisles-observe__counts { display:grid; grid-template-columns:repeat(5, 1fr); border-bottom:1px solid var(--observe-line); background:#fff; }
 	.aisles-observe__counts div { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:.35rem; min-width:0; padding:.65rem .7rem; border-right:1px solid var(--observe-line); }
 	.aisles-observe__counts div:last-child { border-right:0; }
 	.aisles-observe__counts b { font-size:.65rem; }
 	.aisles-observe__counts strong { font-size:.85rem; }
 	.aisles-observe__pip { width:7px; height:7px; background:#667796; }
 	.aisles-observe__pip--rules { background:var(--observe-blue); }
+	.aisles-observe__pip--ready { border:1px solid var(--observe-coral); background:#fff; }
 	.aisles-observe__pip--model { background:var(--observe-coral); }
 	.aisles-observe__truth { margin:0; border-bottom:1px solid var(--observe-line); background:#fff; padding:.72rem .8rem; color:#3e4961; }
 	.aisles-observe__evidence { border-bottom:1px solid var(--observe-line); background:#fffdf8; padding:.75rem .8rem; }
@@ -659,6 +674,14 @@
 	.aisles-observe__tag--rules { border-color:#6d89cf; color:#1c4cab; }
 	.aisles-observe__tag--model { border-color:#d2978e; color:#963a2e; }
 	.aisles-observe__tag--fixed { border-color:#8696b6; color:#344a80; }
+	.aisles-observe__capabilities { border-bottom:1px solid var(--observe-line); background:#f4f7fd; padding:.7rem .8rem; }
+	.aisles-observe__capabilities summary { cursor:pointer; color:#1c4cab; font-weight:800; }
+	.aisles-observe__capabilities h3 { margin:.75rem 0 .35rem; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; }
+	.aisles-observe__capabilities p { margin:.55rem 0 0; color:var(--observe-muted); }
+	.aisles-observe__capabilities ul { display:grid; gap:.35rem; margin:0; padding:0; list-style:none; }
+	.aisles-observe__capabilities li a { display:block; min-height:44px; padding:.45rem .55rem; }
+	.aisles-observe__capabilities li b, .aisles-observe__capabilities li small { display:block; }
+	.aisles-observe__capabilities li small { margin-top:.08rem; color:var(--observe-muted); font-size:.58rem; }
 	.aisles-observe__boundary { border-bottom:1px solid var(--observe-line); background:#fff8ed; padding:.75rem .8rem; }
 	.aisles-observe__boundary h3, .aisles-observe__boundary p { margin:0; }
 	.aisles-observe__boundary h3 { font-size:.7rem; }
@@ -673,6 +696,6 @@
 	:global(body.aisles-observe-zone-map [data-aisles-authority='fixed']) { outline-color:#667796 !important; }
 	:global(body.aisles-observe-zone-map [data-aisles-model-eligible='true'][data-aisles-authority='fixed']) { outline-color:#b94a3b !important; }
 	:global(body.aisles-observe-zone-map [data-aisles-zone-instance]::before) { content:attr(data-aisles-zone-label) ' · ' attr(data-aisles-observe-state); position:absolute; top:0; left:0; z-index:60; max-width:calc(100% - .5rem); overflow:hidden; background:#17213b; color:#fff; padding:.2rem .35rem; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.6rem; font-weight:800; line-height:1.2; text-overflow:ellipsis; white-space:nowrap; pointer-events:none; }
-	@media (max-width: 640px) { .aisles-observe { right:.65rem; bottom:.65rem; width:calc(100vw - 1.3rem); max-height:62vh; } .aisles-observe--collapsed { left:.65rem; width:auto; } .aisles-observe__header { align-items:flex-start; } .aisles-observe__header-actions { flex-wrap:wrap; justify-content:flex-end; } .aisles-observe__counts { grid-template-columns:repeat(2, 1fr); } .aisles-observe__counts div:nth-child(2) { border-right:0; } .aisles-observe__counts div:nth-child(-n+2) { border-bottom:1px solid var(--observe-line); } .aisles-observe__facts, .aisles-observe__before-after, .aisles-observe__diff, .aisles-observe__evidence-facts { grid-template-columns:1fr; } .aisles-observe__footer { align-items:flex-start; flex-direction:column; } }
+	@media (max-width: 640px) { .aisles-observe { right:.65rem; bottom:.65rem; width:calc(100vw - 1.3rem); max-height:62vh; } .aisles-observe--collapsed { left:.65rem; width:auto; } .aisles-observe__header { align-items:flex-start; } .aisles-observe__header-actions { flex-wrap:wrap; justify-content:flex-end; } .aisles-observe__counts { grid-template-columns:repeat(2, 1fr); } .aisles-observe__counts div { border-bottom:1px solid var(--observe-line); } .aisles-observe__counts div:nth-child(2n) { border-right:0; } .aisles-observe__counts div:last-child { grid-column:1 / -1; border-bottom:0; } .aisles-observe__facts, .aisles-observe__before-after, .aisles-observe__diff, .aisles-observe__evidence-facts { grid-template-columns:1fr; } .aisles-observe__footer { align-items:flex-start; flex-direction:column; } }
 	@media (prefers-reduced-motion: reduce) { .aisles-observe *, .aisles-observe *::before, .aisles-observe *::after { scroll-behavior:auto !important; transition:none !important; } }
 </style>

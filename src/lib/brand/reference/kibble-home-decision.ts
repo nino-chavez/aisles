@@ -2,14 +2,17 @@ import type { EffectiveCompositionPolicy, AutonomyCapability, DecisionMode } fro
 import type { PersonaInference } from '$lib/signals/types';
 import type { PersonaFitScores } from '$lib/server/enrichment/types';
 import type { Product } from '$lib/types';
+import type { KibbleCatalogSignals } from './kibble-catalog-enrichment';
 import { assertKibblePreserveRoutePolicy, getContractSurfaceDecision } from '../composition-policy';
 import { KIBBLE_PRESERVE_MANIFEST } from './kibble-manifest';
 import { KIBBLE_REFERENCE_CONTRACT } from './kibble';
 
 export const KIBBLE_HOME_SHELF_CAPACITY = 8;
+export const KIBBLE_HOME_RULE_CAPABILITIES = ['rank_products', 'select_products'] as const satisfies readonly AutonomyCapability[];
 
 export type KibbleHomeCandidateProduct = Product & {
 	personaFit?: PersonaFitScores | null;
+	catalogSignals?: KibbleCatalogSignals;
 };
 
 export interface KibbleHomeProductSummary {
@@ -121,7 +124,7 @@ function buildZoneTrace(
 			label: labels[slot.slot] ?? slot.slot,
 			authority: isProductZone ? 'rules' : 'fixed',
 			componentVariant: slot.variantId,
-			capabilities: isProductZone ? ['rank_products', 'select_products'] : [],
+			capabilities: isProductZone ? [...KIBBLE_HOME_RULE_CAPABILITIES] : [],
 			decisionSummary: isProductZone
 				? dataSource === 'merchant-enrichment'
 					? `Ranked enriched candidates for the inferred ${persona} persona, then selected up to ${KIBBLE_HOME_SHELF_CAPACITY}.`

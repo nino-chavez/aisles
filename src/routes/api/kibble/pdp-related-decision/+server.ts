@@ -14,14 +14,16 @@ import {
 	rankKibblePdpRelatedWithModel,
 	type KibblePdpRelatedCandidate,
 } from '$lib/brand/reference/kibble-pdp-related-model.server';
-import { getKibbleProductDetailByPath, type BCKibbleProductDetail, type BCProduct } from '$lib/server/bigcommerce';
+import { resolveKibblePdpRelatedProducts, getKibbleProductDetailByPath, type BCProduct } from '$lib/server/bigcommerce';
 import { reserveKibbleDemoAiCall } from '$lib/server/kibble-demo-ai-budget';
 import { buildContractedLayoutProvenance } from '$lib/server/layout-provenance';
 import { logGeneration } from '$lib/server/generation-log';
 import { infer } from '$lib/signals/inference';
 import { findSessionStore } from '$lib/signals/session';
 import { MODEL_PROVIDER } from '$lib/server/model';
+import { BoundedModelActionError } from '$lib/server/bounded-model-action.server';
 import { KIBBLE_PDP_PRESENTATION_POLICY } from '$lib/brand/reference/kibble-presentation-decisions';
+import { getKibbleCatalogSignals } from '$lib/brand/reference/kibble-catalog-enrichment';
 
 const SESSION_COOKIE = 'aisles_session';
 const PREVIEW_VERSION = 'kibble-pdp-presentation-preview-v2';
@@ -46,7 +48,8 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		if (!store) return sessionUnavailable();
 		const detail = await getKibbleProductDetailByPath(`/${slug}/`);
 		if (!detail) return unavailable();
-		const products = serverRelatedCandidates(detail, detail.entityId);
+		const relatedResolution = await resolveKibblePdpRelatedProducts(detail);
+		const products = serverRelatedCandidates(relatedResolution.products, detail.entityId);
 		if (products.length < 3) return ineligible();
 		const reservation = await reserveKibbleDemoAiCall(sessionId);
 		if (!reservation.ok) return budgetUnavailable(reservation.reason);
@@ -70,7 +73,13 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			promptVersion: KIBBLE_PDP_RELATED_MODEL_PROMPT_VERSION,
 			schemaVersion: KIBBLE_PDP_RELATED_MODEL_SCHEMA_VERSION,
 			contractInput: { zone: modelDecision.policy.provenance.zoneBinding, rankedProductIds: modelDecision.rankedProductIds, presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY, presentationDecision: modelDecision.presentationDecision, modelCallCount: modelDecision.modelCallCount },
-			catalogInput: { source: 'server-reloaded-pdp-related', candidates: products, rankedProductIds: modelDecision.rankedProductIds },
+			catalogInput: {
+				source: 'server-reloaded-pdp-related',
+				candidateSource: relatedResolution.candidateSource,
+				relationKind: relatedResolution.relationKind,
+				candidates: products,
+				rankedProductIds: modelDecision.rankedProductIds,
+			},
 			shopperContext: { persona: inference.primary, probabilities: inference.probabilities },
 			scenarioId,
 		});
@@ -88,8 +97,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			persona: inference.primary,
 			rankedProductIds: modelDecision.rankedProductIds,
 			presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY,
-			presentationDecision: modelDecision.presentationDecision,
-			zoneAdapter: modelDecision.adapter,
+			zoneArtifacts: modelDecision.zoneArtifacts,
 			modelCallCount: modelDecision.modelCallCount,
 			provider: MODEL_PROVIDER,
 			modelId: modelDecision.modelId,
@@ -97,22 +105,22 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		}, { headers: noStoreHeaders() });
 	} catch (error) {
 		console.error('[kibble-pdp-related-decision] operational failure:', error);
-		return json({ error: 'Failed to preview Kibble PDP related-products decision' }, { status: 500, headers: noStoreHeaders() });
+		return json({ error: 'Failed to preview Kibble PDP related-products decision', modelCallCount: attemptedModelCalls(error) }, { status: 500, headers: noStoreHeaders() });
 	}
 };
 
-function serverRelatedCandidates(detail: BCKibbleProductDetail, productEntityId: number): KibblePdpRelatedCandidate[] {
-	const relatedEdges = detail.relatedProducts?.edges;
-	if (!Number.isInteger(productEntityId) || productEntityId <= 0 || !Array.isArray(relatedEdges)) return [];
-	const candidates: KibblePdpRelatedCandidate[] = relatedEdges.map(({ node }: { node: BCProduct }): KibblePdpRelatedCandidate => {
+function serverRelatedCandidates(products: BCProduct[], productEntityId: number): KibblePdpRelatedCandidate[] {
+	if (!Number.isInteger(productEntityId) || productEntityId <= 0 || !Array.isArray(products)) return [];
+	const candidates: KibblePdpRelatedCandidate[] = products.map((node: BCProduct): KibblePdpRelatedCandidate => {
 		const entityId = node?.entityId;
 		const price = node?.prices?.price?.value;
+		const salePrice = node?.prices?.salePrice?.value ?? undefined;
 		const category = node?.categories?.edges?.[0]?.node?.name ?? '';
 		if (!Number.isInteger(entityId) || entityId <= 0 || entityId === productEntityId
 			|| typeof node?.name !== 'string' || node.name.length < 1 || node.name.length > 96
 			|| typeof price !== 'number' || !Number.isFinite(price) || price < 0
 			|| typeof category !== 'string' || category.length > 96) throw new Error('Kibble PDP related catalog data is invalid.');
-		return { entityId, name: node.name, category, price };
+		return { entityId, name: node.name, category, price, catalogSignals: getKibbleCatalogSignals(entityId, category, { price, salePrice }) };
 	});
 	if (candidates.length > 4 || new Set(candidates.map(({ entityId }) => entityId)).size !== candidates.length) {
 		throw new Error('Kibble PDP related catalog identities are invalid.');
@@ -140,5 +148,6 @@ function ineligible() { return json({ error: 'Kibble PDP related-products model 
 function invalidRequest() { return json({ error: 'Invalid Kibble decision request' }, { status: 400, headers: noStoreHeaders() }); }
 function sessionUnavailable() { return json({ error: 'Kibble preview session is unavailable' }, { status: 409, headers: noStoreHeaders() }); }
 function noStoreHeaders() { return { 'Cache-Control': 'no-store' }; }
+function attemptedModelCalls(error: unknown): number { return error instanceof BoundedModelActionError ? error.callCount : 0; }
 
 export const _test = { serverRelatedCandidates, parseModelRequest, PREVIEW_VERSION, descriptor: getKibbleObservePdpRelatedModelPolicyDescriptor };
