@@ -13,7 +13,21 @@ import { load as loadSubscriptions } from './subscriptions/+page.server';
 import { load as loadSubscriptionDetail } from './portal/subscriptions/[id]/+page.server';
 import { load as loadStoreLocator } from './store-locator/+page.server';
 
-const parent = async () => ({ brand: { name: 'Kibble & Co.' }, renderMode: 'reference-preserve' });
+const parent = async () => ({
+	brand: { name: 'Kibble & Co.' },
+	renderMode: 'reference-preserve',
+	kibbleCommerceServices: {
+		mode: 'sandbox',
+		cart: 'bigcommerce_sandbox',
+		checkout: 'bigcommerce_hosted_handoff',
+		orderCreation: 'not_exposed',
+		orderHistory: 'customer_session_required',
+		account: 'merchant_decision_required',
+		payment: 'provider_owned',
+		subscription: 'provider_not_connected',
+		subscriptionPortal: 'portal_session_required',
+	},
+});
 
 describe('Kibble trusted route authority', () => {
 	it('binds account identity and every canonical account subtype to the compiled account policy', async () => {
@@ -49,9 +63,9 @@ describe('Kibble trusted route authority', () => {
 	});
 
 	it('binds subscription entry and safe detail identifiers without reading subscriber data', async () => {
-		await expect(loadSubscriptions({ url: new URL('https://aisles.test/subscriptions') } as never))
+		await expect(loadSubscriptions({ url: new URL('https://aisles.test/subscriptions'), parent } as never))
 			.resolves.toMatchObject({ kibbleSubscriptions: { subtype: 'portal', brandName: 'Kibble & Co.', policyVersion: expect.any(String) } });
-		await expect(loadSubscriptionDetail({ params: { id: 'subscription-123' }, url: new URL('https://aisles.test/portal/subscriptions/subscription-123') } as never))
+		await expect(loadSubscriptionDetail({ params: { id: 'subscription-123' }, url: new URL('https://aisles.test/portal/subscriptions/subscription-123'), parent } as never))
 			.resolves.toMatchObject({ kibbleSubscriptions: { subtype: 'detail', brandName: 'Kibble & Co.', policyVersion: expect.any(String) } });
 		await expect(loadSubscriptionDetail({ params: { id: '../admin' }, url: new URL('https://aisles.test/portal/subscriptions/admin') } as never))
 			.rejects.toMatchObject({ status: 404 });
