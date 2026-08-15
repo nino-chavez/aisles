@@ -131,15 +131,28 @@ describe('rendered Kibble commerce controls', () => {
 			bundle: null, breadcrumbs: [], options: [], relatedProducts: [], relatedProductHrefs: {}, purchaseUnavailableLabel: 'Unavailable', purchaseUnavailableBody: 'Unavailable', relatedHeading: 'Related',
 			copy: { breadcrumbLabel: 'Breadcrumb', galleryLabel: 'gallery', galleryImagesLabel: 'images', viewImageLabel: 'View image', imageUnavailableLabel: 'No image', priceLabel: 'Price', skuLabel: 'SKU', inStockLabel: 'In stock', outOfStockLabel: 'Out', availabilityUnavailableLabel: 'Unknown', optionsLegend: 'Options', requiredSuffix: 'required', detailsHeading: 'Details', bundleEyebrow: 'Bundle', bundleProductSingular: 'product', bundleProductPlural: 'products', bundleContentsHeading: 'Includes' },
 			subscriptionPlansStatus: 'ready' as const,
-			subscriptionPlans: [{ id: 'plan-dog-food-1mo', productEntityId: 3023, name: 'Monthly Auto-Refill', interval: 'month' as const, intervalCount: 1, price: { value: 29.74, currencyCode: 'USD' }, salesMode: 'subscribe_and_one_time' as const, trialDays: 0, commitmentCycles: 0 }],
+			subscriptionPlans: [{ id: 'plan-dog-food-1mo', productEntityId: 3023, name: 'Monthly Auto-Refill', interval: 'month' as const, intervalCount: 1, price: { value: 29.74, currencyCode: 'USD' }, salesMode: 'subscribe_and_one_time' as const, trialDays: 0, commitmentCycles: 0, introDiscountPercent: 50, introDiscountCycles: 1 }],
 			commerceEnabled: true, onAddToCart: () => {}, onAddAutoRefill: () => {},
 		};
 		const anonymous = render(KibbleProductDetailReference, { props: { ...base, customerSessionState: 'anonymous' } as never }).body;
 		const authenticated = render(KibbleProductDetailReference, { props: { ...base, customerSessionState: 'authenticated' } as never }).body;
+		const subscribeOnly = render(KibbleProductDetailReference, {
+			props: {
+				...base,
+				customerSessionState: 'authenticated',
+				subscriptionPlans: base.subscriptionPlans.map((plan) => ({ ...plan, salesMode: 'subscribe_only' as const })),
+			} as never,
+		}).body;
 		expect(anonymous).toContain('data-kibble-subscription-state="live-plans"');
 		expect(anonymous).toContain('Every month — $29.74 recurring');
 		expect(anonymous).toContain('Sign in');
+		expect(anonymous).toContain('50% off your first delivery');
+		expect(anonymous).toContain('The provider applies the introductory discount');
+		expect(anonymous).toContain('Later deliveries are $29.74 every month');
+		expect(anonymous).toContain('Renewal cadence:');
 		expect(authenticated).not.toContain('before starting Auto-Refill');
+		expect(subscribeOnly).not.toContain('<strong>One-time purchase</strong>');
+		expect(subscribeOnly).toContain('Add Auto-Refill');
 
 		const browser = await chromium.launch({ headless: true });
 		try {
@@ -151,6 +164,22 @@ describe('rendered Kibble commerce controls', () => {
 		} finally {
 			await browser.close();
 		}
+	});
+
+	it('renders an explicit, server-owned Auto-Refill portal connection for an authenticated customer', () => {
+		const body = render(KibbleSubscriptionsReference, {
+			props: {
+				subtype: 'account',
+				brandName: 'Kibble & Co.',
+				availabilityMessage: 'Manage Auto-Refill.',
+				services: { ...services, account: 'bigcommerce_login_ready', subscription: 'authenticated_intent_ready' },
+				customerSessionState: 'authenticated',
+			},
+		}).body;
+		expect(body).toContain('data-kibble-portal-session-state="connection_required"');
+		expect(body).toContain('Connect Auto-Refill management');
+		expect(body).toContain('portal token stays in Aisles server storage');
+		expect(body).not.toMatch(/Bearer |session-token|provider-token/);
 	});
 
 	it('does not report an empty cart when the provider read was unavailable', () => {

@@ -83,7 +83,7 @@ export interface CommerceServiceBoundary {
 	account: 'merchant_decision_required' | 'private_token_required' | 'bigcommerce_login_ready';
 	payment: 'provider_owned';
 	subscription: 'provider_not_connected' | 'plan_lookup_ready' | 'authenticated_intent_ready';
-	subscriptionPortal: 'portal_session_required';
+	subscriptionPortal: 'provider_not_connected' | 'handoff_secret_required' | 'portal_session_required';
 }
 
 export interface CartPayload {

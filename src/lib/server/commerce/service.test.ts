@@ -89,6 +89,7 @@ describe('Kibble BigCommerce cart service integration', () => {
 				state.customerSession = {
 					provider: 'bigcommerce',
 					customerEntityId: 42,
+					customerEmail: 'shopper@example.test',
 					customerAccessToken: 'server-only-token',
 					expiresAt: '2099-01-01T00:00:00.000Z',
 				};

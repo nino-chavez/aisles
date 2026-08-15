@@ -28,6 +28,8 @@ export interface CommerceSessionState {
 	cartEntityId: string | null;
 	/** Server-only provider credential. The browser receives only sessionId. */
 	customerSession: CustomerSessionReference | null;
+	/** Server-only subscriber credential. It is always bound to the active BC customer. */
+	subscriptionPortalSession: SubscriptionPortalSessionReference | null;
 	/** Prevents checkout when a subscription-intent outcome cannot be reconciled. */
 	checkoutBlock: { reason: 'subscription_intent_unconfirmed'; setAt: string } | null;
 	updatedAt: string;
@@ -36,7 +38,17 @@ export interface CommerceSessionState {
 export interface CustomerSessionReference {
 	provider: 'bigcommerce';
 	customerEntityId: number;
+	/** Required only for the server-to-server subscription portal handoff. */
+	customerEmail: string;
 	customerAccessToken: string;
+	expiresAt: string;
+}
+
+export interface SubscriptionPortalSessionReference {
+	provider: 'bc-subscriptions';
+	bigCommerceCustomerEntityId: number;
+	providerCustomerId: string;
+	sessionToken: string;
 	expiresAt: string;
 }
 
@@ -100,6 +112,7 @@ function freshState(sessionId: string): CommerceSessionState {
 		...scope(),
 		cartEntityId: null,
 		customerSession: null,
+		subscriptionPortalSession: null,
 		checkoutBlock: null,
 		updatedAt: new Date().toISOString(),
 	};
@@ -118,6 +131,9 @@ function normalizeState(state: CommerceSessionState): CommerceSessionState {
 		customerSession: validCustomerSessionReference(state.customerSession)
 			? state.customerSession
 			: null,
+		subscriptionPortalSession: validSubscriptionPortalSessionReference(state.subscriptionPortalSession)
+			? state.subscriptionPortalSession
+			: null,
 		checkoutBlock: state.checkoutBlock?.reason === 'subscription_intent_unconfirmed' && Number.isFinite(Date.parse(state.checkoutBlock.setAt))
 			? state.checkoutBlock
 			: null,
@@ -130,8 +146,27 @@ function validCustomerSessionReference(value: unknown): value is CustomerSession
 	return session.provider === 'bigcommerce' &&
 		Number.isInteger(session.customerEntityId) &&
 		session.customerEntityId > 0 &&
+		typeof session.customerEmail === 'string' &&
+		session.customerEmail.length <= 254 &&
+		/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(session.customerEmail) &&
 		typeof session.customerAccessToken === 'string' &&
 		session.customerAccessToken.length > 0 &&
+		typeof session.expiresAt === 'string' &&
+		Number.isFinite(Date.parse(session.expiresAt));
+}
+
+function validSubscriptionPortalSessionReference(value: unknown): value is SubscriptionPortalSessionReference {
+	if (!value || typeof value !== 'object') return false;
+	const session = value as SubscriptionPortalSessionReference;
+	return session.provider === 'bc-subscriptions' &&
+		Number.isInteger(session.bigCommerceCustomerEntityId) &&
+		session.bigCommerceCustomerEntityId > 0 &&
+		typeof session.providerCustomerId === 'string' &&
+		session.providerCustomerId.length > 0 &&
+		session.providerCustomerId.length <= 128 &&
+		typeof session.sessionToken === 'string' &&
+		session.sessionToken.length >= 20 &&
+		session.sessionToken.length <= 8192 &&
 		typeof session.expiresAt === 'string' &&
 		Number.isFinite(Date.parse(session.expiresAt));
 }
@@ -150,8 +185,25 @@ export function clearExpiredCustomerSession(
 	state: CommerceSessionState,
 	now = Date.now(),
 ): CommerceSessionState {
-	if (state.customerSession && !activeCustomerSession(state, now)) state.customerSession = null;
+	if (state.customerSession && !activeCustomerSession(state, now)) {
+		state.customerSession = null;
+		state.subscriptionPortalSession = null;
+	}
 	return state;
+}
+
+export function activeSubscriptionPortalSession(
+	state: CommerceSessionState,
+	now = Date.now(),
+): SubscriptionPortalSessionReference | null {
+	const portal = state.subscriptionPortalSession;
+	const customer = activeCustomerSession(state, now);
+	return customer &&
+		validSubscriptionPortalSessionReference(portal) &&
+		portal.bigCommerceCustomerEntityId === customer.customerEntityId &&
+		Date.parse(portal.expiresAt) > now
+		? portal
+		: null;
 }
 
 function requireStore(redisClient: import('@upstash/redis').Redis | null): 'redis' | 'memory' {

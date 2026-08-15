@@ -10,6 +10,7 @@ const privateEnv = vi.hoisted(() => ({
 	KIBBLE_CUSTOMER_IDENTITY_MODE: '',
 	BIGCOMMERCE_PRIVATE_TOKEN: '',
 	KIBBLE_SUBSCRIPTION_MODE: '',
+	SSO_HANDOFF_SECRET: '',
 }));
 
 vi.mock('$app/environment', () => ({ dev: false }));
@@ -31,6 +32,7 @@ describe('Kibble commerce provider boundary', () => {
 		privateEnv.KIBBLE_CUSTOMER_IDENTITY_MODE = '';
 		privateEnv.BIGCOMMERCE_PRIVATE_TOKEN = '';
 		privateEnv.KIBBLE_SUBSCRIPTION_MODE = '';
+		privateEnv.SSO_HANDOFF_SECRET = '';
 	});
 
 	it('keeps identity fail-closed until both the merchant mode and private token are present', () => {
@@ -60,7 +62,7 @@ describe('Kibble commerce provider boundary', () => {
 			account: 'merchant_decision_required',
 			payment: 'provider_owned',
 			subscription: 'provider_not_connected',
-			subscriptionPortal: 'portal_session_required',
+			subscriptionPortal: 'provider_not_connected',
 		});
 	});
 
@@ -78,7 +80,7 @@ describe('Kibble commerce provider boundary', () => {
 			account: 'merchant_decision_required',
 			payment: 'provider_owned',
 			subscription: 'provider_not_connected',
-			subscriptionPortal: 'portal_session_required',
+			subscriptionPortal: 'provider_not_connected',
 		});
 	});
 
@@ -89,6 +91,9 @@ describe('Kibble commerce provider boundary', () => {
 		privateEnv.KV_REST_API_TOKEN = 'configured';
 		privateEnv.KIBBLE_SUBSCRIPTION_MODE = 'sandbox';
 		expect(getCommerceServiceBoundary().subscription).toBe('plan_lookup_ready');
+		expect(getCommerceServiceBoundary().subscriptionPortal).toBe('handoff_secret_required');
+		privateEnv.SSO_HANDOFF_SECRET = 'configured';
+		expect(getCommerceServiceBoundary().subscriptionPortal).toBe('portal_session_required');
 		privateEnv.KIBBLE_CUSTOMER_IDENTITY_MODE = 'bigcommerce';
 		privateEnv.BIGCOMMERCE_PRIVATE_TOKEN = 'configured';
 		expect(getCommerceServiceBoundary().subscription).toBe('authenticated_intent_ready');

@@ -79,14 +79,16 @@
 		(typeof onAddToCart === 'function')
 	);
 	const selectedPlan = $derived(subscriptionPlans.find(({ id }) => id === selectedPlanId) ?? subscriptionPlans[0] ?? null);
+	const oneTimeAllowed = $derived(subscriptionPlans.some(({ salesMode }) => salesMode === 'subscribe_and_one_time'));
+	const effectivePurchaseMode = $derived(subscriptionPlans.length > 0 && !oneTimeAllowed ? 'auto_refill' : purchaseMode);
 	const autoRefillActionReady = $derived(
 		commerceReady &&
-		purchaseMode === 'auto_refill' &&
+		effectivePurchaseMode === 'auto_refill' &&
 		customerSessionState === 'authenticated' &&
 		selectedPlan !== null &&
 		typeof onAddAutoRefill === 'function'
 	);
-	const purchaseActionReady = $derived(purchaseMode === 'one_time' ? commerceReady : autoRefillActionReady);
+	const purchaseActionReady = $derived(effectivePurchaseMode === 'one_time' ? commerceReady : autoRefillActionReady);
 
 	function money(value: number): string {
 		return new Intl.NumberFormat('en-US', { style: 'currency', currency: product.currencyCode || 'USD' }).format(value);
@@ -102,7 +104,7 @@
 	});
 
 	function runPurchaseAction() {
-		if (purchaseMode === 'auto_refill' && selectedPlan && onAddAutoRefill) onAddAutoRefill(selectedPlan.id);
+		if (effectivePurchaseMode === 'auto_refill' && selectedPlan && onAddAutoRefill) onAddAutoRefill(selectedPlan.id);
 		else onAddToCart?.();
 	}
 </script>
@@ -150,17 +152,26 @@
 						</div>
 						<fieldset class="kc-reference-pdp__purchase-modes">
 							<legend>Purchase option</legend>
-							<label><input type="radio" name="purchase-mode" value="one_time" bind:group={purchaseMode} /> <span><strong>One-time purchase</strong><small>{money(salePrice ?? product.price)}</small></span></label>
-							<label><input type="radio" name="purchase-mode" value="auto_refill" bind:group={purchaseMode} /> <span><strong>Auto-Refill</strong><small>{selectedPlan ? `${money(selectedPlan.price.value)} recurring` : ''}</small></span></label>
+							{#if oneTimeAllowed}<label><input type="radio" name="purchase-mode" value="one_time" checked={effectivePurchaseMode === 'one_time'} onchange={() => purchaseMode = 'one_time'} /> <span><strong>One-time purchase</strong><small>{money(salePrice ?? product.price)}</small></span></label>{/if}
+							<label><input type="radio" name="purchase-mode" value="auto_refill" checked={effectivePurchaseMode === 'auto_refill'} onchange={() => purchaseMode = 'auto_refill'} /> <span><strong>Auto-Refill</strong><small>{selectedPlan ? `${money(selectedPlan.price.value)} recurring` : ''}</small></span></label>
 						</fieldset>
 						<label class="kc-reference-pdp__cadence" for="kibble-pdp-cadence">Delivery cadence
-							<select id="kibble-pdp-cadence" bind:value={selectedPlanId} disabled={purchaseMode !== 'auto_refill'}>
+							<select id="kibble-pdp-cadence" bind:value={selectedPlanId} disabled={effectivePurchaseMode !== 'auto_refill'}>
 								{#each subscriptionPlans as plan (plan.id)}<option value={plan.id}>{cadenceLabel(plan)} — {money(plan.price.value)} recurring</option>{/each}
 							</select>
 						</label>
+						{#if selectedPlan}
+							<div class="kc-reference-pdp__subscription-terms" aria-live="polite">
+								{#if selectedPlan.introDiscountPercent > 0}
+									<p class="kc-reference-pdp__intro-offer" data-component="intro-offer"><strong>{selectedPlan.introDiscountPercent}% off {selectedPlan.introDiscountCycles === 1 ? 'your first delivery' : `your first ${selectedPlan.introDiscountCycles} deliveries`}</strong><span>The provider applies the introductory discount. Later deliveries are {money(selectedPlan.price.value)} {cadenceLabel(selectedPlan).toLowerCase()}.</span></p>
+								{/if}
+								{#if selectedPlan.trialDays > 0}<p><strong>{selectedPlan.trialDays}-day free trial.</strong> The provider schedules the first charge after the trial when an order creates the subscription.</p>{:else}<p><strong>Renewal cadence:</strong> {cadenceLabel(selectedPlan)} after the provider creates the subscription.</p>{/if}
+								{#if selectedPlan.commitmentCycles > 0}<p><strong>Minimum commitment:</strong> {selectedPlan.commitmentCycles} billing cycles.</p>{/if}
+							</div>
+						{/if}
 						{#if customerSessionState !== 'authenticated'}
 							<p class="kc-reference-pdp__subscription-gate"><a class="kc-reference-focus" href="/account/login">Sign in</a>
-								before starting Auto-Refill. One-time checkout stays available without an account.</p>
+								before starting Auto-Refill.{oneTimeAllowed ? ' One-time checkout stays available without an account.' : ''}</p>
 						{/if}
 						<small>The subscription service owns plan eligibility, cadence, recurring price, and schedule creation. Aisles only confirms the selected cart intent; it does not create a subscription.</small>
 					</section>
@@ -205,12 +216,12 @@
 
 				{#if commerceReady}
 					<div class="kc-reference-pdp__purchase" aria-live="polite">
-						{#if purchaseMode === 'one_time'}
+						{#if effectivePurchaseMode === 'one_time'}
 							<button type="button" class="kc-reference-button kc-reference-button--primary kc-reference-focus" onclick={onAddToCart} disabled={isAddingToCart || !purchaseActionReady}>{isAddingToCart ? 'Adding…' : `Add to cart — ${money(salePrice ?? product.price)}`}</button>
 						{:else}
 							<button type="button" class="kc-reference-button kc-reference-button--primary kc-reference-focus" onclick={runPurchaseAction} disabled={isAddingToCart || !purchaseActionReady}>{isAddingToCart ? 'Adding…' : selectedPlan ? 'Add Auto-Refill' : 'Auto-Refill unavailable'}</button>
 						{/if}
-						<small>{purchaseMode === 'auto_refill' ? 'The provider must confirm the recurring plan on the cart. BigCommerce hosted checkout owns the current order total.' : 'One-time purchase. BigCommerce owns the cart and price.'}</small>
+						<small>{effectivePurchaseMode === 'auto_refill' ? 'The provider must confirm the recurring plan on the cart. BigCommerce hosted checkout owns the current order total.' : 'One-time purchase. BigCommerce owns the cart and price.'}</small>
 						{#if cartMessage}<p>{cartMessage}</p>{/if}
 					</div>
 				{:else}
@@ -234,3 +245,10 @@
 		<div id="kibble-pdp-related" tabindex="-1" class="kc-reference-pdp__related" data-kibble-zone-instance={zoneAdapter.instanceId} data-kibble-zone-status={zoneAdapter.sharedStatus} data-kibble-zone-content-kind={zoneAdapter.sharedContentKind} data-kibble-zone-adapter={zoneAdapter.adapterId} data-kibble-zone-variant={'selection' in zoneAdapter ? zoneAdapter.selection.copyVariantId : zoneAdapter.componentVariantId} data-kibble-zone-input-sha256={zoneAdapter.inputSha256} data-aisles-zone-instance={zoneAdapter.instanceId} data-aisles-zone-label="Related products" data-aisles-authority={zoneAdapter.decisionMode ?? 'fixed'} data-aisles-model-calls={zoneAdapter.modelCallCount ?? 0} data-aisles-model-eligible={relatedModelDecision?.zoneId === 'pdp.related' ? 'true' : undefined} data-aisles-pdp-model-eligible={relatedModelDecision?.zoneId === 'pdp.related' ? 'true' : undefined} data-aisles-candidate-source={relatedCandidateSource ?? undefined} data-aisles-relation-kind={relatedRelationKind ?? undefined}><div class="kc-reference-container"><h2 class="kc-reference-display">{zoneAdapter.content.props.title || relatedHeading}</h2><div class="kc-reference-product-grid">{#each zoneAdapter.content.props.products as productRef (productRef.productId)}{@const related = relatedByEntityId.get(productRef.productId)}{#if related}<KibbleProductCard product={related} productHref={relatedProductHrefs[related.id]} />{/if}{/each}</div></div></div>
 	{/if}
 </article>
+
+<style>
+	.kc-reference-pdp__subscription-terms { display:grid; gap:.45rem; border-top:1px solid var(--kc-border); padding-top:.8rem; }
+	.kc-reference-pdp__subscription-terms p { margin:0; color:var(--kc-muted-text); line-height:1.45; }
+	.kc-reference-pdp__intro-offer { display:grid; gap:.15rem; border-left:3px solid var(--kc-action); background:var(--kc-panel); padding:.7rem .8rem; }
+	.kc-reference-pdp__intro-offer strong { color:var(--kc-identity); }
+</style>

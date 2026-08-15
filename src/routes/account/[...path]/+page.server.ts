@@ -41,8 +41,8 @@ function availabilityMessage(
 	if (subtype === 'addresses') return 'Addresses require a signed-in customer session and provider ownership checks. No address request was started.';
 	if (subtype === 'payment-methods') return 'Saved payment methods remain provider-owned and require a signed-in customer session. No payment instrument or credential request was started.';
 	if (subtype === 'subscriptions') return signedIn
-		? 'Auto-Refill plans can be selected on eligible products. Subscription management still requires a provider portal session; no subscriber-data request was started here.'
-		: 'Auto-Refill plan lookup is separate from account access. Sign in and a provider portal session are required before subscription data can be read.';
+		? 'Connect the signed-in BigCommerce customer to the subscription provider, then read and manage only that customer’s Auto-Refill schedules.'
+		: 'Auto-Refill plan lookup is public, but subscriber data requires a signed-in BigCommerce customer and a server-held provider portal session.';
 	if (subtype === 'register') return 'Account registration remains disabled until the merchant approves registration and password policy. No account was created.';
 	if (subtype === 'logout') return signedIn
 		? 'Sign out asks BigCommerce to invalidate the customer token before Aisles clears its server session.'

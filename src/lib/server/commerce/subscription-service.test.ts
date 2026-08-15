@@ -33,6 +33,8 @@ const plan: SubscriptionPlan = {
 	salesMode: 'subscribe_and_one_time',
 	trialDays: 0,
 	commitmentCycles: 0,
+	introDiscountPercent: 0,
+	introDiscountCycles: 0,
 };
 
 function cart(version: number): CartResponse {
@@ -59,7 +61,7 @@ async function authenticatedSession(sessionId: string, cartEntityId: string | nu
 		execute: async (state) => {
 			state.cartEntityId = cartEntityId;
 			state.customerSession = {
-				provider: 'bigcommerce', customerEntityId: 42, customerAccessToken: 'server-only', expiresAt: '2099-01-01T00:00:00.000Z',
+				provider: 'bigcommerce', customerEntityId: 42, customerEmail: 'shopper@example.test', customerAccessToken: 'server-only', expiresAt: '2099-01-01T00:00:00.000Z',
 			};
 			return { state, value: true };
 		},

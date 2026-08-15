@@ -97,6 +97,7 @@ describe('Kibble server-owned customer session service', () => {
 			customerSession: {
 				provider: 'bigcommerce',
 				customerEntityId: 42,
+				customerEmail: 'shopper@example.test',
 				customerAccessToken: 'server-only-customer-token',
 				expiresAt: future,
 			},
@@ -166,6 +167,7 @@ describe('Kibble server-owned customer session service', () => {
 				state.customerSession = {
 					provider: 'bigcommerce',
 					customerEntityId: 42,
+					customerEmail: 'shopper@example.test',
 					customerAccessToken: 'expired-token',
 					expiresAt: '2020-01-01T00:00:00.000Z',
 				};
