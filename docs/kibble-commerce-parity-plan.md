@@ -1,15 +1,15 @@
 # Kibble commerce parity plan
 
-**Status:** Phase 1 sandbox cart implemented on
-`codex/kibble-real-commerce-operations`; not deployed; not authorization to
-charge, create accounts, create orders, create subscriptions, or change
-production
+**Status:** Phase 1 sandbox cart and hosted-checkout handoff are deployed.
+Account, order-history, payment, and Auto-Refill routes expose fixed provider
+gates only. This is not authorization to create accounts, submit orders,
+charge payment instruments, or create subscriptions.
 
 **Audience:** the engineer implementing Kibble commerce and the human who owns
 the BigCommerce store, payment provider, subscription provider, and release
 decision
 
-**Source snapshot:** Aisles `origin/main` at `97134b599da7f2b0794bb61267c430ed4a65aba7`;
+**Source snapshot:** Aisles `origin/main` at `a0e03be5c31bf8ce7ba6dd90ec5ee9fb990dd656`;
 the Bealls-family checkout scaffold at `bealls-aisles` `0edd3ea79235953c834b00d96e6ae6b4fddf2833`;
 the internal commerce reference at `bc-subscriptions` `ef122b8e17b9eb0b327c9d42491c44a61577ead4`;
 read-only public reference checks on 2026-08-13
@@ -45,13 +45,12 @@ subscription engine. The reference implementation already solves the hard
 provider seams, and BigCommerce explicitly separates payment processing from
 the GraphQL Storefront API.
 
-## What this branch implements
+## What is implemented
 
-This branch implements the one-time sandbox cart slice. Every committed
-Cloudflare environment stays off in `wrangler.toml` because the durable Redis
-gate did not pass. Local verification selects sandbox mode explicitly.
-Preview or production activation requires a working Redis round trip and a
-separate release approval.
+The deployed production configuration enables the one-time sandbox cart slice.
+Upstash now owns durable session, lock, rate-limit, and idempotency records.
+Cloudflare still fails closed when either the BigCommerce or Redis connection is
+missing.
 
 ```text
 Browser
@@ -106,7 +105,7 @@ Verified 2026-08-14 against BigCommerce’s current
 [GraphQL cart and checkout guide](https://docs.bigcommerce.com/developer/docs/admin/checkout-and-cart/custom-checkouts/graphql-storefront)
 and [checkout redirect example](https://docs.bigcommerce.com/developer/learn/courses/graphql-storefront-api/checkout/lab-query-practice).
 
-### Sandbox verification on 2026-08-14
+### Deployed sandbox verification on 2026-08-15
 
 The real Kibble sandbox confirmed create/add, read after navigation, quantity
 update, line removal, full-cart deletion, header count, and hosted-checkout
@@ -119,11 +118,14 @@ shopper action. The hosted handoff resolved to the configured
 HTTPS Kibble checkout host; the proof did not follow the URL or submit checkout.
 The final proof operation deleted the sandbox cart.
 
-The current Upstash credential did not pass a live ping. Production therefore
-remains off and the durable-session release gate remains closed. Rendered local
-proof used the development-only in-memory session adapter with the real
-BigCommerce sandbox. A working Redis round trip is required before any deployed
-sandbox or production enablement.
+Upstash returned `PONG` before release. The deployed smoke test then confirmed
+reload persistence, terminal idempotency replay, one-success/one-blocked
+concurrency, empty-and-recreate recovery, rendered cart controls, and one
+HTTPS hosted-checkout handoff that was not opened. The final operation deleted
+the test cart. PRs [#26](https://github.com/nino-chavez/aisles/pull/26) and
+[#27](https://github.com/nino-chavez/aisles/pull/27) are merged. Cloudflare
+deployment `3d906469-696d-49c8-95fb-a5a11b90fb16` serves merge commit
+`a0e03be5c31bf8ce7ba6dd90ec5ee9fb990dd656`.
 
 ## What existed before this branch
 
@@ -402,17 +404,17 @@ official source. It does not mean the Kibble implementation is complete.
 
 | Surface | Reference behavior | Current Aisles state | Target implementation and proof |
 |---|---|---|---|
-| Cart | Anonymous cart can be empty; authenticated and guest carts are read through the same server cart adapter; line quantity/removal and totals are visible. | Phase 1 implements anonymous sandbox read/add/update/remove/empty, provider totals, cart versioning, persistence, and failure recovery. Deployed mode remains off because durable Redis did not pass. | Pass the Redis and release gates. Add customer context and guest-cart merge only with account authorization. |
+| Cart | Anonymous cart can be empty; authenticated and guest carts are read through the same server cart adapter; line quantity/removal and totals are visible. | Deployed sandbox read/add/update/remove/empty, provider totals, cart versioning, durable persistence, and controlled recovery are verified. | Add customer context and guest-cart merge only with account authorization. |
 | PDP purchase | Reference product flow supports one-time purchase and Auto-Refill intent with a cadence and saved plan mapping. | An in-stock optionless product can use the real one-time sandbox cart. Options remain disabled, and Auto-Refill remains display-only. | Resolve merchant-approved variants/options server-side. Add Auto-Refill only after plan lookup and intent confirmation. |
-| Checkout | Ordinary cart checkout is BigCommerce hosted. Gift and prepaid are separate subscription-service flows with sign-in and stored payment method behavior. | The cart mints `createCartRedirectUrls` only on handoff. The sandbox proof did not follow or submit checkout. Bare `/checkout` remains 404; gift/prepaid remain disabled shells. | Verify the hosted flow after deployed sandbox approval. Keep gift/prepaid separate and provider-backed; do not submit an order or payment without explicit authorization. |
-| Account and identity | Password login and magic-link sign-in are both represented. Login can merge a guest cart. Private account routes gate on customer session. | Account routes render disabled forms and do no customer request. `aisles_session` is only a signal session. | Add server form actions for login/register/logout. Use `guestCartEntityId` on login, replace cart cookie with the returned cart, and gate private loads. Use an opaque httpOnly session; do not put provider tokens in page data. |
-| Orders | Authenticated account shows BigCommerce customer order summaries. | Bealls dashboard has mock orders; Kibble has no order data. | Query `customer.orders` server-side with customer access token. Label the order surface empty, unavailable, or live from provider state. Test customer ownership and no cross-account leakage. |
+| Checkout | Ordinary cart checkout is BigCommerce hosted. Gift and prepaid are separate subscription-service flows with sign-in and stored payment method behavior. | The deployed cart mints `createCartRedirectUrls` only on handoff. The proof did not follow or submit checkout. Bare `/checkout` remains 404; gift/prepaid name their identity, plan, and payment-adapter gates. | Keep gift/prepaid separate and provider-backed; do not submit an order or payment without explicit authorization. |
+| Account and identity | Password login and magic-link sign-in are both represented. Login can merge a guest cart. Private account routes gate on customer session. | Account routes state `merchant_decision_required`, render disabled forms, and make no customer request. `aisles_session` remains a signal session, not identity. | Choose BigCommerce-native or subscription-service identity ownership. Then add server form actions and an opaque httpOnly customer session; never put provider tokens in page data. |
+| Orders | Authenticated account shows BigCommerce customer order summaries. | Kibble exposes no order-creation endpoint or mock order rows. Order history states `customer_session_required`. | Query `customer.orders` server-side with customer access token. Label the result empty, unavailable, or live from provider state. Test customer ownership and no cross-account leakage. |
 | Auto-Refill plan selection | Product can expose one-time versus subscription mode, cadence, subscribe price, savings, and next-charge preview. | Kibble card “Auto-Refill” data is presentational only; no plan request or cart intent. | `GET /api/subscriptions/plans?bc_product_id=` through Aisles to the subscription service. Resolve plan server-side. Store intent through `/api/v1/storefront/cart/:cartId/intents`; expose confirmed/failed state. Never use line custom fields. |
 | Subscription creation | Subscription is materialized after the relevant order flow and reconciled by signed webhooks. | No provider integration or subscriber state exists. | Subscription service owns materialization, cycle ledger, provider charge, dunning, and webhook retry. Aisles displays only service responses. Test duplicate delivery and timeout-before-response. |
-| Subscription portal | List, detail, skip, swap, pause, resume, cancel, cadence, quantity, addresses, payment method, upcoming charges, and preferences are represented in the reference portal. | Kibble portal detail is an unavailable shell; account subscriptions is unavailable. | Proxy the existing subscription service API with a same-origin route or service binding. Require portal session and customer ownership on every action. Test every action against provider mocks before sandbox. |
+| Subscription portal | List, detail, skip, swap, pause, resume, cancel, cadence, quantity, addresses, payment method, upcoming charges, and preferences are represented in the reference portal. | Kibble states `provider_not_connected` and `portal_session_required`; no identifier triggers a provider read. | Proxy the existing subscription service API with a same-origin route or service binding. Require portal session and customer ownership on every action. Test every action against provider mocks before sandbox. |
 | Gift / prepaid | Gift validates plan, cycles, recipient, and stored instrument. Prepaid charges upfront and creates an active subscription with a prepaid extension. | Disabled inputs and no plan or total. | Reuse reference checkout contracts. BC Payments uses order-first; Stripe uses charge-first. Idempotency keys are deterministic and scoped to customer/plan/cycles/payment instrument/recipient. |
-| Taxes | Checkout provider computes taxes in the checkout context. | No Kibble cart or tax read. | Aisles displays only BigCommerce checkout/cart values. Tax jurisdiction and exemption decisions remain merchant/provider decisions. |
-| Shipping | BigCommerce checkout calculates available methods and shipping cost. | No Kibble shipping path. | Use BigCommerce checkout shipping APIs only if building an embedded checkout is approved; otherwise hosted checkout owns it. Never show “free shipping” unless the merchant config and provider response support it. |
+| Taxes | Checkout provider computes taxes in the checkout context. | Provider cart totals are live; Aisles does not calculate or present a separate tax estimate before hosted checkout. | Aisles displays only BigCommerce checkout/cart values. Tax jurisdiction and exemption decisions remain merchant/provider decisions. |
+| Shipping | BigCommerce checkout calculates available methods and shipping cost. | Hosted checkout owns shipping; Aisles does not expose a shipping-method API. | Use BigCommerce checkout shipping APIs only if building an embedded checkout is approved; otherwise hosted checkout owns it. Never show “free shipping” unless the merchant config and provider response support it. |
 | Promotions | Reference checkout/provider owns discount and subscription pricing; plan discount is merchant-declared. | Generic local/Voucherify evaluator produces UI incentives but Kibble cart is disabled. | Choose one real promotion authority. For the first slice, omit promotion mutation or pass code to BigCommerce and display its result. Do not connect the local evaluator to order totals without a contract. |
 | Payments and PCI | Reference adapters distinguish BC Payments order-first from Stripe charge-first; hosted checkout keeps card entry outside the storefront server. | No Kibble payment path. Generic checkout does not prove a PCI-safe implementation. | First slice uses hosted checkout only. Later stored instruments remain in the provider/service boundary. Aisles handles tokens/last4 only where the provider contract requires it. |
 | Sessions and identity | Reference passes customer token server-to-server, uses a session cookie, and passes guest cart ID during login. | Aisles has signal session and cart cookie only; generic cart does not accept customer token. | Keep `aisles_session`, `bc_cart_id`, and `commerce_session` separate. Bind the cart to the provider customer context and rotate/clear on logout. |
@@ -514,6 +516,14 @@ proxy the existing service API through a Cloudflare service binding in deployed
 environments and a server-side HTTPS origin in local development. The browser
 uses same-origin Aisles routes and never receives the service binding or its
 credentials.
+
+BigCommerce customer access tokens are server-to-server state and can scope
+customer and order queries. See [GraphQL Storefront authentication](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/authentication),
+[customer registration](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/customers),
+and [customer orders](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/orders).
+BigCommerce's REST "Storefront Subscriptions" resource manages newsletter and
+marketing email subscriptions; it is not the recurring Auto-Refill provider.
+See [Storefront Subscriptions](https://docs.bigcommerce.com/developer/api-reference/rest/storefront/subscriptions).
 
 ### Safe response rules
 
@@ -780,13 +790,13 @@ Dependencies:
 - inventory secret names only; do not expose or copy values.
 
 Exit gate: a named human owner signs off the provider map and confirms that all
-tests can stay in sandbox or mock mode. If any provider answer is unknown, keep
-Kibble commerce disabled.
+tests can stay in sandbox or mock mode. Unknown account or subscription answers
+keep those capabilities disabled without disabling the verified one-time cart.
 
 ### Phase 1 — one-time cart to hosted checkout (first implementable slice)
 
-Branch status: implemented for sandbox, with the option/variant limitation and
-provider gates named below. Production remains off.
+Release status: deployed in sandbox mode, with the option/variant limitation
+and remaining provider gates named below.
 
 Implementation order:
 
@@ -824,9 +834,9 @@ Acceptance tests:
   responses, concurrency, replay, invalid optioned products, stale references,
   session lifecycle, and delayed-read recovery.
 
-Release gate: local tests and staging provider reads pass; a human reviews the
-rendered Kibble cart and handoff; no paid or production mutation is part of this
-phase’s automated suite.
+Release receipt: local tests, deployed provider reads, rendered cart controls,
+durable session behavior, and hosted handoff passed. No order, payment,
+customer-account, or subscription mutation was part of the proof.
 
 ### Phase 2 — customer account and cart merge
 
@@ -944,9 +954,10 @@ support needs it.
 | Production canary | One approved test account and test product, live result independently verified in BigCommerce and subscription service; no claim based only on Aisles logs. | Named operator |
 | Closeout | Functional parity matrix, visual route/viewport approval, security/PII review, reconciliation dashboard, and release receipt. | Human release owner |
 
-This branch was implemented without creating an account, order, subscription,
-charge, or payment instrument, and without changing production. Sandbox cart
-mutations are verified separately from this document.
+The deployed slice was verified without creating an account, order,
+subscription, charge, or payment instrument. Sandbox cart mutations and the
+unused hosted-checkout handoff are recorded separately from those unopened
+provider boundaries.
 
 ## Effort drivers and explicit decisions
 

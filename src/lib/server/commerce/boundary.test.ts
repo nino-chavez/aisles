@@ -37,6 +37,12 @@ describe('Kibble commerce provider boundary', () => {
 			mode: 'off',
 			cart: 'not_connected',
 			checkout: 'not_connected',
+			orderCreation: 'not_exposed',
+			orderHistory: 'customer_session_required',
+			account: 'merchant_decision_required',
+			payment: 'provider_owned',
+			subscription: 'provider_not_connected',
+			subscriptionPortal: 'portal_session_required',
 		});
 	});
 
@@ -49,6 +55,12 @@ describe('Kibble commerce provider boundary', () => {
 			mode: 'sandbox',
 			cart: 'bigcommerce_sandbox',
 			checkout: 'bigcommerce_hosted_handoff',
+			orderCreation: 'not_exposed',
+			orderHistory: 'customer_session_required',
+			account: 'merchant_decision_required',
+			payment: 'provider_owned',
+			subscription: 'provider_not_connected',
+			subscriptionPortal: 'portal_session_required',
 		});
 	});
 });

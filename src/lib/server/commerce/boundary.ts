@@ -18,10 +18,17 @@ export function getCommerceServiceBoundary(): CommerceServiceBoundary {
 		mode: enabled ? 'sandbox' : 'off',
 		cart: enabled ? 'bigcommerce_sandbox' : 'not_connected',
 		checkout: enabled ? 'bigcommerce_hosted_handoff' : 'not_connected',
+		// A customer access token is server-to-server state and must not be sent to browser code.
+		// Verified 2026-08-15 against:
+		// https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/authentication
+		// Order history also requires a signed-in customer context:
+		// https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/orders
 		orderCreation: 'not_exposed',
-		account: 'not_configured',
+		orderHistory: 'customer_session_required',
+		account: 'merchant_decision_required',
 		payment: 'provider_owned',
-		subscription: 'not_configured',
+		subscription: 'provider_not_connected',
+		subscriptionPortal: 'portal_session_required',
 	};
 }
 

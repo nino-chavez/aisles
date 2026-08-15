@@ -7,7 +7,7 @@
 		availabilityMessage, policyVersion, zoneAdapter, cartModelDecision = null, presentationModelCallCount = 0,
 		cart: initialCart = null,
 		cartStatus: initialCartStatus = 'unavailable',
-		services = { mode: 'off', cart: 'not_connected', checkout: 'not_connected', orderCreation: 'not_exposed', account: 'not_configured', payment: 'provider_owned', subscription: 'not_configured' },
+		services = { mode: 'off', cart: 'not_connected', checkout: 'not_connected', orderCreation: 'not_exposed', orderHistory: 'customer_session_required', account: 'merchant_decision_required', payment: 'provider_owned', subscription: 'provider_not_connected', subscriptionPortal: 'portal_session_required' },
 	}: {
 		availabilityMessage: string; policyVersion?: string; zoneAdapter?: KibbleZoneAdapterBinding<any> | null;
 		cartModelDecision?: { zoneId: 'cart.empty-state'; routePath: '/cart'; policyVersion: string } | null;

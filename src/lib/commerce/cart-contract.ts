@@ -69,9 +69,11 @@ export interface CommerceServiceBoundary {
 	cart: 'not_connected' | 'bigcommerce_sandbox';
 	checkout: 'not_connected' | 'bigcommerce_hosted_handoff';
 	orderCreation: 'not_exposed';
-	account: 'not_configured';
+	orderHistory: 'customer_session_required';
+	account: 'merchant_decision_required';
 	payment: 'provider_owned';
-	subscription: 'not_configured';
+	subscription: 'provider_not_connected';
+	subscriptionPortal: 'portal_session_required';
 }
 
 export interface CartPayload {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './kibble-reference.css';
+	import type { CommerceServiceBoundary } from '$lib/commerce/cart-contract';
 
 	type AccountSubtype = 'login' | 'register' | 'orders' | 'addresses' | 'payment-methods' | 'subscriptions' | 'logout' | 'unknown';
 
@@ -9,12 +10,14 @@
 		availabilityMessage,
 		policyVersion,
 		pageHeadingLevel = 'h1',
+		services = { mode: 'off', cart: 'not_connected', checkout: 'not_connected', orderCreation: 'not_exposed', orderHistory: 'customer_session_required', account: 'merchant_decision_required', payment: 'provider_owned', subscription: 'provider_not_connected', subscriptionPortal: 'portal_session_required' },
 	}: {
 		subtype: AccountSubtype;
 		brandName: string;
 		availabilityMessage: string;
 		policyVersion?: string;
 		pageHeadingLevel?: 'h1' | 'h2';
+		services?: CommerceServiceBoundary;
 	} = $props();
 
 	const sections = [
@@ -58,9 +61,19 @@
 				</ul>
 			</nav>
 
-			<div class="kc-reference-account-page__content" data-kibble-backend-state="unavailable">
+			<div class="kc-reference-account-page__content" data-kibble-backend-state={services.account} data-kibble-order-history-state={services.orderHistory}>
 				{#if pageHeadingLevel === 'h1'}<h2>{routeHeading}</h2>{:else}<h3>{routeHeading}</h3>{/if}
 				<p class="kc-reference-route__supporting">{availabilityMessage}</p>
+
+				<section class="kc-account-boundary" aria-label="Commerce connection status">
+					<p class="kc-reference-eyebrow">Connection status</p>
+					<dl>
+						<div><dt>Guest cart</dt><dd>{services.cart === 'bigcommerce_sandbox' ? 'Live in the BigCommerce sandbox. It remains anonymous because customer identity is not connected.' : 'Not connected.'}</dd></div>
+						<div><dt>Customer identity</dt><dd>Merchant decision required: choose BigCommerce-native or subscription-service identity, then add an opaque server-owned customer session.</dd></div>
+						<div><dt>Order history</dt><dd>Blocked until a signed-in customer session can authorize the provider query. No mock orders are shown.</dd></div>
+						<div><dt>Payments</dt><dd>Provider-owned. Aisles does not accept payment credentials on account routes.</dd></div>
+					</dl>
+				</section>
 
 				{#if rendersIdentityEntry}
 					<div class="kc-reference-account-page__modes" aria-label="Sign-in methods">
@@ -93,3 +106,12 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.kc-account-boundary { margin:1.1rem 0; border:1px solid var(--kc-border); background:var(--kc-panel); padding:1rem; }
+	.kc-account-boundary > p { margin:0 0 .7rem; }
+	.kc-account-boundary dl { display:grid; gap:.65rem; margin:0; }
+	.kc-account-boundary dl > div { border-top:1px solid var(--kc-border); padding-top:.65rem; }
+	.kc-account-boundary dt { color:var(--kc-identity); font-size:.75rem; font-weight:900; letter-spacing:.06em; text-transform:uppercase; }
+	.kc-account-boundary dd { margin:.2rem 0 0; color:var(--kc-muted-text); line-height:1.5; }
+</style>
