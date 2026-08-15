@@ -26,7 +26,7 @@ export type MerchantRenderMode =
 	| 'reference-review'
 	| 'reference-unavailable'
 	| 'legacy-generated';
-export type KibbleFeaturedSource = 'featured' | 'newest' | 'deterministic-catalog';
+export type KibbleFeaturedSource = 'featured' | 'category-breadth' | 'newest' | 'deterministic-catalog';
 
 export function buildKibbleHomePresentationContext(featuredSource: KibbleFeaturedSource): KibbleHomePresentationContext {
 	const home = KIBBLE_PRESERVE_MANIFEST.display.home;
@@ -36,10 +36,12 @@ export function buildKibbleHomePresentationContext(featuredSource: KibbleFeature
 			eyebrow: home.featured.eyebrow,
 			title: featuredSource === 'featured'
 				? home.featured.titleWhenFeatured
-				: featuredSource === 'newest'
+				: featuredSource === 'category-breadth'
+					? 'Across the catalog'
+					: featuredSource === 'newest'
 					? home.featured.titleWhenNewest
 					: home.featured.titleWhenDeterministic,
-			browseAllLabel: home.featured.browseAllLabel,
+			browseAllLabel: featuredSource === 'category-breadth' ? 'Browse all categories' : home.featured.browseAllLabel,
 		},
 		catalogCopy: { eyebrow: home.categories.eyebrow, title: home.categories.title },
 	};
@@ -108,12 +110,13 @@ export function buildKibbleHomeReference(
 	featuredSource: KibbleFeaturedSource,
 	bundleProduct: Product | null,
 	subscriptionOffers: Record<string, KibbleAutoRefillOffer> = {},
+	categoryCounts: Record<string, number> = {},
 ) {
 	assertKibbleBrand(brand);
 	const manifest = KIBBLE_PRESERVE_MANIFEST.display;
 	const presentationContext = buildKibbleHomePresentationContext(featuredSource);
 	const featuredBundle = verifyAndMaterializeBundle(bundleProduct);
-	const categories = materializeCategoryTiles(brand);
+	const categories = materializeCategoryTiles(brand, categoryCounts);
 	assertExactHomeShelf(products, featuredBundle.entityId);
 	const featuredProducts = products;
 	if (featuredProducts.length === 0) {
@@ -260,7 +263,7 @@ export function verifyAndMaterializeBundle(product: Product | null): KibbleFeatu
 	};
 }
 
-function materializeCategoryTiles(brand: BrandConfig): KibbleVisualTile[] {
+function materializeCategoryTiles(brand: BrandConfig, categoryCounts: Record<string, number>): KibbleVisualTile[] {
 	return KIBBLE_PRESERVE_MANIFEST.display.categories.map((item) => {
 		assertCategory(brand, item.configSlug);
 		const category = brand.categories[item.configSlug];
@@ -269,6 +272,9 @@ function materializeCategoryTiles(brand: BrandConfig): KibbleVisualTile[] {
 			href: `/category/${item.configSlug}`,
 			image: item.image,
 			imageAlt: category.displayName,
+			description: Number.isInteger(categoryCounts[item.configSlug])
+				? `${categoryCounts[item.configSlug]} ${categoryCounts[item.configSlug] === 1 ? 'product' : 'products'} in this catalog category`
+				: undefined,
 		};
 	});
 }
