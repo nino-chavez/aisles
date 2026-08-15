@@ -8,9 +8,9 @@ BIGCOMMERCE_STORE_HASH = "cdfqf9k6zf"
 BRAND_ID = "kibble"
 VITE_BRAND_ID = "kibble"
 KIBBLE_DEMO_AI_ENABLED = "true"
-# Every committed deployment environment is fail-closed until the durable
-# session-store gate passes and a release is separately approved.
-KIBBLE_COMMERCE_MODE = "off"
+# The runtime boundary still fails closed unless the BigCommerce and durable
+# session secrets are present; this release enables sandbox mutations.
+KIBBLE_COMMERCE_MODE = "sandbox"
 
 [[hyperdrive]]
 binding = "HYPERDRIVE"
@@ -29,4 +29,4 @@ BIGCOMMERCE_STORE_HASH = "cdfqf9k6zf"
 BRAND_ID = "kibble"
 VITE_BRAND_ID = "kibble"
 KIBBLE_DEMO_AI_ENABLED = "true"
-KIBBLE_COMMERCE_MODE = "off"
+KIBBLE_COMMERCE_MODE = "sandbox"
