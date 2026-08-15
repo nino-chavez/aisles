@@ -16,6 +16,7 @@ import { commerceSessionId } from '$lib/server/commerce/session';
 
 function routeAudience(pathname: string): 'shopper' | 'operator' | 'development' {
 	if (pathname === '/observe' || pathname.startsWith('/observe/')) return 'operator';
+	if (pathname === '/merchant-scale' || pathname.startsWith('/merchant-scale/')) return 'operator';
 	if (pathname === '/style-guide' || pathname.startsWith('/style-guide/')) return 'development';
 	return 'shopper';
 }
