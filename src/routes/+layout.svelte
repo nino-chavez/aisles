@@ -5,7 +5,7 @@
 	import Footer from '$lib/components/Footer.svelte';
 	import CartDrawer from '$lib/components/CartDrawer.svelte';
 	import PicksTray from '$lib/components/PicksTray.svelte';
-	import { KibbleFooter, KibbleHeader } from '$lib/components/kibble';
+	import { KibbleFooter, KibbleHeader, KibbleMerchantTierToggle } from '$lib/components/kibble';
 	import KibbleObserveRail from '$lib/components/kibble/KibbleObserveRail.svelte';
 	import { pickCount } from '$lib/stores/picks.svelte';
 	import { initEmitter, destroyEmitter, getEmitter } from '$lib/signals/emitter';
@@ -157,6 +157,9 @@
 					accountHref={data.kibbleChrome.accountHref}
 					cartHref={data.kibbleChrome.cartHref}
 				/>
+				{#if data.merchantTier}
+					<KibbleMerchantTierToggle activeTier={data.merchantTier.active} tiers={data.merchantTier.tiers} />
+				{/if}
 			{:else}
 				<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} categories={data.brand?.categories ?? {}} />
 			{/if}

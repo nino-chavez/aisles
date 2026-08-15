@@ -8,19 +8,35 @@
 import { env } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
 import type { BigCommerceCategoryProductSort } from '$lib/brand/reference/kibble-plp';
+import { getActiveMerchantTier, getMerchantTierChannelConfig } from './merchant-tier';
 
 function getGraphQLConfig() {
 	const brand = getBrand();
 	// Brand-specific storefront tokens: VOLT_STOREFRONT_TOKEN, EMBER_STOREFRONT_TOKEN, etc.
 	const tokenKey = `${brand.id.toUpperCase()}_STOREFRONT_TOKEN`;
 	const storeHash = env.BIGCOMMERCE_STORE_HASH;
-	const storefrontToken = env[tokenKey] || env.BIGCOMMERCE_STOREFRONT_TOKEN;
+
+	let channelId = brand.bc.channelId;
+	let storefrontToken = env[tokenKey] || env.BIGCOMMERCE_STOREFRONT_TOKEN;
+
+	// Merchant-tier demo toggle (Kibble only). A missing cookie or an
+	// unprovisioned tier's env pair leaves channelId/storefrontToken exactly
+	// as resolved above — this is the default-safe path.
+	if (brand.id === 'kibble') {
+		const activeTier = getActiveMerchantTier();
+		if (activeTier) {
+			const tierConfig = getMerchantTierChannelConfig(activeTier);
+			if (tierConfig) {
+				channelId = tierConfig.channelId;
+				storefrontToken = tierConfig.storefrontToken;
+			}
+		}
+	}
 
 	if (!storeHash) throw new Error('BIGCOMMERCE_STORE_HASH not configured');
 	if (!storefrontToken) throw new Error(`Storefront token not configured (tried ${tokenKey} and BIGCOMMERCE_STOREFRONT_TOKEN)`);
 
 	// Non-default channels need channel ID in the URL hostname
-	const channelId = brand.bc.channelId;
 	const host = channelId === 1
 		? `store-${storeHash}.mybigcommerce.com`
 		: `store-${storeHash}-${channelId}.mybigcommerce.com`;

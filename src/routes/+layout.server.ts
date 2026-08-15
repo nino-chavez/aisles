@@ -13,6 +13,12 @@ import { buildKibblePreserveErrorState, throwKibblePreserveError } from '$lib/br
 import { buildKibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibble-catalog-enrichment';
 import { getCommerceServiceBoundary } from '$lib/server/commerce/boundary';
 import { commerceSessionId } from '$lib/server/commerce/session';
+import {
+	MERCHANT_TIER_COOKIE,
+	MERCHANT_TIERS,
+	isMerchantTierProvisioned,
+	resolveTierFromCookieValue,
+} from '$lib/server/merchant-tier';
 
 function routeAudience(pathname: string): 'shopper' | 'operator' | 'development' {
 	if (pathname === '/observe' || pathname.startsWith('/observe/')) return 'operator';
@@ -136,6 +142,10 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 			theme: brand.theme,
 			categories: brand.categories,
 		},
+		merchantTier: audience === 'shopper' && brand.id === 'kibble' ? {
+			active: resolveTierFromCookieValue(cookies.get(MERCHANT_TIER_COOKIE)),
+			tiers: MERCHANT_TIERS.map((id) => ({ id, provisioned: isMerchantTierProvisioned(id) })),
+		} : null,
 		devMode,
 		observeMode,
 		observeEnableHref: buildObserveModeHref(url, true),
