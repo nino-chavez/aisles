@@ -110,9 +110,11 @@ function loadTierCategoryMaps() {
 function loadEnterpriseTierMap() {
 	if (!existsSync(ENTERPRISE_TREE_PATH)) return null;
 	const raw = JSON.parse(readFileSync(ENTERPRISE_TREE_PATH, 'utf-8'));
-	// Expect { channelId, treeId, byPath: { "Species > Dept > Leaf": id, ... } }
-	// or a flat map of path->id with channel/tree given separately in channels-report.
+	// Actual shape: { treeId, channelId, categories: { "Species > Dept > Leaf": id, ... } }
 	if (raw.byPath) return raw;
+	if (raw.categories && !Array.isArray(raw.categories)) {
+		return { channelId: raw.channelId, treeId: raw.treeId, byPath: raw.categories };
+	}
 	// Fallback shape: array of {path, id} like channels-report's category lists
 	if (Array.isArray(raw.categories)) {
 		const byPath = {};
@@ -175,57 +177,35 @@ const TREE1_DOG_CATEGORY_NAMES = {
 	332: 'Bundles',
 };
 
-// Enterprise role -> keyword fragments tried against the enterprise leaf-path
-// keys, in order, until one resolves. Never invents a path; falls back to
-// species>department (2-level) if nothing matches, and reports it.
-const ROLE_TO_ENTERPRISE_HINTS = {
-	'staple-food': ['Food > Dry Food', 'Food > Wet Food', 'Food'],
-	topper: ['Food > Toppers', 'Food'],
-	litter: ['Health & Care > Litter', 'Health & Care'],
-	treat: ['Treats > Dental', 'Treats > Lickable', 'Treats'],
-	feeding: ['Gear & Habitat > Feeding', 'Gear & Habitat > Bowls', 'Gear & Habitat'],
-	enrichment: ['Toys & Enrichment > Interactive', 'Toys & Enrichment > Scratchers', 'Toys & Enrichment'],
-	travel: ['Gear & Habitat > Travel', 'Gear & Habitat > Carriers', 'Gear & Habitat'],
-	habitat: ['Gear & Habitat > Cages', 'Gear & Habitat'],
-	substrate: ['Gear & Habitat > Substrate', 'Gear & Habitat'],
-	hide: ['Gear & Habitat > Hides', 'Gear & Habitat'],
-	'heat-source': ['Gear & Habitat > Heating', 'Gear & Habitat'],
-	'environment-control': ['Gear & Habitat > Thermostats', 'Gear & Habitat'],
-	'environment-monitor': ['Gear & Habitat > Monitoring', 'Gear & Habitat'],
-	hydration: ['Gear & Habitat > Water', 'Gear & Habitat'],
-	'uvb-lighting': ['Gear & Habitat > UVB', 'Gear & Habitat > Lighting', 'Gear & Habitat'],
-	'lighting-fixture': ['Gear & Habitat > Lighting', 'Gear & Habitat'],
-};
+// Enterprise leaf resolution: the enterprise tree uses the *same five
+// department names* as the medium tier (Food, Treats, Toys & Enrichment,
+// Health & Care, Gear & Habitat) one level deeper (each department has 3-5
+// real sub-category leaves). So department resolution reuses ROLE_TO_TIER /
+// DOG_DEPT_TO_TIER's mediumDept, and leaf resolution is a word-overlap score
+// between the leaf's own name and this product's known signal words (its
+// phase-1 manifest category leaf name, for the 33 multi-pet products, plus
+// its product name) — matched only against paths that actually exist in
+// enterprise-tree.json, never an invented path. Falls back to the
+// department-level id (2-level) when nothing scores above zero, and that
+// fallback is reported as unmapped.
+const STOPWORDS = new Set([
+	'the', 'and', 'for', 'with', 'dog', 'dogs', 'cat', 'cats', 'bird', 'birds', 'pet', 'pets', 'count', 'pack',
+	'aid', // "Calming Aid" was false-matching "First Aid" on this word alone
+]);
 
-const DOG_DEPT_TO_ENTERPRISE_HINTS = {
-	'Dog Food': ['Food > Dry Food', 'Food'],
-	'Supplements & Wellness': ['Health & Care > Supplements', 'Health & Care'],
-	'Treats & Chews': ['Treats > Jerky', 'Treats > Dental Chews', 'Treats'],
-	'Grooming & Care': ['Health & Care > Grooming', 'Health & Care'],
-	Toys: ['Toys & Enrichment > Chew Toys', 'Toys & Enrichment'],
-	'Walk & Gear': ['Gear & Habitat > Collars', 'Gear & Habitat'],
-	'Beds & Apparel': ['Gear & Habitat > Beds', 'Gear & Habitat'],
-	Bundles: [], // always department-level fallback
-};
+function tokenize(str) {
+	return (str || '')
+		.toLowerCase()
+		.replace(/[^a-z0-9\s]/g, ' ')
+		.split(/\s+/)
+		.filter((w) => w.length > 2 && !STOPWORDS.has(w));
+}
 
-function resolveEnterpriseLeaf(species, hints, byPath) {
-	for (const hint of hints) {
-		const [deptHint, leafHint] = hint.split(' > ');
-		for (const [path, id] of Object.entries(byPath)) {
-			if (!path.startsWith(`${species} > `)) continue;
-			const rest = path.slice(species.length + 3);
-			if (!rest.startsWith(deptHint)) continue;
-			if (!leafHint) return { id, path, exact: false }; // department-level match
-			if (rest.toLowerCase().includes(leafHint.toLowerCase())) return { id, path, exact: true };
-		}
-	}
-	// Nothing matched at all -> department-level fallback using first hint's department
-	if (hints.length > 0) {
-		const [deptHint] = hints[0].split(' > ');
-		const deptPath = `${species} > ${deptHint}`;
-		if (byPath[deptPath]) return { id: byPath[deptPath], path: deptPath, exact: false };
-	}
-	return null;
+function scoreLeafMatch(leafName, signalWords) {
+	const leafWords = new Set(tokenize(leafName));
+	let score = 0;
+	for (const w of signalWords) if (leafWords.has(w)) score++;
+	return score;
 }
 
 // ─── Data loading ──────────────────────────────────────────────────────
@@ -265,6 +245,7 @@ function classifyProducts(products, manifestBySku) {
 				kind: 'multipet',
 				species,
 				role,
+				manifestLeaf: m.categories[m.categories.length - 1],
 				currentCategories: p.categories,
 			});
 		} else {
@@ -314,11 +295,51 @@ function resolveMediumCategory(row, medium) {
 }
 
 function resolveEnterpriseCategory(row, enterprise) {
-	const hints =
-		row.kind === 'multipet' ? ROLE_TO_ENTERPRISE_HINTS[row.role] || [] : DOG_DEPT_TO_ENTERPRISE_HINTS[row.dept] || [];
-	const resolved = resolveEnterpriseLeaf(row.species, hints, enterprise.byPath);
-	if (resolved) return { ...resolved, mapped: resolved.exact };
-	return { id: null, path: null, mapped: false };
+	const dept = row.kind === 'multipet' ? ROLE_TO_TIER[row.role]?.mediumDept : DOG_DEPT_TO_TIER[row.dept]?.mediumDept;
+
+	if (!dept) {
+		// No department for this bucket by design (e.g. dog Bundles span every
+		// department) -> species-level fallback, reported as unmapped.
+		const speciesId = enterprise.byPath[row.species];
+		return { id: speciesId, path: row.species, mapped: false };
+	}
+
+	const deptPath = `${row.species} > ${dept}`;
+	const deptId = enterprise.byPath[deptPath];
+
+	// Department-name words (e.g. "care" in "Health & Care", "treats" in
+	// "Treats") recur across every sibling leaf in that department and are
+	// not discriminating -- strip them from the signal before scoring, or
+	// they win ties by insertion order instead of by an actual match.
+	const deptWords = new Set(tokenize(dept));
+	const signalSource = row.kind === 'multipet' ? `${row.manifestLeaf || ''} ${row.name}` : `${row.name} ${row.sku}`;
+	const signalWords = tokenize(signalSource).filter((w) => !deptWords.has(w));
+
+	let best = null;
+	let bestScore = 0;
+	let tie = false;
+	for (const [path, id] of Object.entries(enterprise.byPath)) {
+		if (!path.startsWith(`${deptPath} > `)) continue;
+		const leafName = path.slice(deptPath.length + 3);
+		const score = scoreLeafMatch(leafName, signalWords);
+		if (score > bestScore) {
+			bestScore = score;
+			best = { id, path };
+			tie = false;
+		} else if (score === bestScore && score > 0) {
+			tie = true;
+		}
+	}
+
+	// An unresolved tie means the matched word doesn't actually discriminate
+	// between candidate leaves -- fall through to department-level rather
+	// than pick one arbitrarily.
+	if (best && !tie) return { ...best, mapped: true, score: bestScore };
+	if (deptId) return { id: deptId, path: deptPath, mapped: false };
+	// Department name itself doesn't exist in the enterprise tree (shouldn't
+	// happen — enterprise and medium share department names) -> species fallback.
+	const speciesId = enterprise.byPath[row.species];
+	return { id: speciesId, path: row.species, mapped: false };
 }
 
 // ─── Category write (read-union-write) ─────────────────────────────────
@@ -360,6 +381,27 @@ async function batchChannelAssignments(productIds, channelIds) {
 async function channelTotal(channelId) {
 	const res = await api('GET', `/catalog/products/channel-assignments?channel_id:in=${channelId}&limit=1`);
 	return res.meta.pagination.total;
+}
+
+// Scoped to a known set of product IDs, so a channel that's also receiving
+// unrelated writes (e.g. a synthetic-corpus seeder running concurrently on
+// the enterprise channel) doesn't get misreported via the channel's raw
+// pagination total.
+async function scopedChannelCount(channelId, productIds) {
+	const idSet = new Set(productIds);
+	let count = 0;
+	const CHUNK = 50;
+	for (let i = 0; i < productIds.length; i += CHUNK) {
+		const chunk = productIds.slice(i, i + CHUNK);
+		const res = await api(
+			'GET',
+			`/catalog/products/channel-assignments?channel_id:in=${channelId}&product_id:in=${chunk.join(',')}&limit=${CHUNK}`,
+		);
+		for (const a of res.data) {
+			if (idSet.has(a.product_id)) count++;
+		}
+	}
+	return count;
 }
 
 // ─── Main passes ─────────────────────────────────────────────────────
@@ -513,13 +555,21 @@ async function main() {
 	if (enterprise && enterprise.channelId) {
 		console.log('\n=== Enterprise tree found — running enterprise pass ===');
 		const entResult = await runEnterprisePass(classifiable, enterprise);
-		const enterpriseTotal = await channelTotal(enterprise.channelId);
+		// Scoped to our own 82 product IDs: channel 1857860 may also be
+		// receiving a concurrent synthetic-corpus seed, so the raw
+		// pagination total on the channel is not a reliable "our 82" count.
+		const enterpriseScopedCount = await scopedChannelCount(
+			enterprise.channelId,
+			classifiable.map((r) => r.id),
+		);
+		const enterpriseRawTotal = await channelTotal(enterprise.channelId);
 		report.phase = 'small+medium+enterprise';
-		report.perChannelTotals.enterprise = enterpriseTotal;
+		report.perChannelTotals.enterprise = enterpriseScopedCount;
+		report.perChannelTotals.enterpriseChannelRawTotal = enterpriseRawTotal;
 		report.enterpriseMappingTable = entResult.mappingTable;
 		report.unmapped = [...report.unmapped, ...entResult.unmapped];
 		writeFileSync(join(SHARED_DIR, 'tier-assign-report.json'), JSON.stringify(report, null, 2));
-		console.log(`Enterprise channel total: ${enterpriseTotal}`);
+		console.log(`Enterprise channel — our 82 products assigned: ${enterpriseScopedCount} (channel raw total: ${enterpriseRawTotal})`);
 	} else {
 		console.log('\nEnterprise tree not yet available — small+medium complete, enterprise pending.');
 	}
