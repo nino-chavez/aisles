@@ -218,18 +218,17 @@ export interface BCPageInfo {
 	endCursor: string | null;
 }
 
+export interface BCCategoryTreeNode {
+	entityId: number;
+	name: string;
+	path: string;
+	productCount: number;
+	children?: BCCategoryTreeNode[];
+}
+
 interface CategoriesResponse {
 	site: {
-		categoryTree: Array<{
-			entityId: number;
-			name: string;
-			path: string;
-			children: Array<{
-				entityId: number;
-				name: string;
-				path: string;
-			}>;
-		}>;
+		categoryTree: BCCategoryTreeNode[];
 	};
 }
 
@@ -608,10 +607,18 @@ export async function getCategories() {
 					entityId
 					name
 					path
+					productCount
 					children {
 						entityId
 						name
 						path
+						productCount
+						children {
+							entityId
+							name
+							path
+							productCount
+						}
 					}
 				}
 			}

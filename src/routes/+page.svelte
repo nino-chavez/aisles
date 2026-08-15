@@ -4,7 +4,7 @@
 	import type { PageData } from './$types';
 	import type { Layout } from '$lib/schema/layout';
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
-	import { KibbleHomeReference } from '$lib/components/kibble';
+	import { KibbleHomeReference, KibbleTierStorefront } from '$lib/components/kibble';
 	import type { KibbleDevInspectorData, KibbleLivePreviewStatus } from '$lib/components/kibble/kibble-dev-inspector';
 	import type { KibbleLivePreview } from '$lib/components/kibble/kibble-live-preview';
 	import type { KibbleProduct, KibbleZoneAdapterBinding } from '$lib/components/kibble/types';
@@ -231,7 +231,14 @@
 	<meta name="description" content={data.renderMode === 'reference-preserve' && data.kibbleHome ? data.kibbleHome.hero.body : data.homepage.heroBody} />
 </svelte:head>
 
-{#if data.renderMode === 'reference-preserve' && data.kibbleHome}
+{#if data.tierStorefront}
+	<KibbleTierStorefront
+		tier={data.tierStorefront.tier}
+		tree={data.tierStorefront.tree}
+		categoryCount={data.tierStorefront.categoryCount}
+		rails={data.tierStorefront.rails}
+	/>
+{:else if data.renderMode === 'reference-preserve' && data.kibbleHome}
 	{#if data.kibbleHomeInspector && signalLabOpen && DevInspector}
 		<DevInspector
 			inspector={previewInspector ?? data.kibbleHomeInspector}

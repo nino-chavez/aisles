@@ -11,7 +11,7 @@
 	import RefinementChat from '$lib/components/RefinementChat.svelte';
 	import { picksContextForPrompt } from '$lib/stores/picks.svelte';
 	import { getEmitter } from '$lib/signals/emitter';
-	import { KibbleCategoryReference } from '$lib/components/kibble';
+	import { KibbleCategoryReference, KibbleTierCategory } from '$lib/components/kibble';
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 	import {
 		KIBBLE_PLP_DEFAULT_PRESENTATION,
@@ -260,7 +260,15 @@
 	<meta name="description" content={data.renderMode === 'reference-preserve' ? `Browse ${data.category.name}. ${data.kibbleCategory?.productCount ?? 0} products available.` : `Browse ${data.category.name} — personalized for ${legacyPersona} shoppers. ${legacyProducts.length} products available.`} />
 </svelte:head>
 
-{#if data.renderMode === 'reference-preserve' && data.kibbleCategory}
+{#if data.tierCategory}
+	<KibbleTierCategory
+		category={data.tierCategory.category}
+		breadcrumb={data.tierCategory.breadcrumb}
+		subcategories={data.tierCategory.children}
+		products={data.tierCategory.products}
+		hasMore={data.tierCategory.hasMore}
+	/>
+{:else if data.renderMode === 'reference-preserve' && data.kibbleCategory}
 	<KibbleCategoryReference
 		{...data.kibbleCategory}
 		products={previewProducts ?? data.kibbleCategory.products}

@@ -28,6 +28,7 @@ import { logGeneration } from '$lib/server/generation-log';
 import { executeKibblePlpZoneAdapter } from '$lib/brand/reference/kibble-zone-executor.server';
 import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
 import { hashKibblePlpRankingInput } from '$lib/brand/reference/kibble-plp-ranking-boundary.server';
+import { loadTierCategoryPage } from '$lib/server/tier-storefront';
 
 export function _parseKibblePlpRequest(url: URL) {
 	try {
@@ -44,6 +45,21 @@ export function _parseKibblePlpRequest(url: URL) {
 export const load: PageServerLoad = async ({ params, url, cookies, request, parent }) => {
 	const slug = params.slug;
 	const { devMode, renderMode } = await parent();
+
+	// Merchant-tier demo: tier category URLs carry the BC category id
+	// (`/category/dry-food-c451`) and render from the tier channel's own
+	// catalog — the CATEGORY_MAP name lookup and preserve contract below
+	// only hold for the curated channel-1 catalog.
+	const tierCategory = await loadTierCategoryPage(slug);
+	if (tierCategory) {
+		return {
+			renderMode,
+			tierCategory,
+			provenance: null,
+			kibbleCategory: null,
+			category: { slug, name: tierCategory.category.name },
+		};
+	}
 	const preserveStartedAt = Date.now();
 	const failPreserve = async (cause: unknown, phase: string): Promise<never> => {
 		if (renderMode !== 'reference-preserve') throw cause;
@@ -189,6 +205,7 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 		}
 		return {
 			renderMode: 'reference-preserve' as const,
+			tierCategory: null,
 			provenance,
 			kibbleCategory,
 			category: { slug, name: result.categoryName },
@@ -199,6 +216,7 @@ export const load: PageServerLoad = async ({ params, url, cookies, request, pare
 
 	return {
 		renderMode,
+		tierCategory: null,
 		provenance,
 		kibbleCategory,
 		category: {

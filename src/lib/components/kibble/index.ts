@@ -10,6 +10,8 @@ export { default as KibbleCategoryReference } from './KibbleCategoryReference.sv
 export { default as KibbleHeader } from './KibbleHeader.svelte';
 export { default as KibbleHero } from './KibbleHero.svelte';
 export { default as KibbleMerchantTierToggle } from './KibbleMerchantTierToggle.svelte';
+export { default as KibbleTierStorefront } from './KibbleTierStorefront.svelte';
+export { default as KibbleTierCategory } from './KibbleTierCategory.svelte';
 export { default as KibbleHomeReference } from './KibbleHomeReference.svelte';
 export { default as KibbleDevInspector } from './KibbleDevInspector.svelte';
 export { default as KibbleMobileNavigation } from './KibbleMobileNavigation.svelte';

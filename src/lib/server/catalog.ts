@@ -294,7 +294,7 @@ async function enrichAndSortByFit(products: Product[], persona?: string): Promis
 }
 
 /** Transform a BC product into the shape our layout components expect */
-function transformProduct(p: BCProduct): Product {
+export function transformProduct(p: BCProduct): Product {
 	const specs = customFieldsToRecord(p);
 
 	return {

@@ -79,7 +79,8 @@ describe('Kibble Preserve PLP publication', () => {
 		} as never);
 
 		if (!data) throw new Error('Expected Preserve PLP data.');
-		expect(Object.keys(data).sort()).toEqual(['category', 'kibbleCategory', 'provenance', 'renderMode']);
+		expect(Object.keys(data).sort()).toEqual(['category', 'kibbleCategory', 'provenance', 'renderMode', 'tierCategory']);
+		expect(data.tierCategory).toBeNull();
 		expect(data).not.toHaveProperty('inference');
 		expect(data).not.toHaveProperty('sessionContext');
 		expect(data).not.toHaveProperty('sessionId');

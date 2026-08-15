@@ -19,6 +19,7 @@ import {
 	isMerchantTierProvisioned,
 	resolveTierFromCookieValue,
 } from '$lib/server/merchant-tier';
+import { getActiveProvisionedTier, loadTierCatalogTree } from '$lib/server/tier-storefront';
 
 function routeAudience(pathname: string): 'shopper' | 'operator' | 'development' {
 	if (pathname === '/observe' || pathname.startsWith('/observe/')) return 'operator';
@@ -111,11 +112,28 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		cookies.set('aisles_session', observeSessionId, { path: '/', maxAge: 60 * 60 * 24 * 30 });
 	}
 
+	// Merchant-tier demo: an active tier's header nav derives from its
+	// channel's own category tree, so the store visibly restructures when
+	// the visitor switches tiers. Default (no cookie) keeps the static
+	// brand-config nav untouched.
+	let tierNavItems: Array<{ label: string; href: string }> | null = null;
+	if (audience === 'shopper' && chromeMode === 'reference' && getActiveProvisionedTier()) {
+		try {
+			tierNavItems = (await loadTierCatalogTree()).map(({ name, href }) => ({ label: name, href }));
+		} catch (cause) {
+			console.warn('[merchant-tier] tier nav derivation failed, keeping default nav:', cause);
+		}
+	}
+
+	const kibbleChromeBase = chromeMode === 'reference' ? buildKibbleChrome(brand) : null;
+
 	return {
 		renderMode,
 		chromeMode,
 		routeAudience: audience,
-		kibbleChrome: chromeMode === 'reference' ? buildKibbleChrome(brand) : null,
+		kibbleChrome: kibbleChromeBase && tierNavItems?.length
+			? { ...kibbleChromeBase, navItems: tierNavItems }
+			: kibbleChromeBase,
 		kibbleRoutePolicy,
 		...(kibble404State ? {
 			kibbleError,
