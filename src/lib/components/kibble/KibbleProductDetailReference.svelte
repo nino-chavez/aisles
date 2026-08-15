@@ -3,6 +3,7 @@
 	import KibbleProductCard from './KibbleProductCard.svelte';
 	import type { KibbleAutoRefillOffer, KibbleModelZoneAdapterBinding, KibblePdpBundle, KibblePdpCopy, KibblePdpProduct, KibbleProductOption, KibbleProduct, KibbleRenderedModelZoneAdapterBinding, KibbleZoneAdapterBinding } from './types';
 	import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
+	import { cadenceLabel, type SubscriptionPlan } from '$lib/commerce/subscription-contract';
 	type RelatedContent = { component: 'product-carousel'; props: { title: string; products: Array<{ productId: string; role: 'standard' }>; showQuickAdd: false } };
 	type MarketingContent = { component: 'editorial-header'; props: { eyebrow: string; headline: string; body: string } };
 
@@ -23,7 +24,11 @@
 		relatedModelDecision = null,
 		marketingZoneArtifact = null,
 		autoRefill = null,
+		subscriptionPlans = [],
+		subscriptionPlansStatus = 'disabled',
+		customerSessionState = 'disabled',
 		onAddToCart,
+		onAddAutoRefill,
 		isAddingToCart = false,
 		cartMessage = '',
 		commerceEnabled = false,
@@ -44,13 +49,19 @@
 		relatedModelDecision?: { zoneId: 'pdp.related'; routePath: string } | null;
 		marketingZoneArtifact?: KibbleModelZoneAdapterBinding<MarketingContent> | null;
 		autoRefill?: KibbleAutoRefillOffer | null;
+		subscriptionPlans?: SubscriptionPlan[];
+		subscriptionPlansStatus?: 'ready' | 'empty' | 'unavailable' | 'disabled';
+		customerSessionState?: 'disabled' | 'anonymous' | 'authenticated' | 'unavailable';
 		onAddToCart?: () => void;
+		onAddAutoRefill?: (planId: string) => void;
 		isAddingToCart?: boolean;
 		cartMessage?: string;
 		commerceEnabled?: boolean;
 	} = $props();
 
 	let activeImage = $state(0);
+	let purchaseMode = $state<'one_time' | 'auto_refill'>('one_time');
+	let selectedPlanId = $state('');
 	const gallery = $derived(bundle?.contents.some(({ image }) => image)
 		? bundle.contents.map(({ brand, title, image }) => ({ url: image, alt: `${brand} ${title}` }))
 		: product.images.length > 0
@@ -67,6 +78,15 @@
 		options.length === 0 &&
 		(typeof onAddToCart === 'function')
 	);
+	const selectedPlan = $derived(subscriptionPlans.find(({ id }) => id === selectedPlanId) ?? subscriptionPlans[0] ?? null);
+	const autoRefillActionReady = $derived(
+		commerceReady &&
+		purchaseMode === 'auto_refill' &&
+		customerSessionState === 'authenticated' &&
+		selectedPlan !== null &&
+		typeof onAddAutoRefill === 'function'
+	);
+	const purchaseActionReady = $derived(purchaseMode === 'one_time' ? commerceReady : autoRefillActionReady);
 
 	function money(value: number): string {
 		return new Intl.NumberFormat('en-US', { style: 'currency', currency: product.currencyCode || 'USD' }).format(value);
@@ -75,6 +95,16 @@
 	$effect(() => {
 		if (activeImage >= gallery.length) activeImage = 0;
 	});
+
+	$effect(() => {
+		if (subscriptionPlans.length > 0 && !subscriptionPlans.some(({ id }) => id === selectedPlanId)) selectedPlanId = subscriptionPlans[0].id;
+		if (subscriptionPlans.length === 0) purchaseMode = 'one_time';
+	});
+
+	function runPurchaseAction() {
+		if (purchaseMode === 'auto_refill' && selectedPlan && onAddAutoRefill) onAddAutoRefill(selectedPlan.id);
+		else onAddToCart?.();
+	}
 </script>
 
 <article class="kibble-reference kc-reference-pdp" data-kibble-pdp-recipe="fixed-catalog-display-only" data-kibble-commerce-mode={commerceEnabled ? 'sandbox-cart' : 'off'}>
@@ -112,19 +142,38 @@
 				{#if product.sku}<p class="kc-reference-pdp__sku">{copy.skuLabel}: {product.sku}</p>{/if}
 				<p class:kc-reference-pdp__stock--in={product.isInStock === true} class="kc-reference-pdp__stock">{product.isInStock === true ? copy.inStockLabel : product.isInStock === false ? copy.outOfStockLabel : copy.availabilityUnavailableLabel}</p>
 
-				{#if autoRefill}
-					<section class="kc-reference-pdp__autorefill" data-aisles-zone-instance="pdp.subscription-offer" data-aisles-zone-label="Merchant subscription offer" data-aisles-authority="fixed" data-aisles-model-calls="0" aria-labelledby="kibble-pdp-autorefill-heading">
+				{#if subscriptionPlansStatus === 'ready' && subscriptionPlans.length > 0}
+					<section class="kc-reference-pdp__autorefill" data-aisles-zone-instance="pdp.subscription-offer" data-aisles-zone-label="Provider subscription plans" data-aisles-authority="provider" data-aisles-model-calls="0" data-kibble-subscription-state="live-plans" aria-labelledby="kibble-pdp-autorefill-heading">
 						<div>
-							<p class="kc-reference-eyebrow">Pinned subscription evidence</p>
-							<h2 id="kibble-pdp-autorefill-heading">{autoRefill.label}</h2>
+							<p class="kc-reference-eyebrow">Live Auto-Refill plans</p>
+							<h2 id="kibble-pdp-autorefill-heading">Choose how you buy</h2>
 						</div>
-						<p><strong>{money(autoRefill.price)}</strong> · {autoRefill.savingsLabel} {autoRefill.savingsPercent}% · {autoRefill.cadenceLabel}</p>
+						<fieldset class="kc-reference-pdp__purchase-modes">
+							<legend>Purchase option</legend>
+							<label><input type="radio" name="purchase-mode" value="one_time" bind:group={purchaseMode} /> <span><strong>One-time purchase</strong><small>{money(salePrice ?? product.price)}</small></span></label>
+							<label><input type="radio" name="purchase-mode" value="auto_refill" bind:group={purchaseMode} /> <span><strong>Auto-Refill</strong><small>{selectedPlan ? `${money(selectedPlan.price.value)} recurring` : ''}</small></span></label>
+						</fieldset>
+						<label class="kc-reference-pdp__cadence" for="kibble-pdp-cadence">Delivery cadence
+							<select id="kibble-pdp-cadence" bind:value={selectedPlanId} disabled={purchaseMode !== 'auto_refill'}>
+								{#each subscriptionPlans as plan (plan.id)}<option value={plan.id}>{cadenceLabel(plan)} — {money(plan.price.value)} recurring</option>{/each}
+							</select>
+						</label>
+						{#if customerSessionState !== 'authenticated'}
+							<p class="kc-reference-pdp__subscription-gate"><a class="kc-reference-focus" href="/account/login">Sign in</a>
+								before starting Auto-Refill. One-time checkout stays available without an account.</p>
+						{/if}
+						<small>The subscription service owns plan eligibility, cadence, recurring price, and schedule creation. Aisles only confirms the selected cart intent; it does not create a subscription.</small>
+					</section>
+				{:else if autoRefill}
+					<section class="kc-reference-pdp__autorefill" data-aisles-zone-instance="pdp.subscription-offer" data-aisles-zone-label="Subscription source evidence" data-aisles-authority="fixed" data-aisles-model-calls="0" data-kibble-subscription-state={subscriptionPlansStatus} aria-labelledby="kibble-pdp-autorefill-heading">
+						<div><p class="kc-reference-eyebrow">Pinned subscription evidence</p><h2 id="kibble-pdp-autorefill-heading">{autoRefill.label}</h2></div>
+						<p><strong>{money(autoRefill.price)}</strong> · {autoRefill.cadenceLabel}</p>
 						{#if autoRefill.capabilityEvidence?.length}
 							<dl aria-label="Pinned subscription capability evidence">
 								{#each autoRefill.capabilityEvidence as evidence (evidence.label)}<div><dt>{evidence.label}</dt><dd>{evidence.detail}</dd></div>{/each}
 							</dl>
 						{/if}
-						<small>The subscription service owns plan eligibility, recurring price, and checkout. Aisles is showing a hash-pinned, display-only source projection.</small>
+						<small>{subscriptionPlansStatus === 'unavailable' ? 'Live plans could not be confirmed, so Auto-Refill is unavailable.' : 'The subscription service owns plan eligibility. This is a hash-pinned, display-only source projection and cannot be selected or purchased.'}</small>
 					</section>
 				{/if}
 
@@ -156,10 +205,12 @@
 
 				{#if commerceReady}
 					<div class="kc-reference-pdp__purchase" aria-live="polite">
-						<button type="button" class="kc-reference-button kc-reference-button--primary kc-reference-focus" onclick={onAddToCart} disabled={isAddingToCart}>
-							{isAddingToCart ? 'Adding…' : `Add to cart — ${money(salePrice ?? product.price)}`}
-						</button>
-						<small>One-time purchase. BigCommerce owns the cart and price.</small>
+						{#if purchaseMode === 'one_time'}
+							<button type="button" class="kc-reference-button kc-reference-button--primary kc-reference-focus" onclick={onAddToCart} disabled={isAddingToCart || !purchaseActionReady}>{isAddingToCart ? 'Adding…' : `Add to cart — ${money(salePrice ?? product.price)}`}</button>
+						{:else}
+							<button type="button" class="kc-reference-button kc-reference-button--primary kc-reference-focus" onclick={runPurchaseAction} disabled={isAddingToCart || !purchaseActionReady}>{isAddingToCart ? 'Adding…' : selectedPlan ? 'Add Auto-Refill' : 'Auto-Refill unavailable'}</button>
+						{/if}
+						<small>{purchaseMode === 'auto_refill' ? 'The provider must confirm the recurring plan on the cart. BigCommerce hosted checkout owns the current order total.' : 'One-time purchase. BigCommerce owns the cart and price.'}</small>
 						{#if cartMessage}<p>{cartMessage}</p>{/if}
 					</div>
 				{:else}

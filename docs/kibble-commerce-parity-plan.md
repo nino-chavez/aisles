@@ -1,17 +1,19 @@
 # Kibble commerce parity plan
 
-**Status:** Phase 1 sandbox cart and hosted-checkout handoff are deployed. The
-Phase 2 server foundation now covers login, guest-cart assignment, logout,
-customer-token cart context, and order-history reads. Production still leaves
-customer identity unselected, so these account operations fail closed. This is
-not authorization to create accounts, submit orders, charge payment
-instruments, or create subscriptions.
+**Status:** Phase 1 sandbox cart and hosted-checkout handoff are deployed. Phase
+2 has the customer-session foundation, BigCommerce-native identity selection,
+and a scoped private token. Live customer acceptance still needs an authorized
+sandbox login. Phase 3 now has live provider plan reads plus a customer-gated,
+idempotent cart-intent seam. The
+provider still owns post-checkout subscription creation. This is not
+authorization to create accounts, submit orders, charge payment instruments,
+or create subscriptions during verification.
 
 **Audience:** the engineer implementing Kibble commerce and the human who owns
 the BigCommerce store, payment provider, subscription provider, and release
 decision
 
-**Source snapshot:** Aisles `origin/main` at `6e962bdcb23e946f6e4efb216e7868b373e1a270`;
+**Source snapshot:** Aisles `origin/main` at `20f3da770279dff2689994945748724cbc004eb2`;
 the Bealls-family checkout scaffold at `bealls-aisles` `0edd3ea79235953c834b00d96e6ae6b4fddf2833`;
 the internal commerce reference at `bc-subscriptions` `ef122b8e17b9eb0b327c9d42491c44a61577ead4`;
 authentication, login, logout, and order documentation rechecked on 2026-08-15;
@@ -862,10 +864,10 @@ read-only order summaries; login idempotency and per-session serialization;
 stricter authentication rate limits; redacted evidence; and conditional account
 UI. Registration, password reset, and magic link have no runtime endpoint.
 
-Activation dependencies: the merchant selects BigCommerce-native identity;
-the deployed private token has the Customer scope; a named sandbox test account
-is authorized for login; and registration/password policy is approved. Until
-then `KIBBLE_CUSTOMER_IDENTITY_MODE` stays unset and the provider is not called.
+Activation state: BigCommerce-native identity is selected and the deployed
+private token has `Unauthenticated` and `Customer` scope. A named sandbox test
+account still must be authorized for live login acceptance. Registration,
+password reset, and magic link remain disabled pending merchant policy.
 
 Unit and browser acceptance is complete for successful merge, replay,
 concurrency, ambiguous-provider recovery, expiry, authenticated cart headers,
@@ -877,19 +879,33 @@ implementation proof.
 
 ### Phase 3 — Auto-Refill selection and post-checkout materialization
 
-Dependencies: Phase 2 customer identity; subscription plan mapping; cart-intent
-endpoint; signed BigCommerce webhook ownership; service-side idempotency and
-reconciliation tests.
+Implemented in Aisles: the existing `subs-api` Worker is connected through a
+Cloudflare service binding; eligible PDPs read and strictly normalize live
+plans; one-time versus Auto-Refill selection and cadence render from provider
+data; and `POST /api/subscriptions/cart-intent` validates the plan/product pair,
+requires a server-held customer session, serializes per commerce session, and
+replays terminal results by idempotency key. A new line is removed when a known
+intent failure occurs. An ambiguous existing-line outcome blocks checkout until
+a later provider read confirms the intent. Emptying the cart also clears that
+block.
 
-Implement plan lookup, purchase-mode/cadence UI, intent confirmation, and the
-service-owned order webhook path. Keep one-time purchase available. Block a
-requested subscription when its intent cannot be confirmed. Add sanitized
-status/read models only after the subscription service confirms state.
+Production mutation acceptance dependencies: an authorized sandbox customer;
+live cart-intent proof; and provider
+confirmation that its signed order webhook verifies order and payment state
+before materializing a recurring schedule. Aisles does not receive the order
+webhook and does not create the subscription. One-time purchase stays
+available when identity or Auto-Refill is gated.
 
-Acceptance: a plan maps to the correct BC product; the cart shows the selected
-cadence and provider price; duplicate order events create one subscription;
-incomplete/failed orders do not become active subscriptions; missing intent is a
-reconciliation exception; no line custom-field assumption exists.
+Local acceptance complete: plan/product mismatch rejection, provider response
+bounds, customer gate, line add plus intent confirmation, replay, concurrent
+request serialization, compensation, ambiguous-outcome checkout block,
+provider-read recovery, redaction, rendered live plan/cadence controls, and a
+cart reload read model that shows provider-confirmed cadence and recurring
+price without exposing the provider cart ID.
+Remaining live acceptance: confirmed sandbox intent on an authenticated cart;
+hosted checkout handoff without order submission; duplicate order events create
+one subscription; incomplete/failed orders do not become active subscriptions;
+and missing intent is a reconciliation exception.
 
 ### Phase 4 — portal, orders, addresses, payment methods
 
@@ -1042,12 +1058,13 @@ approval.
 - Customer-account settings, checkout domain, hosted
   checkout enablement, tax/shipping configuration, promotion rules, and payment
   methods for that store.
-- Whether the existing subscription service is authorized for the Kibble store,
-  which plans are active, and whether its webhook/cart-intent contract is
-  provisioned for this channel.
-- Whether the merchant wants BigCommerce password login, magic-link login, or a
-  hybrid identity experience. The implemented password adapter remains inactive
-  until that decision is recorded.
+- The existing subscription service is reachable for the Kibble store and
+  product 3023 has three active monthly plans. Live authenticated cart-intent
+  and webhook materialization behavior remain unverified for this Aisles
+  release.
+- BigCommerce password login is the selected Phase 2 identity mode. Magic-link
+  and hybrid identity remain unselected, and account registration remains
+  disabled.
 - Which provider owns recurring payment instruments and whether the chosen
   provider can support the required gift/prepaid and renewal behavior.
 - The actual production behavior of order, transaction, refund, and webhook

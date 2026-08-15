@@ -30,10 +30,11 @@
 	{#if subtype === 'portal' || subtype === 'account'}
 		<section class="kc-subscription-boundary" aria-label="Auto-Refill connection status" data-kibble-subscription-state={services.subscription} data-kibble-portal-state={services.subscriptionPortal}>
 			<p class="kc-reference-eyebrow">Service status</p>
-			<p><strong>Auto-Refill is not connected.</strong> Catalog offer labels are display-only; no recurring plan or schedule can be selected.</p>
+			<p><strong>{services.subscription === 'provider_not_connected' ? 'Auto-Refill is not connected.' : 'Auto-Refill plan lookup is connected.'}</strong> {services.subscription === 'authenticated_intent_ready' ? 'Signed-in shoppers can confirm a provider plan on their BigCommerce cart.' : services.subscription === 'plan_lookup_ready' ? 'Live plans are visible, but a verified customer session is still required before a cart intent can be written.' : 'Catalog source evidence remains display-only.'}</p>
 			<dl>
 				<div><dt>One-time purchase</dt><dd>{services.cart === 'bigcommerce_sandbox' ? 'Live through the BigCommerce sandbox cart and hosted checkout.' : 'Not connected.'}</dd></div>
-				<div><dt>Plan and recurring schedule</dt><dd>Subscription provider not connected. No plan lookup or cart intent is available.</dd></div>
+				<div><dt>Plan and cart intent</dt><dd>{services.subscription === 'authenticated_intent_ready' ? 'Provider-backed plan lookup and authenticated cart-intent confirmation are ready.' : services.subscription === 'plan_lookup_ready' ? 'Provider-backed plan lookup is ready. Cart-intent writes remain customer-session gated.' : 'Subscription provider not connected.'}</dd></div>
+				<div><dt>Recurring schedule</dt><dd>Created only by the provider after its signed order webhook verifies the completed order and payment state.</dd></div>
 				<div><dt>Portal</dt><dd>Provider-backed portal session and customer ownership check required.</dd></div>
 				<div><dt>Payment</dt><dd>Provider-owned. Aisles does not collect or authorize payment credentials here.</dd></div>
 			</dl>

@@ -6,7 +6,7 @@ import type { CommerceServiceBoundary } from '$lib/commerce/cart-contract';
 export function getCommerceServiceBoundary(): CommerceServiceBoundary {
 	const providerConfigured = Boolean(
 		env.BIGCOMMERCE_STORE_HASH &&
-		(env.KIBBLE_STOREFRONT_TOKEN || env.BIGCOMMERCE_STOREFRONT_TOKEN),
+		(env.BIGCOMMERCE_PRIVATE_TOKEN || env.KIBBLE_STOREFRONT_TOKEN || env.BIGCOMMERCE_STOREFRONT_TOKEN),
 	);
 	const durableSessionConfigured = dev || Boolean(env.KV_REST_API_URL && env.KV_REST_API_TOKEN);
 	const enabled =
@@ -21,6 +21,7 @@ export function getCommerceServiceBoundary(): CommerceServiceBoundary {
 		: !customerPrivateTokenConfigured || !enabled
 			? 'private_token_required'
 			: 'bigcommerce_login_ready';
+	const subscriptionPlansReady = enabled && env.KIBBLE_SUBSCRIPTION_MODE === 'sandbox';
 	return {
 		mode: enabled ? 'sandbox' : 'off',
 		cart: enabled ? 'bigcommerce_sandbox' : 'not_connected',
@@ -34,7 +35,11 @@ export function getCommerceServiceBoundary(): CommerceServiceBoundary {
 		orderHistory: 'customer_session_required',
 		account,
 		payment: 'provider_owned',
-		subscription: 'provider_not_connected',
+		subscription: !subscriptionPlansReady
+			? 'provider_not_connected'
+			: account === 'bigcommerce_login_ready'
+				? 'authenticated_intent_ready'
+				: 'plan_lookup_ready',
 		subscriptionPortal: 'portal_session_required',
 	};
 }
@@ -45,4 +50,12 @@ export function isKibbleCommerceEnabled(): boolean {
 
 export function isKibbleCustomerIdentityEnabled(): boolean {
 	return getCommerceServiceBoundary().account === 'bigcommerce_login_ready';
+}
+
+export function isKibbleSubscriptionPlanLookupEnabled(): boolean {
+	return getCommerceServiceBoundary().subscription !== 'provider_not_connected';
+}
+
+export function isKibbleSubscriptionIntentEnabled(): boolean {
+	return getCommerceServiceBoundary().subscription === 'authenticated_intent_ready';
 }

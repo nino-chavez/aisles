@@ -7,6 +7,7 @@
 		availabilityMessage, policyVersion, zoneAdapter, cartModelDecision = null, presentationModelCallCount = 0,
 		cart: initialCart = null,
 		cartStatus: initialCartStatus = 'unavailable',
+		subscriptionIntentStatus = 'disabled',
 		services = { mode: 'off', cart: 'not_connected', checkout: 'not_connected', orderCreation: 'not_exposed', orderHistory: 'customer_session_required', account: 'merchant_decision_required', payment: 'provider_owned', subscription: 'provider_not_connected', subscriptionPortal: 'portal_session_required' },
 	}: {
 		availabilityMessage: string; policyVersion?: string; zoneAdapter?: KibbleZoneAdapterBinding<any> | null;
@@ -14,6 +15,7 @@
 		presentationModelCallCount?: number;
 		cart?: CommerceCart | null;
 		cartStatus?: 'ready' | 'empty' | 'unavailable';
+		subscriptionIntentStatus?: 'confirmed' | 'unavailable' | 'disabled';
 		services?: CommerceServiceBoundary;
 	} = $props();
 
@@ -60,7 +62,11 @@
 				throw new Error(result.error?.message || 'BigCommerce did not confirm the cart change.');
 			}
 			operationIdempotencyKeys.delete(operationKey);
-			cart = result.cart;
+			const subscriptions = new Map(cart?.lines.map((line) => [line.lineId, line.subscription]) ?? []);
+			cart = result.cart ? {
+				...result.cart,
+				lines: result.cart.lines.map((line: CommerceCart['lines'][number]) => ({ ...line, subscription: subscriptions.get(line.lineId) ?? null })),
+			} : null;
 			cartStatus = result.cart ? 'ready' : 'empty';
 			window.dispatchEvent(new CustomEvent('cart-updated', { detail: { itemCount: result.itemCount } }));
 		} catch (cause) {
@@ -105,6 +111,7 @@
 		</header>
 		{#if cart && cart.lines.length > 0}
 			<div class="kc-reference-cart" data-kibble-backend-state="bigcommerce-sandbox" data-cart-version={cart.version}>
+				{#if subscriptionIntentStatus === 'unavailable'}<p class="kc-reference-cart__subscription-warning">Auto-Refill details could not be confirmed. Refresh before checkout if this cart should include a recurring plan.</p>{/if}
 				<ul class="kc-reference-cart__lines" aria-label="Cart items">
 					{#each cart.lines as line (line.lineId)}
 						<li>
@@ -112,6 +119,9 @@
 							<div class="kc-reference-cart__line-copy">
 								<a class="kc-reference-focus" href={line.productPath}><strong>{line.name}</strong></a>
 								<span>{money(line.unitPrice.value, line.unitPrice.currencyCode)} each</span>
+								{#if line.subscription}
+									<div class="kc-reference-cart__subscription" data-kibble-cart-subscription="confirmed"><strong>Auto-Refill</strong><span>{line.subscription.cadence} · {money(line.subscription.recurringPrice.value, line.subscription.recurringPrice.currencyCode)} recurring</span></div>
+								{/if}
 								<div class="kc-reference-cart__quantity" aria-label={line.isMutable ? undefined : `${line.name} quantity cannot be changed`}>
 									<button type="button" class="kc-reference-focus" aria-label={`Decrease ${line.name} quantity`} disabled={!line.isMutable || pending !== null || line.quantity <= 1} onclick={() => changeLine(line.lineId, line.quantity - 1)}>−</button>
 									<output aria-label={`${line.name} quantity`}>{line.quantity}</output>

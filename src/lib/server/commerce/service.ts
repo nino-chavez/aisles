@@ -80,7 +80,10 @@ export function createCommerceService(provider: Provider = defaultProvider) {
 				if (!line) throw knownError('line_not_found');
 				if (!line.isMutable) throw knownError('line_not_mutable');
 				const cart = await callProvider(() => provider.deleteCartLineItem(current.entityId, line.entityId, current.version, customerContext(state)));
-				if (!cart) state.cartEntityId = null;
+				if (!cart) {
+					state.cartEntityId = null;
+					state.checkoutBlock = null;
+				}
 				return cart;
 			}),
 		empty: (sessionId: string, key: string) =>
@@ -88,6 +91,7 @@ export function createCommerceService(provider: Provider = defaultProvider) {
 				if (!current) throw knownError('cart_not_found');
 				await callProvider(() => provider.deleteCart(current.entityId, customerContext(state)));
 				state.cartEntityId = null;
+				state.checkoutBlock = null;
 				return null;
 			}),
 		checkout: (sessionId: string, key: string) => checkoutHandoff(sessionId, key, provider),
@@ -209,6 +213,7 @@ async function checkoutHandoff(
 				execute: async (state) => {
 				try {
 					clearExpiredCustomerSession(state);
+					if (state.checkoutBlock) throw checkoutBlockedError();
 					if (!state.cartEntityId) throw knownError('cart_not_found');
 					const cart = await callProvider(() => provider.getCart(state.cartEntityId!, customerContext(state)));
 					if (!cart || cart.lineItems.physicalItems.length === 0) {
@@ -294,6 +299,7 @@ export function normalizeCart(cart: CartResponse): CommerceCart {
 		quantity: line.quantity,
 		unitPrice: line.salePrice ?? line.listPrice,
 		extendedPrice: line.extendedSalePrice ?? line.extendedListPrice,
+		subscription: null,
 	}));
 	return {
 		version: cart.version,
@@ -315,13 +321,17 @@ function requireCommerceCartVersion(cart: CartResponse, outcomeUnknown: boolean)
 }
 
 class KnownCommerceError extends Error {
-	constructor(readonly code: 'cart_not_found' | 'line_not_found' | 'line_not_mutable' | 'product_not_available') {
+	constructor(readonly code: 'cart_not_found' | 'line_not_found' | 'line_not_mutable' | 'product_not_available' | 'checkout_unavailable') {
 		super(code);
 	}
 }
 
 function knownError(code: KnownCommerceError['code']): KnownCommerceError {
 	return new KnownCommerceError(code);
+}
+
+function checkoutBlockedError(): KnownCommerceError {
+	return knownError('checkout_unavailable');
 }
 
 function infrastructureCause(cause: unknown): unknown {
@@ -354,10 +364,12 @@ function failureFrom(cause: unknown, operation: CommerceOperation, correlationId
 		message = 'This operation key was already used for a different cart change.';
 		retryable = false;
 	} else if (cause instanceof KnownCommerceError) {
-		status = cause.code === 'product_not_available' ? 422 : cause.code === 'line_not_mutable' ? 409 : 404;
+		status = cause.code === 'product_not_available' ? 422 : cause.code === 'line_not_mutable' || cause.code === 'checkout_unavailable' ? 409 : 404;
 		code = cause.code;
 		message =
-			cause.code === 'product_not_available'
+			cause.code === 'checkout_unavailable'
+				? 'Checkout is paused until the subscription intent is confirmed or removed.'
+				: cause.code === 'product_not_available'
 				? 'This product is not eligible for the optionless one-time cart.'
 				: cause.code === 'line_not_mutable'
 					? 'BigCommerce does not allow this cart item to be changed.'

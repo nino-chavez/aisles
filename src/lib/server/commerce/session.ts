@@ -28,6 +28,8 @@ export interface CommerceSessionState {
 	cartEntityId: string | null;
 	/** Server-only provider credential. The browser receives only sessionId. */
 	customerSession: CustomerSessionReference | null;
+	/** Prevents checkout when a subscription-intent outcome cannot be reconciled. */
+	checkoutBlock: { reason: 'subscription_intent_unconfirmed'; setAt: string } | null;
 	updatedAt: string;
 }
 
@@ -98,6 +100,7 @@ function freshState(sessionId: string): CommerceSessionState {
 		...scope(),
 		cartEntityId: null,
 		customerSession: null,
+		checkoutBlock: null,
 		updatedAt: new Date().toISOString(),
 	};
 }
@@ -114,6 +117,9 @@ function normalizeState(state: CommerceSessionState): CommerceSessionState {
 		...state,
 		customerSession: validCustomerSessionReference(state.customerSession)
 			? state.customerSession
+			: null,
+		checkoutBlock: state.checkoutBlock?.reason === 'subscription_intent_unconfirmed' && Number.isFinite(Date.parse(state.checkoutBlock.setAt))
+			? state.checkoutBlock
 			: null,
 	};
 }

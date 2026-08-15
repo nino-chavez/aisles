@@ -9,14 +9,25 @@ import { getCommerceServiceBoundary } from '$lib/server/commerce/boundary';
 import { commerceService } from '$lib/server/commerce/service';
 import { commerceSessionId } from '$lib/server/commerce/session';
 
-export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
+export const load: PageServerLoad = async ({ url, request, cookies, parent, platform }) => {
 	const { renderMode, observeMode } = await parent();
 	const routePolicy = getTrustedKibbleRoutePolicy(getBrand().id, url.pathname);
 	if (routePolicy) {
 		if (routePolicy.surface !== 'cart') throw new Error('Kibble cart route resolved to the wrong policy surface.');
 		const services = getCommerceServiceBoundary();
-		const cartResult = services.mode === 'sandbox' ? await commerceService.read(commerceSessionId(cookies)) : null;
-		const cart = cartResult?.ok ? cartResult.data.cart : null;
+		const sessionId = commerceSessionId(cookies);
+		const cartResult = services.mode === 'sandbox' ? await commerceService.read(sessionId) : null;
+		let cart = cartResult?.ok ? cartResult.data.cart : null;
+		let subscriptionIntentStatus: 'confirmed' | 'unavailable' | 'disabled' = services.subscription === 'provider_not_connected' ? 'disabled' : 'unavailable';
+		if (cart && services.subscription !== 'provider_not_connected') {
+			const { createSubscriptionCommerceService } = await import('$lib/server/commerce/subscription-service');
+			const intentResult = await createSubscriptionCommerceService(platform).cartIntents(sessionId);
+			subscriptionIntentStatus = intentResult.status;
+			cart = {
+				...cart,
+				lines: cart.lines.map((line) => ({ ...line, subscription: intentResult.intents[line.lineId] ?? null })),
+			};
+		}
 		const cartStatus: 'ready' | 'empty' | 'unavailable' = cartResult?.ok ? (cart ? 'ready' : 'empty') : 'unavailable';
 		const confirmedEmpty = cartResult?.ok === true && cart === null;
 		const modelEnabled = (services.mode === 'off' || confirmedEmpty) && observeMode && privateEnv.KIBBLE_DEMO_AI_ENABLED === 'true';
@@ -26,6 +37,7 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 			kibbleCart: {
 				cart,
 				cartStatus,
+				subscriptionIntentStatus,
 				services,
 				availabilityMessage: services.mode === 'off' ? 'Sandbox cart service is not enabled in this deployment.' : cartResult?.ok ? 'Your cart is empty.' : (cartResult?.error.message ?? 'The cart is temporarily unavailable.'),
 				policyVersion: routePolicy.policy.policyVersion,
