@@ -44,12 +44,13 @@ longer only a proposal. Local follow-up work now includes:
 - an isolated local showcase using a pinned catalog and visibly labeled
   synthetic persona-fit data, with production data connections blanked.
 
-Kibble product detail is approved for live catalog-display-only navigation, but
-the corrective work still does not establish full visual parity or functional commerce. Cart, account,
-subscriptions, and the three canonical checkout phase routes are contracted
-source-native unavailable shells; the bare `/checkout` path remains the
-canonical source's 404. They preserve route anatomy without claiming functional
-commerce. The final Kibble cold-review defects are closed locally. The strict
+Kibble product detail is approved for live catalog presentation, but the
+corrective work still does not establish full visual parity or complete commerce. A separately
+server-gated sandbox adapter now proves optionless one-time cart operations and
+hosted-checkout handoff. Every committed deployment keeps it off. Account,
+orders, Auto-Refill, and the three canonical checkout phase routes remain
+contracted unavailable shells; bare `/checkout` remains the canonical source's
+404. The final Kibble cold-review defects are closed locally. The strict
 15-route, three-viewport matrix still leaves all 15 routes and all 45 cells open:
 12,313,565 of 66,597,260 comparable pixels differ (18.4896%), with no masks and
 one named approval item per route. Route-by-route human visual approval,

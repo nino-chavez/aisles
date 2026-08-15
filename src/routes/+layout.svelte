@@ -89,10 +89,11 @@
 
 	// ─── Cart ──────────────────────────────────────────────────────
 	$effect(() => {
-		if (data.chromeMode === 'reference') return;
 		fetch('/api/cart')
-			.then((res) => res.json())
-			.then((data) => { cartCount = data.itemCount || 0; })
+			.then(async (res) => (res.ok ? res.json() : null))
+			.then((cartData) => {
+				if (typeof cartData?.itemCount === 'number') cartCount = cartData.itemCount;
+			})
 			.catch(() => {});
 
 		const handleCartUpdate = (e: Event) => {
@@ -113,8 +114,10 @@
 	function closeCart() {
 		cartOpen = false;
 		fetch('/api/cart')
-			.then((res) => res.json())
-			.then((data) => { cartCount = data.itemCount || 0; })
+			.then(async (res) => (res.ok ? res.json() : null))
+			.then((cartData) => {
+				if (typeof cartData?.itemCount === 'number') cartCount = cartData.itemCount;
+			})
 			.catch(() => {});
 	}
 </script>
@@ -190,6 +193,7 @@
 				sessionId={data.observeSessionId}
 				initialPersona={data.observeInitialPersona}
 				capabilityCoverage={data.kibbleCapabilityCoverage}
+				commerceServices={data.kibbleCommerceServices ?? undefined}
 			/>
 		{/if}
 	{/if}

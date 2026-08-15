@@ -32,32 +32,93 @@ function getGraphQLConfig() {
 }
 
 interface GraphQLResponse<T> {
-	data: T;
-	errors?: Array<{ message: string }>;
+	data?: T;
+	errors?: Array<{ message: string; extensions?: { code?: string } }>;
+}
+
+export class BigCommerceGraphQLError extends Error {
+	readonly status: number | null;
+	readonly providerCode: string | null;
+	readonly outcomeUnknown: boolean;
+
+	constructor(
+		message: string,
+		options: {
+			status?: number;
+			providerCode?: string;
+			outcomeUnknown?: boolean;
+		} = {},
+	) {
+		super(message);
+		this.name = 'BigCommerceGraphQLError';
+		this.status = options.status ?? null;
+		this.providerCode = options.providerCode ?? null;
+		this.outcomeUnknown = options.outcomeUnknown ?? false;
+	}
 }
 
 async function query<T>(gql: string, variables?: Record<string, unknown>): Promise<T> {
 	const { url, token } = getGraphQLConfig();
-	const res = await fetch(url, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${token}`,
-		},
-		body: JSON.stringify({ query: gql, variables }),
-	});
+	const isMutation = /\bmutation\b/.test(gql);
+	// This is the documented stateless server-to-server mode: a Storefront
+	// bearer token plus an opaque cart entity ID. Do not add Origin/Set-Cookie
+	// replay unless this channel deliberately moves to BigCommerce's stateful
+	// shopper-session mode.
+	let res: Response;
+	try {
+		res = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({ query: gql, variables }),
+			signal: AbortSignal.timeout(20_000),
+		});
+	} catch {
+		throw new BigCommerceGraphQLError('BigCommerce could not be reached.', {
+			outcomeUnknown: isMutation,
+		});
+	}
 
 	if (!res.ok) {
-		throw new Error(`BigCommerce GraphQL error: ${res.status} ${res.statusText}`);
+		throw new BigCommerceGraphQLError('BigCommerce rejected the request.', {
+			status: res.status,
+			outcomeUnknown: isMutation && res.status >= 500,
+		});
 	}
 
-	const json: GraphQLResponse<T> = await res.json();
+	let json: GraphQLResponse<T>;
+	try {
+		json = (await res.json()) as GraphQLResponse<T>;
+	} catch {
+		// A successful HTTP response with an unreadable body is ambiguous for a
+		// mutation. Keep the idempotency key terminal so the browser cannot
+		// blindly repeat an operation BigCommerce may already have applied.
+		throw new BigCommerceGraphQLError('BigCommerce returned an unreadable response.', { outcomeUnknown: isMutation });
+	}
 
 	if (json.errors?.length) {
-		console.error('GraphQL errors:', json.errors);
-		throw new Error(json.errors[0].message);
+		const providerCode = json.errors[0].extensions?.code;
+		const hint = `${providerCode ?? ''} ${json.errors[0].message}`.toLowerCase();
+		const conflict = hint.includes('conflict') || hint.includes('version');
+		console.error('BigCommerce GraphQL request returned an application error.', {
+			count: json.errors.length,
+			code: providerCode ?? 'unspecified',
+		});
+		throw new BigCommerceGraphQLError(json.errors[0].message, {
+			providerCode,
+			// An application error after a mutation request is not safe to repeat
+			// unless BigCommerce explicitly identifies optimistic concurrency.
+			outcomeUnknown: isMutation && !conflict,
+		});
 	}
 
+	if (!json.data) {
+		throw new BigCommerceGraphQLError('BigCommerce returned no data.', {
+			outcomeUnknown: isMutation,
+		});
+	}
 	return json.data;
 }
 
@@ -418,8 +479,9 @@ export async function getProductByPath(path: string): Promise<BCProduct | null> 
 }
 
 /**
- * Fixed catalog-only PDP payload for Kibble Preserve. This is intentionally a
- * query: the Preserve route never creates carts, subscriptions, or purchases.
+ * Fixed catalog presentation payload for Kibble Preserve. This query carries
+ * no transaction authority; the separate server-owned cart adapter validates
+ * an eligible product again before mutation.
  *
  * Verified 2026-08-12 against the pinned Kibble source at
  * `ef122b8e17b9eb0b327c9d42491c44a61577ead4`,
@@ -483,6 +545,45 @@ export async function getProductByEntityId(entityId: number): Promise<BCProduct 
 	return data.site.product;
 }
 
+export interface CartProductEligibility {
+	entityId: number;
+	isInStock: boolean;
+	hasOptions: boolean;
+}
+
+/** Revalidate the minimum one-time cart boundary from provider-owned catalog data. */
+export async function getCartProductEligibility(entityId: number): Promise<CartProductEligibility | null> {
+	const data = await query<{
+		site: {
+			product: {
+				entityId: number;
+				inventory: { isInStock: boolean } | null;
+				productOptions: { edges: Array<{ node: { entityId: number } }> };
+			} | null;
+		};
+	}>(
+		`
+		query GetCartProductEligibility($entityId: Int!) {
+			site {
+				product(entityId: $entityId) {
+					entityId
+					inventory { isInStock }
+					productOptions(first: 1) { edges { node { entityId } } }
+				}
+			}
+		}
+	`,
+		{ entityId },
+	);
+	const product = data.site.product;
+	if (!product) return null;
+	return {
+		entityId: product.entityId,
+		isInStock: product.inventory?.isInStock === true,
+		hasOptions: product.productOptions.edges.length > 0,
+	};
+}
+
 export async function getCategories() {
 	const data = await query<CategoriesResponse>(`
 		query GetCategories {
@@ -506,110 +607,255 @@ export async function getCategories() {
 
 // ─── Cart Operations ────────────────────────────────────────────────
 
-interface CartResponse {
+export interface CartResponse {
 	entityId: string;
+	version: number;
+	currencyCode: string;
+	amount: { value: number; currencyCode: string };
+	baseAmount: { value: number; currencyCode: string };
 	lineItems: {
 		physicalItems: Array<{
 			entityId: string;
 			productEntityId: number;
+			variantEntityId: number | null;
 			name: string;
 			quantity: number;
-			salePrice: { value: number; currencyCode: string };
+			salePrice: { value: number; currencyCode: string } | null;
 			listPrice: { value: number; currencyCode: string };
-			imageUrl: string;
+			extendedSalePrice: { value: number; currencyCode: string } | null;
+			extendedListPrice: { value: number; currencyCode: string };
+			imageUrl: string | null;
+			path: string;
+			isMutable: boolean;
 		}>;
 	};
 }
 
-export async function createCart(productEntityId: number, quantity = 1): Promise<CartResponse> {
-	interface CreateCartResponse { cart: CartResponse; }
+const CART_FRAGMENT = /* GraphQL */ `
+	entityId
+	version
+	currencyCode
+	amount { value currencyCode }
+	baseAmount { value currencyCode }
+	lineItems {
+		physicalItems {
+			entityId
+			productEntityId
+			variantEntityId
+			name
+			quantity
+			salePrice { value currencyCode }
+			listPrice { value currencyCode }
+			extendedSalePrice { value currencyCode }
+			extendedListPrice { value currencyCode }
+			imageUrl
+			path
+			isMutable
+		}
+	}
+`;
 
-	const data = await query<CreateCartResponse>(`
+/**
+ * Headless cart operations use the current Storefront GraphQL cart API.
+ * BigCommerce owns the cart, prices, and version used for optimistic concurrency.
+ * Verified 2026-08-14 against:
+ * https://docs.bigcommerce.com/developer/docs/admin/checkout-and-cart/custom-checkouts/graphql-storefront
+ * and the current official Catalyst-generated GraphQL schema for Cart.version.
+ */
+
+export async function createCart(productEntityId: number, quantity = 1): Promise<CartResponse> {
+	interface CreateCartResponse {
+		cart?: { createCart?: { cart?: CartResponse | null } | null } | null;
+	}
+
+	const data = await query<CreateCartResponse>(
+		`
 		mutation CreateCart($productId: Int!, $quantity: Int!) {
 			cart {
 				createCart(input: {
 					lineItems: [{ productEntityId: $productId, quantity: $quantity }]
 				}) {
 					cart {
-						entityId
-						lineItems {
-							physicalItems {
-								entityId
-								productEntityId
-								name
-								quantity
-								salePrice { value currencyCode }
-								listPrice { value currencyCode }
-								imageUrl
-							}
-						}
+						${CART_FRAGMENT}
 					}
 				}
 			}
 		}
-	`, { productId: productEntityId, quantity });
+	`,
+		{ productId: productEntityId, quantity },
+	);
 
-	// The nested structure from BC's mutation response
-	return (data as any).cart.createCart.cart;
+	return requireMutationCart(data.cart?.createCart?.cart, 'BigCommerce did not confirm cart creation.');
 }
 
-export async function addToCart(cartEntityId: string, productEntityId: number, quantity = 1): Promise<CartResponse> {
-	interface AddToCartResponse { cart: CartResponse; }
+export async function addToCart(cartEntityId: string, productEntityId: number, quantity = 1, version?: number): Promise<CartResponse> {
+	interface AddToCartResponse {
+		cart?: { addCartLineItems?: { cart?: CartResponse | null } | null } | null;
+	}
 
-	const data = await query<AddToCartResponse>(`
-		mutation AddToCart($cartId: String!, $productId: Int!, $quantity: Int!) {
+	const data = await query<AddToCartResponse>(
+		`
+		mutation AddToCart($cartId: String!, $productId: Int!, $quantity: Int!, $version: Int) {
 			cart {
 				addCartLineItems(input: {
 					cartEntityId: $cartId,
+					version: $version,
 					data: { lineItems: [{ productEntityId: $productId, quantity: $quantity }] }
 				}) {
 					cart {
-						entityId
-						lineItems {
-							physicalItems {
-								entityId
-								productEntityId
-								name
-								quantity
-								salePrice { value currencyCode }
-								listPrice { value currencyCode }
-								imageUrl
-							}
-						}
+						${CART_FRAGMENT}
 					}
 				}
 			}
 		}
-	`, { cartId: cartEntityId, productId: productEntityId, quantity });
+	`,
+		{ cartId: cartEntityId, productId: productEntityId, quantity, version },
+	);
 
-	return (data as any).cart.addCartLineItems.cart;
+	return requireMutationCart(data.cart?.addCartLineItems?.cart, 'BigCommerce did not confirm the added item.');
 }
 
 export async function getCart(cartEntityId: string): Promise<CartResponse | null> {
-	interface GetCartResponse { site: { cart: CartResponse | null } }
+	interface GetCartResponse {
+		site: { cart: CartResponse | null };
+	}
 
-	const data = await query<GetCartResponse>(`
+	const data = await query<GetCartResponse>(
+		`
 		query GetCart($cartId: String!) {
 			site {
 				cart(entityId: $cartId) {
-					entityId
-					lineItems {
-						physicalItems {
-							entityId
-							productEntityId
-							name
-							quantity
-							salePrice { value currencyCode }
-							listPrice { value currencyCode }
-							imageUrl
-						}
-					}
+					${CART_FRAGMENT}
 				}
 			}
 		}
-	`, { cartId: cartEntityId });
+	`,
+		{ cartId: cartEntityId },
+	);
 
 	return data.site.cart;
+}
+
+export async function updateCartLineItem(cartEntityId: string, lineItemEntityId: string, productEntityId: number, quantity: number, version: number): Promise<CartResponse> {
+	const data = await query<{
+		cart?: { updateCartLineItem?: { cart?: CartResponse | null } | null } | null;
+	}>(
+		`
+		mutation UpdateCartLineItem($cartId: String!, $lineId: String!, $productId: Int!, $quantity: Int!, $version: Int!) {
+			cart {
+				updateCartLineItem(input: {
+					cartEntityId: $cartId,
+					lineItemEntityId: $lineId,
+					version: $version,
+					data: { lineItem: { productEntityId: $productId, quantity: $quantity } }
+				}) {
+					cart { ${CART_FRAGMENT} }
+				}
+			}
+		}
+	`,
+		{
+			cartId: cartEntityId,
+			lineId: lineItemEntityId,
+			productId: productEntityId,
+			quantity,
+			version,
+		},
+	);
+	return requireMutationCart(data.cart?.updateCartLineItem?.cart, 'BigCommerce did not confirm the quantity update.');
+}
+
+export async function deleteCartLineItem(cartEntityId: string, lineItemEntityId: string, version: number): Promise<CartResponse | null> {
+	const data = await query<{
+		cart?: {
+			deleteCartLineItem?: {
+				cart?: CartResponse | null;
+				deletedCartEntityId?: string | null;
+			} | null;
+		} | null;
+	}>(
+		`
+		mutation DeleteCartLineItem($cartId: String!, $lineId: String!, $version: Int!) {
+			cart {
+				deleteCartLineItem(input: {
+					cartEntityId: $cartId,
+					lineItemEntityId: $lineId,
+					version: $version
+				}) {
+					deletedCartEntityId
+					cart { ${CART_FRAGMENT} }
+				}
+			}
+		}
+	`,
+		{ cartId: cartEntityId, lineId: lineItemEntityId, version },
+	);
+	const result = data.cart?.deleteCartLineItem;
+	if (result?.cart) return result.cart;
+	if (result?.deletedCartEntityId === cartEntityId) return null;
+	throw new BigCommerceGraphQLError('BigCommerce did not confirm line removal.', { outcomeUnknown: true });
+}
+
+export async function deleteCart(cartEntityId: string): Promise<void> {
+	const data = await query<{
+		cart: { deleteCart: { deletedCartEntityId: string | null } | null };
+	}>(
+		`
+		mutation DeleteCart($cartId: String!) {
+			cart {
+				deleteCart(input: { cartEntityId: $cartId }) { deletedCartEntityId }
+			}
+		}
+	`,
+		{ cartId: cartEntityId },
+	);
+	if (data.cart.deleteCart?.deletedCartEntityId !== cartEntityId) {
+		throw new BigCommerceGraphQLError('BigCommerce did not confirm the empty-cart operation.', { outcomeUnknown: true });
+	}
+}
+
+/**
+ * Mint a one-use hosted checkout URL only when the shopper asks to continue.
+ * This does not create an order or collect payment in Aisles.
+ * Verified 2026-08-14 against:
+ * https://docs.bigcommerce.com/developer/learn/courses/graphql-storefront-api/checkout/lab-query-practice
+ */
+export async function createCartRedirectUrl(cartEntityId: string): Promise<string> {
+	const data = await query<{
+		cart?: {
+			createCartRedirectUrls?: {
+				redirectUrls: { redirectedCheckoutUrl: string | null } | null;
+			} | null;
+		} | null;
+	}>(
+		`
+		mutation CreateCartRedirectUrl($cartId: String!) {
+			cart {
+				createCartRedirectUrls(input: { cartEntityId: $cartId }) {
+					redirectUrls { redirectedCheckoutUrl }
+				}
+			}
+		}
+	`,
+		{ cartId: cartEntityId },
+	);
+	const value = data.cart?.createCartRedirectUrls?.redirectUrls?.redirectedCheckoutUrl;
+	if (!value) throw new BigCommerceGraphQLError('BigCommerce did not confirm a checkout handoff URL.', { outcomeUnknown: true });
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		throw new BigCommerceGraphQLError('BigCommerce returned an invalid checkout handoff URL.');
+	}
+	if (url.protocol !== 'https:') {
+		throw new BigCommerceGraphQLError('BigCommerce returned an insecure checkout handoff URL.');
+	}
+	return url.toString();
+}
+
+function requireMutationCart(cart: CartResponse | null | undefined, message: string): CartResponse {
+	if (!cart) throw new BigCommerceGraphQLError(message, { outcomeUnknown: true });
+	return cart;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────

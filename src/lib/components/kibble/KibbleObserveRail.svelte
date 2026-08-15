@@ -9,6 +9,7 @@
 	import { describeKibblePdpModelAction, type KibblePdpModelActionStatus } from './kibble-pdp-model-action';
 	import { describeKibblePlpModelAction, type KibblePlpModelActionStatus } from './kibble-plp-model-action';
 	import type { KibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibble-catalog-enrichment';
+	import type { CommerceEvidence, CommerceServiceBoundary } from '$lib/commerce/cart-contract';
 
 	type ZoneAuthority = 'fixed' | 'rules' | 'model';
 	type ZoneEvidence = {
@@ -32,6 +33,7 @@
 		sessionId = null,
 		initialPersona = null,
 		capabilityCoverage = null,
+		commerceServices = { mode: 'off', cart: 'not_connected', checkout: 'not_connected', orderCreation: 'not_exposed', account: 'not_configured', payment: 'provider_owned', subscription: 'not_configured' },
 	}: {
 		active: boolean;
 		enableHref: string;
@@ -43,6 +45,7 @@
 		sessionId?: string | null;
 		initialPersona?: string | null;
 		capabilityCoverage?: KibbleMerchantCapabilityCoverage | null;
+		commerceServices?: CommerceServiceBoundary;
 	} = $props();
 
 	let expanded = $state(true);
@@ -70,6 +73,7 @@
 	let modelActionCooldownUntil = $state(0);
 	let clockNow = $state(0);
 	let decisionEvidence = $state<KibbleDecisionEvidence | null>(null);
+	let commerceEvidence = $state<CommerceEvidence | null>(null);
 	const pdpModelAction = $derived(describeKibblePdpModelAction(pdpModelActionStatus));
 	const plpModelAction = $derived(describeKibblePlpModelAction(plpModelActionStatus));
 	const homeModelAction = $derived(describeHomeModelAction(homeModelActionStatus));
@@ -201,6 +205,12 @@
 		const onCartModelReady = () => { cartModelActionReady = true; };
 		const onCheckoutModelStatus = (event: Event) => applyModelStatus(event, 'checkout');
 		const onCheckoutModelReady = () => { checkoutModelActionReady = true; };
+		const onCommerceOutcome = (event: Event) => {
+			const detail = event instanceof CustomEvent ? event.detail : null;
+			if (detail && typeof detail === 'object' && detail.modelCalls === 0 && typeof detail.operation === 'string') {
+				commerceEvidence = detail as CommerceEvidence;
+			}
+		};
 		window.addEventListener('hashchange', collapseForSignalLab);
 		window.addEventListener('aisles-inference-update', onInferenceUpdate);
 		window.addEventListener('aisles-kibble-home-model-status', onHomeModelStatus);
@@ -215,6 +225,7 @@
 		window.addEventListener('aisles-kibble-cart-model-ready', onCartModelReady);
 		window.addEventListener('aisles-kibble-checkout-model-status', onCheckoutModelStatus);
 		window.addEventListener('aisles-kibble-checkout-model-ready', onCheckoutModelReady);
+		window.addEventListener('commerce-service-outcome', onCommerceOutcome);
 		return () => {
 			window.clearInterval(clock);
 			observer.disconnect();
@@ -232,6 +243,7 @@
 			window.removeEventListener('aisles-kibble-cart-model-ready', onCartModelReady);
 			window.removeEventListener('aisles-kibble-checkout-model-status', onCheckoutModelStatus);
 			window.removeEventListener('aisles-kibble-checkout-model-ready', onCheckoutModelReady);
+			window.removeEventListener('commerce-service-outcome', onCommerceOutcome);
 		};
 	});
 
@@ -595,8 +607,10 @@
 			{/if}
 
 			<section class="aisles-observe__boundary" aria-labelledby="aisles-commerce-boundary">
-				<h3 id="aisles-commerce-boundary">Why purchase controls stop here</h3>
-				<p>Aisles currently preserves this storefront and reads its catalog. Its cart, checkout, account, and Auto-Refill services are not connected, so the demo does not imitate transactions it cannot complete.</p>
+				<h3 id="aisles-commerce-boundary">Commerce service boundary</h3>
+				<p><b>Cart:</b> {commerceServices.cart === 'bigcommerce_sandbox' ? 'BigCommerce sandbox connected' : 'not connected'}. <b>Checkout:</b> {commerceServices.checkout === 'bigcommerce_hosted_handoff' ? 'BigCommerce hosted handoff connected' : 'not connected'}.</p>
+				<p><b>Orders:</b> no Aisles creation endpoint. <b>Accounts:</b> not configured. <b>Payments:</b> provider-owned. <b>Auto-Refill:</b> subscription service not configured.</p>
+				{#if commerceEvidence}<p><b>Latest browser-received service outcome:</b> {commerceEvidence.operation} · attempted {commerceEvidence.attempted ? 'yes' : 'no'} · confirmed {commerceEvidence.confirmed ? 'yes' : 'no'} · state change {commerceEvidence.commerceStateChanged} · model calls {commerceEvidence.modelCalls}.</p>{/if}
 				<a href="https://storefront.bcsubs.app/" target="_blank" rel="noopener">Open the connected reference store <span aria-hidden="true">↗</span></a>
 			</section>
 

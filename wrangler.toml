@@ -8,6 +8,9 @@ BIGCOMMERCE_STORE_HASH = "cdfqf9k6zf"
 BRAND_ID = "kibble"
 VITE_BRAND_ID = "kibble"
 KIBBLE_DEMO_AI_ENABLED = "true"
+# Every committed deployment environment is fail-closed until the durable
+# session-store gate passes and a release is separately approved.
+KIBBLE_COMMERCE_MODE = "off"
 
 [[hyperdrive]]
 binding = "HYPERDRIVE"
@@ -26,3 +29,4 @@ BIGCOMMERCE_STORE_HASH = "cdfqf9k6zf"
 BRAND_ID = "kibble"
 VITE_BRAND_ID = "kibble"
 KIBBLE_DEMO_AI_ENABLED = "true"
+KIBBLE_COMMERCE_MODE = "off"

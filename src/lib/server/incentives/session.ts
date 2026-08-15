@@ -51,7 +51,7 @@ export function buildIncentivesContext(cart: BCCart | null, appliedCodes: string
 		path: `$.cart.line_items[${idx}]`,
 		productEntityId: item.productEntityId,
 		quantity: item.quantity,
-		unitPriceMinor: toMinor(item.salePrice.value),
+		unitPriceMinor: toMinor((item.salePrice ?? item.listPrice).value),
 	}));
 	const subtotalMinor = lineItems.reduce(
 		(sum, item) => sum + item.unitPriceMinor * item.quantity,

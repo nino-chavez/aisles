@@ -34,6 +34,7 @@ import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.serv
 import { materializeKibbleSubscriptionOffers } from '$lib/brand/reference/kibble-catalog-enrichment';
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
+import { getCommerceServiceBoundary } from '$lib/server/commerce/boundary';
 
 export const load: PageServerLoad = async ({ params, url, request, cookies, parent }) => {
 	const slug = params.slug;
@@ -199,6 +200,7 @@ async function loadKibblePreservePdp({
 				copy: manifest.copy,
 				zoneAdapter: await executeKibblePdpRelatedZoneAdapter(relatedProducts, manifest.relatedHeading, url.pathname),
 				relatedModelDecision,
+				commerceServices: getCommerceServiceBoundary(),
 			},
 			provenance,
 		};
