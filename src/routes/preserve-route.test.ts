@@ -250,7 +250,8 @@ describe('Preserve route boundaries', () => {
 				} as never,
 			},
 		});
-		expect(result.body).toContain('data-reference-pdp="catalog-display-only"');
+		expect(result.body).toContain('data-reference-pdp="catalog-presentation"');
+		expect(result.body).toContain('data-kibble-commerce-mode="off"');
 		expect(result.body).toContain(`data-reference-contract-version="${KIBBLE_REFERENCE_CONTRACT.version}"`);
 		expect(result.body).toContain('Purchase unavailable in this preview');
 		expect(result.body).not.toMatch(/Add to Cart|Add to Picks|Pairs well with/);

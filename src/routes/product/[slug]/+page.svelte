@@ -80,8 +80,10 @@
 
 	let isAddingToCart = $state(false);
 	let cartMessage = $state('');
+	let kibbleAddIdempotencyKey: string | null = null;
 	let pairings = $state<Array<{ id: string; name: string; price: number; reason: string }>>([]);
 	let pairingsLoading = $state(false);
+	const retainIdempotencyKeyFor = new Set(['provider_outcome_unknown', 'session_unavailable', 'operation_in_progress']);
 
 	$effect(() => {
 		if (isKibblePdp) return;
@@ -104,13 +106,48 @@
 			setTimeout(() => { cartMessage = ''; }, 3000);
 		} catch { cartMessage = 'Failed to add to cart'; } finally { isAddingToCart = false; }
 	}
+
+	async function addKibbleToCart() {
+		const pdp = data.kibblePdp;
+		if (!pdp) return;
+		const idempotencyKey = kibbleAddIdempotencyKey ?? crypto.randomUUID();
+		kibbleAddIdempotencyKey = idempotencyKey;
+		isAddingToCart = true;
+		cartMessage = '';
+		try {
+			const response = await fetch('/api/cart', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+				body: JSON.stringify({ productEntityId: pdp.product.entityId, quantity: 1 }),
+			});
+			const result = await response.json();
+			if (result.evidence) window.dispatchEvent(new CustomEvent('commerce-service-outcome', { detail: result.evidence }));
+			if (!response.ok || result.evidence?.confirmed !== true) {
+				if (!retainIdempotencyKeyFor.has(result.error?.code)) kibbleAddIdempotencyKey = null;
+				throw new Error(result.error?.message || 'BigCommerce did not confirm the cart change.');
+			}
+			kibbleAddIdempotencyKey = null;
+			cartMessage = `Added to cart (${result.itemCount} ${result.itemCount === 1 ? 'item' : 'items'})`;
+			getEmitter()?.emit('commerce.add_to_cart', {
+				correlationId: result.evidence.correlationId,
+				quantity: 1,
+				purchaseMode: 'one_time',
+			});
+			window.dispatchEvent(new CustomEvent('cart-updated', { detail: { itemCount: result.itemCount } }));
+		} catch (cause) {
+			cartMessage = cause instanceof Error ? cause.message : 'The item could not be added.';
+		} finally {
+			isAddingToCart = false;
+		}
+	}
 </script>
 
 <svelte:head><title>{isKibblePdp ? data.kibblePdp?.product.name : product?.name}</title><meta name="description" content={isKibblePdp ? data.kibblePdp?.product.descriptionPlain.slice(0, 160) : product?.descriptionPlain.slice(0, 160)} /></svelte:head>
 
 {#if isKibblePdp && data.kibblePdp}
 	<div
-		data-reference-pdp="catalog-display-only"
+		data-reference-pdp="catalog-presentation"
+		data-kibble-commerce-mode={data.kibblePdp.commerceServices?.mode ?? 'off'}
 		data-reference-id={KIBBLE_REFERENCE_CONTRACT.id}
 		data-reference-contract-version={KIBBLE_REFERENCE_CONTRACT.version}
 		data-reference-fixture={KIBBLE_REFERENCE_CONTRACT.source.fixturePath}
@@ -120,6 +157,10 @@
 		relatedProducts={previewRelatedProducts ?? data.kibblePdp.relatedProducts}
 		zoneAdapter={previewRelatedZoneAdapter ?? data.kibblePdp.zoneAdapter}
 		marketingZoneArtifact={previewPdpZoneArtifacts?.marketing ?? null}
+		onAddToCart={addKibbleToCart}
+		commerceEnabled={data.kibblePdp.commerceServices?.mode === 'sandbox'}
+		{isAddingToCart}
+		{cartMessage}
 	/></div>
 {:else if product && relatedProducts}
 	<div class="mx-auto max-w-7xl px-6 py-8">

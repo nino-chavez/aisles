@@ -156,10 +156,12 @@ describe('Kibble reference components fail closed', () => {
 		}
 	});
 
-	it('keeps the PDP catalog-only and routes every visible label through its adapter copy', () => {
+	it('keeps the PDP presentation fixed while exposing only the server-owned cart callback', () => {
 		const pdp = component('KibbleProductDetailReference.svelte');
 		expect(pdp).toContain('data-kibble-pdp-recipe="fixed-catalog-display-only"');
-		for (const forbidden of ['/api/cart', '/api/suggest', 'addToCart', 'method="post"', 'use:enhance', 'Subscribe now', 'Manage plan']) expect(pdp).not.toContain(forbidden);
+		expect(pdp).toContain("data-kibble-commerce-mode={commerceEnabled ? 'sandbox-cart' : 'off'}");
+		expect(pdp).toContain('onclick={onAddToCart}');
+		for (const forbidden of ['/api/cart', '/api/suggest', 'method="post"', 'use:enhance', 'Subscribe now', 'Manage plan']) expect(pdp).not.toContain(forbidden);
 		expect(pdp).toContain('Pinned subscription evidence');
 		expect(pdp).toContain('The subscription service owns plan eligibility');
 		const offerStart = pdp.indexOf('data-aisles-zone-instance="pdp.subscription-offer"');

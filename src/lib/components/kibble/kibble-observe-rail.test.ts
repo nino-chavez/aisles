@@ -27,7 +27,7 @@ describe('KibbleObserveRail', () => {
 
 	it('explains actual authority, commerce boundaries, and exact session access', () => {
 		const result = render(KibbleObserveRail, { props: { ...props, active: true } });
-		for (const label of ['Template', 'Rules', 'AI', 'No model generated', 'Why purchase controls stop here']) {
+		for (const label of ['Template', 'Rules', 'AI', 'No model generated', 'Commerce service boundary']) {
 			expect(result.body).toContain(label);
 		}
 		expect(result.body).toContain('researcher');

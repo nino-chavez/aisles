@@ -12,6 +12,18 @@ import {
 import { getSessionStore, persistSession, hasSession } from '$lib/signals/session';
 import { EMPTY_INCENTIVES, type IncentivesPayload } from '$lib/schema/uip';
 import { getBrand } from '$lib/brand/config';
+import { getCommerceServiceBoundary, isKibbleCommerceEnabled } from '$lib/server/commerce/boundary';
+import { commerceService } from '$lib/server/commerce/service';
+import {
+	CommerceRateLimitError,
+	CommerceSessionUnavailableError,
+	commerceSessionId,
+	requireCommerceSessionId,
+	requireCommerceMutationCapacity,
+	requireIdempotencyKey,
+	requireSameOrigin,
+} from '$lib/server/commerce/session';
+import { operationEvidence } from '$lib/commerce/cart-contract';
 
 type BCCart = NonNullable<Awaited<ReturnType<typeof getCart>>>;
 
@@ -51,9 +63,23 @@ async function emitPromoSignal(
 }
 
 /** POST /api/cart — Add item to cart, or apply/remove a promotion code. */
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async ({ request, cookies, getClientAddress }) => {
 	if (getBrand().id === 'kibble') {
-		return json({ error: 'Cart is unavailable for this Kibble reference-preserved preview.' }, { status: 503 });
+		if (!isKibbleCommerceEnabled()) return kibbleDisabled('cart.add');
+		try {
+			requireSameOrigin(request);
+			const body = await request.json();
+			const productEntityId = Number(body?.productEntityId);
+			const quantity = body?.quantity === undefined ? 1 : Number(body.quantity);
+			if (!Number.isInteger(productEntityId) || productEntityId < 1 || !Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+				return kibbleInvalid('cart.add', 'A valid product and quantity from 1 to 10 are required.');
+			}
+			await requireCommerceMutationCapacity(getClientAddress());
+				const result = await commerceService.add(requireCommerceSessionId(cookies), requireIdempotencyKey(request), { productEntityId, quantity });
+			return commerceResponse(result);
+		} catch (cause) {
+			return kibbleGuardFailure('cart.add', cause, 'The cart request could not be read.');
+		}
 	}
 	try {
 		const body = await request.json();
@@ -128,7 +154,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 /** GET /api/cart — Get current cart with UIP incentives payload. */
 export const GET: RequestHandler = async ({ cookies }) => {
 	if (getBrand().id === 'kibble') {
-		return json({ error: 'Cart is unavailable for this Kibble reference-preserved preview.' }, { status: 503 });
+		if (!isKibbleCommerceEnabled()) return kibbleDisabled('cart.read');
+		return commerceResponse(await commerceService.read(commerceSessionId(cookies)));
 	}
 	const cartId = cookies.get('bc_cart_id');
 	const appliedCodes = readAppliedCodes(cookies);
@@ -151,3 +178,111 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		return json({ cart: null, itemCount: 0, appliedCodes, ...EMPTY_INCENTIVES });
 	}
 };
+
+/** DELETE /api/cart — Empty the current Kibble cart. */
+export const DELETE: RequestHandler = async ({ request, cookies, getClientAddress }) => {
+	if (getBrand().id !== 'kibble' || !isKibbleCommerceEnabled()) return kibbleDisabled('cart.empty');
+	try {
+		requireSameOrigin(request);
+		await requireCommerceMutationCapacity(getClientAddress());
+		return commerceResponse(await commerceService.empty(requireCommerceSessionId(cookies), requireIdempotencyKey(request)));
+	} catch (cause) {
+		return kibbleGuardFailure('cart.empty', cause, 'The cart request could not be read.');
+	}
+};
+
+function commerceResponse(result: Awaited<ReturnType<typeof commerceService.read>>) {
+	return result.ok
+		? json(result.data, { status: result.status, headers: commerceHeaders() })
+		: json(
+				{
+					error: result.error,
+					evidence: result.evidence,
+					services: result.services,
+					...(result.replayed ? { replayed: true } : {}),
+				},
+				{ status: result.status, headers: commerceHeaders() },
+			);
+}
+
+function kibbleDisabled(operation: Parameters<typeof operationEvidence>[0]) {
+	const correlationId = crypto.randomUUID();
+	return json(
+		{
+			error: {
+				code: 'commerce_disabled',
+				message: 'Kibble sandbox commerce is not enabled.',
+				retryable: false,
+				correlationId,
+			},
+			evidence: operationEvidence(operation, correlationId, {
+				attempted: false,
+				provider: 'none',
+				changed: 'none',
+			}),
+			services: getCommerceServiceBoundary(),
+		},
+		{ status: 503, headers: commerceHeaders() },
+	);
+}
+
+function kibbleInvalid(operation: Parameters<typeof operationEvidence>[0], message: string) {
+	const correlationId = crypto.randomUUID();
+	return json(
+		{
+			error: {
+				code: 'invalid_request',
+				message,
+				retryable: false,
+				correlationId,
+			},
+			evidence: operationEvidence(operation, correlationId, {
+				attempted: false,
+				provider: 'none',
+				changed: 'none',
+			}),
+			services: getCommerceServiceBoundary(),
+		},
+		{ status: 400, headers: commerceHeaders() },
+	);
+}
+
+function kibbleGuardFailure(
+	operation: Parameters<typeof operationEvidence>[0],
+	cause: unknown,
+	fallbackMessage: string,
+) {
+	if (cause instanceof CommerceRateLimitError) {
+		return kibbleLocalFailure(operation, 'rate_limited', 'Too many cart changes. Wait a minute and try again.', 429, true);
+	}
+	if (cause instanceof CommerceSessionUnavailableError) {
+		return kibbleLocalFailure(operation, 'session_unavailable', 'The cart session is temporarily unavailable.', 503, true);
+	}
+	return kibbleInvalid(operation, cause instanceof TypeError ? cause.message : fallbackMessage);
+}
+
+function kibbleLocalFailure(
+	operation: Parameters<typeof operationEvidence>[0],
+	code: 'rate_limited' | 'session_unavailable',
+	message: string,
+	status: number,
+	retryable: boolean,
+) {
+	const correlationId = crypto.randomUUID();
+	return json(
+		{
+			error: { code, message, retryable, correlationId },
+			evidence: operationEvidence(operation, correlationId, {
+				attempted: false,
+				provider: 'none',
+				changed: 'none',
+			}),
+			services: getCommerceServiceBoundary(),
+		},
+		{ status, headers: commerceHeaders() },
+	);
+}
+
+function commerceHeaders() {
+	return { 'Cache-Control': 'private, no-store' };
+}

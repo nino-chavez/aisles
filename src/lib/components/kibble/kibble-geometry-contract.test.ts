@@ -34,7 +34,7 @@ describe('Kibble source-backed geometry contracts', () => {
 		expect(KIBBLE_PRESERVE_MANIFEST.display.error.headline).toBe('This shelf needs a moment.');
 	});
 
-	it('uses div anatomy for catalog-display-only PDP groups without restoring purchase controls', () => {
+	it('uses div anatomy and keeps the purchase control off without the server gate', () => {
 		const body = render(KibbleProductDetailReference, { props: {
 			product: { id: 'goodgut', entityId: 3023, name: 'GoodGut', price: 34.99, currencyCode: 'USD', image: '', imageAlt: '', images: [], description: '<p>Details</p>', descriptionPlain: 'Details', specs: {}, tags: [], category: 'Dog food', categoryPath: 'dog-food', sku: 'GOODGUT', isInStock: true },
 			bundle: null, breadcrumbs: [], options: [], relatedProducts: [], relatedProductHrefs: {},

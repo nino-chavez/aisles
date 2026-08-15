@@ -23,6 +23,10 @@
 		relatedModelDecision = null,
 		marketingZoneArtifact = null,
 		autoRefill = null,
+		onAddToCart,
+		isAddingToCart = false,
+		cartMessage = '',
+		commerceEnabled = false,
 	}: {
 		product: KibblePdpProduct;
 		bundle: KibblePdpBundle | null;
@@ -40,6 +44,10 @@
 		relatedModelDecision?: { zoneId: 'pdp.related'; routePath: string } | null;
 		marketingZoneArtifact?: KibbleModelZoneAdapterBinding<MarketingContent> | null;
 		autoRefill?: KibbleAutoRefillOffer | null;
+		onAddToCart?: () => void;
+		isAddingToCart?: boolean;
+		cartMessage?: string;
+		commerceEnabled?: boolean;
 	} = $props();
 
 	let activeImage = $state(0);
@@ -53,6 +61,12 @@
 	const currentImage = $derived(gallery[activeImage] ?? null);
 	const salePrice = $derived(typeof product.salePrice === 'number' && product.salePrice < product.price ? product.salePrice : null);
 	const relatedByEntityId = $derived(new Map(relatedProducts.map((related) => [String(related.entityId), related])));
+	const commerceReady = $derived(
+		commerceEnabled &&
+		product.isInStock === true &&
+		options.length === 0 &&
+		(typeof onAddToCart === 'function')
+	);
 
 	function money(value: number): string {
 		return new Intl.NumberFormat('en-US', { style: 'currency', currency: product.currencyCode || 'USD' }).format(value);
@@ -63,7 +77,7 @@
 	});
 </script>
 
-<article class="kibble-reference kc-reference-pdp" data-kibble-pdp-recipe="fixed-catalog-display-only">
+<article class="kibble-reference kc-reference-pdp" data-kibble-pdp-recipe="fixed-catalog-display-only" data-kibble-commerce-mode={commerceEnabled ? 'sandbox-cart' : 'off'}>
 	<div class="kc-reference-container">
 		<nav class="kc-reference-breadcrumbs" aria-label={copy.breadcrumbLabel}>
 			{#each breadcrumbs as crumb, index}
@@ -139,10 +153,21 @@
 					</fieldset>
 				{/if}
 
-				<aside class="kc-reference-pdp__purchase-unavailable" id="purchase-unavailable" aria-live="polite">
-					<p class="kc-reference-eyebrow">{purchaseUnavailableLabel}</p>
-					<p>{purchaseUnavailableBody}</p>
-				</aside>
+
+				{#if commerceReady}
+					<div class="kc-reference-pdp__purchase" aria-live="polite">
+						<button type="button" class="kc-reference-button kc-reference-button--primary kc-reference-focus" onclick={onAddToCart} disabled={isAddingToCart}>
+							{isAddingToCart ? 'Adding…' : `Add to cart — ${money(salePrice ?? product.price)}`}
+						</button>
+						<small>One-time purchase. BigCommerce owns the cart and price.</small>
+						{#if cartMessage}<p>{cartMessage}</p>{/if}
+					</div>
+				{:else}
+					<aside class="kc-reference-pdp__purchase-unavailable" id="purchase-unavailable" aria-live="polite">
+						<p class="kc-reference-eyebrow">{purchaseUnavailableLabel}</p>
+						<p>{commerceEnabled && options.length > 0 ? 'Product options are not connected to the cart yet.' : purchaseUnavailableBody}</p>
+					</aside>
+				{/if}
 
 				{#if product.description}<div class="kc-reference-pdp__description"><h2>{copy.detailsHeading}</h2><div>{@html product.description}</div></div>{/if}
 				{#if Object.keys(product.specs).length > 0}<dl class="kc-reference-pdp__specs">{#each Object.entries(product.specs) as [label, value]}<div><dt>{label}</dt><dd>{value}</dd></div>{/each}</dl>{/if}

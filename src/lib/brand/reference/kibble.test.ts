@@ -46,7 +46,7 @@ function contrast(foreground: string, background: string): number {
 
 describe('Kibble reference contract', () => {
 	it('pins the approved source revision and locked Shelf-Native artifacts', () => {
-		expect(KIBBLE_REFERENCE_CONTRACT.version).toBe('1.9.0');
+		expect(KIBBLE_REFERENCE_CONTRACT.version).toBe('1.10.0');
 		expect(KIBBLE_REFERENCE_CONTRACT.source).toEqual({
 			repository: 'bc-subscriptions', remote: 'git@github.com:nino-chavez/bc-subscriptions.git',
 			commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4', referenceContractVersion: '1.5.0', applicationPath: 'apps/storefront-svelte',
@@ -225,8 +225,8 @@ describe('Kibble reference contract', () => {
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp).toMatchObject({
 			acceptance: 'approved',
 			source: { commit: 'ef122b8e17b9eb0b327c9d42491c44a61577ead4' },
-			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-pinned-subscription-evidence', 'conditional-bundle-contents', 'catalog-options', 'truthful-purchase-unavailable', 'description-and-specifications', 'related-products'],
-			commerce: { mode: 'catalog-display-only', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'truthful-purchase-unavailable' },
+			orderedAnatomy: ['breadcrumbs', 'media-gallery', 'product-identity', 'conditional-bundle-summary', 'catalog-price-and-availability', 'conditional-pinned-subscription-evidence', 'conditional-bundle-contents', 'catalog-options', 'gated-one-time-cart-or-purchase-unavailable', 'description-and-specifications', 'related-products'],
+			commerce: { mode: 'catalog-display-only', runtimeCartMode: 'server-gated-off-or-sandbox', sourcePurchaseControls: 'not-rendered-in-aisles', visibleState: 'optionless-one-time-add-when-sandbox-ready-otherwise-unavailable' },
 			publication: { mode: 'live-read-only', reviewAvailability: 'production-and-development', productLinks: 'enabled-to-catalog-display-only-pdp' },
 			modelLayoutRequest: false,
 		});
@@ -290,7 +290,8 @@ describe('Kibble reference contract', () => {
 			KIBBLE_REFERENCE_CONTRACT.recipes.plp.source.commit,
 			KIBBLE_REFERENCE_CONTRACT.recipes.pdp.source.commit,
 		])).toEqual(new Set(['ef122b8e17b9eb0b327c9d42491c44a61577ead4']));
-		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('add-to-cart');
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.allowedRuntimeOperations).toContain('cart.add');
+		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('order-creation');
 		expect(KIBBLE_REFERENCE_CONTRACT.recipes.pdp.commerce.forbidden).toContain('subscription-action');
 	});
 
