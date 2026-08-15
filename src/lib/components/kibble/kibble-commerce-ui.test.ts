@@ -184,4 +184,43 @@ describe('rendered Kibble commerce controls', () => {
 			await browser.close();
 		}
 	});
+
+	it('renders a working password seam only when BigCommerce identity is fully configured', async () => {
+		const readyServices = { ...services, account: 'bigcommerce_login_ready' as const };
+		const anonymous = render(KibbleAccountReference, {
+			props: {
+				subtype: 'login',
+				brandName: 'Kibble & Co.',
+				availabilityMessage: 'Sign in to continue.',
+				services: readyServices,
+				customerSessionState: 'anonymous',
+			},
+		}).body;
+		const authenticated = render(KibbleAccountReference, {
+			props: {
+				subtype: 'orders',
+				brandName: 'Kibble & Co.',
+				availabilityMessage: 'Your order history.',
+				services: readyServices,
+				customerSessionState: 'authenticated',
+			},
+		}).body;
+		expect(anonymous).toContain('data-kibble-backend-state="bigcommerce_login_ready"');
+		expect(anonymous).toContain('data-kibble-customer-session-state="anonymous"');
+		expect(authenticated).toContain('data-kibble-customer-session-state="authenticated"');
+		expect(authenticated).toContain('Reads cannot create or change an order.');
+
+		const browser = await chromium.launch({ headless: true });
+		try {
+			const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+			await page.setContent(anonymous);
+			await expect(page.getByRole('form', { name: 'Sign in' }).isVisible()).resolves.toBe(true);
+			await expect(page.getByLabel('Email address').isEnabled()).resolves.toBe(true);
+			await expect(page.getByLabel('Password').isEnabled()).resolves.toBe(true);
+			await expect(page.getByRole('button', { name: 'Sign in', exact: true }).isEnabled()).resolves.toBe(true);
+			await expect(page.getByRole('button', { name: 'Magic link' }).isDisabled()).resolves.toBe(true);
+		} finally {
+			await browser.close();
+		}
+	});
 });

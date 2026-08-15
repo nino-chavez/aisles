@@ -8,12 +8,16 @@ import {
 	CommerceRateLimitError,
 	CommerceSessionUnavailableError,
 	COMMERCE_MUTATION_CLIENT_LIMIT,
+	CUSTOMER_AUTH_CLIENT_LIMIT,
 	_resetCommerceSessionMemoryForTests,
+	activeCustomerSession,
+	clearExpiredCustomerSession,
 	commerceSessionId,
 	coordinateCommerceMutation,
 	loadCommerceSession,
 	requireCommerceSessionId,
 	requireCommerceMutationCapacity,
+	requireCustomerAuthenticationCapacity,
 	requireIdempotencyKey,
 	requireSameOrigin,
 } from './session';
@@ -125,6 +129,37 @@ describe('server-owned commerce session and mutation coordination', () => {
 		}
 		await expect(requireCommerceMutationCapacity('203.0.113.10')).rejects.toBeInstanceOf(CommerceRateLimitError);
 		await expect(requireCommerceMutationCapacity('203.0.113.11')).resolves.toBeUndefined();
+	});
+
+	it('uses a stricter, separate rate window for customer authentication', async () => {
+		for (let index = 0; index < CUSTOMER_AUTH_CLIENT_LIMIT; index += 1) {
+			await expect(requireCustomerAuthenticationCapacity('203.0.113.20')).resolves.toBeUndefined();
+		}
+		await expect(requireCustomerAuthenticationCapacity('203.0.113.20')).rejects.toBeInstanceOf(CommerceRateLimitError);
+		await expect(requireCommerceMutationCapacity('203.0.113.20')).resolves.toBeUndefined();
+	});
+
+	it('accepts only a live server-held customer token and clears an expired reference', async () => {
+		const sessionId = crypto.randomUUID();
+		await coordinateCommerceMutation({
+			sessionId,
+			idempotencyKey: 'request-auth1',
+			fingerprint: 'account.login',
+			execute: async (state) => {
+				state.customerSession = {
+					provider: 'bigcommerce',
+					customerEntityId: 42,
+					customerAccessToken: 'server-only-token',
+					expiresAt: '2026-08-15T15:00:00.000Z',
+				};
+				return { state, value: true };
+			},
+		});
+		const state = await loadCommerceSession(sessionId);
+		expect(activeCustomerSession(state, Date.parse('2026-08-15T14:59:59.000Z'))?.customerEntityId).toBe(42);
+		expect(activeCustomerSession(state, Date.parse('2026-08-15T15:00:00.000Z'))).toBeNull();
+		clearExpiredCustomerSession(state, Date.parse('2026-08-15T15:00:00.000Z'));
+		expect(state.customerSession).toBeNull();
 	});
 
 	it('rejects a reused key with a different operation fingerprint', async () => {

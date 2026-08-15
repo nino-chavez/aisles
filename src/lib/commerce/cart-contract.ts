@@ -70,7 +70,7 @@ export interface CommerceServiceBoundary {
 	checkout: 'not_connected' | 'bigcommerce_hosted_handoff';
 	orderCreation: 'not_exposed';
 	orderHistory: 'customer_session_required';
-	account: 'merchant_decision_required';
+	account: 'merchant_decision_required' | 'private_token_required' | 'bigcommerce_login_ready';
 	payment: 'provider_owned';
 	subscription: 'provider_not_connected';
 	subscriptionPortal: 'portal_session_required';
