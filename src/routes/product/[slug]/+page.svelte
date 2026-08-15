@@ -81,6 +81,7 @@
 	let isAddingToCart = $state(false);
 	let cartMessage = $state('');
 	let kibbleAddIdempotencyKey: string | null = null;
+	let kibbleSubscriptionIdempotencyKey: string | null = null;
 	let pairings = $state<Array<{ id: string; name: string; price: number; reason: string }>>([]);
 	let pairingsLoading = $state(false);
 	const retainIdempotencyKeyFor = new Set(['provider_outcome_unknown', 'session_unavailable', 'operation_in_progress']);
@@ -140,6 +141,40 @@
 			isAddingToCart = false;
 		}
 	}
+
+	async function addKibbleAutoRefill(planId: string) {
+		const pdp = data.kibblePdp;
+		if (!pdp) return;
+		const idempotencyKey = kibbleSubscriptionIdempotencyKey ?? crypto.randomUUID();
+		kibbleSubscriptionIdempotencyKey = idempotencyKey;
+		isAddingToCart = true;
+		cartMessage = '';
+		try {
+			const response = await fetch('/api/subscriptions/cart-intent', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+				body: JSON.stringify({ productEntityId: pdp.product.entityId, planId }),
+			});
+			const result = await response.json();
+			if (result.evidence) window.dispatchEvent(new CustomEvent('commerce-service-outcome', { detail: result.evidence }));
+			if (!response.ok || result.evidence?.confirmed !== true) {
+				if (!retainIdempotencyKeyFor.has(result.error?.code)) kibbleSubscriptionIdempotencyKey = null;
+				throw new Error(result.error?.message || 'The provider did not confirm Auto-Refill.');
+			}
+			kibbleSubscriptionIdempotencyKey = null;
+			cartMessage = `${result.plan.name} is confirmed on your cart.`;
+			getEmitter()?.emit('commerce.add_to_cart', {
+				correlationId: result.evidence.correlationId,
+				quantity: 1,
+				purchaseMode: 'subscription',
+			});
+			window.dispatchEvent(new CustomEvent('cart-updated', { detail: { itemCount: result.itemCount } }));
+		} catch (cause) {
+			cartMessage = cause instanceof Error ? cause.message : 'Auto-Refill could not be confirmed.';
+		} finally {
+			isAddingToCart = false;
+		}
+	}
 </script>
 
 <svelte:head><title>{isKibblePdp ? data.kibblePdp?.product.name : product?.name}</title><meta name="description" content={isKibblePdp ? data.kibblePdp?.product.descriptionPlain.slice(0, 160) : product?.descriptionPlain.slice(0, 160)} /></svelte:head>
@@ -158,6 +193,7 @@
 		zoneAdapter={previewRelatedZoneAdapter ?? data.kibblePdp.zoneAdapter}
 		marketingZoneArtifact={previewPdpZoneArtifacts?.marketing ?? null}
 		onAddToCart={addKibbleToCart}
+		onAddAutoRefill={addKibbleAutoRefill}
 		commerceEnabled={data.kibblePdp.commerceServices?.mode === 'sandbox'}
 		{isAddingToCart}
 		{cartMessage}

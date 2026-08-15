@@ -40,7 +40,9 @@ function availabilityMessage(
 		: 'Order history requires a signed-in BigCommerce customer context held server-side. No account or order request was started.';
 	if (subtype === 'addresses') return 'Addresses require a signed-in customer session and provider ownership checks. No address request was started.';
 	if (subtype === 'payment-methods') return 'Saved payment methods remain provider-owned and require a signed-in customer session. No payment instrument or credential request was started.';
-	if (subtype === 'subscriptions') return 'Auto-Refill requires both customer identity and a subscription-provider portal session. Neither session exists, and no subscriber request was started.';
+	if (subtype === 'subscriptions') return signedIn
+		? 'Auto-Refill plans can be selected on eligible products. Subscription management still requires a provider portal session; no subscriber-data request was started here.'
+		: 'Auto-Refill plan lookup is separate from account access. Sign in and a provider portal session are required before subscription data can be read.';
 	if (subtype === 'register') return 'Account registration remains disabled until the merchant approves registration and password policy. No account was created.';
 	if (subtype === 'logout') return signedIn
 		? 'Sign out asks BigCommerce to invalidate the customer token before Aisles clears its server session.'

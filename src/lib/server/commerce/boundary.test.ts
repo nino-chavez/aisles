@@ -9,6 +9,7 @@ const privateEnv = vi.hoisted(() => ({
 	KV_REST_API_TOKEN: '',
 	KIBBLE_CUSTOMER_IDENTITY_MODE: '',
 	BIGCOMMERCE_PRIVATE_TOKEN: '',
+	KIBBLE_SUBSCRIPTION_MODE: '',
 }));
 
 vi.mock('$app/environment', () => ({ dev: false }));
@@ -29,6 +30,7 @@ describe('Kibble commerce provider boundary', () => {
 		privateEnv.KV_REST_API_TOKEN = '';
 		privateEnv.KIBBLE_CUSTOMER_IDENTITY_MODE = '';
 		privateEnv.BIGCOMMERCE_PRIVATE_TOKEN = '';
+		privateEnv.KIBBLE_SUBSCRIPTION_MODE = '';
 	});
 
 	it('keeps identity fail-closed until both the merchant mode and private token are present', () => {
@@ -78,5 +80,17 @@ describe('Kibble commerce provider boundary', () => {
 			subscription: 'provider_not_connected',
 			subscriptionPortal: 'portal_session_required',
 		});
+	});
+
+	it('enables plan reads before identity but keeps intent writes customer-gated', () => {
+		privateEnv.BIGCOMMERCE_STORE_HASH = 'configured';
+		privateEnv.KIBBLE_STOREFRONT_TOKEN = 'configured';
+		privateEnv.KV_REST_API_URL = 'https://redis.example.test';
+		privateEnv.KV_REST_API_TOKEN = 'configured';
+		privateEnv.KIBBLE_SUBSCRIPTION_MODE = 'sandbox';
+		expect(getCommerceServiceBoundary().subscription).toBe('plan_lookup_ready');
+		privateEnv.KIBBLE_CUSTOMER_IDENTITY_MODE = 'bigcommerce';
+		privateEnv.BIGCOMMERCE_PRIVATE_TOKEN = 'configured';
+		expect(getCommerceServiceBoundary().subscription).toBe('authenticated_intent_ready');
 	});
 });

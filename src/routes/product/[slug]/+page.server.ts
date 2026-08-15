@@ -35,10 +35,11 @@ import { materializeKibbleSubscriptionOffers } from '$lib/brand/reference/kibble
 import { error } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { getCommerceServiceBoundary } from '$lib/server/commerce/boundary';
+import type { SubscriptionPlan } from '$lib/commerce/subscription-contract';
 
-export const load: PageServerLoad = async ({ params, url, request, cookies, parent }) => {
+export const load: PageServerLoad = async ({ params, url, request, cookies, parent, platform }) => {
 	const slug = params.slug;
-	const { devMode, renderMode, observeMode } = await parent();
+	const { devMode, renderMode, observeMode, kibbleCustomerSessionState } = await parent();
 
 	if (renderMode === 'reference-unavailable') {
 		await throwKibblePreserveError({
@@ -50,7 +51,7 @@ export const load: PageServerLoad = async ({ params, url, request, cookies, pare
 		});
 	}
 	if (renderMode === 'reference-preserve' || renderMode === 'reference-review') {
-		return loadKibblePreservePdp({ slug, url, request, cookies, renderMode, observeMode });
+		return loadKibblePreservePdp({ slug, url, request, cookies, renderMode, observeMode, platform, customerSessionState: kibbleCustomerSessionState });
 	}
 
 	const persona = url.searchParams.get('intent') || 'gatherer';
@@ -73,7 +74,7 @@ export const load: PageServerLoad = async ({ params, url, request, cookies, pare
 };
 
 async function loadKibblePreservePdp({
-	slug, url, request, cookies, renderMode, observeMode,
+	slug, url, request, cookies, renderMode, observeMode, platform, customerSessionState,
 }: {
 	slug: string;
 	url: URL;
@@ -81,6 +82,8 @@ async function loadKibblePreservePdp({
 	cookies: { get: (name: string) => string | undefined; set: (name: string, value: string, options: { path: string; maxAge?: number }) => void };
 	renderMode: Extract<MerchantRenderMode, 'reference-preserve' | 'reference-review'>;
 	observeMode: boolean;
+	platform?: App.Platform;
+	customerSessionState: 'disabled' | 'anonymous' | 'authenticated' | 'unavailable';
 }) {
 	const preserveStartedAt = Date.now();
 	const failClosed = async (cause: unknown, phase: string): Promise<never> => {
@@ -132,6 +135,17 @@ async function loadKibblePreservePdp({
 
 		const product = materializeKibbleProduct(detail, slug);
 		const autoRefill = materializeKibbleSubscriptionOffers([product])[product.id] ?? null;
+		const commerceServices = getCommerceServiceBoundary();
+		let subscriptionPlans: SubscriptionPlan[] = [];
+		let subscriptionPlansStatus: 'ready' | 'empty' | 'unavailable' | 'disabled' = commerceServices.subscription === 'provider_not_connected' ? 'disabled' : 'unavailable';
+		if (commerceServices.subscription !== 'provider_not_connected') {
+			const { createSubscriptionCommerceService } = await import('$lib/server/commerce/subscription-service');
+			const result = await createSubscriptionCommerceService(platform).plans(product.entityId);
+			if (result.ok) {
+				subscriptionPlans = result.data.plans;
+				subscriptionPlansStatus = subscriptionPlans.length > 0 ? 'ready' : 'empty';
+			}
+		}
 		const manifest = materializeKibblePdpManifest(slug, product.name);
 		const categoryHref = materializeKibbleCategoryHref(product.categoryPath);
 		boundedArray(detail.relatedProducts?.edges, 'related products', KIBBLE_PDP_BOUNDS.arrays.relatedProducts);
@@ -200,7 +214,10 @@ async function loadKibblePreservePdp({
 				copy: manifest.copy,
 				zoneAdapter: await executeKibblePdpRelatedZoneAdapter(relatedProducts, manifest.relatedHeading, url.pathname),
 				relatedModelDecision,
-				commerceServices: getCommerceServiceBoundary(),
+				commerceServices,
+				subscriptionPlans,
+				subscriptionPlansStatus,
+				customerSessionState,
 			},
 			provenance,
 		};

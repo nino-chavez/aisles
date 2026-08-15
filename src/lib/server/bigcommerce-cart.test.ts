@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const privateEnv = vi.hoisted(() => ({
+	BIGCOMMERCE_STORE_HASH: 'store-hash',
+	KIBBLE_STOREFRONT_TOKEN: 'storefront-token',
+	BIGCOMMERCE_PRIVATE_TOKEN: '',
+}));
+
 vi.mock('$env/dynamic/private', () => ({
-	env: {
-		BIGCOMMERCE_STORE_HASH: 'store-hash',
-		KIBBLE_STOREFRONT_TOKEN: 'storefront-token',
-	},
+	env: privateEnv,
 }));
 
 import {
@@ -44,7 +47,10 @@ const cart = {
 };
 
 describe('BigCommerce cart GraphQL contract', () => {
-	beforeEach(() => vi.stubEnv('BRAND_ID', 'kibble'));
+	beforeEach(() => {
+		vi.stubEnv('BRAND_ID', 'kibble');
+		privateEnv.BIGCOMMERCE_PRIVATE_TOKEN = '';
+	});
 	afterEach(() => {
 		vi.unstubAllEnvs();
 		vi.restoreAllMocks();
@@ -73,6 +79,16 @@ describe('BigCommerce cart GraphQL contract', () => {
 		expect(request.query).toContain('isMutable');
 		expect(request.query).toContain('path');
 		expect(request.query).not.toMatch(/\n\s*url\s*\n/);
+	});
+
+	it('prefers the private token for Kibble server-to-server cart calls', async () => {
+		privateEnv.BIGCOMMERCE_PRIVATE_TOKEN = 'private-token';
+		const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ data: { site: { cart } } }), {
+			status: 200,
+			headers: { 'content-type': 'application/json' },
+		}));
+		await getCart('cart-one');
+		expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('Authorization')).toBe('Bearer private-token');
 	});
 
 	it('revalidates stock and optionlessness from provider catalog data', async () => {

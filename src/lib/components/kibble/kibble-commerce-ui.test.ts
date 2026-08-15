@@ -43,13 +43,14 @@ describe('rendered Kibble commerce controls', () => {
 							quantity: 2,
 							unitPrice: { value: 12, currencyCode: 'USD' },
 							extendedPrice: { value: 24, currencyCode: 'USD' },
+							subscription: { planId: 'plan-dog-food-1mo', name: 'Monthly Auto-Refill', cadence: 'Every month', recurringPrice: { value: 10.2, currencyCode: 'USD' } },
 						},
 					],
 				},
 			},
 		});
 		expect(body).toContain('data-kibble-backend-state="bigcommerce-sandbox"');
-		for (const label of ['Sandbox dog food', 'Decrease Sandbox dog food quantity', 'Increase Sandbox dog food quantity', 'Remove', 'Empty cart', 'Continue to secure checkout', '$24.00']) {
+		for (const label of ['Sandbox dog food', 'Decrease Sandbox dog food quantity', 'Increase Sandbox dog food quantity', 'Remove', 'Empty cart', 'Continue to secure checkout', '$24.00', 'Auto-Refill', 'Every month · $10.20 recurring']) {
 			expect(body).toContain(label);
 		}
 		expect(body).toContain('BigCommerce hosted checkout');
@@ -122,6 +123,34 @@ describe('rendered Kibble commerce controls', () => {
 		expect(body).toContain('Add to cart — $12.00');
 		expect(body).toContain('One-time purchase');
 		expect(body).not.toContain('Auto-Refill checkout');
+	});
+
+	it('renders live provider plans while keeping Auto-Refill customer-gated', async () => {
+		const base = {
+			product: { id: 'dog-food', entityId: 3023, name: 'Dog food', price: 34.99, currencyCode: 'USD', image: '', imageAlt: '', description: '', descriptionPlain: '', specs: {}, tags: [], category: '', categoryPath: '', sku: '', isInStock: true, images: [] },
+			bundle: null, breadcrumbs: [], options: [], relatedProducts: [], relatedProductHrefs: {}, purchaseUnavailableLabel: 'Unavailable', purchaseUnavailableBody: 'Unavailable', relatedHeading: 'Related',
+			copy: { breadcrumbLabel: 'Breadcrumb', galleryLabel: 'gallery', galleryImagesLabel: 'images', viewImageLabel: 'View image', imageUnavailableLabel: 'No image', priceLabel: 'Price', skuLabel: 'SKU', inStockLabel: 'In stock', outOfStockLabel: 'Out', availabilityUnavailableLabel: 'Unknown', optionsLegend: 'Options', requiredSuffix: 'required', detailsHeading: 'Details', bundleEyebrow: 'Bundle', bundleProductSingular: 'product', bundleProductPlural: 'products', bundleContentsHeading: 'Includes' },
+			subscriptionPlansStatus: 'ready' as const,
+			subscriptionPlans: [{ id: 'plan-dog-food-1mo', productEntityId: 3023, name: 'Monthly Auto-Refill', interval: 'month' as const, intervalCount: 1, price: { value: 29.74, currencyCode: 'USD' }, salesMode: 'subscribe_and_one_time' as const, trialDays: 0, commitmentCycles: 0 }],
+			commerceEnabled: true, onAddToCart: () => {}, onAddAutoRefill: () => {},
+		};
+		const anonymous = render(KibbleProductDetailReference, { props: { ...base, customerSessionState: 'anonymous' } as never }).body;
+		const authenticated = render(KibbleProductDetailReference, { props: { ...base, customerSessionState: 'authenticated' } as never }).body;
+		expect(anonymous).toContain('data-kibble-subscription-state="live-plans"');
+		expect(anonymous).toContain('Every month — $29.74 recurring');
+		expect(anonymous).toContain('Sign in');
+		expect(authenticated).not.toContain('before starting Auto-Refill');
+
+		const browser = await chromium.launch({ headless: true });
+		try {
+			const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
+			await page.setContent(authenticated);
+			await expect(page.getByRole('radio', { name: /Auto-Refill/ }).isEnabled()).resolves.toBe(true);
+			await expect(page.getByLabel('Delivery cadence').textContent()).resolves.toContain('Every month — $29.74 recurring');
+			await expect(page.getByLabel('Delivery cadence').inputValue()).resolves.toBe('plan-dog-food-1mo');
+		} finally {
+			await browser.close();
+		}
 	});
 
 	it('does not report an empty cart when the provider read was unavailable', () => {

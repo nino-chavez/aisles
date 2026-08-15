@@ -15,12 +15,16 @@ function getGraphQLConfig(requirePrivateToken = false) {
 	const tokenKey = `${brand.id.toUpperCase()}_STOREFRONT_TOKEN`;
 	const storeHash = env.BIGCOMMERCE_STORE_HASH;
 	const storefrontToken = env[tokenKey] || env.BIGCOMMERCE_STOREFRONT_TOKEN;
-	const token = requirePrivateToken ? env.BIGCOMMERCE_PRIVATE_TOKEN : storefrontToken;
+	// Kibble prefers the current server-to-server private token for every
+	// provider call once configured. Other brands retain their existing token
+	// boundary until their merchant configuration is migrated independently.
+	const usePrivateToken = requirePrivateToken || (brand.id === 'kibble' && Boolean(env.BIGCOMMERCE_PRIVATE_TOKEN));
+	const token = usePrivateToken ? env.BIGCOMMERCE_PRIVATE_TOKEN : storefrontToken;
 
 	if (!storeHash) throw new Error('BIGCOMMERCE_STORE_HASH not configured');
 	if (!token) {
 		throw new Error(
-			requirePrivateToken
+			usePrivateToken
 				? 'BigCommerce private token not configured'
 				: `Storefront token not configured (tried ${tokenKey} and BIGCOMMERCE_STOREFRONT_TOKEN)`,
 		);

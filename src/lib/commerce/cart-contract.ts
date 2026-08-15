@@ -1,4 +1,4 @@
-export type CommerceOperation = 'cart.read' | 'cart.add' | 'cart.update' | 'cart.remove' | 'cart.empty' | 'checkout.handoff';
+export type CommerceOperation = 'cart.read' | 'cart.add' | 'cart.update' | 'cart.remove' | 'cart.empty' | 'checkout.handoff' | 'subscription.plans.read' | 'subscription.intent.create';
 
 export interface CommerceMoney {
 	value: number;
@@ -16,6 +16,12 @@ export interface CommerceCartLine {
 	quantity: number;
 	unitPrice: CommerceMoney;
 	extendedPrice: CommerceMoney;
+	subscription?: {
+		planId: string;
+		name: string;
+		cadence: string;
+		recurringPrice: CommerceMoney;
+	} | null;
 }
 
 export interface CommerceCart {
@@ -41,7 +47,11 @@ export type CommerceErrorCode =
 	| 'idempotency_mismatch'
 	| 'provider_unavailable'
 	| 'provider_outcome_unknown'
-	| 'checkout_unavailable';
+	| 'checkout_unavailable'
+	| 'customer_session_required'
+	| 'subscription_unavailable'
+	| 'plan_not_found'
+	| 'plan_product_mismatch';
 
 export interface CommerceError {
 	code: CommerceErrorCode;
@@ -58,7 +68,7 @@ export interface CommerceEvidence {
 	operation: CommerceOperation;
 	attempted: boolean;
 	confirmed: boolean;
-	provider: 'bigcommerce' | 'none';
+	provider: 'bigcommerce' | 'bc-subscriptions' | 'none';
 	commerceStateChanged: 'confirmed' | 'not_confirmed' | 'none';
 	modelCalls: 0;
 	correlationId: string;
@@ -72,7 +82,7 @@ export interface CommerceServiceBoundary {
 	orderHistory: 'customer_session_required';
 	account: 'merchant_decision_required' | 'private_token_required' | 'bigcommerce_login_ready';
 	payment: 'provider_owned';
-	subscription: 'provider_not_connected';
+	subscription: 'provider_not_connected' | 'plan_lookup_ready' | 'authenticated_intent_ready';
 	subscriptionPortal: 'portal_session_required';
 }
 

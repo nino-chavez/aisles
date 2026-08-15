@@ -13,7 +13,9 @@ export const load: PageServerLoad = async ({ url, parent }) => {
 		kibbleSubscriptions: {
 			subtype: 'portal' as const,
 			brandName: getBrand().name,
-			availabilityMessage: 'Auto-Refill catalog offers remain display-only. The subscription provider is not connected, no portal session exists, and no subscriber-data request was started.',
+			availabilityMessage: kibbleCommerceServices?.subscription === 'provider_not_connected'
+				? 'Auto-Refill plans are not connected. No subscriber-data request was started.'
+				: 'Live Auto-Refill plans are available on eligible products. Subscription management still requires a provider portal session.',
 			recipeId: KIBBLE_REFERENCE_CONTRACT.recipes.subscriptions.id,
 			policyVersion: routePolicy.policy.policyVersion,
 			capabilityCoverage: buildKibbleMerchantCapabilityCoverage(),
