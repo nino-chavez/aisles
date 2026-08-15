@@ -42,7 +42,8 @@ export interface EnrichedProduct extends Product {
 
 export type ReferenceHomeProducts = {
 	products: Array<Product & { personaFit: PersonaFitScores | null; catalogSignals: ReturnType<typeof getKibbleCatalogSignals> }>;
-	source: 'featured' | 'newest' | 'deterministic-catalog';
+	source: 'featured' | 'category-breadth' | 'newest' | 'deterministic-catalog';
+	categoryCounts: Record<string, number>;
 	subscriptionOffers: Record<string, import('$lib/components/kibble/types').KibbleAutoRefillOffer>;
 };
 
@@ -55,22 +56,31 @@ export type ReferenceCategoryProducts = {
 };
 
 /**
- * Preserve home merchandising uses BigCommerce's explicit featured order,
- * then its newest order. If neither query can produce products, the final
- * fallback is a stable entity-id sort over the live catalog rather than a
- * price or persona heuristic.
+ * Preserve home merchandising uses BigCommerce's explicit featured order.
+ * When no featured collection exists, it takes one live catalog product from
+ * each configured category before considering the newest collection. That
+ * prevents a bundle-heavy global newest order from making the home page appear
+ * to be a single-category store.
+ *
+ * Category order, product facts, and category membership remain
+ * BigCommerce-owned. The breadth shelf is a fixed presentation fallback, not
+ * a merchant-authored featured collection and not an AI selection.
  */
 export async function loadReferenceHomeProducts(limit = 8): Promise<ReferenceHomeProducts> {
+	const categoryCoverage = await loadReferenceCategoryCoverage();
 	try {
 		const featured = uniqueProductsByEntityId((await getFeaturedProducts(limit)).map(transformProduct));
-		if (featured.length > 0) return materializeReferenceHomeResult(featured, 'featured');
+		if (featured.length > 0) return materializeReferenceHomeResult(featured, 'featured', categoryCoverage.counts);
 	} catch (error) {
-		console.warn('[kibble-preserve] featured product query unavailable; trying newest products', error);
+		console.warn('[kibble-preserve] featured product query unavailable; using category breadth fallback', error);
 	}
+
+	const broadCatalog = selectCategoryBreadthProducts(categoryCoverage.products, limit).map(transformProduct);
+	if (broadCatalog.length > 0) return materializeReferenceHomeResult(broadCatalog, 'category-breadth', categoryCoverage.counts);
 
 	try {
 		const newest = uniqueProductsByEntityId((await getNewestProducts(limit)).map(transformProduct));
-		if (newest.length > 0) return materializeReferenceHomeResult(newest, 'newest');
+		if (newest.length > 0) return materializeReferenceHomeResult(newest, 'newest', categoryCoverage.counts);
 	} catch (error) {
 		console.warn('[kibble-preserve] newest product query unavailable; using deterministic catalog order', error);
 	}
@@ -78,19 +88,67 @@ export async function loadReferenceHomeProducts(limit = 8): Promise<ReferenceHom
 	const products = uniqueProductsByEntityId((await getProducts(Math.max(limit, 30))).map(transformProduct))
 		.sort((a, b) => b.entityId - a.entityId)
 		.slice(0, limit);
-	return materializeReferenceHomeResult(products, 'deterministic-catalog');
+	return materializeReferenceHomeResult(products, 'deterministic-catalog', categoryCoverage.counts);
+}
+
+function selectCategoryBreadthProducts(
+	coverage: Array<{ slug: string; products: BCProduct[] }>,
+	limit: number,
+): BCProduct[] {
+	const products: BCProduct[] = [];
+	for (let depth = 0; products.length < limit; depth += 1) {
+		let foundAtDepth = false;
+		for (const category of coverage) {
+			const product = category.products[depth];
+			if (!product || products.some(({ entityId }) => entityId === product.entityId)) continue;
+			products.push(product);
+			foundAtDepth = true;
+			if (products.length === limit) break;
+		}
+		if (!foundAtDepth) break;
+	}
+	return products;
 }
 
 async function materializeReferenceHomeResult(
 	products: Product[],
 	source: ReferenceHomeProducts['source'],
+	categoryCounts: Record<string, number>,
 ): Promise<ReferenceHomeProducts> {
 	const enrichedProducts = await attachReferenceEnrichment(products);
 	return {
 		products: enrichedProducts,
 		source,
+		categoryCounts,
 		subscriptionOffers: materializeKibbleSubscriptionOffers(enrichedProducts),
 	};
+}
+
+async function loadReferenceCategoryCoverage(): Promise<{
+	counts: Record<string, number>;
+	products: Array<{ slug: string; products: BCProduct[] }>;
+}> {
+	try {
+		const categories = await getCategories();
+		const resolved = await Promise.all(Object.entries(CATEGORY_MAP).map(async ([slug, configured]) => {
+			const category = categories.find(({ name }) => name === configured.bcName);
+			if (!category) return { slug, products: [] as BCProduct[] };
+			try {
+				const result = await getProductsByCategory(category.entityId, { first: 24 });
+				return { slug, products: result.products };
+			} catch (error) {
+				console.warn(`[kibble-preserve] category breadth unavailable for ${slug}`, error);
+				return { slug, products: [] as BCProduct[] };
+			}
+		}));
+		return {
+			counts: Object.fromEntries(resolved.map(({ slug, products }) => [slug, products.length])),
+			products: resolved,
+		};
+	} catch (error) {
+		console.warn('[kibble-preserve] category breadth unavailable; preserving collection fallbacks', error);
+		return { counts: {}, products: [] };
+	}
 }
 
 async function attachReferenceEnrichment(

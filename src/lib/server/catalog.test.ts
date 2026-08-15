@@ -6,23 +6,30 @@ const mocks = vi.hoisted(() => ({
 	getFeaturedProducts: vi.fn(),
 	getNewestProducts: vi.fn(),
 	getProducts: vi.fn(),
+	getCategories: vi.fn(),
+	getProductsByCategory: vi.fn(),
 	getEnrichmentByEntityIds: vi.fn(),
 }));
 
 vi.mock('./bigcommerce', () => ({
-	getCategories: vi.fn(),
+	getCategories: mocks.getCategories,
 	getFeaturedProducts: mocks.getFeaturedProducts,
 	getNewestProducts: mocks.getNewestProducts,
 	getProductByEntityId: vi.fn(),
 	getProducts: mocks.getProducts,
-	getProductsByCategory: vi.fn(),
+	getProductsByCategory: mocks.getProductsByCategory,
 	customFieldsToRecord: vi.fn(() => ({})),
 }));
 vi.mock('./enrichment/query', () => ({
 	getEnrichmentByEntityIds: mocks.getEnrichmentByEntityIds,
 }));
 vi.mock('$lib/brand/config', () => ({
-	getBrand: vi.fn(() => ({ id: 'kibble', name: 'Kibble & Co.', categories: {} })),
+	getBrand: vi.fn(() => ({
+		id: 'kibble', name: 'Kibble & Co.', categories: {
+			'dog-food': { bcName: 'Dog Food', displayName: 'Dog Food' },
+			supplements: { bcName: 'Supplements & Wellness', displayName: 'Supplements & Wellness' },
+		},
+	})),
 }));
 
 import { loadReferenceHomeProducts } from './catalog';
@@ -48,6 +55,13 @@ describe('Kibble Preserve Home catalog candidates', () => {
 		mocks.getFeaturedProducts.mockReset();
 		mocks.getNewestProducts.mockReset();
 		mocks.getProducts.mockReset();
+		mocks.getCategories.mockReset().mockResolvedValue([
+			{ entityId: 10, name: 'Dog Food' },
+			{ entityId: 11, name: 'Supplements & Wellness' },
+		]);
+		mocks.getProductsByCategory.mockReset().mockImplementation(async (entityId: number) => ({
+			products: entityId === 10 ? [product(10)] : [product(11)],
+		}));
 		mocks.getEnrichmentByEntityIds.mockReset().mockResolvedValue(new Map());
 	});
 
@@ -64,18 +78,19 @@ describe('Kibble Preserve Home catalog candidates', () => {
 		expect(result.products.map(({ personaFit }) => personaFit?.gatherer ?? null)).toEqual([0.1, null, 0.9]);
 	});
 
-	it('keeps newest order and null enrichment when the database has no records', async () => {
+	it('uses one live product per configured category when no merchant featured collection exists', async () => {
 		mocks.getFeaturedProducts.mockResolvedValue([]);
-		mocks.getNewestProducts.mockResolvedValue([product(8), product(4), product(6)]);
 
 		const result = await loadReferenceHomeProducts(9);
-		expect(result.source).toBe('newest');
-		expect(result.products.map(({ entityId }) => entityId)).toEqual([8, 4, 6]);
+		expect(result.source).toBe('category-breadth');
+		expect(result.products.map(({ entityId }) => entityId)).toEqual([10, 11]);
+		expect(result.categoryCounts).toEqual({ 'dog-food': 1, supplements: 1 });
 		expect(result.products.every(({ personaFit }) => personaFit === null)).toBe(true);
 	});
 
 	it('uses a stable entity-id catalog fallback before attaching enrichment', async () => {
 		mocks.getFeaturedProducts.mockRejectedValue(new Error('featured unavailable'));
+		mocks.getCategories.mockRejectedValue(new Error('categories unavailable'));
 		mocks.getNewestProducts.mockRejectedValue(new Error('newest unavailable'));
 		mocks.getProducts.mockResolvedValue([product(2), product(7), product(4)]);
 

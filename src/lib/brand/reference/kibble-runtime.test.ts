@@ -79,15 +79,22 @@ describe('Kibble Preserve runtime adapter', () => {
 			[product(4, 'four'), product(2, 'two'), product(3, 'three')],
 			'deterministic-catalog',
 			bundle,
+			{},
+			{ 'dog-food': 10, supplements: 9 },
 		);
 		expect(KIBBLE_PRESERVE_MANIFEST.recipe).toEqual([
 			'opening-merchandising', 'ranked-products', 'catalog-entry', 'service-proof',
 		]);
 		expect(home.featuredCopy.title).toBe('Catalog shelf');
 		expect(buildKibbleHomePresentationContext('newest').featuredCopy.title).toBe('New arrivals');
+		expect(buildKibbleHomePresentationContext('category-breadth').featuredCopy).toMatchObject({
+			title: 'Across the catalog', browseAllLabel: 'Browse all categories',
+		});
 		expect(home.products.map(({ entityId }) => entityId)).toEqual([4, 2, 3]);
 		expect(home.productHrefs).toEqual({ four: '/product/four', two: '/product/two', three: '/product/three' });
 		expect(home.categories).toHaveLength(8);
+		expect(home.categories[0]?.description).toBe('10 products in this catalog category');
+		expect(home.categories[1]?.description).toBe('9 products in this catalog category');
 		expect(home.hero.proofItems).toEqual([]);
 		expect(() => buildKibbleHomeReference(brand!, [bundle], 'featured', bundle))
 			.toThrow('must not duplicate the featured bundle');
