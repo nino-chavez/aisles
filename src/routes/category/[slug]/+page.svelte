@@ -18,6 +18,7 @@
 		materializeKibblePlpPresentation,
 		snapshotKibblePlpPresentation,
 	} from '$lib/brand/reference/kibble-presentation-decisions';
+	import type { KibblePlpLivePreview } from '$lib/components/kibble/kibble-plp-live-preview';
 
 	let { data }: { data: PageData } = $props();
 
@@ -32,7 +33,8 @@
 	let currentPersona = $derived(overridePersona ?? legacyPersona);
 	type KibblePlpData = NonNullable<PageData['kibbleCategory']>;
 	let previewProducts = $state<KibblePlpData['products'] | null>(null);
-	let previewRankingAdapter = $state<KibblePlpData['zoneAdapter'] | null>(null);
+	let previewRankingAdapter = $state<KibblePlpLivePreview['zoneAdapter'] | null>(null);
+	let previewPlpZoneArtifacts = $state<KibblePlpLivePreview['zoneArtifacts'] | null>(null);
 	let previewPlpPresentation = $state<ReturnType<typeof materializeKibblePlpPresentation> | null>(null);
 	let defaultPlpPresentation = $derived(data.kibbleCategory ? materializeKibblePlpPresentation(KIBBLE_PLP_DEFAULT_PRESENTATION, data.kibbleCategory) : null);
 	let activePlpPresentation = $derived(previewPlpPresentation ?? defaultPlpPresentation);
@@ -41,6 +43,7 @@
 		data;
 		previewProducts = null;
 		previewRankingAdapter = null;
+		previewPlpZoneArtifacts = null;
 		previewPlpPresentation = null;
 	});
 
@@ -59,7 +62,8 @@
 				getCurrentPresentation: () => snapshotKibblePlpPresentation(activePlpPresentation ?? materializeKibblePlpPresentation(KIBBLE_PLP_DEFAULT_PRESENTATION, category)),
 				onApplied: (preview) => {
 					previewProducts = preview.products as KibblePlpData['products'];
-					previewRankingAdapter = preview.zoneAdapter as KibblePlpData['zoneAdapter'];
+					previewRankingAdapter = preview.zoneAdapter;
+					previewPlpZoneArtifacts = preview.zoneArtifacts;
 					previewPlpPresentation = materializeKibblePlpPresentation(preview.presentationDecision, category);
 				},
 				onStatus: (status) => window.dispatchEvent(new CustomEvent('aisles-kibble-plp-model-status', { detail: status })),
@@ -257,7 +261,13 @@
 </svelte:head>
 
 {#if data.renderMode === 'reference-preserve' && data.kibbleCategory}
-	<KibbleCategoryReference {...data.kibbleCategory} products={previewProducts ?? data.kibbleCategory.products} productRankingZoneAdapter={previewRankingAdapter} presentation={activePlpPresentation} presentationModelCallCount={previewRankingAdapter?.modelCallCount ?? 0} />
+	<KibbleCategoryReference
+		{...data.kibbleCategory}
+		products={previewProducts ?? data.kibbleCategory.products}
+		zoneAdapter={previewPlpZoneArtifacts?.header ?? data.kibbleCategory.zoneAdapter}
+		productRankingZoneAdapter={previewRankingAdapter}
+		marketingZoneArtifact={previewPlpZoneArtifacts?.marketing ?? null}
+	/>
 {:else}
 <div class="mx-auto max-w-7xl px-6 py-8">
 	<!-- Dev mode panel -->

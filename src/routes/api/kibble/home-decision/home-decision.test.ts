@@ -25,7 +25,15 @@ vi.mock('$lib/brand/config', () => ({ getBrand: () => ({ id: state.brandId }) })
 vi.mock('$lib/brand/composition-policy', () => ({
 	getContractSurfaceDecision: () => ({ mode: 'reference-preserve', policy: { policyVersion: 'policy-v1' } }),
 	assertKibblePreserveRoutePolicy: mocks.assertPolicy,
-	getKibbleObserveHomeModelPolicyDescriptor: () => ({ policyVersion: 'model-policy-v1', zoneId: 'home.featured-row', capabilities: ['rank_products'], publicationMode: 'live' }),
+	getTrustedKibbleObserveHomePresentationPolicy: () => ({
+		policyVersion: 'model-policy-v1', decisionMode: 'model', publicationMode: 'live',
+		capabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'],
+		provenance: { preset: 'compose' },
+	}),
+	getKibbleObserveHomeModelPolicyDescriptor: () => ({
+		policyVersion: 'model-policy-v1', zoneIds: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'],
+		capabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'], publicationMode: 'live',
+	}),
 }));
 vi.mock('$lib/signals/session', () => ({ findSessionStore: mocks.findSessionStore }));
 vi.mock('$lib/signals/inference', () => ({ infer: mocks.infer }));
@@ -85,7 +93,14 @@ describe('POST /api/kibble/home-decision', () => {
 			inspector: {
 				reference: { id: 'kibble-shelf-native', version: '1.8.0' }, surface: 'home', preset: 'preserve', policyVersion: 'policy-v1', publicationMode: 'live', inference,
 				dataSourceLabel: 'merchant-enrichment',
-				zones: [{ id: 'ranked-products', label: 'Ranked products', authority: 'rules', componentVariant: 'kibble.home.ranked-products', capabilities: ['rank_products'], decisionSummary: 'Ranked.', changed: true, inputProducts: [{ id: 'food-one', name: 'Food One', variant: 'gatherer fit 0.900' }], outputProducts: [{ id: 'food-one', name: 'Food One', variant: 'gatherer fit 0.900' }], modelCallStatus: { calls: 0, authorized: false } }],
+				zones: [
+					{ id: 'merchant-chrome', label: 'Root header', authority: 'fixed', componentVariant: 'kibble.header.responsive-chrome', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
+					{ id: 'opening-merchandising', label: 'Opening hero', authority: 'fixed', componentVariant: 'kibble.hero.flagship-bundle', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
+					{ id: 'ranked-products', label: 'Ranked products', authority: 'rules', componentVariant: 'kibble.featured-grid.four-column', capabilities: ['rank_products', 'select_products'], decisionSummary: 'Ranked.', changed: false, inputProducts: [{ id: 'food-one', name: 'Food One', variant: 'gatherer fit 0.900' }], outputProducts: [{ id: 'food-one', name: 'Food One', variant: 'gatherer fit 0.900' }], modelCallStatus: { calls: 0, authorized: false } },
+					{ id: 'catalog-entry', label: 'Catalog entry', authority: 'fixed', componentVariant: 'kibble.visual-module.category', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
+					{ id: 'service-proof', label: 'Service proof', authority: 'fixed', componentVariant: 'kibble.service-proof.three-column', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
+					{ id: 'merchant-footer', label: 'Root footer', authority: 'fixed', componentVariant: 'kibble.footer.four-column', capabilities: [], decisionSummary: 'Pinned.', changed: false, modelCallStatus: { calls: 0, authorized: false } },
+				],
 			},
 		});
 		mocks.buildContractedLayoutProvenance.mockReset().mockReturnValue({ decisionSource: 'rules', synthetic: { value: true, scenarioId: state.scenarioId } });
@@ -127,22 +142,27 @@ describe('POST /api/kibble/home-decision', () => {
 		expect(mocks.loadReferenceHomeProducts).toHaveBeenCalledWith(9);
 		expect(mocks.decideKibbleHome).toHaveBeenCalledWith({ policyVersion: 'policy-v1' }, inference, [candidate]);
 		const body = await response.json();
-		expect(body).toMatchObject({
+			expect(body).toMatchObject({
 			version: 'kibble-live-home-preview-v3', previewOnly: true,
 			reference: { id: 'kibble-shelf-native', version: '1.8.0' }, policyVersion: 'policy-v1', persona: 'gatherer',
 			inspector: { dataSourceLabel: 'runner-fixture', inference: { shift: { trigger: '[request detail withheld]' }, ruleMatches: [{ reason: 'Matched; raw request detail withheld.' }] }, provenance: { decisionSource: 'rules', synthetic: { scenarioId: 'runner-scenario' } } },
 		});
 		expect(body.products[0]).not.toHaveProperty('personaFit');
 		expect(body.featuredZoneAdapters).toEqual([{ instanceId: 'home.featured-row.1' }]);
-		expect(body.inspector.zones[0].inputProducts[0]).not.toHaveProperty('variant');
-		expect(body.inspector.zones[0].outputProducts[0]).not.toHaveProperty('variant');
+		const rankedZone = body.inspector.zones.find(({ id }: { id: string }) => id === 'ranked-products');
+		expect(rankedZone.inputProducts[0]).not.toHaveProperty('variant');
+		expect(rankedZone.outputProducts[0]).not.toHaveProperty('variant');
 		expect(JSON.stringify(body)).not.toContain('0.900');
 	});
 
 	it('reserves budget and publishes one bounded model ranking only after an explicit request', async () => {
 		mocks.rankWithModel.mockResolvedValue({
 			products: [candidate],
-			zoneAdapter: { instanceId: 'home.featured-row.1', decisionMode: 'model', modelCallCount: 1 },
+			zoneArtifacts: {
+				hero: { instanceId: 'home.hero', componentVariantId: 'kibble.hero.zone-editorial-header', decisionMode: 'model', modelCallCount: 1 },
+				featured: { instanceId: 'home.featured-row.1', componentVariantId: 'kibble.featured-grid.ranked-segment', decisionMode: 'model', modelCallCount: 1 },
+				editorial: { instanceId: 'home.editorial-strip', componentVariantId: 'kibble.visual-module.routine', decisionMode: 'model', modelCallCount: 1 },
+			},
 			policy: { policyVersion: 'model-policy-v1', provenance: { zoneBinding: { familyId: 'home.featured-row' } } },
 			modelId: 'claude-haiku-4-5', modelCallCount: 1, inputTokens: 100, outputTokens: 12,
 			presentationDecision: { heroCopyVariantId: 'visit-fast-path', featuredCopyVariantId: 'visit-start', catalogCopyVariantId: 'routine-builder', catalogComponentVariantId: 'two-column', sectionOrderId: 'catalog-then-featured' },
@@ -163,19 +183,34 @@ describe('POST /api/kibble/home-decision', () => {
 		});
 		const body = await response.json();
 		expect(body).toMatchObject({
-			version: 'kibble-live-home-preview-v3', policyVersion: 'model-policy-v1',
-			presentationDecision: { heroCopyVariantId: 'visit-fast-path', catalogComponentVariantId: 'two-column' },
-			featuredZoneAdapters: [{ instanceId: 'home.featured-row.1', decisionMode: 'model', modelCallCount: 1 }],
+			version: 'kibble-live-home-preview-v3', policyVersion: 'model-policy-v1', modelCallCount: 1,
+			zoneArtifacts: {
+				hero: { instanceId: 'home.hero', decisionMode: 'model', modelCallCount: 1 },
+				featured: { instanceId: 'home.featured-row.1', decisionMode: 'model', modelCallCount: 1 },
+				editorial: { instanceId: 'home.editorial-strip', decisionMode: 'model', modelCallCount: 1 },
+			},
 			inspector: {
-				preset: 'assist',
+				preset: 'compose',
 				dataSourceLabel: 'bounded-model-presentation',
-				zones: [{
-					authority: 'model',
-					componentVariant: 'kibble.featured-grid.ranked-segment',
-					modelCallStatus: { calls: 1, authorized: true },
-				}],
+				zones: expect.arrayContaining([
+					expect.objectContaining({ id: 'home.hero', authority: 'model', capabilities: ['select_copy_variant'], changed: true, modelCallStatus: { calls: 1, authorized: true } }),
+					expect.objectContaining({ id: 'home.featured-row.1', authority: 'model', capabilities: ['rank_products', 'select_copy_variant', 'reorder_zones'], changed: true, inputProducts: [{ id: 'food-one', name: 'Food One' }], outputProducts: [{ id: 'food-one', name: 'Food One' }] }),
+					expect.objectContaining({ id: 'home.editorial-strip', authority: 'model', capabilities: ['select_copy_variant', 'select_component_variant'], changed: true }),
+				]),
 			},
 		});
+		expect(mocks.buildContractedLayoutProvenance).toHaveBeenCalledWith(expect.objectContaining({
+			policy: expect.objectContaining({
+				capabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'],
+				provenance: { preset: 'compose' },
+			}),
+			contractInput: expect.objectContaining({ zones: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'] }),
+		}));
+		expect(Object.keys(body.zoneArtifacts)).toEqual(['hero', 'featured', 'editorial']);
+		expect(body).not.toHaveProperty('presentationDecision');
+		expect(body).not.toHaveProperty('featuredZoneAdapters');
+		expect(JSON.stringify(body)).not.toContain('rawModelContent');
+		for (const artifact of Object.values(body.zoneArtifacts) as Array<{ modelCallCount: number }>) expect(artifact.modelCallCount).toBe(1);
 		expect(body.products[0]).not.toHaveProperty('personaFit');
 		expect(mocks.logGeneration).toHaveBeenCalledWith(expect.objectContaining({
 			model: 'anthropic/claude-haiku-4-5', inputTokens: 100, outputTokens: 12, sessionId: 'session-one',

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+	bindExistingKibbleModelZoneAdapter,
 	executeKibbleErrorZoneAdapter,
 	executeKibbleHiddenZoneTerminalsForRoute,
 	executeKibbleHomeZoneAdapters,
@@ -8,14 +9,14 @@ import {
 	executeKibbleCheckoutAssuranceZoneAdapter,
 	executeKibblePdpRelatedModelShelf,
 	executeKibblePdpRelatedZoneAdapter,
+	executeKibblePresentationModelZone,
 	executeKibblePlpZoneAdapter,
 	executeKibbleSearchEmptyZoneAdapter,
 	executeKibbleZoneTerminal,
 } from './kibble-zone-executor.server';
-import { withKibblePdpRelatedModelCallCount } from './kibble-pdp-related-model.server';
 import { validateKibblePdpLivePreview } from '$lib/components/kibble/kibble-pdp-live-preview';
 import type { KibbleProduct } from '$lib/components/kibble/types';
-import { KIBBLE_CART_DEFAULT_PRESENTATION, KIBBLE_CHECKOUT_DEFAULT_PRESENTATION, KIBBLE_PDP_DEFAULT_PRESENTATION, KIBBLE_PDP_PRESENTATION_POLICY, materializeKibbleCartPresentation, materializeKibbleCheckoutPresentation } from './kibble-presentation-decisions';
+import { KIBBLE_CART_DEFAULT_PRESENTATION, KIBBLE_CHECKOUT_DEFAULT_PRESENTATION, KIBBLE_HOME_DEFAULT_PRESENTATION, KIBBLE_HOME_PRESENTATION_IDS, KIBBLE_PDP_DEFAULT_PRESENTATION, KIBBLE_PDP_PRESENTATION_IDS, KIBBLE_PDP_PRESENTATION_POLICY, materializeKibbleCartPresentation, materializeKibbleCheckoutPresentation, materializeKibblePdpPresentation } from './kibble-presentation-decisions';
 import {
 	KIBBLE_CANONICAL_UNION_ZONE_INSTANCE_IDS,
 	KIBBLE_ZONE_TERMINALS,
@@ -33,6 +34,11 @@ const shopperRoutes = [
 	'/', '/category/dog-food', '/product/reference-product', '/cart', '/checkout',
 	'/search', '/account', '/store-locator',
 ] as const;
+
+const pdpHeadingForCopyVariant = (copyVariantId: string) => materializeKibblePdpPresentation({
+	...KIBBLE_PDP_DEFAULT_PRESENTATION,
+	relatedCopyVariantId: copyVariantId as typeof KIBBLE_PDP_DEFAULT_PRESENTATION.relatedCopyVariantId,
+}).relatedHeading;
 
 describe('Kibble exact union-zone execution', () => {
 	it('pins the exact 36-instance union independently of declaration order', () => {
@@ -128,15 +134,40 @@ describe('Kibble exact union-zone execution', () => {
 		], 'You may also like', '/product/reference-product')).toBeNull();
 	});
 
+	it('validates an optional PDP marketing choice while keeping a selected hidden result out of the DOM', async () => {
+		const hidden = await executeKibblePresentationModelZone({
+			surface: 'pdp', familyId: 'pdp.below-description', instanceId: 'pdp.below-description', routePath: '/product/puppy-starter-kit',
+			componentVariantIds: ['kibble.hero.zone-editorial-header'], baselineComponentVariantId: 'kibble.hero.zone-editorial-header',
+			copyVariantIds: ['none', 'routine-builder', 'compare-current'], baselineCopyVariantId: 'none',
+			modelOutput: { copyVariantId: 'none', visible: false }, modelCallCount: 1, fallbackContent: null,
+			contentForDecision: () => null,
+		});
+		expect(hidden.execution).toMatchObject({ status: 'live', decisionMode: 'model', render: { kind: 'hidden' } });
+
+		await expect(executeKibblePresentationModelZone({
+			surface: 'pdp', familyId: 'pdp.below-description', instanceId: 'pdp.below-description', routePath: '/product/puppy-starter-kit',
+			componentVariantIds: ['kibble.hero.zone-editorial-header'], baselineComponentVariantId: 'kibble.hero.zone-editorial-header',
+			copyVariantIds: ['none', 'routine-builder', 'compare-current'], baselineCopyVariantId: 'none',
+			modelOutput: { copyVariantId: 'invented-copy', visible: true }, modelCallCount: 1, fallbackContent: null,
+			contentForDecision: () => null,
+		})).rejects.toThrow('did not publish');
+	});
+
 	it('lets the live model boundary return only an exact approved product permutation', async () => {
 		const products = [{ entityId: 3023 }, { entityId: 3024 }, { entityId: 3025 }];
 		const runModel = async ({ outputSchema }: { outputSchema: { safeParse(value: unknown): { success: boolean } } }) => {
-			const output = { rankedProductIds: ['3025', '3023', '3024'] };
+			const output = { rankedProductIds: ['3025', '3023', '3024'], copyVariantId: 'merchant-baseline', placementId: 'featured-then-catalog' };
 			expect(outputSchema.safeParse(output).success).toBe(true);
 			expect(outputSchema.safeParse({ ...output, headline: 'forbidden' }).success).toBe(false);
 			return output;
 		};
-		const result = await executeKibbleHomeModelShelf({ products, runModel });
+		const result = await executeKibbleHomeModelShelf({
+			products, runModel,
+			featuredCopyVariantIds: KIBBLE_HOME_PRESENTATION_IDS.featuredCopyVariantIds,
+			baselineFeaturedCopyVariantId: KIBBLE_HOME_DEFAULT_PRESENTATION.featuredCopyVariantId,
+			sectionOrderIds: KIBBLE_HOME_PRESENTATION_IDS.sectionOrderIds,
+			baselineSectionOrderId: KIBBLE_HOME_DEFAULT_PRESENTATION.sectionOrderId,
+		});
 		expect(result.rankedProductIds).toEqual(['3025', '3023', '3024']);
 		expect(result.adapter).toMatchObject({
 			instanceId: 'home.featured-row.1', decisionMode: 'model', modelCallCount: 0,
@@ -150,15 +181,21 @@ describe('Kibble exact union-zone execution', () => {
 		const products = [{ entityId: 3023 }, { entityId: 3024 }, { entityId: 3025 }];
 		const result = await executeKibblePdpRelatedModelShelf({
 			relatedProducts: products,
-			heading: 'You may also like',
-			routePath: '/product/puppy-starter-kit',
-			runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'] }),
+				heading: 'You may also like',
+				relatedCopyVariantIds: KIBBLE_PDP_PRESENTATION_IDS.relatedCopyVariantIds,
+				baselineRelatedCopyVariantId: KIBBLE_PDP_DEFAULT_PRESENTATION.relatedCopyVariantId,
+				headingForCopyVariant: pdpHeadingForCopyVariant,
+				routePath: '/product/puppy-starter-kit',
+				runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'], copyVariantId: 'merchant-baseline' }),
 		});
 		expect(result.rankedProductIds).toEqual(['3025', '3023', '3024']);
 		expect(result.adapter).toMatchObject({ instanceId: 'pdp.related', decisionMode: 'model', content: { component: 'product-carousel' } });
 		await expect(executeKibblePdpRelatedModelShelf({
-			relatedProducts: products, heading: 'You may also like', routePath: '/category/dog-food',
-			runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'] }),
+				relatedProducts: products, heading: 'You may also like', routePath: '/category/dog-food',
+				relatedCopyVariantIds: KIBBLE_PDP_PRESENTATION_IDS.relatedCopyVariantIds,
+				baselineRelatedCopyVariantId: KIBBLE_PDP_DEFAULT_PRESENTATION.relatedCopyVariantId,
+				headingForCopyVariant: pdpHeadingForCopyVariant,
+				runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'], copyVariantId: 'merchant-baseline' }),
 		})).rejects.toThrow(/not approved/);
 	});
 
@@ -170,17 +207,29 @@ describe('Kibble exact union-zone execution', () => {
 		];
 		const result = await executeKibblePdpRelatedModelShelf({
 			relatedProducts,
-			heading: 'You may also like',
-			routePath: '/product/puppy-starter-kit',
-			runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'] }),
+				heading: 'You may also like',
+				relatedCopyVariantIds: KIBBLE_PDP_PRESENTATION_IDS.relatedCopyVariantIds,
+				baselineRelatedCopyVariantId: KIBBLE_PDP_DEFAULT_PRESENTATION.relatedCopyVariantId,
+				headingForCopyVariant: pdpHeadingForCopyVariant,
+				routePath: '/product/puppy-starter-kit',
+				runModel: async ({ outputSchema }) => outputSchema.parse({ rankedProductIds: ['3025', '3023', '3024'], copyVariantId: 'merchant-baseline' }),
 		});
-		const adapter = withKibblePdpRelatedModelCallCount(result.adapter, 1);
+		const related = bindExistingKibbleModelZoneAdapter(result.adapter, result.execution, 1);
+		const marketing = await executeKibblePresentationModelZone({
+			surface: 'pdp', familyId: 'pdp.below-description', instanceId: 'pdp.below-description', routePath: '/product/puppy-starter-kit',
+			componentVariantIds: ['kibble.hero.zone-editorial-header'], baselineComponentVariantId: 'kibble.hero.zone-editorial-header',
+			copyVariantIds: KIBBLE_PDP_PRESENTATION_IDS.marketingBlockVariantIds,
+			baselineCopyVariantId: KIBBLE_PDP_DEFAULT_PRESENTATION.marketingBlockVariantId,
+			modelOutput: { copyVariantId: 'none', visible: false }, modelCallCount: 1,
+			fallbackContent: null, contentForDecision: () => null,
+		});
 		const preview = validateKibblePdpLivePreview({
 			version: 'kibble-pdp-presentation-preview-v2', previewOnly: true,
 			routePath: '/product/puppy-starter-kit', policyVersion: result.policy.policyVersion,
 			persona: 'researcher', rankedProductIds: result.rankedProductIds,
-			presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY, presentationDecision: KIBBLE_PDP_DEFAULT_PRESENTATION,
-			zoneAdapter: adapter, modelCallCount: 1, provider: 'anthropic', modelId: 'claude-haiku-4-5', provenance: {},
+			presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY,
+			zoneArtifacts: { related, marketing: marketing.adapter },
+			modelCallCount: 1, provider: 'anthropic', modelId: 'claude-haiku-4-5', provenance: {},
 		}, {
 			routePath: '/product/puppy-starter-kit', policyVersion: result.policy.policyVersion,
 			productIds: relatedProducts.map(({ entityId }) => String(entityId)), relatedHeading: 'You may also like',

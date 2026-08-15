@@ -73,8 +73,8 @@ export interface KibbleDevInspectorData {
 	provenance?: Record<string, unknown>;
 	availableModelDecision?: {
 		policyVersion: string;
-		zoneId: 'home.featured-row';
-		capabilities: readonly ['rank_products'];
+		zoneIds: readonly ['home.hero', 'home.featured-row.1', 'home.editorial-strip'];
+		capabilities: readonly ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'];
 		publicationMode: 'live';
 	};
 }
@@ -88,7 +88,7 @@ export type KibbleLivePreviewStatus =
 
 export function buildKibbleDecisionEvidence(input: {
 	surface: KibbleDecisionEvidence['surface'];
-	zoneId: string;
+	zoneIds: readonly string[];
 	zoneLabel: string;
 	policyVersion: string;
 	before: readonly KibbleInspectorProductSummary[];

@@ -3,6 +3,8 @@ import {
 	KIBBLE_CATALOG_ENTITY_IDS,
 	KIBBLE_CATALOG_ENRICHMENT_SOURCE,
 	KIBBLE_AISLES_CAPABILITY_DEMOS,
+	KIBBLE_AISLES_PDP_PROOF,
+	KIBBLE_FIXED_COMMERCE_FACTS,
 	KIBBLE_CANONICAL_STOREFRONT_REGISTRY_ENTITY_IDS,
 	KIBBLE_CATALOG_SOURCE_CATEGORY_IDS,
 	KIBBLE_CATEGORY_JOB_PROFILES,
@@ -220,13 +222,40 @@ describe('Kibble catalog capability projection', () => {
 		expect([...demonstrated].sort()).toEqual([...enabled].sort());
 		expect(demonstrated.has('generate_bounded_copy' as never)).toBe(false);
 		expect(demonstrated.has('select_page_recipe' as never)).toBe(false);
+		expect(KIBBLE_AISLES_CAPABILITY_DEMOS.reduce((total, { proofs }) => total + proofs.length, 0)).toBe(14);
 		for (const demo of KIBBLE_AISLES_CAPABILITY_DEMOS) {
 			expect(demo.demoHref).toMatch(/^\//);
+			expect(demo.fixedFacts).toEqual(KIBBLE_FIXED_COMMERCE_FACTS);
 			const expectedSurfaces = policySurfaces.filter((surface, index) => policies[index].capabilities.includes(demo.id as never));
 			if (KIBBLE_HOME_RULE_CAPABILITIES.includes(demo.id as never) && !expectedSurfaces.includes('home')) expectedSurfaces.unshift('home');
 			expect([...demo.surfaces].sort()).toEqual([...expectedSurfaces].sort());
+			expect(demo.proofs.map(({ route }) => route.surface).sort()).toEqual([...expectedSurfaces].sort());
+			expect(new Set(demo.proofs.map(({ route }) => route.surface)).size).toBe(demo.proofs.length);
+			expect(demo.proofs.some(({ route }) => route.href === demo.demoHref)).toBe(true);
+			for (const proof of demo.proofs) {
+				expect(proof.route.href).toMatch(/^\//);
+				expect(proof.trigger.requiresUserAction).toBe(true);
+				expect(proof.namedZoneInstances.length).toBeGreaterThan(0);
+				expect(proof.namedZoneInstances).not.toContain(demo.id);
+				expect(proof.candidatePrerequisites.length).toBeGreaterThan(0);
+				expect(proof.before.observe.aiZones).toMatchObject({ kind: 'exact', value: 0 });
+				expect(proof.before.observe.aiCalls).toMatchObject({ kind: 'exact', value: 0 });
+				expect(proof.result.changed).not.toBe(proof.result.kept);
+				expect(proof.failClosedReason.length).toBeGreaterThan(20);
+				if (proof.trigger.execution === 'explicit-observe-model') expect(proof.result.observe.aiCalls).toMatchObject({ kind: 'range', min: 1, max: 2 });
+				else expect(proof.result.observe.aiCalls).toMatchObject({ kind: 'exact', value: 0 });
+			}
 		}
-		assertContractedReviewPaths(KIBBLE_AISLES_CAPABILITY_DEMOS.map(({ demoHref }) => demoHref));
+		expect(KIBBLE_AISLES_CAPABILITY_DEMOS.find(({ id }) => id === 'toggle_zone')?.proofs).toEqual(expect.arrayContaining([
+			expect.objectContaining({ route: { surface: 'plp', href: '/category/dog-food?sort=FEATURED&observe=true', stableProof: expect.any(String) }, namedZoneInstances: ['plp.marketing-block'] }),
+			expect.objectContaining({ route: { surface: 'pdp', href: '/product/puppy-starter-kit?observe=true', stableProof: expect.any(String) }, namedZoneInstances: ['pdp.below-description'] }),
+		]));
+		expect(KIBBLE_AISLES_PDP_PROOF).toEqual({
+			href: '/product/puppy-starter-kit?observe=true', slug: 'puppy-starter-kit', productEntityId: 3064,
+			fixtureSha256: KIBBLE_REFERENCE_CONTRACT.source.fixtureSha256,
+			candidateCount: 4, candidateSource: 'category_sibling', relationKind: null,
+		});
+		assertContractedReviewPaths(KIBBLE_AISLES_CAPABILITY_DEMOS.flatMap(({ proofs }) => proofs.map(({ route }) => route.href)));
 	});
 
 	it('preserves source drift and merchant-outcome gaps instead of flattening them', () => {

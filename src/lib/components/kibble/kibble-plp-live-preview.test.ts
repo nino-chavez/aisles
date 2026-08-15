@@ -8,7 +8,32 @@ import { KIBBLE_PLP_DEFAULT_PRESENTATION, KIBBLE_PLP_PRESENTATION_POLICY, materi
 const products: KibbleProduct[] = Array.from({ length: 10 }, (_, index) => ({ id: `food-${index + 1}`, entityId: index + 1, name: `Food ${index + 1}`, price: index + 10, image: '', imageAlt: '', description: '', specs: {}, tags: [], category: 'Dog Food' }));
 const expected = { routePath: '/category/dog-food' as const, sort: 'FEATURED' as const, cursor: null, policyVersion: 'plp-assist-v1', reference: { id: 'kibble-shelf-native', version: '1.8.0' }, prefixIds: products.slice(0, 8).map(({ entityId }) => String(entityId)), tailIds: ['9', '10'], expectedInputSha256: hashKibblePlpRankingInput(products.slice(0, 8).map(({ entityId }) => String(entityId)), ['9', '10'], '/category/dog-food'), title: 'Dog Food', productCount: 10, productSingular: 'product', productPlural: 'products' };
 function response(ids = [...expected.prefixIds].reverse()) {
-	return { version: 'kibble-plp-presentation-preview-v2', previewOnly: true, routePath: expected.routePath, sort: expected.sort, cursor: null, policyVersion: expected.policyVersion, reference: expected.reference, prefixIds: expected.prefixIds, tailIds: expected.tailIds, rankedPrefixIds: ids, presentationPolicy: KIBBLE_PLP_PRESENTATION_POLICY, presentationDecision: KIBBLE_PLP_DEFAULT_PRESENTATION, modelCallCount: 1, provider: 'anthropic', modelId: 'claude-haiku-4-5', persona: 'hunter', provenance: {}, zoneAdapter: { instanceId: 'plp.product-ranking', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1, adapterId: 'kibble.zone.plp.product-ranking', componentVariantId: 'kibble.category-listing.ranked-prefix', inputSha256: hashKibblePlpRankingInput(expected.prefixIds, expected.tailIds, expected.routePath), content: { component: 'product-grid', props: { columns: 4, products: ids.map((productId) => ({ productId, role: 'standard' })), imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false } } } };
+	const presentation = materializeKibblePlpPresentation(KIBBLE_PLP_DEFAULT_PRESENTATION, expected);
+	return {
+		version: 'kibble-plp-presentation-preview-v2', previewOnly: true, routePath: expected.routePath, sort: expected.sort, cursor: null,
+		policyVersion: expected.policyVersion, reference: expected.reference, prefixIds: expected.prefixIds, tailIds: expected.tailIds,
+		rankedPrefixIds: ids, presentationPolicy: KIBBLE_PLP_PRESENTATION_POLICY, modelCallCount: 1,
+		provider: 'anthropic', modelId: 'claude-haiku-4-5', persona: 'hunter', provenance: {},
+		zoneArtifacts: {
+			header: {
+				instanceId: 'plp.editorial-header', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1,
+				adapterId: 'kibble.zone.plp.editorial-header', componentVariantId: 'kibble.category-listing.editorial-header', inputSha256: 'b'.repeat(64),
+				selection: { componentVariantId: 'kibble.category-listing.editorial-header', copyVariantId: KIBBLE_PLP_DEFAULT_PRESENTATION.headerCopyVariantId },
+				content: { component: 'editorial-header', props: { eyebrow: presentation.header.eyebrow, headline: presentation.header.title, body: presentation.header.body } },
+			},
+			ranking: {
+				instanceId: 'plp.product-ranking', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1,
+				adapterId: 'kibble.zone.plp.product-ranking', componentVariantId: 'kibble.category-listing.ranked-prefix', inputSha256: hashKibblePlpRankingInput(expected.prefixIds, expected.tailIds, expected.routePath),
+				selection: { componentVariantId: 'kibble.category-listing.ranked-prefix' },
+				content: { component: 'product-grid', props: { columns: 4, products: ids.map((productId) => ({ productId, role: 'standard' })), imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false } },
+			},
+			marketing: {
+				instanceId: 'plp.marketing-block', sharedStatus: 'live', sharedContentKind: 'hidden', decisionMode: 'model', modelCallCount: 1,
+				adapterId: 'kibble.zone.plp.marketing-block', componentVariantId: 'kibble.hero.zone-editorial-header', inputSha256: 'c'.repeat(64),
+				selection: { componentVariantId: 'kibble.hero.zone-editorial-header', copyVariantId: 'none', visible: false },
+			},
+		},
+	};
 }
 
 describe('Kibble PLP live preview validation', () => {
@@ -21,9 +46,21 @@ describe('Kibble PLP live preview validation', () => {
 	});
 	it.each(['component', 'props', 'product'])('rejects a tampered adapter %s', (kind) => {
 		const invalid = response();
-		if (kind === 'component') invalid.zoneAdapter.content.component = 'product-carousel';
-		if (kind === 'props') invalid.zoneAdapter.content.props.showQuickAdd = true;
-		if (kind === 'product') invalid.zoneAdapter.content.props.products[0]!.productId = '9';
+		if (kind === 'component') invalid.zoneArtifacts.ranking.content.component = 'product-carousel';
+		if (kind === 'props') invalid.zoneArtifacts.ranking.content.props.showQuickAdd = true;
+		if (kind === 'product') invalid.zoneArtifacts.ranking.content.props.products[0]!.productId = '9';
+		expect(validateKibblePlpLivePreview(invalid, expected, products)).toBeNull();
+	});
+	it('rejects the old aggregate decision shape and hidden artifacts with content', () => {
+		expect(validateKibblePlpLivePreview({ ...response(), presentationDecision: KIBBLE_PLP_DEFAULT_PRESENTATION }, expected, products)).toBeNull();
+		const missing = response() as any;
+		delete missing.zoneArtifacts.header;
+		expect(validateKibblePlpLivePreview(missing, expected, products)).toBeNull();
+		const adjacent = response() as any;
+		adjacent.zoneArtifacts['plp.below-grid'] = adjacent.zoneArtifacts.marketing;
+		expect(validateKibblePlpLivePreview(adjacent, expected, products)).toBeNull();
+		const invalid = response() as any;
+		invalid.zoneArtifacts.marketing.content = { component: 'editorial-header', props: { eyebrow: '', headline: '', body: '' } };
 		expect(validateKibblePlpLivePreview(invalid, expected, products)).toBeNull();
 	});
 	it('rejects an adjacent sort, cursor, or tail substitution', () => {
@@ -32,7 +69,7 @@ describe('Kibble PLP live preview validation', () => {
 		const wrongTail = response(); wrongTail.tailIds = ['10', '9']; expect(validateKibblePlpLivePreview(wrongTail, expected, products)).toBeNull();
 	});
 	it('rejects an adapter digest that does not bind this server-owned route input', () => {
-		const invalid = response(); invalid.zoneAdapter.inputSha256 = 'a'.repeat(64);
+		const invalid = response(); invalid.zoneArtifacts.ranking.inputSha256 = 'a'.repeat(64);
 		expect(validateKibblePlpLivePreview(invalid, expected, products)).toBeNull();
 	});
 	it('accepts a valid model response that retains the current first-eight order', () => {

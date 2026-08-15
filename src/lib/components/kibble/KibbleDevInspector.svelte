@@ -29,6 +29,7 @@
 		type KibbleInspectorProductSummary,
 		type KibbleInspectorZone,
 		type KibbleLivePreviewStatus,
+		type KibblePresentationChange,
 	} from './kibble-dev-inspector';
 
 	let {
@@ -88,6 +89,9 @@
 	const productNames = (products: readonly KibbleInspectorProductSummary[] | undefined) =>
 		products?.map((product) => product.variant ? `${product.name} (${product.variant})` : product.name).join(' → ') ?? '—';
 	const evidenceNames = (products: readonly KibbleInspectorProductSummary[] | undefined) => products?.map(({ name }) => name).join(' · ') || 'none';
+	const evidenceChanges = (changes: readonly KibblePresentationChange[]) => changes.length
+		? changes.map(({ label, before, after, changed }) => `${label}: ${changed ? `${before} → ${after}` : `${after} (unchanged)`}`).join(' · ')
+		: 'not enabled for this surface';
 	const raw = (value: unknown) => JSON.stringify(redactInspectorDebugValue(value), null, 2);
 	const previewMessage = (status: KibbleLivePreviewStatus) => {
 		if (status.state === 'updating') return 'updating preview';
@@ -310,10 +314,13 @@
 						<div><dt>added</dt><dd>{evidenceNames(livePreview.evidence.added)}</dd></div>
 						<div><dt>removed</dt><dd>{evidenceNames(livePreview.evidence.removed)}</dd></div>
 						<div><dt>unchanged</dt><dd>{evidenceNames(livePreview.evidence.unchanged)}</dd></div>
-						<div><dt>copy</dt><dd>unchanged · merchant-owned</dd></div>
+						<div><dt>copy</dt><dd>{evidenceChanges(livePreview.evidence.copy)}</dd></div>
+						<div><dt>component</dt><dd>{evidenceChanges(livePreview.evidence.components)}</dd></div>
+						<div><dt>section order</dt><dd>{evidenceChanges(livePreview.evidence.sections)}</dd></div>
+						<div><dt>marketing block</dt><dd>{evidenceChanges(livePreview.evidence.marketingBlocks)}</dd></div>
 						<div><dt>provider / model</dt><dd>{livePreview.evidence.provider ?? 'not confirmed'} / {livePreview.evidence.model ?? 'not confirmed'}</dd></div>
 						<div><dt>calls</dt><dd>{livePreview.evidence.calls ?? 'not confirmed'}</dd></div>
-						<div><dt>policy / zone</dt><dd>{livePreview.evidence.policyVersion} / {livePreview.evidence.zoneId}</dd></div>
+						<div><dt>policy / named zones</dt><dd>{livePreview.evidence.policyVersion} / {livePreview.evidence.zoneIds.join(' · ')}</dd></div>
 					</dl>
 				</section>
 			{/if}

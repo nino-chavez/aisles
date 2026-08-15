@@ -1,18 +1,18 @@
 export const KIBBLE_HOME_PRESENTATION_POLICY = {
-	policyVersion: 'kibble-home-presentation-assist-v1',
-	zoneIds: ['home.hero', 'home.featured-copy', 'home.featured-row.1', 'home.catalog-entry', 'home.recipe-order'],
+	policyVersion: 'kibble-home-presentation-assist-v2',
+	zoneIds: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'],
 	capabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'],
 } as const;
 
 export const KIBBLE_PLP_PRESENTATION_POLICY = {
-	policyVersion: 'kibble-plp-presentation-assist-v1',
+	policyVersion: 'kibble-plp-presentation-assist-v2',
 	zoneIds: ['plp.editorial-header', 'plp.product-ranking', 'plp.marketing-block'],
 	capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'],
 } as const;
 
 export const KIBBLE_PDP_PRESENTATION_POLICY = {
-	policyVersion: 'kibble-pdp-presentation-assist-v1',
-	zoneIds: ['pdp.related', 'pdp.marketing-block'],
+	policyVersion: 'kibble-pdp-presentation-assist-v2',
+	zoneIds: ['pdp.related', 'pdp.below-description'],
 	capabilities: ['rank_products', 'select_copy_variant', 'toggle_zone'],
 } as const;
 
@@ -283,11 +283,11 @@ export function snapshotKibbleHomePresentation(
 	return {
 		copy: [
 			{ id: 'home.hero', label: 'Hero copy', value: joinCopy(presentation.hero.eyebrow, presentation.hero.headline, presentation.hero.body) },
-			{ id: 'home.featured-copy', label: 'Featured shelf copy', value: joinCopy(presentation.featuredCopy.eyebrow, presentation.featuredCopy.title, presentation.featuredCopy.browseAllLabel) },
-			{ id: 'home.catalog-entry', label: 'Category module copy', value: joinCopy(presentation.catalogCopy.eyebrow, presentation.catalogCopy.title) },
+			{ id: 'home.featured-row.1', label: 'Featured shelf copy', value: joinCopy(presentation.featuredCopy.eyebrow, presentation.featuredCopy.title, presentation.featuredCopy.browseAllLabel) },
+			{ id: 'home.editorial-strip', label: 'Category module copy', value: joinCopy(presentation.catalogCopy.eyebrow, presentation.catalogCopy.title) },
 		],
-		components: [{ id: 'home.catalog-entry', label: 'Category module', value: presentation.catalogComponent.label }],
-		sections: [{ id: 'home.recipe-order', label: 'Home section order', value: presentation.sectionOrder.label }],
+		components: [{ id: 'home.editorial-strip', label: 'Category module', value: presentation.catalogComponent.label }],
+		sections: [{ id: 'home.featured-row.1', label: 'Home section order', value: presentation.sectionOrder.label }],
 		marketingBlocks: [],
 	};
 }
@@ -310,7 +310,7 @@ export function snapshotKibblePdpPresentation(
 		copy: [{ id: 'pdp.related', label: 'Related-products heading', value: presentation.relatedHeading }],
 		components: [],
 		sections: [],
-		marketingBlocks: [{ id: 'pdp.marketing-block', label: 'Marketing block', value: presentation.marketingBlock?.headline ?? 'Not shown' }],
+		marketingBlocks: [{ id: 'pdp.below-description', label: 'Marketing block', value: presentation.marketingBlock?.headline ?? 'Not shown' }],
 	};
 }
 

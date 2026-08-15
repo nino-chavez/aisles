@@ -6,6 +6,7 @@
 	import LayoutRenderer from '$lib/components/layouts/LayoutRenderer.svelte';
 	import { KibbleHomeReference } from '$lib/components/kibble';
 	import type { KibbleDevInspectorData, KibbleLivePreviewStatus } from '$lib/components/kibble/kibble-dev-inspector';
+	import type { KibbleLivePreview } from '$lib/components/kibble/kibble-live-preview';
 	import type { KibbleProduct, KibbleZoneAdapterBinding } from '$lib/components/kibble/types';
 	import { KIBBLE_REFERENCE_CONTRACT } from '$lib/brand/reference/kibble';
 	import { KIBBLE_PARITY_FIXED_DATA_IDENTITY } from '$lib/brand/reference/kibble-parity';
@@ -23,7 +24,8 @@
 	let overridePersona = $state<string | null>(null);
 	let DevInspector = $state<Component<{ inspector: KibbleDevInspectorData; livePreview?: KibbleLivePreviewStatus; sessionId?: string | null; hideHref?: string }> | null>(null);
 	let previewProducts = $state<KibbleProduct[] | null>(null);
-	let previewFeaturedZoneAdapters = $state<KibbleZoneAdapterBinding[] | null>(null);
+	let previewFeaturedZoneAdapters = $state<Array<KibbleZoneAdapterBinding | NonNullable<KibbleLivePreview['zoneArtifacts']>['featured']> | null>(null);
+	let previewHomeZoneArtifacts = $state<NonNullable<KibbleLivePreview['zoneArtifacts']> | null>(null);
 	let previewInspector = $state<KibbleDevInspectorData | null>(null);
 	let previewHomePresentation = $state<ReturnType<typeof materializeKibbleHomePresentation> | null>(null);
 	let livePreviewStatus = $state<KibbleLivePreviewStatus>({ state: 'waiting' });
@@ -32,6 +34,7 @@
 	let inspectorHideHref = $derived(data.observeEnableHref ?? '/?observe=true');
 	let activeHomeZoneAdapters = $derived(data.kibbleHome ? {
 		...data.kibbleHome.zoneAdapters,
+		...(previewHomeZoneArtifacts ? { hero: previewHomeZoneArtifacts.hero, editorial: previewHomeZoneArtifacts.editorial } : {}),
 		...(previewFeaturedZoneAdapters ? { featuredRows: previewFeaturedZoneAdapters } : {}),
 	} : undefined);
 	let homePresentationContext = $derived(data.kibbleHome ? {
@@ -48,7 +51,6 @@
 	} : undefined);
 	let defaultHomePresentation = $derived(materializeKibbleHomePresentation(KIBBLE_HOME_DEFAULT_PRESENTATION, homePresentationContext));
 	let activeHomePresentation = $derived(previewHomePresentation ?? defaultHomePresentation);
-	let activeHomeModelCallCount = $derived(previewFeaturedZoneAdapters?.[0]?.modelCallCount ?? 0);
 
 	onMount(() => {
 		const syncSignalLab = () => { signalLabOpen = window.location.hash === '#kibble-signal-lab'; };
@@ -70,6 +72,7 @@
 		data;
 		previewProducts = null;
 		previewFeaturedZoneAdapters = null;
+		previewHomeZoneArtifacts = null;
 		previewInspector = null;
 		previewHomePresentation = null;
 		livePreviewStatus = { state: 'waiting' };
@@ -82,7 +85,11 @@
 		let cleanup: (() => void) | undefined;
 		void import('$lib/components/kibble/kibble-live-preview').then(({ expectationFromTrustedInspector, listenForKibbleLivePreview }) => {
 			if (disposed) return;
-			const expectation = expectationFromTrustedInspector(trustedInspector);
+			if (!homePresentationContext) {
+				livePreviewStatus = { state: 'failed' };
+				return;
+			}
+			const expectation = expectationFromTrustedInspector(trustedInspector, homePresentationContext);
 			if (!expectation) {
 				livePreviewStatus = { state: 'failed' };
 				return;
@@ -97,7 +104,10 @@
 				),
 				onApplied: (preview) => {
 					previewProducts = preview.products;
-					previewFeaturedZoneAdapters = preview.featuredZoneAdapters ?? null;
+					previewHomeZoneArtifacts = preview.zoneArtifacts ?? null;
+					previewFeaturedZoneAdapters = preview.zoneArtifacts
+						? [preview.zoneArtifacts.featured]
+						: preview.featuredZoneAdapters ?? null;
 					previewInspector = preview.inspector;
 					previewHomePresentation = preview.presentationDecision
 						? materializeKibbleHomePresentation(preview.presentationDecision, homePresentationContext)
@@ -248,8 +258,6 @@
 			categoryEyebrow={data.kibbleHome.categoryEyebrow}
 			zoneAdapters={activeHomeZoneAdapters}
 			modelEligible={Boolean(data.kibbleHomeInspector?.availableModelDecision)}
-			presentation={activeHomePresentation}
-			modelCallCount={activeHomeModelCallCount}
 		/>
 	</div>
 {:else}

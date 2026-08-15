@@ -1,6 +1,6 @@
 import type { PersonaInference } from '$lib/signals/types';
 import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS, KIBBLE_DEMO_PROVIDER_DEADLINE_MS } from '$lib/kibble-demo-ai-boundary';
-import { runBoundedModelAction } from '$lib/server/bounded-model-action.server';
+import { BoundedModelActionError, runBoundedModelAction } from '$lib/server/bounded-model-action.server';
 import { executeKibbleBoundedCopyModelZone } from './kibble-zone-executor.server';
 import {
 	KIBBLE_CART_DEFAULT_PRESENTATION,
@@ -36,20 +36,35 @@ export async function chooseKibbleBoundedCopyWithModel(input: Input) {
 	let modelId = '';
 	let inputTokens: number | undefined;
 	let outputTokens: number | undefined;
-	const execution = await executeForSurface(input, async (outputSchema, prompt) => {
-		const generated = await runBoundedModelAction({
-			outputSchema,
-			prompt,
-			maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
-			timeoutMs: KIBBLE_DEMO_PROVIDER_DEADLINE_MS,
-		});
-		modelCallCount = generated.callCount;
-		modelId = generated.modelId;
-		inputTokens = generated.inputTokens;
-		outputTokens = generated.outputTokens;
-		return generated.output;
-	});
-	if (!modelId || modelCallCount < 1) throw new Error(`Kibble ${input.surface} model runner returned no provider evidence.`);
+	const execution = await (async () => {
+		try {
+			return await executeForSurface(input, async (outputSchema, prompt) => {
+				const generated = await runBoundedModelAction({
+					outputSchema,
+					prompt,
+					maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
+					timeoutMs: KIBBLE_DEMO_PROVIDER_DEADLINE_MS,
+				}).catch((error: unknown) => {
+					if (error instanceof BoundedModelActionError) modelCallCount = error.callCount;
+					throw error;
+				});
+				modelCallCount = generated.callCount;
+				modelId = generated.modelId;
+				inputTokens = generated.inputTokens;
+				outputTokens = generated.outputTokens;
+				return generated.output;
+			});
+		} catch (cause) {
+			if (cause instanceof BoundedModelActionError) throw cause;
+			if (modelCallCount > 0) throw new BoundedModelActionError('invalid_output', `validated ${input.surface} presentation did not publish`, modelCallCount);
+			throw cause;
+		}
+	})();
+	if (!modelId || modelCallCount < 1) {
+		const cause = new Error(`Kibble ${input.surface} model runner returned no provider evidence.`);
+		if (modelCallCount > 0) throw new BoundedModelActionError('invalid_output', `validated ${input.surface} presentation did not publish`, modelCallCount);
+		throw cause;
+	}
 	return {
 		...execution,
 		adapter: { ...execution.adapter, modelCallCount },

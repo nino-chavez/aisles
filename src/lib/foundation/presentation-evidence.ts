@@ -23,7 +23,7 @@ export type PresentationSnapshot = {
 
 export type PresentationDecisionEvidence<SurfaceName extends string = Surface> = {
 	surface: SurfaceName;
-	zoneId: string;
+	zoneIds: string[];
 	zoneLabel: string;
 	policyVersion: string;
 	provider: string | null;
@@ -46,7 +46,7 @@ export type PresentationDecisionEvidence<SurfaceName extends string = Surface> =
 
 export function buildPresentationDecisionEvidence<SurfaceName extends string>(input: {
 	surface: SurfaceName;
-	zoneId: string;
+	zoneIds: readonly string[];
 	zoneLabel: string;
 	policyVersion: string;
 	before: readonly PresentationProduct[];
@@ -58,6 +58,9 @@ export function buildPresentationDecisionEvidence<SurfaceName extends string>(in
 	presentationBefore?: PresentationSnapshot;
 	presentationAfter?: PresentationSnapshot;
 }): PresentationDecisionEvidence<SurfaceName> {
+	if (input.zoneIds.length === 0 || new Set(input.zoneIds).size !== input.zoneIds.length) {
+		throw new Error('presentation decision evidence requires unique named zone instances');
+	}
 	const before = input.before.map(({ id, name }) => ({ id, name }));
 	const after = input.after.map(({ id, name }) => ({ id, name }));
 	const beforeById = new Map(before.map((product, index) => [product.id, { product, index }]));
@@ -78,7 +81,7 @@ export function buildPresentationDecisionEvidence<SurfaceName extends string>(in
 
 	return {
 		surface: input.surface,
-		zoneId: input.zoneId,
+		zoneIds: [...input.zoneIds],
 		zoneLabel: input.zoneLabel,
 		policyVersion: input.policyVersion,
 		provider: input.provider,

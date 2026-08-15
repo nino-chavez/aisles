@@ -73,6 +73,10 @@ export const ZONES = freezeAuthorityGraph({
 	// only rank the server-reloaded first eight catalog IDs; it never creates a
 	// second merchandising row or changes the remaining page.
 	'plp.product-ranking': { surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: false },
+	// Optional copy-led block used by the bounded Kibble presentation demo.
+	// Hidden is the merchant baseline; a live model may only select one
+	// registered copy variant and its visibility for this exact instance.
+	'plp.marketing-block': { surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },
 	// Themed merchandising row (e.g. "New Arrivals", "Under $200"). Engine
 	// composes when it detects a worthwhile cluster; no static default.
 	'plp.cluster-row': { surface: 'plp', multiplicity: 'singleton', engineComposable: true, adminAuthorable: true },

@@ -5,7 +5,9 @@ import {
 	assertKibblePreserveRoutePolicy,
 	getContractSurfaceDecision,
 	getKibbleObserveHomeModelPolicyDescriptor,
+	getTrustedKibbleObserveHomePresentationPolicy,
 	getTrustedKibbleObserveHomeZonePolicy,
+	getTrustedKibbleObservePresentationZonePolicy,
 	getTrustedKibbleRoutePolicy,
 	hasKibbleReferenceChrome,
 	surfaceForPath,
@@ -29,17 +31,45 @@ describe('Kibble composition policy registry', () => {
 		expect(() => assertKibblePreserveRoutePolicy(decision.policy, 'home')).not.toThrow();
 	});
 
-	it('exposes one separate assist policy for explicit Home shelf model ranking', () => {
-		const policy = getTrustedKibbleObserveHomeZonePolicy({
+	it('compiles every aggregate presentation field against its own named live zone', () => {
+		const cases = [
+			[{ surface: 'home', familyId: 'home.hero', instanceId: 'home.hero', routePath: '/' }, ['select_copy_variant']],
+			[{ surface: 'home', familyId: 'home.featured-row', instanceId: 'home.featured-row.1', routePath: '/' }, ['rank_products', 'select_copy_variant', 'reorder_zones']],
+			[{ surface: 'home', familyId: 'home.editorial-strip', instanceId: 'home.editorial-strip', routePath: '/' }, ['select_copy_variant', 'select_component_variant']],
+			[{ surface: 'plp', familyId: 'plp.editorial-header', instanceId: 'plp.editorial-header', routePath: '/category/dog-food' }, ['select_copy_variant']],
+			[{ surface: 'plp', familyId: 'plp.product-ranking', instanceId: 'plp.product-ranking', routePath: '/category/dog-food' }, ['rank_products']],
+			[{ surface: 'plp', familyId: 'plp.marketing-block', instanceId: 'plp.marketing-block', routePath: '/category/dog-food' }, ['select_copy_variant', 'toggle_zone']],
+			[{ surface: 'pdp', familyId: 'pdp.related', instanceId: 'pdp.related', routePath: '/product/puppy-starter-kit' }, ['rank_products', 'select_copy_variant']],
+			[{ surface: 'pdp', familyId: 'pdp.below-description', instanceId: 'pdp.below-description', routePath: '/product/puppy-starter-kit' }, ['select_copy_variant', 'toggle_zone']],
+		] as const;
+		for (const [input, capabilities] of cases) {
+			const policy = getTrustedKibbleObservePresentationZonePolicy(input);
+			expect(policy.capabilities, input.instanceId).toEqual(capabilities);
+			expect(policy.provenance.zoneBinding?.instanceId).toBe(input.instanceId);
+			expect(policy).toMatchObject({ decisionMode: 'model', publicationMode: 'live', provenance: { preset: 'compose' } });
+		}
+	});
+
+	it('binds the explicit Home presentation action to one aggregate surface record and exact named zones', () => {
+		const featuredPolicy = getTrustedKibbleObserveHomeZonePolicy({
 			origin: 'aisles', familyId: 'home.featured-row', instanceId: 'home.featured-row.1', routePath: '/',
 		});
-		expect(policy).toMatchObject({
-			decisionMode: 'model', publicationMode: 'live', capabilities: ['rank_products'],
-			provenance: { preset: 'assist', zoneBinding: { familyId: 'home.featured-row', instanceId: 'home.featured-row.1' } },
+		expect(featuredPolicy).toMatchObject({
+			decisionMode: 'model', publicationMode: 'live', capabilities: ['rank_products', 'select_copy_variant', 'reorder_zones'],
+			provenance: { preset: 'compose', zoneBinding: { familyId: 'home.featured-row', instanceId: 'home.featured-row.1' } },
 		});
+		const policy = getTrustedKibbleObserveHomePresentationPolicy();
+		expect(policy).toMatchObject({
+			decisionMode: 'model', publicationMode: 'live',
+			capabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'],
+			provenance: { preset: 'compose' },
+		});
+		expect(policy.provenance.zoneBinding).toBeNull();
 		expect(getKibbleObserveHomeModelPolicyDescriptor()).toEqual({
 			policyVersion: policy.policyVersion,
-			zoneId: 'home.featured-row', capabilities: ['rank_products'], publicationMode: 'live',
+			zoneIds: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'],
+			capabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'],
+			publicationMode: 'live',
 		});
 		const preserve = getContractSurfaceDecision('kibble', 'home');
 		expect(preserve.mode).toBe('reference-preserve');

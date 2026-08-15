@@ -21,6 +21,7 @@ import { logGeneration } from '$lib/server/generation-log';
 import { infer } from '$lib/signals/inference';
 import { findSessionStore } from '$lib/signals/session';
 import { MODEL_PROVIDER } from '$lib/server/model';
+import { BoundedModelActionError } from '$lib/server/bounded-model-action.server';
 import { KIBBLE_PDP_PRESENTATION_POLICY } from '$lib/brand/reference/kibble-presentation-decisions';
 import { getKibbleCatalogSignals } from '$lib/brand/reference/kibble-catalog-enrichment';
 
@@ -96,8 +97,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 			persona: inference.primary,
 			rankedProductIds: modelDecision.rankedProductIds,
 			presentationPolicy: KIBBLE_PDP_PRESENTATION_POLICY,
-			presentationDecision: modelDecision.presentationDecision,
-			zoneAdapter: modelDecision.adapter,
+			zoneArtifacts: modelDecision.zoneArtifacts,
 			modelCallCount: modelDecision.modelCallCount,
 			provider: MODEL_PROVIDER,
 			modelId: modelDecision.modelId,
@@ -105,7 +105,7 @@ export const POST: RequestHandler = async ({ url, cookies, request }) => {
 		}, { headers: noStoreHeaders() });
 	} catch (error) {
 		console.error('[kibble-pdp-related-decision] operational failure:', error);
-		return json({ error: 'Failed to preview Kibble PDP related-products decision' }, { status: 500, headers: noStoreHeaders() });
+		return json({ error: 'Failed to preview Kibble PDP related-products decision', modelCallCount: attemptedModelCalls(error) }, { status: 500, headers: noStoreHeaders() });
 	}
 };
 
@@ -148,5 +148,6 @@ function ineligible() { return json({ error: 'Kibble PDP related-products model 
 function invalidRequest() { return json({ error: 'Invalid Kibble decision request' }, { status: 400, headers: noStoreHeaders() }); }
 function sessionUnavailable() { return json({ error: 'Kibble preview session is unavailable' }, { status: 409, headers: noStoreHeaders() }); }
 function noStoreHeaders() { return { 'Cache-Control': 'no-store' }; }
+function attemptedModelCalls(error: unknown): number { return error instanceof BoundedModelActionError ? error.callCount : 0; }
 
 export const _test = { serverRelatedCandidates, parseModelRequest, PREVIEW_VERSION, descriptor: getKibbleObservePdpRelatedModelPolicyDescriptor };

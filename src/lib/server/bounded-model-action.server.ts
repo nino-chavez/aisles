@@ -6,11 +6,13 @@ export type BoundedModelActionFailure = 'aborted' | 'timeout' | 'provider_failed
 
 export class BoundedModelActionError extends Error {
 	readonly reason: BoundedModelActionFailure;
+	readonly callCount: number;
 
-	constructor(reason: BoundedModelActionFailure, message: string) {
+	constructor(reason: BoundedModelActionFailure, message: string, callCount = 0) {
 		super(`bounded model action: ${message}`);
 		this.name = 'BoundedModelActionError';
 		this.reason = reason;
+		this.callCount = Number.isInteger(callCount) && callCount >= 0 && callCount <= 2 ? callCount : 0;
 	}
 }
 
@@ -78,7 +80,7 @@ export async function runBoundedModelAction<T>(input: {
 		try {
 			output = input.outputSchema.parse(generated.result.output);
 		} catch (cause) {
-			throw new BoundedModelActionError('invalid_output', cause instanceof Error ? cause.message : 'provider output was invalid');
+			throw new BoundedModelActionError('invalid_output', cause instanceof Error ? cause.message : 'provider output was invalid', callCount);
 		}
 		return {
 			output,
@@ -89,14 +91,16 @@ export async function runBoundedModelAction<T>(input: {
 			...(generated.result.usage?.outputTokens === undefined ? {} : { outputTokens: generated.result.usage.outputTokens }),
 		};
 	} catch (cause) {
-		if (cause instanceof BoundedModelActionError) throw cause;
+		if (cause instanceof BoundedModelActionError) {
+			throw new BoundedModelActionError(cause.reason, cause.message.replace(/^bounded model action:\s*/, ''), Math.max(cause.callCount, callCount));
+		}
 		if (timedOut || controller.signal.aborted && input.signal?.aborted !== true) {
-			throw new BoundedModelActionError('timeout', 'provider deadline exceeded');
+			throw new BoundedModelActionError('timeout', 'provider deadline exceeded', callCount);
 		}
 		if (input.signal?.aborted || controller.signal.aborted) {
-			throw new BoundedModelActionError('aborted', 'action was aborted');
+			throw new BoundedModelActionError('aborted', 'action was aborted', callCount);
 		}
-		throw new BoundedModelActionError('provider_failed', cause instanceof Error ? cause.message : 'provider call failed');
+		throw new BoundedModelActionError('provider_failed', cause instanceof Error ? cause.message : 'provider call failed', callCount);
 	} finally {
 		clearTimeout(timeout);
 		input.signal?.removeEventListener('abort', onAbort);

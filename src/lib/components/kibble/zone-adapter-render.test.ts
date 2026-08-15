@@ -12,6 +12,7 @@ import { KIBBLE_ZONE_TERMINALS } from '$lib/brand/reference/kibble-zone-union';
 import KibbleCategoryReference from './KibbleCategoryReference.svelte';
 import KibbleErrorReference from './KibbleErrorReference.svelte';
 import KibbleHomeReference from './KibbleHomeReference.svelte';
+import KibbleMarketingBlock from './KibbleMarketingBlock.svelte';
 import KibbleProductDetailReference from './KibbleProductDetailReference.svelte';
 import KibbleSearchReference from './KibbleSearchReference.svelte';
 import type { KibbleProduct } from './types';
@@ -36,6 +37,17 @@ const products: KibbleProduct[] = Array.from({ length: 6 }, (_, index) => ({
 	tags: [],
 	category: 'Dog Food',
 }));
+
+const hiddenPlpMarketing = {
+	instanceId: 'plp.marketing-block', sharedStatus: 'live', sharedContentKind: 'hidden', decisionMode: 'model', modelCallCount: 1,
+	adapterId: 'kibble.zone.plp.marketing-block', componentVariantId: 'kibble.hero.zone-editorial-header', inputSha256: 'a'.repeat(64),
+	selection: { componentVariantId: 'kibble.hero.zone-editorial-header', copyVariantId: 'none', visible: false },
+} as const;
+const hiddenPdpMarketing = {
+	...hiddenPlpMarketing,
+	instanceId: 'pdp.below-description',
+	adapterId: 'kibble.zone.pdp.below-description',
+} as const;
 
 describe('Kibble native zone DOM bindings', () => {
 	it('renders executed adapter content instead of fallback component copy', async () => {
@@ -92,11 +104,12 @@ describe('Kibble native zone DOM bindings', () => {
 				featuredCopy: { title: 'Featured', eyebrow: 'Catalog', browseAllLabel: 'Browse' }, browseHref: '/category/dog-food',
 				categoryTitle: 'Shop by category', categoryEyebrow: 'Browse', zoneAdapters: home,
 			} }).body,
-			render(KibbleCategoryReference, { props: {
+				render(KibbleCategoryReference, { props: {
 				eyebrow: 'Catalog', title: 'Dog Food', breadcrumbs: [{ label: 'Home', href: '/' }, { label: 'Dog Food' }],
 				sortLabel: 'Sort', sortOptions: [{ value: 'FEATURED', label: 'Featured' }], selectedSort: 'FEATURED',
 				productCount: 6, productSingular: 'product', productPlural: 'products', emptyMessage: 'No products.', products,
 				productHrefs: {}, loadMoreHref: null, loadMoreLabel: 'Load more', zoneAdapter: plp, categoryGuide: KIBBLE_CATEGORY_JOB_PROFILES['dog-food'],
+				marketingZoneArtifact: hiddenPlpMarketing,
 			} }).body,
 			render(KibbleProductDetailReference, { props: {
 				product: { ...products[0], sku: 'SKU-1', categoryPath: '/dog-food/', currencyCode: 'USD', isInStock: true, images: [], descriptionPlain: 'Catalog description.' },
@@ -104,6 +117,7 @@ describe('Kibble native zone DOM bindings', () => {
 				relatedProducts: products.slice(0, 3), relatedProductHrefs: {}, purchaseUnavailableLabel: 'Purchase unavailable',
 				purchaseUnavailableBody: 'No purchase action is available.', relatedHeading: 'You may also like', copy: KIBBLE_PRESERVE_MANIFEST.display.pdp.copy,
 				zoneAdapter: pdp,
+				marketingZoneArtifact: hiddenPdpMarketing,
 			} }).body,
 			render(KibbleSearchReference, { props: { query: 'missing', products: [], pageInfo: { hasNextPage: false, endCursor: null }, loadMoreHref: null, zoneAdapter: search } }).body,
 			render(KibbleErrorReference, { props: { status: 404, message: 'Page unavailable.', eyebrow: 'Unavailable', headline: 'Page unavailable', returnLabel: 'Return home', zoneAdapter: error404 as never } }).body,
@@ -124,6 +138,26 @@ describe('Kibble native zone DOM bindings', () => {
 		}
 		for (const hidden of KIBBLE_ZONE_TERMINALS.filter(({ terminal }) => terminal === 'trusted-hidden')) {
 			expect(bodies).not.toContain(`data-kibble-zone-instance="${hidden.instanceId}"`);
+			expect(bodies).not.toContain(`data-aisles-zone-instance="${hidden.instanceId}"`);
 		}
+		expect(bodies).not.toContain('No optional marketing block selected');
+	});
+
+	it('renders a selected marketing artifact once with model evidence and no fallback copy', () => {
+		const artifact = {
+			...hiddenPdpMarketing,
+			sharedContentKind: 'content' as const,
+			selection: { ...hiddenPdpMarketing.selection, copyVariantId: 'compare-current', visible: true },
+			content: {
+				component: 'editorial-header' as const,
+				props: { eyebrow: 'Compare the current shelf', headline: 'Keep product facts in view.', body: 'Catalog facts remain fixed.' },
+			},
+		};
+		const body = render(KibbleMarketingBlock, { props: { zoneArtifact: artifact } }).body;
+		expect(body.match(/data-aisles-zone-instance="pdp\.below-description"/g)).toHaveLength(1);
+		expect(body).toContain('data-aisles-authority="model"');
+		expect(body).toContain('data-aisles-model-calls="1"');
+		expect(body).toContain('Keep product facts in view.');
+		expect(body).not.toContain('No optional marketing block selected');
 	});
 });

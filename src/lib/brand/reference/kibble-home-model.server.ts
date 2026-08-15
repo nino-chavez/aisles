@@ -1,13 +1,15 @@
 import { z } from 'zod';
 import type { PersonaInference } from '$lib/signals/types';
 import { KIBBLE_DEMO_MAX_OUTPUT_TOKENS, KIBBLE_DEMO_PROVIDER_DEADLINE_MS } from '$lib/kibble-demo-ai-boundary';
-import { runBoundedModelAction } from '$lib/server/bounded-model-action.server';
+import { BoundedModelActionError, runBoundedModelAction } from '$lib/server/bounded-model-action.server';
 import type { KibbleHomeCandidateProduct } from './kibble-home-decision';
 import { describeKibbleCatalogSignalsForPrompt } from './kibble-catalog-enrichment';
-import { executeKibbleHomeModelShelf } from './kibble-zone-executor.server';
+import { bindExistingKibbleModelZoneAdapter, executeKibbleHomeModelShelf, executeKibblePresentationModelZone } from './kibble-zone-executor.server';
 import {
+	KIBBLE_HOME_DEFAULT_PRESENTATION,
 	KIBBLE_HOME_PRESENTATION_IDS,
 	kibbleHomePresentationPromptOptions,
+	materializeKibbleHomePresentation,
 	parseKibbleHomePresentationDecision,
 	type KibbleHomePresentationDecision,
 	type KibbleHomePresentationContext,
@@ -18,7 +20,12 @@ export const KIBBLE_HOME_MODEL_SCHEMA_VERSION = 'kibble-home-presentation-decisi
 
 export type KibbleHomeModelResult = {
 	products: KibbleHomeCandidateProduct[];
-	zoneAdapter: Awaited<ReturnType<typeof executeKibbleHomeModelShelf>>['adapter'];
+	zoneAdapter: ReturnType<typeof bindExistingKibbleModelZoneAdapter>;
+	zoneArtifacts: {
+		hero: Awaited<ReturnType<typeof executeKibblePresentationModelZone>>['adapter'];
+		featured: ReturnType<typeof bindExistingKibbleModelZoneAdapter>;
+		editorial: Awaited<ReturnType<typeof executeKibblePresentationModelZone>>['adapter'];
+	};
 	policy: Awaited<ReturnType<typeof executeKibbleHomeModelShelf>>['policy'];
 	modelId: string;
 	modelCallCount: number;
@@ -44,14 +51,23 @@ export async function rankKibbleHomeWithModel(input: {
 	let inputTokens: number | undefined;
 	let outputTokens: number | undefined;
 	let presentationDecision: KibbleHomePresentationDecision | null = null;
-	const result = await executeKibbleHomeModelShelf({
+	const result = await (async () => {
+		try {
+			return await executeKibbleHomeModelShelf({
 		products: input.products,
+		featuredCopyVariantIds: KIBBLE_HOME_PRESENTATION_IDS.featuredCopyVariantIds,
+		baselineFeaturedCopyVariantId: KIBBLE_HOME_DEFAULT_PRESENTATION.featuredCopyVariantId,
+		sectionOrderIds: KIBBLE_HOME_PRESENTATION_IDS.sectionOrderIds,
+		baselineSectionOrderId: KIBBLE_HOME_DEFAULT_PRESENTATION.sectionOrderId,
 		runModel: async ({ outputSchema }) => {
 			const generated = await runBoundedModelAction({
 				outputSchema: providerOutputSchema,
 				prompt,
 				maxOutputTokens: KIBBLE_DEMO_MAX_OUTPUT_TOKENS,
 				timeoutMs: KIBBLE_DEMO_PROVIDER_DEADLINE_MS,
+			}).catch((error: unknown) => {
+				if (error instanceof BoundedModelActionError) modelCallCount = error.callCount;
+				throw error;
 			});
 			modelCallCount = generated.callCount;
 			servedModelId = generated.modelId;
@@ -60,24 +76,71 @@ export async function rankKibbleHomeWithModel(input: {
 			const { rankedProductIds, ...presentationFields } = generated.output;
 			presentationDecision = parseKibbleHomePresentationDecision(presentationFields);
 			if (!presentationDecision) throw new Error('Kibble Home presentation decision left the merchant allow-list.');
-			return outputSchema.parse({ rankedProductIds });
+			return outputSchema.parse({
+				rankedProductIds,
+				copyVariantId: presentationDecision.featuredCopyVariantId,
+				placementId: presentationDecision.sectionOrderId,
+			});
 		},
-	});
-	if (!servedModelId || modelCallCount < 1 || !presentationDecision) throw new Error('Kibble Home model runner returned no provider evidence.');
+			});
+		} catch (cause) {
+			return rethrowModelPublicationFailure(cause, modelCallCount);
+		}
+	})();
+	if (!servedModelId || modelCallCount < 1 || !presentationDecision) {
+		rethrowModelPublicationFailure(new Error('Kibble Home model runner returned no provider evidence.'), modelCallCount);
+	}
+	const validatedPresentationDecision = presentationDecision as KibbleHomePresentationDecision;
+	const baselinePresentation = materializeKibbleHomePresentation(KIBBLE_HOME_DEFAULT_PRESENTATION, input.presentationContext);
+	const selectedPresentation = materializeKibbleHomePresentation(validatedPresentationDecision, input.presentationContext);
+	const catalogComponentVariantId = validatedPresentationDecision.catalogComponentVariantId === 'four-column'
+		? 'kibble.visual-module.category'
+		: 'kibble.visual-module.routine';
+	let zoneArtifacts: KibbleHomeModelResult['zoneArtifacts'];
+	try {
+		const [heroZone, editorialZone] = await Promise.all([
+		executeKibblePresentationModelZone({
+			surface: 'home', familyId: 'home.hero', instanceId: 'home.hero', routePath: '/',
+			componentVariantIds: ['kibble.hero.zone-editorial-header'], baselineComponentVariantId: 'kibble.hero.zone-editorial-header',
+			copyVariantIds: KIBBLE_HOME_PRESENTATION_IDS.heroCopyVariantIds,
+			baselineCopyVariantId: KIBBLE_HOME_DEFAULT_PRESENTATION.heroCopyVariantId,
+			modelOutput: { copyVariantId: validatedPresentationDecision.heroCopyVariantId },
+			modelCallCount,
+			fallbackContent: editorialHeaderContent(baselinePresentation.hero),
+			contentForDecision: () => editorialHeaderContent(selectedPresentation.hero),
+		}),
+		executeKibblePresentationModelZone({
+			surface: 'home', familyId: 'home.editorial-strip', instanceId: 'home.editorial-strip', routePath: '/',
+			componentVariantIds: ['kibble.visual-module.category', 'kibble.visual-module.routine'],
+			baselineComponentVariantId: 'kibble.visual-module.category',
+			copyVariantIds: KIBBLE_HOME_PRESENTATION_IDS.catalogCopyVariantIds,
+			baselineCopyVariantId: KIBBLE_HOME_DEFAULT_PRESENTATION.catalogCopyVariantId,
+			modelOutput: { copyVariantId: validatedPresentationDecision.catalogCopyVariantId, componentVariantId: catalogComponentVariantId },
+			modelCallCount,
+			fallbackContent: editorialHeaderContent({ eyebrow: baselinePresentation.catalogCopy.eyebrow, headline: baselinePresentation.catalogCopy.title, body: 'Browse the current storefront catalog by category.' }),
+			contentForDecision: () => editorialHeaderContent({ eyebrow: selectedPresentation.catalogCopy.eyebrow, headline: selectedPresentation.catalogCopy.title, body: 'Browse the current storefront catalog by category.' }),
+		}),
+		]);
+		const featured = bindExistingKibbleModelZoneAdapter(result.adapter, result.execution, modelCallCount);
+		zoneArtifacts = { hero: heroZone.adapter, featured, editorial: editorialZone.adapter };
+	} catch (cause) {
+		rethrowModelPublicationFailure(cause, modelCallCount);
+	}
 	const byId = new Map(input.products.map((product) => [String(product.entityId), product]));
 	const products: KibbleHomeCandidateProduct[] = result.rankedProductIds
 		.map((id: string) => byId.get(id))
 		.filter((product: KibbleHomeCandidateProduct | undefined): product is KibbleHomeCandidateProduct => !!product);
 	if (products.length !== input.products.length || new Set(products.map(({ entityId }) => entityId)).size !== input.products.length) {
-		throw new Error('Kibble Home model output was not an exact approved product permutation.');
+		rethrowModelPublicationFailure(new Error('Kibble Home model output was not an exact approved product permutation.'), modelCallCount);
 	}
 	return {
 		products,
-		zoneAdapter: { ...result.adapter, modelCallCount },
+		zoneAdapter: zoneArtifacts.featured,
+		zoneArtifacts,
 		policy: result.policy,
 		modelId: servedModelId,
 		modelCallCount,
-		presentationDecision,
+		presentationDecision: validatedPresentationDecision,
 		...(inputTokens === undefined ? {} : { inputTokens }),
 		...(outputTokens === undefined ? {} : { outputTokens }),
 		prompt,
@@ -136,4 +199,14 @@ function tuple<T extends string>(values: readonly T[]): [T, ...T[]] {
 	const first = values[0];
 	if (!first) throw new Error('Kibble Home presentation allow-list is empty.');
 	return [first, ...values.slice(1)];
+}
+
+function editorialHeaderContent(copy: { eyebrow: string; headline: string; body: string }) {
+	return { component: 'editorial-header' as const, props: copy };
+}
+
+function rethrowModelPublicationFailure(cause: unknown, callCount: number): never {
+	if (cause instanceof BoundedModelActionError) throw cause;
+	if (callCount > 0) throw new BoundedModelActionError('invalid_output', 'validated Home presentation did not publish', callCount);
+	throw cause;
 }

@@ -129,7 +129,9 @@ Kibble merchant capability manifest
   -> seven configurable source models outside current Kibble intent
        -> explicit not-claimed reason; no invented demo path
   -> six enabled Kibble Aisles presentation capabilities
-       -> one Observe-ready review path each
+	   -> fourteen typed action-by-surface proofs across Home, PLP, PDP, Search, Cart, and Checkout
+	   -> each proof names a stable route, exact instances, prerequisites, counts, and fail-closed result
+	   -> action types remain separate from named rendered zone instances
 
 Provider services
   -> cart, account, order, payment, plan, and subscription state
@@ -170,8 +172,12 @@ Acceptance for this slice is mechanical:
   explicit not-claimed reason;
 - pinned offer evidence is suppressed when the live BigCommerce effective price no
   longer supports the pinned savings arithmetic;
-- every presentation capability enabled by the Kibble policies resolves to an
-  Observe-ready review path;
+- every enabled action-and-surface pair resolves to its own Observe-ready proof
+  with candidate prerequisites, Before, changed and kept outcomes, expected
+  counts, fixed facts, and a fail-closed reason in
+  `KIBBLE_AISLES_CAPABILITY_DEMOS`;
+- eligibility never increments AI-zone or AI-call counts; only rendered
+  model-selected output and actual provider attempts do;
 - `generate_bounded_copy` and `select_page_recipe` remain absent because the
   current Kibble policy does not enable them;
 - no manifest record carries a cart intent, plan ID, payment value, customer

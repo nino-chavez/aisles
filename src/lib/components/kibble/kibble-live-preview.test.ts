@@ -8,10 +8,15 @@ const expectation = {
 	policyVersion: 'org:kibble|brand:kibble-policy-1.8.0',
 	dataSourceLabel: 'fixture',
 	synthetic: { value: true, scenarioId: 'local-showcase' },
+	presentationContext: {
+		hero: { eyebrow: 'The brands on your shelf · kept in view', headline: 'The brands worth trusting, organized around your routine.', body: 'Open Farm, Native Pet, Wild One, and Finn — organized around food, wellness, care, gear, and repeat-purchase routines.' },
+		featuredCopy: { eyebrow: 'Catalog', title: 'New arrivals', browseAllLabel: 'Browse Dog Food' },
+		catalogCopy: { eyebrow: 'Browse', title: 'Shop by category' },
+	},
 	modelDecision: {
 		policyVersion: 'org:kibble|brand:kibble-observe-assist-policy-1.8.0-v1',
-		zoneId: 'home.featured-row' as const,
-		capabilities: ['rank_products'] as const,
+		zoneIds: ['home.hero', 'home.featured-row.1', 'home.editorial-strip'] as const,
+		capabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'] as const,
 		publicationMode: 'live' as const,
 	},
 };
@@ -60,36 +65,73 @@ const response = () => ({
 const modelResponse = () => {
 	const rankedProducts = [...products].reverse();
 	const modelCalls = 1;
+	const presentationDecision = {
+		...KIBBLE_HOME_DEFAULT_PRESENTATION,
+		heroCopyVariantId: 'visit-fast-path' as const,
+		catalogComponentVariantId: 'two-column' as const,
+	};
+	const presentation = materializeKibbleHomePresentation(presentationDecision, expectation.presentationContext);
+	const featured = {
+		instanceId: 'home.featured-row.1', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: modelCalls,
+		adapterId: 'kibble.zone.home.featured-row.primary', componentVariantId: 'kibble.featured-grid.ranked-segment', inputSha256: 'b'.repeat(64),
+		selection: { componentVariantId: 'kibble.featured-grid.ranked-segment', copyVariantId: presentationDecision.featuredCopyVariantId, placementId: presentationDecision.sectionOrderId },
+		content: { component: 'product-grid', props: { columns: 4, products: rankedProducts.map(({ entityId }) => ({ productId: String(entityId), role: 'standard' })), imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false } },
+	};
 	const modelInspector: KibbleDevInspectorData = {
 		...inspector,
-		preset: 'assist',
+		preset: 'compose',
 		policyVersion: expectation.modelDecision.policyVersion,
 		dataSourceLabel: 'bounded-model-presentation',
-		zones: inspector.zones.map((zone) => zone.id === 'ranked-products' ? {
-			...zone,
-			authority: 'model', componentVariant: 'kibble.featured-grid.ranked-segment', capabilities: ['rank_products'],
-			outputProducts: rankedProducts.map(({ id, name }) => ({ id, name })),
-			modelCallStatus: { calls: modelCalls, authorized: true },
-			decision: { model: 'claude-haiku-4-5', outputField: 'rankedProductIds', productCount: rankedProducts.length },
-		} : zone),
+		zones: inspector.zones.map((zone) => {
+			if (zone.id === 'opening-merchandising') return {
+				...zone, id: 'home.hero', authority: 'model' as const,
+				componentVariant: 'kibble.hero.zone-editorial-header', capabilities: ['select_copy_variant'],
+				decisionSummary: 'Selected approved Home hero copy.', changed: true,
+				modelCallStatus: { calls: modelCalls, authorized: true },
+			};
+			if (zone.id === 'ranked-products') return {
+				...zone, id: 'home.featured-row.1', label: 'Featured product shelf', authority: 'model' as const,
+				componentVariant: 'kibble.featured-grid.ranked-segment', capabilities: ['rank_products', 'select_copy_variant', 'reorder_zones'],
+				inputProducts: products.map(({ id, name }) => ({ id, name })),
+				outputProducts: rankedProducts.map(({ id, name }) => ({ id, name })), changed: true,
+				modelCallStatus: { calls: modelCalls, authorized: true },
+				decision: { model: 'claude-haiku-4-5', outputField: 'rankedProductIds', productCount: rankedProducts.length },
+			};
+			if (zone.id === 'catalog-entry') return {
+				...zone, id: 'home.editorial-strip', authority: 'model' as const,
+				componentVariant: 'kibble.visual-module.routine', capabilities: ['select_copy_variant', 'select_component_variant'],
+				decisionSummary: 'Selected approved Home catalog copy and component.', changed: true,
+				modelCallStatus: { calls: modelCalls, authorized: true },
+			};
+			return zone;
+		}),
 		provenance: {
 			...(inspector.provenance as Record<string, unknown>),
 			policyVersion: expectation.modelDecision.policyVersion,
 			decisionSource: 'model', promptVersion: 'kibble-home-bounded-presentation-v2', schemaVersion: 'kibble-home-presentation-decision-v2',
-			autonomy: { preset: 'assist', effectiveCapabilities: ['rank_products'], decisionMode: 'model', publicationMode: 'live' },
+			autonomy: { preset: 'compose', effectiveCapabilities: ['rank_products', 'select_copy_variant', 'select_component_variant', 'reorder_zones'], decisionMode: 'model', publicationMode: 'live' },
 		},
 	};
 	return {
 		version: 'kibble-live-home-preview-v3', previewOnly: true, reference: expectation.reference,
 		policyVersion: expectation.modelDecision.policyVersion, persona: 'hunter', products: rankedProducts,
-		provider: 'anthropic', modelId: 'claude-haiku-4-5',
+		provider: 'anthropic', modelId: 'claude-haiku-4-5', modelCallCount: modelCalls,
 		presentationPolicy: KIBBLE_HOME_PRESENTATION_POLICY,
-		presentationDecision: { ...KIBBLE_HOME_DEFAULT_PRESENTATION, heroCopyVariantId: 'visit-fast-path', catalogComponentVariantId: 'two-column' },
-		featuredZoneAdapters: [{
-			instanceId: 'home.featured-row.1', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: modelCalls,
-			adapterId: 'kibble.zone.home.featured-row.primary', componentVariantId: 'kibble.featured-grid.ranked-segment', inputSha256: 'b'.repeat(64),
-			content: { component: 'product-grid', props: { columns: 4, products: rankedProducts.map(({ entityId }) => ({ productId: String(entityId), role: 'standard' })), imageRatio: 'square', showDescription: false, showSpecs: false, showQuickAdd: false } },
-		}],
+		zoneArtifacts: {
+			hero: {
+				instanceId: 'home.hero', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: modelCalls,
+				adapterId: 'kibble.zone.home.hero', componentVariantId: 'kibble.hero.zone-editorial-header', inputSha256: 'c'.repeat(64),
+				selection: { componentVariantId: 'kibble.hero.zone-editorial-header', copyVariantId: presentationDecision.heroCopyVariantId },
+				content: { component: 'editorial-header', props: presentation.hero },
+			},
+			featured,
+			editorial: {
+				instanceId: 'home.editorial-strip', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: modelCalls,
+				adapterId: 'kibble.zone.home.editorial-strip', componentVariantId: 'kibble.visual-module.routine', inputSha256: 'd'.repeat(64),
+				selection: { componentVariantId: 'kibble.visual-module.routine', copyVariantId: presentationDecision.catalogCopyVariantId },
+				content: { component: 'editorial-header', props: { eyebrow: presentation.catalogCopy.eyebrow, headline: presentation.catalogCopy.title, body: 'Browse the current storefront catalog by category.' } },
+			},
+		},
 		inspector: modelInspector,
 	};
 };
@@ -103,8 +145,8 @@ describe('validateKibbleLivePreview', () => {
 
 	it('describes changed and unchanged product order independently from presentation choices', () => {
 		const before = products.map(({ id, name }) => ({ id, name }));
-		const changed = buildKibbleDecisionEvidence({ surface: 'home', zoneId: 'home.featured-row', zoneLabel: 'Featured product shelf', policyVersion: expectation.modelDecision!.policyVersion, before, after: [...before].reverse(), provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied' });
-		const same = buildKibbleDecisionEvidence({ surface: 'home', zoneId: 'home.featured-row', zoneLabel: 'Featured product shelf', policyVersion: expectation.modelDecision!.policyVersion, before, after: before, provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied' });
+		const changed = buildKibbleDecisionEvidence({ surface: 'home', zoneIds: ['home.featured-row.1'], zoneLabel: 'Featured product shelf', policyVersion: expectation.modelDecision!.policyVersion, before, after: [...before].reverse(), provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied' });
+		const same = buildKibbleDecisionEvidence({ surface: 'home', zoneIds: ['home.featured-row.1'], zoneLabel: 'Featured product shelf', policyVersion: expectation.modelDecision!.policyVersion, before, after: before, provider: 'anthropic', model: 'claude-haiku-4-5', calls: 1, state: 'applied' });
 		expect(changed.moved.map(({ id }) => id)).toEqual(['food-c', 'food-a']);
 		expect(changed.unchanged.map(({ id }) => id)).toEqual(['food-b']);
 		expect(changed.copy).toEqual([]);
@@ -123,9 +165,35 @@ describe('validateKibbleLivePreview', () => {
 		expect(result.ok).toBe(true);
 		if (result.ok) {
 			expect(result.preview.products.map(({ id }) => id)).toEqual(['food-c', 'food-b', 'food-a']);
-			expect(result.preview.featuredZoneAdapters?.[0]).toMatchObject({ decisionMode: 'model', modelCallCount: 1 });
+			expect(result.preview.zoneArtifacts?.featured).toMatchObject({ decisionMode: 'model', modelCallCount: 1 });
 		}
-		expect(validateKibbleLivePreview({ ...modelResponse(), featuredZoneAdapters: rulesAdapters }, expectation).ok).toBe(false);
+		expect(validateKibbleLivePreview({ ...modelResponse(), presentationDecision: KIBBLE_HOME_DEFAULT_PRESENTATION }, expectation).ok).toBe(false);
+		const missingHero = modelResponse();
+		delete (missingHero.zoneArtifacts as Partial<typeof missingHero.zoneArtifacts>).hero;
+		expect(validateKibbleLivePreview(missingHero, expectation).ok).toBe(false);
+		const adjacent = modelResponse() as any;
+		adjacent.zoneArtifacts['home.brand-spotlight'] = adjacent.zoneArtifacts.hero;
+		expect(validateKibbleLivePreview(adjacent, expectation).ok).toBe(false);
+		const tampered = modelResponse();
+		tampered.zoneArtifacts.featured.content.props.products[0]!.productId = '999';
+		expect(validateKibbleLivePreview(tampered, expectation).ok).toBe(false);
+		const mismatchedCalls = modelResponse();
+		mismatchedCalls.zoneArtifacts.hero.modelCallCount = 2;
+		expect(validateKibbleLivePreview(mismatchedCalls, expectation).ok).toBe(false);
+		expect(validateKibbleLivePreview({ ...modelResponse(), modelCallCount: 0 }, expectation).ok).toBe(false);
+	});
+
+	it('rejects a Home descriptor or provenance that understates the aggregate model boundary', () => {
+		const missingZone = modelResponse() as any;
+		missingZone.inspector.availableModelDecision = {
+			...missingZone.inspector.availableModelDecision,
+			zoneIds: ['home.hero', 'home.featured-row.1'],
+		};
+		expect(validateKibbleLivePreview(missingZone, expectation).ok).toBe(false);
+
+		const missingCapability = modelResponse() as any;
+		missingCapability.inspector.provenance.autonomy.effectiveCapabilities = ['rank_products', 'select_copy_variant', 'reorder_zones'];
+		expect(validateKibbleLivePreview(missingCapability, expectation).ok).toBe(false);
 	});
 
 	it.each([
@@ -185,7 +253,7 @@ describe('validateKibbleLivePreview', () => {
 	});
 
 	it('binds source label and synthetic identity to trusted initial PageData', () => {
-		expect(expectationFromTrustedInspector(inspector)).toEqual(expectation);
+		expect(expectationFromTrustedInspector(inspector, expectation.presentationContext)).toEqual(expectation);
 		expect(validateKibbleLivePreview({
 			...response(), inspector: { ...inspector, dataSourceLabel: 'merchant data' },
 		}, expectation).ok).toBe(false);
@@ -193,7 +261,7 @@ describe('validateKibbleLivePreview', () => {
 		expect(validateKibbleLivePreview({
 			...response(), inspector: { ...inspector, provenance: { ...provenance, synthetic: { value: false, scenarioId: null } } },
 		}, expectation).ok).toBe(false);
-		expect(expectationFromTrustedInspector({ ...inspector, provenance: { ...provenance, synthetic: { value: false, scenarioId: 'fake' } } })).toBeNull();
+		expect(expectationFromTrustedInspector({ ...inspector, provenance: { ...provenance, synthetic: { value: false, scenarioId: 'fake' } } }, expectation.presentationContext)).toBeNull();
 	});
 
 	it('retains the prior approved shelf and trace on failure', () => {
@@ -256,9 +324,37 @@ describe('validateKibbleLivePreview', () => {
 			method: 'POST', body: JSON.stringify({ mode: 'model' }), headers: { 'Content-Type': 'application/json' },
 		}));
 		const appliedStatus = statuses.find((status) => status.state === 'applied');
-		expect(snapshotPresentationDecision).toHaveBeenCalledWith(modelResponse().presentationDecision);
+		expect(snapshotPresentationDecision).toHaveBeenCalledWith({
+			...KIBBLE_HOME_DEFAULT_PRESENTATION,
+			heroCopyVariantId: 'visit-fast-path',
+			catalogComponentVariantId: 'two-column',
+		});
 		expect(appliedStatus?.evidence?.copy).toContainEqual(expect.objectContaining({ id: 'home.hero', changed: true }));
-		expect(appliedStatus?.evidence?.components).toContainEqual(expect.objectContaining({ id: 'home.catalog-entry', changed: true }));
+			expect(appliedStatus?.evidence?.components).toContainEqual(expect.objectContaining({ id: 'home.editorial-strip', changed: true }));
+		cleanup();
+	});
+
+	it('retains the actual provider count when a provider-backed 200 response fails validation', async () => {
+		const eventTarget = new EventTarget();
+		vi.stubGlobal('window', eventTarget);
+		vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ ...modelResponse(), version: 'tampered' }), {
+			status: 200,
+			headers: { 'content-type': 'application/json' },
+		})));
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const statuses: KibbleLivePreviewStatus[] = [];
+		const applied = vi.fn();
+		const cleanup = listenForKibbleLivePreview({
+			expectation,
+			getCurrentProductIds: () => products.map(({ id }) => id),
+			onApplied: applied,
+			onStatus: (status) => statuses.push(status),
+		});
+
+		eventTarget.dispatchEvent(new Event('aisles-kibble-model-request'));
+		await vi.waitFor(() => expect(statuses.at(-1)?.state).toBe('failed'));
+		expect(applied).not.toHaveBeenCalled();
+		expect(statuses.at(-1)?.evidence?.calls).toBe(1);
 		cleanup();
 	});
 

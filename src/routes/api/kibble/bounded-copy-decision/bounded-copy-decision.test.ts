@@ -19,6 +19,7 @@ vi.mock('$lib/signals/inference', () => ({ infer: mocks.infer }));
 vi.mock('$lib/signals/session', () => ({ findSessionStore: mocks.findStore }));
 
 import { POST } from './+server';
+import { BoundedModelActionError } from '$lib/server/bounded-model-action.server';
 
 const adapter = {
 	instanceId: 'cart.empty-state', sharedStatus: 'live', sharedContentKind: 'content', decisionMode: 'model', modelCallCount: 1,
@@ -66,5 +67,15 @@ describe('POST /api/kibble/bounded-copy-decision', () => {
 		expect((await POST(request({ mode: 'model', surface: 'checkout', subtype: 'gift' }))).status).toBe(503);
 		expect(mocks.choose).not.toHaveBeenCalled();
 		expect((await POST(request({ mode: 'model', surface: 'cart', products: [1] }))).status).toBe(400);
+	});
+
+	it('reports actual failed provider attempts without exposing the provider error', async () => {
+		mocks.choose.mockRejectedValueOnce(new BoundedModelActionError('provider_failed', 'sensitive upstream detail', 2));
+		const response = await POST(request({ mode: 'model', surface: 'cart' }));
+		expect(response.status).toBe(500);
+		expect(await response.json()).toEqual({
+			error: 'Failed to preview Kibble bounded presentation decision',
+			modelCallCount: 2,
+		});
 	});
 });

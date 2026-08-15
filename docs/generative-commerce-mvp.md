@@ -71,13 +71,18 @@ shared evidence shape is in
 - Before and After product order.
 - Moved, added, removed, and unchanged products.
 - Changed or unchanged copy, component, section, and marketing values.
-- Provider, served model, call count, policy version, and zone ID.
+- Provider, served model, call count, policy version, and exact named zone IDs.
 - An explicit `outcome`: `changed` or `kept`.
 - Whether fallback retained the prior approved presentation.
 
 The Kibble Observe rail renders these facts with the states `Template`,
-`Rules`, `AI available`, `AI running`, `AI changed`, `AI kept`, `AI failed`, and
-`Fallback`. “AI kept” is a result, not an absence of evidence: it means a
+`Rules`, `AI ready`, `AI running`, `AI changed`, `AI kept`, `AI failed`, and
+`Fallback`. Readiness is not output: an eligible zone remains at zero AI zones
+and zero AI calls before the explicit control runs. An AI zone counts only when
+validated model-selected output is actually rendered in that named instance.
+An AI call counts each actual provider attempt, including an attempted action
+that later fails closed. A selected hidden result does not become a rendered AI
+zone. “AI kept” is a result, not an absence of evidence: it means a
 bounded model call completed, passed validation, and matched the approved
 presentation.
 
