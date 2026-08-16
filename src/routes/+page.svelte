@@ -237,6 +237,7 @@
 		tree={data.tierStorefront.tree}
 		categoryCount={data.tierStorefront.categoryCount}
 		rails={data.tierStorefront.rails}
+		productHrefs={data.tierStorefront.productHrefs}
 	/>
 {:else if data.renderMode === 'reference-preserve' && data.kibbleHome}
 	{#if data.kibbleHomeInspector && signalLabOpen && DevInspector}

@@ -20,6 +20,7 @@ import {
 	type BCCategoryTreeNode,
 } from './bigcommerce';
 import { transformProduct } from './catalog';
+import { materializeKibblePdpHrefs } from '$lib/brand/reference/kibble-runtime';
 import type { Product } from '$lib/types';
 
 export interface TierCategoryNode {
@@ -35,6 +36,8 @@ export interface TierStorefrontHome {
 	tree: TierCategoryNode[];
 	categoryCount: number;
 	rails: Array<{ title: string; href: string; products: Product[] }>;
+	/** PDP destinations for every product across every rail, keyed by product.id. */
+	productHrefs: Record<string, string>;
 }
 
 export interface TierCategoryPage {
@@ -46,6 +49,8 @@ export interface TierCategoryPage {
 	hasMore: boolean;
 	/** Exact subtree total, or null when the category is a leaf. */
 	totalItems: number | null;
+	/** PDP destinations for `products`, keyed by product.id. */
+	productHrefs: Record<string, string>;
 }
 
 export function getActiveProvisionedTier(): MerchantTier | null {
@@ -136,7 +141,8 @@ export async function loadTierStorefrontHome(): Promise<TierStorefrontHome | nul
 			}),
 		)
 	).filter((rail) => rail.products.length > 0);
-	return { tier, tree, categoryCount: countNodes(tree), rails };
+	const productHrefs = materializeKibblePdpHrefs(rails.flatMap((rail) => rail.products));
+	return { tier, tree, categoryCount: countNodes(tree), rails, productHrefs };
 }
 
 /** Category payload for an active tier, or null when inactive / slug not tier-shaped / category missing. */
@@ -180,13 +186,15 @@ export async function loadTierCategoryPage(slug: string): Promise<TierCategoryPa
 			productCount: counts.get(child.entityId) ?? child.productCount,
 		}));
 	}
+	const products = result.products.map(transformProduct);
 	return {
 		tier,
 		category: { entityId, name: result.category.name },
 		breadcrumb: pathToNode(tree, entityId) ?? [],
 		children: counted,
-		products: result.products.map(transformProduct),
+		products,
 		hasMore: result.pageInfo.hasNextPage,
 		totalItems,
+		productHrefs: materializeKibblePdpHrefs(products),
 	};
 }
