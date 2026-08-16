@@ -271,6 +271,21 @@ interface CategoryProductsResponse {
 	};
 }
 
+interface CategorySubtreeProductsResponse {
+	site: {
+		category: { name: string; description: string } | null;
+		search: {
+			searchProducts: {
+				products: {
+					edges: Array<{ node: BCProduct }>;
+					pageInfo: BCPageInfo;
+					collectionInfo: { totalItems: number } | null;
+				};
+			};
+		};
+	};
+}
+
 export interface BCPageInfo {
 	hasNextPage: boolean;
 	hasPreviousPage: boolean;
@@ -379,6 +394,74 @@ export async function getNewestProducts(limit = 8): Promise<BCProduct[]> {
 }
 
 /**
+ * Exact product totals for a set of category subtrees.
+ *
+ * The `productCount` on a categoryTree node is only trustworthy at a leaf.
+ * At interior nodes it is sometimes a rollup and sometimes the direct-assigned
+ * count: measured 2026-08-16 on the enterprise tier, Birds > Food(425) reported
+ * 124 (correct) while Dogs(421) reported 8 against an actual 709. Rendering a
+ * subtree's products under the node's own count therefore shows 709 products
+ * beneath a chip reading "8", so counts come from here instead.
+ *
+ * One request per group rather than one aliased request for all of them:
+ * five aliased `searchProducts` fields score 10017 against BigCommerce's
+ * 10000 query-complexity ceiling and the whole document is rejected. The
+ * groups are independent, so they go out in parallel.
+ *
+ * `first: 1`, not `first: 0` — at zero BigCommerce reports `totalItems: 0`
+ * rather than the collection size, which silently renders every chip as "(0)".
+ *
+ * A count is decoration on a page whose products have already loaded, so a
+ * failed group is omitted from the map and the caller keeps its fallback
+ * instead of the whole page failing.
+ */
+export async function getSubtreeProductCounts(
+	groups: Array<{ entityId: number; ids: number[] }>,
+): Promise<Map<number, number>> {
+	const counts = new Map<number, number>();
+	if (!groups.length) return counts;
+
+	const results = await Promise.all(
+		groups.map(async (group) => {
+			try {
+				const data = await query<{
+					site: {
+						search: {
+							searchProducts: {
+								products: { collectionInfo: { totalItems: number } | null };
+							};
+						};
+					};
+				}>(`
+					query GetSubtreeProductCount($ids: [Int!]) {
+						site {
+							search {
+								searchProducts(filters: { categoryEntityIds: $ids }) {
+									products(first: 1) {
+										collectionInfo {
+											totalItems
+										}
+									}
+								}
+							}
+						}
+					}
+				`, { ids: group.ids });
+				const total = data.site.search.searchProducts.products.collectionInfo?.totalItems;
+				return typeof total === 'number' ? ([group.entityId, total] as const) : null;
+			} catch {
+				return null;
+			}
+		}),
+	);
+
+	for (const entry of results) {
+		if (entry) counts.set(entry[0], entry[1]);
+	}
+	return counts;
+}
+
+/**
  * Category PLP connection. Callers own the requested page size and validated
  * cursor; BigCommerce owns the selected category ordering.
  *
@@ -393,12 +476,86 @@ export async function getProductsByCategory(
 		first?: number;
 		after?: string | null;
 		sortBy?: BigCommerceCategoryProductSort;
+		/**
+		 * The category's own id plus every descendant id. Supply this for a
+		 * category that has children; omit it for a leaf.
+		 *
+		 * `site.category.products` returns only DIRECTLY assigned products, so an
+		 * interior category whose products all live on its leaves renders empty.
+		 * Measured 2026-08-16 on the enterprise tier: Birds(419) holds 487
+		 * products across its leaves and 0 directly, so the PLP said "0 products".
+		 *
+		 * `searchSubCategories: true` is the documented rollup and it is NOT
+		 * reliable here — it returned 487 for Birds(419) but 3 for Birds > Food(425),
+		 * which holds 124. Filtering on an explicit id list is exact: measured
+		 * against a full page-through of the Dogs subtree, both report 709.
+		 */
+		descendantIds?: number[];
 	} = {},
 ): Promise<{
 	category: { name: string; description: string };
 	products: BCProduct[];
 	pageInfo: BCPageInfo;
+	totalItems: number | null;
 }> {
+	const subtreeIds = options.descendantIds ?? [];
+	if (subtreeIds.length > 1) {
+		const data = await query<CategorySubtreeProductsResponse>(`
+			query GetCategorySubtreeProducts(
+				$categoryId: Int!
+				$ids: [Int!]
+				$first: Int!
+				$after: String
+				$sortBy: SearchProductsSortInput
+			) {
+				site {
+					category(entityId: $categoryId) {
+						name
+						description
+					}
+					search {
+						searchProducts(filters: { categoryEntityIds: $ids }, sort: $sortBy) {
+							products(first: $first, after: $after) {
+								edges {
+									node {
+										${PRODUCT_FRAGMENT}
+									}
+								}
+								pageInfo {
+									hasNextPage
+									hasPreviousPage
+									startCursor
+									endCursor
+								}
+								collectionInfo {
+									totalItems
+								}
+							}
+						}
+					}
+				}
+			}
+		`, {
+			categoryId: categoryEntityId,
+			ids: subtreeIds,
+			first: options.first ?? 24,
+			after: options.after ?? null,
+			sortBy: options.sortBy ?? null,
+		});
+
+		if (!data.site.category) {
+			throw new Error(`Category ${categoryEntityId} not found`);
+		}
+
+		const products = data.site.search.searchProducts.products;
+		return {
+			category: { name: data.site.category.name, description: data.site.category.description },
+			products: products.edges.map((e) => e.node),
+			pageInfo: products.pageInfo,
+			totalItems: products.collectionInfo?.totalItems ?? null,
+		};
+	}
+
 	const data = await query<CategoryProductsResponse>(`
 		query GetCategoryProducts(
 			$categoryId: Int!
@@ -445,6 +602,7 @@ export async function getProductsByCategory(
 		},
 		products: data.site.category.products.edges.map((e) => e.node),
 		pageInfo: data.site.category.products.pageInfo,
+		totalItems: null,
 	};
 }
 

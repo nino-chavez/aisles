@@ -9,13 +9,21 @@
 		subcategories,
 		products,
 		hasMore,
+		totalItems = null,
 	}: {
 		category: { entityId: number; name: string };
 		breadcrumb: Array<{ label: string; href: string }>;
 		subcategories: KibbleTierNode[];
 		products: KibbleProduct[];
 		hasMore: boolean;
+		/** Exact subtree total when known; falls back to the loaded page count. */
+		totalItems?: number | null;
 	} = $props();
+
+	// products.length is only the first page, so "24 products" on a 487-product
+	// shelf was wrong in both directions before totalItems existed.
+	const shown = $derived(totalItems ?? products.length);
+	const approx = $derived(totalItems === null && hasMore);
 </script>
 
 <div class="kibble-reference kc-tier-category">
@@ -36,7 +44,7 @@
 			<p class="kc-reference-eyebrow">Merchant tier demo</p>
 			<h1>{category.name}</h1>
 			<p class="kc-tier-category__count">
-				{products.length}{hasMore ? '+' : ''} {products.length === 1 && !hasMore ? 'product' : 'products'}
+				{shown}{approx ? '+' : ''} {shown === 1 && !approx ? 'product' : 'products'}
 			</p>
 			{#if subcategories.length}
 				<ul class="kc-tier-category__children">
