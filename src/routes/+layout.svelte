@@ -12,7 +12,7 @@
 	import type { LayoutData } from './$types';
 
 	let { children, data }: { children: any; data: LayoutData } = $props();
-	let brandName = $derived(data.brand?.name ?? 'Haven');
+	let brandName = $derived(data.brand?.name ?? 'Kibble & Co.');
 	let brandTagline = $derived(data.brand?.tagline ?? '');
 	let brandFooterNote = $derived(data.brand?.footerNote ?? '');
 	let themeStyle = $derived.by(() => {

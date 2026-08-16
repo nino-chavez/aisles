@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { getEmitter } from '$lib/signals/emitter';
 
-	let { cartCount = 0, picksCount = 0, onCartClick, onPicksClick, brandName = 'Haven', categories = {} }: {
+	let { cartCount = 0, picksCount = 0, onCartClick, onPicksClick, brandName = 'Kibble & Co.', categories = {} }: {
 		cartCount?: number;
 		picksCount?: number;
 		onCartClick?: () => void;

@@ -58,7 +58,7 @@
 </script>
 
 <svelte:head>
-	<title>Checkout — Haven</title>
+	<title>Checkout — {data.brandName ?? 'Kibble & Co.'}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl px-6 py-8">

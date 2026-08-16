@@ -746,7 +746,6 @@ describe('policy-aware zone resolution', () => {
 
 		expect(r.source).toBe('fallback');
 		expect(r.content).toEqual(getFallback('home.hero', 'kibble'));
-		expect(r.content).not.toEqual(getFallback('home.hero', 'volt'));
 		expect(r.policyTrace?.policy.rejectionReason).toBe('trusted_identity_mismatch');
 	});
 

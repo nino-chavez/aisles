@@ -8,11 +8,30 @@ import { IncentivesPayloadSchema } from '../../schema/uip';
 import { getBrandById } from '../../brand/config';
 import type { IncentivesContext } from './index';
 
-const haven = getBrandById('haven')!;
+// Local fixture, not a shipped brand. These tests exercise the evaluator's
+// threshold and loyalty branches, so they need a brand that has both. Pulling a
+// shipped brand coupled them to whichever demo merchant happened to exist —
+// they broke silently when haven was retired, because vitest excludes this file.
+const brand = {
+	...getBrandById('kibble')!,
+	incentives: {
+		freeShippingThresholdMinor: 50000,
+		loyalty: {
+			programId: 'fixture-rewards',
+			programName: 'Fixture Rewards',
+			unit: 'points',
+			tiers: [
+				{ name: 'Resident', unitsRequired: 0 },
+				{ name: 'Host', unitsRequired: 2500 },
+				{ name: 'Patron', unitsRequired: 10000 },
+			],
+		},
+	},
+};
 
 function ctx(overrides: Partial<IncentivesContext> = {}): IncentivesContext {
 	return {
-		brand: haven,
+		brand: brand,
 		lineItems: [],
 		subtotalMinor: 0,
 		appliedCodes: [],

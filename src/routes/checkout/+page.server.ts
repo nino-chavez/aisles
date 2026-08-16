@@ -19,6 +19,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
 
 	return {
 		renderMode,
+		brandName: getBrand().name,
 		checkoutOrigin: storeHash ? storefrontOrigin(storeHash, channelId) : null,
 	};
 };

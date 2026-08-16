@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getBrand } from '$lib/brand/config';
 
-	let { brandName = 'Haven', tagline = '', footerNote = '' }: { brandName?: string; tagline?: string; footerNote?: string } = $props();
+	let { brandName = 'Kibble & Co.', tagline = '', footerNote = '' }: { brandName?: string; tagline?: string; footerNote?: string } = $props();
 
 	const brand = getBrand();
 	const categories = Object.entries(brand.categories).map(([slug, config]) => ({
