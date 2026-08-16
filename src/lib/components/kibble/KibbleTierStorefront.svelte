@@ -1,15 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibbleProduct } from './types';
-
-	interface TierNode {
-		entityId: number;
-		name: string;
-		href: string;
-		productCount: number;
-		children: TierNode[];
-	}
+	import type { KibbleProduct, KibbleTierNode } from './types';
 
 	let {
 		tier,
@@ -18,7 +10,7 @@
 		rails,
 	}: {
 		tier: 'small' | 'medium' | 'enterprise';
-		tree: TierNode[];
+		tree: KibbleTierNode[];
 		categoryCount: number;
 		rails: Array<{ title: string; href: string; products: KibbleProduct[] }>;
 	} = $props();

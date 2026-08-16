@@ -6,6 +6,8 @@ vi.mock('$env/dynamic/private', () => ({
 		KIBBLE_STOREFRONT_TOKEN: 'fixture-token',
 		KIBBLE_PARITY_FIXED_DATA_IDENTITY: '833824a875f1fbe83a5d1d9164f521aa38e64e3902d22623a6af1b8cad84fe49',
 		KIBBLE_PARITY_ATTESTATION_KEY: 'a'.repeat(64),
+		KIBBLE_TIER_ENTERPRISE_CHANNEL_ID: '1857860',
+		KIBBLE_TIER_ENTERPRISE_STOREFRONT_TOKEN: 'enterprise-token',
 	},
 }));
 
@@ -17,6 +19,7 @@ import {
 	parseKibbleSearchQuery,
 	searchKibbleCatalog,
 } from './kibble-search.server';
+import { runWithMerchantTier } from '$lib/server/merchant-tier';
 
 const prior = {
 	brand: process.env.BRAND_ID,
@@ -47,6 +50,16 @@ const fixtureProduct = {
 };
 
 describe('Kibble read-only Storefront search', () => {
+	it('searches the active merchant tier channel, not the brand default', async () => {
+		// Regression: search derived the host from brand.bc.channelId, so an
+		// Enterprise-tier visitor browsed 3,282 products and searched 83.
+		const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ data: { site: { search: { searchProducts: { products: { edges: [], pageInfo } } } } } }), { status: 200, headers: { 'content-type': 'application/json' } }));
+		await runWithMerchantTier('enterprise', () => searchKibbleCatalog({ query: 'goodgut', fetchImpl }));
+		const [url, init] = fetchImpl.mock.calls[0];
+		expect(url).toBe('https://store-kibble-parity-fixture-1857860.mybigcommerce.com/graphql');
+		expect(init).toMatchObject({ headers: { Authorization: 'Bearer enterprise-token' } });
+	});
+
 	it('adapts the pinned SearchProducts query with bounded inputs and validated output', async () => {
 		const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify({ data: { site: { search: { searchProducts: { products: { edges: [{ node: fixtureProduct }], pageInfo } } } } } }), { status: 200, headers: { 'content-type': 'application/json' } }));
 		const result = await searchKibbleCatalog({ query: '  goodgut  ', fetchImpl });

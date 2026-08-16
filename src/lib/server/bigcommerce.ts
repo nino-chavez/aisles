@@ -10,11 +10,34 @@ import { getBrand } from '$lib/brand/config';
 import type { BigCommerceCategoryProductSort } from '$lib/brand/reference/kibble-plp';
 import { getActiveMerchantTier, getMerchantTierChannelConfig } from './merchant-tier';
 
-function getGraphQLConfig() {
+/**
+ * The storefront origin for a channel. Channel 1 answers on the store's
+ * default hostname; every other channel needs its id in the host.
+ */
+export function storefrontOrigin(storeHash: string, channelId: number): string {
+	return channelId === 1
+		? `https://store-${storeHash}.mybigcommerce.com`
+		: `https://store-${storeHash}-${channelId}.mybigcommerce.com`;
+}
+
+/**
+ * The channel this request reads from: the visitor's active merchant tier
+ * when one is selected and provisioned, otherwise the brand default.
+ *
+ * Single owner on purpose. Callers that derived the channel from
+ * `brand.bc.channelId` themselves kept reading the default channel while the
+ * rest of the page rendered a tier channel — search returned hits the
+ * storefront could not show, and a cart could be created on one channel and
+ * sent to another channel's checkout.
+ */
+export function resolveStorefrontChannel(): {
+	channelId: number;
+	storefrontToken: string | undefined;
+	tokenKey: string;
+} {
 	const brand = getBrand();
 	// Brand-specific storefront tokens: VOLT_STOREFRONT_TOKEN, EMBER_STOREFRONT_TOKEN, etc.
 	const tokenKey = `${brand.id.toUpperCase()}_STOREFRONT_TOKEN`;
-	const storeHash = env.BIGCOMMERCE_STORE_HASH;
 
 	let channelId = brand.bc.channelId;
 	let storefrontToken = env[tokenKey] || env.BIGCOMMERCE_STOREFRONT_TOKEN;
@@ -33,16 +56,18 @@ function getGraphQLConfig() {
 		}
 	}
 
+	return { channelId, storefrontToken, tokenKey };
+}
+
+function getGraphQLConfig() {
+	const storeHash = env.BIGCOMMERCE_STORE_HASH;
+	const { channelId, storefrontToken, tokenKey } = resolveStorefrontChannel();
+
 	if (!storeHash) throw new Error('BIGCOMMERCE_STORE_HASH not configured');
 	if (!storefrontToken) throw new Error(`Storefront token not configured (tried ${tokenKey} and BIGCOMMERCE_STOREFRONT_TOKEN)`);
 
-	// Non-default channels need channel ID in the URL hostname
-	const host = channelId === 1
-		? `store-${storeHash}.mybigcommerce.com`
-		: `store-${storeHash}-${channelId}.mybigcommerce.com`;
-
 	return {
-		url: `https://${host}/graphql`,
+		url: `${storefrontOrigin(storeHash, channelId)}/graphql`,
 		token: storefrontToken,
 	};
 }

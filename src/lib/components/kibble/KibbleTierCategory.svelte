@@ -1,15 +1,7 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleProductCard from './KibbleProductCard.svelte';
-	import type { KibbleProduct } from './types';
-
-	interface TierNode {
-		entityId: number;
-		name: string;
-		href: string;
-		productCount: number;
-		children: TierNode[];
-	}
+	import type { KibbleProduct, KibbleTierNode } from './types';
 
 	let {
 		category,
@@ -20,7 +12,7 @@
 	}: {
 		category: { entityId: number; name: string };
 		breadcrumb: Array<{ label: string; href: string }>;
-		subcategories: TierNode[];
+		subcategories: KibbleTierNode[];
 		products: KibbleProduct[];
 		hasMore: boolean;
 	} = $props();
