@@ -25,7 +25,11 @@ test('cart -> checkout handoff leaves the storefront for BigCommerce hosted chec
 	const checkoutButton = page.getByRole('button', { name: /continue to secure checkout/i });
 	await expect(checkoutButton).toBeEnabled();
 	await Promise.all([
-		page.waitForURL((url) => url.hostname !== new URL(baseURL!).hostname, { timeout: 15_000 }),
+		// The BigCommerce hosted-checkout redirect measured 5-6s isolated but
+		// pushed past 15s once in a full-suite run against a shared sandbox
+		// under concurrent load — 30s gives it headroom without masking a
+		// genuine hang.
+		page.waitForURL((url) => url.hostname !== new URL(baseURL!).hostname, { timeout: 30_000 }),
 		checkoutButton.click(),
 	]);
 	// A real order isn't placed — payment details are out of scope for this
