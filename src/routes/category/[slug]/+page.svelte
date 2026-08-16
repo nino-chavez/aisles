@@ -267,6 +267,7 @@
 		subcategories={data.tierCategory.children}
 		products={data.tierCategory.products}
 		hasMore={data.tierCategory.hasMore}
+		totalItems={data.tierCategory.totalItems}
 	/>
 {:else if data.renderMode === 'reference-preserve' && data.kibbleCategory}
 	<KibbleCategoryReference
