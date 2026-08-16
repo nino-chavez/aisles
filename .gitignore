@@ -27,3 +27,8 @@ cookies.txt
 
 # Supabase CLI link cache
 supabase/.temp/
+
+# Playwright e2e output
+/test-results/
+/playwright-report/
+/blob-report/
