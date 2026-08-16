@@ -340,7 +340,7 @@ function restoreFromSnapshot(snapshot: SessionSnapshot): SignalStore {
 		visitCount: snapshot.crossSession.visitCount,
 		currentCategory: snapshot.crossSession.currentCategory,
 	});
-	store.setBrandId(snapshot.crossSession.brandId ?? 'haven');
+	store.setBrandId(snapshot.crossSession.brandId ?? 'kibble');
 	store.setOrganizationId(snapshot.crossSession.organizationId ?? 'haven-demo-merchant');
 	store.setScenarioId(snapshot.crossSession.scenarioId ?? null);
 

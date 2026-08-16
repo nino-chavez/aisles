@@ -25,7 +25,7 @@ export class SignalStore {
 	private storedCategory: string | null = null;
 	private visitCount = 0;
 	private currentCategory = '';
-	private brandId = 'haven';
+	private brandId = 'kibble';
 	private organizationId = 'haven-demo-merchant';
 	private scenarioId: string | null = null;
 

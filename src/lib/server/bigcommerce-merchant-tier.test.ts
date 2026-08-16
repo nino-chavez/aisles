@@ -32,7 +32,7 @@ describe('getGraphQLConfig merchant-tier override (via getProducts)', () => {
 		const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(productsResponse());
 		await getProducts();
 		const [url, init] = fetchMock.mock.calls[0];
-		expect(url).toBe('https://store-store-hash.mybigcommerce.com/graphql');
+		expect(url).toBe('https://store-store-hash-1853406.mybigcommerce.com/graphql');
 		expect((init as RequestInit).headers).toMatchObject({ Authorization: 'Bearer default-token' });
 	});
 
@@ -42,7 +42,7 @@ describe('getGraphQLConfig merchant-tier override (via getProducts)', () => {
 		await runWithMerchantTier('enterprise', () => getProducts());
 		await runWithMerchantTier('enterprise', () => getProducts());
 		const [url, init] = fetchMock.mock.calls[0];
-		expect(url).toBe('https://store-store-hash.mybigcommerce.com/graphql');
+		expect(url).toBe('https://store-store-hash-1853406.mybigcommerce.com/graphql');
 		expect((init as RequestInit).headers).toMatchObject({ Authorization: 'Bearer default-token' });
 		expect(warn).toHaveBeenCalledTimes(1);
 	});
