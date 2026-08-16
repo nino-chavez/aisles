@@ -394,7 +394,7 @@ export async function getNewestProducts(limit = 8): Promise<BCProduct[]> {
 }
 
 /**
- * Exact product totals for a set of category subtrees, in one round trip.
+ * Exact product totals for a set of category subtrees.
  *
  * The `productCount` on a categoryTree node is only trustworthy at a leaf.
  * At interior nodes it is sometimes a rollup and sometimes the direct-assigned
@@ -403,8 +403,17 @@ export async function getNewestProducts(limit = 8): Promise<BCProduct[]> {
  * subtree's products under the node's own count therefore shows 709 products
  * beneath a chip reading "8", so counts come from here instead.
  *
- * Each group is a category id plus every descendant id; one aliased
- * searchProducts field per group.
+ * One request per group rather than one aliased request for all of them:
+ * five aliased `searchProducts` fields score 10017 against BigCommerce's
+ * 10000 query-complexity ceiling and the whole document is rejected. The
+ * groups are independent, so they go out in parallel.
+ *
+ * `first: 1`, not `first: 0` — at zero BigCommerce reports `totalItems: 0`
+ * rather than the collection size, which silently renders every chip as "(0)".
+ *
+ * A count is decoration on a page whose products have already loaded, so a
+ * failed group is omitted from the map and the caller keeps its fallback
+ * instead of the whole page failing.
  */
 export async function getSubtreeProductCounts(
 	groups: Array<{ entityId: number; ids: number[] }>,
@@ -412,31 +421,43 @@ export async function getSubtreeProductCounts(
 	const counts = new Map<number, number>();
 	if (!groups.length) return counts;
 
-	const fields = groups
-		.map(
-			(g, i) =>
-				`g${i}: searchProducts(filters: { categoryEntityIds: $ids${i} }) { products(first: 0) { collectionInfo { totalItems } } }`,
-		)
-		.join('\n\t\t\t\t');
-	const params = groups.map((_, i) => `$ids${i}: [Int!]`).join(', ');
-	const variables = Object.fromEntries(groups.map((g, i) => [`ids${i}`, g.ids]));
-
-	const data = await query<{
-		site: { search: Record<string, { products: { collectionInfo: { totalItems: number } | null } }> };
-	}>(`
-		query GetSubtreeProductCounts(${params}) {
-			site {
-				search {
-					${fields}
-				}
+	const results = await Promise.all(
+		groups.map(async (group) => {
+			try {
+				const data = await query<{
+					site: {
+						search: {
+							searchProducts: {
+								products: { collectionInfo: { totalItems: number } | null };
+							};
+						};
+					};
+				}>(`
+					query GetSubtreeProductCount($ids: [Int!]) {
+						site {
+							search {
+								searchProducts(filters: { categoryEntityIds: $ids }) {
+									products(first: 1) {
+										collectionInfo {
+											totalItems
+										}
+									}
+								}
+							}
+						}
+					}
+				`, { ids: group.ids });
+				const total = data.site.search.searchProducts.products.collectionInfo?.totalItems;
+				return typeof total === 'number' ? ([group.entityId, total] as const) : null;
+			} catch {
+				return null;
 			}
-		}
-	`, variables);
+		}),
+	);
 
-	groups.forEach((g, i) => {
-		const total = data.site.search[`g${i}`]?.products?.collectionInfo?.totalItems;
-		if (typeof total === 'number') counts.set(g.entityId, total);
-	});
+	for (const entry of results) {
+		if (entry) counts.set(entry[0], entry[1]);
+	}
 	return counts;
 }
 

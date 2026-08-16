@@ -161,9 +161,11 @@ export async function loadTierCategoryPage(slug: string): Promise<TierCategoryPa
 	const children = node?.children ?? [];
 	let counted = children;
 	if (children.length) {
+		// Never let a count failure take the page down — the products above it
+		// have already loaded, and the chip falls back to the tree's own number.
 		const counts = await getSubtreeProductCounts(
 			children.map((child) => ({ entityId: child.entityId, ids: subtreeIds(child) })),
-		);
+		).catch(() => new Map<number, number>());
 		counted = children.map((child) => ({
 			...child,
 			productCount: counts.get(child.entityId) ?? child.productCount,
