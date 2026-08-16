@@ -9,7 +9,7 @@
 import { defaultEvaluator } from './index';
 import { getBrandById } from '../../brand/config';
 
-const haven = getBrandById('haven')!;
+const brand = getBrandById('kibble')!;
 
 async function main() {
 	console.log('Voucherify live smoke test');
@@ -17,7 +17,7 @@ async function main() {
 	console.log('  VOUCHERIFY_API_URL:', process.env.VOUCHERIFY_API_URL ?? '(default)');
 
 	const payload = await defaultEvaluator.evaluate({
-		brand: haven,
+		brand: brand,
 		lineItems: [],
 		subtotalMinor: 5500,
 		appliedCodes: ['BLCKFRDY'],

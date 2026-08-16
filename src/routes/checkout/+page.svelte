@@ -5,7 +5,6 @@
 
 	let { data }: { data: PageData } = $props();
 
-	let checkoutContainer: HTMLDivElement;
 	let isLoading = $state(true);
 	let error = $state('');
 	let cartId = $state('');
@@ -15,66 +14,51 @@
 		// Get cart ID from our API
 		try {
 			const res = await fetch('/api/cart');
-			const data = await res.json();
+			// Named `payload`, not `data` — the page prop is also called `data`,
+			// and goToHostedCheckout reads checkoutOrigin off it.
+			const payload = await res.json();
 
-			if (!data.cart?.entityId) {
+			if (!payload.cart?.entityId) {
 				error = 'Your cart is empty. Add some items before checking out.';
 				isLoading = false;
 				return;
 			}
 
-			cartId = data.cart.entityId;
-			await loadEmbeddedCheckout(cartId);
+			cartId = payload.cart.entityId;
+			goToHostedCheckout(cartId);
 		} catch (err) {
 			error = 'Failed to load checkout. Please try again.';
 			isLoading = false;
 		}
 	});
 
-	async function loadEmbeddedCheckout(cartEntityId: string) {
-		try {
-			// Load the BC Checkout SDK script
-			const script = document.createElement('script');
-			script.src = 'https://checkout-sdk.bigcommerce.com/v1/loader.js';
-			script.async = true;
+	/**
+	 * Hand the shopper to BigCommerce's hosted checkout.
+	 *
+	 * This used to iframe the same URL. BC serves /checkout with
+	 * `x-frame-options: deny`, so the browser refused the frame and the
+	 * shopper got an empty box — and the surrounding try/catch never fired,
+	 * because a blocked frame is not a thrown error. A redirect is what the
+	 * hosted checkout actually supports.
+	 *
+	 * The origin is resolved server-side from the active channel, so a cart
+	 * built on a merchant-tier channel checks out on that same channel.
+	 */
+	function goToHostedCheckout(cartEntityId: string) {
+		if (!browser) return;
 
-			await new Promise<void>((resolve, reject) => {
-				script.onload = () => resolve();
-				script.onerror = () => reject(new Error('Failed to load checkout SDK'));
-				document.head.appendChild(script);
-			});
-
-			// Initialize embedded checkout
-			const module = await (window as any).checkoutKitLoader.load('checkout-sdk');
-			const service = module.createCheckoutService();
-
-			// For embedded checkout, we need the checkout URL
-			// BC embedded checkout uses a redirect URL approach
-			const checkoutUrl = `https://store-${import.meta.env.VITE_BC_STORE_HASH || 'cdfqf9k6zf'}.mybigcommerce.com/checkout`;
-
-			// Create an iframe-based checkout
-			const iframe = document.createElement('iframe');
-			iframe.src = `${checkoutUrl}?cartId=${cartEntityId}`;
-			iframe.style.width = '100%';
-			iframe.style.minHeight = '600px';
-			iframe.style.border = 'none';
-			iframe.allow = 'payment';
-
-			checkoutContainer.innerHTML = '';
-			checkoutContainer.appendChild(iframe);
+		if (!data.checkoutOrigin) {
+			error = 'Checkout is not configured for this store.';
 			isLoading = false;
-		} catch (err) {
-			console.error('Checkout SDK error:', err);
-			// Fallback: redirect to BC hosted checkout
-			if (browser) {
-				window.location.href = `https://store-${import.meta.env.VITE_BC_STORE_HASH || 'cdfqf9k6zf'}.mybigcommerce.com/checkout?cartId=${cartEntityId}`;
-			}
+			return;
 		}
+
+		window.location.href = `${data.checkoutOrigin}/checkout?cartId=${cartEntityId}`;
 	}
 </script>
 
 <svelte:head>
-	<title>Checkout — Haven</title>
+	<title>Checkout — {data.brandName ?? 'Kibble & Co.'}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-4xl px-6 py-8">
@@ -90,9 +74,8 @@
 	{:else}
 		{#if isLoading}
 			<div class="mt-8 flex items-center justify-center py-24">
-				<div class="animate-pulse text-surface-muted-fg">Loading checkout...</div>
+				<div class="animate-pulse text-surface-muted-fg">Taking you to secure checkout...</div>
 			</div>
 		{/if}
-		<div bind:this={checkoutContainer} class="mt-6"></div>
 	{/if}
 </div>

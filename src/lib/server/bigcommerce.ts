@@ -8,17 +8,81 @@
 import { env } from '$env/dynamic/private';
 import { getBrand } from '$lib/brand/config';
 import type { BigCommerceCategoryProductSort } from '$lib/brand/reference/kibble-plp';
+import { getActiveMerchantTier, getMerchantTierChannelConfig } from './merchant-tier';
 
-function getGraphQLConfig(requirePrivateToken = false) {
+/**
+ * The storefront origin for a channel. Channel 1 answers on the store's
+ * default hostname; every other channel needs its id in the host.
+ */
+export function storefrontOrigin(storeHash: string, channelId: number): string {
+	return channelId === 1
+		? `https://store-${storeHash}.mybigcommerce.com`
+		: `https://store-${storeHash}-${channelId}.mybigcommerce.com`;
+}
+
+/**
+ * The channel this request reads from: the visitor's active merchant tier
+ * when one is selected and provisioned, otherwise the brand default.
+ *
+ * Single owner on purpose. Callers that derived the channel from
+ * `brand.bc.channelId` themselves kept reading the default channel while the
+ * rest of the page rendered a tier channel — search returned hits the
+ * storefront could not show, and a cart could be created on one channel and
+ * sent to another channel's checkout.
+ *
+ * `tierActive` reports whether the tier override supplied the pair, which
+ * decides whether the private token may be substituted below.
+ */
+export function resolveStorefrontChannel(): {
+	channelId: number;
+	storefrontToken: string | undefined;
+	tokenKey: string;
+	tierActive: boolean;
+} {
 	const brand = getBrand();
 	// Brand-specific storefront tokens: VOLT_STOREFRONT_TOKEN, EMBER_STOREFRONT_TOKEN, etc.
 	const tokenKey = `${brand.id.toUpperCase()}_STOREFRONT_TOKEN`;
+
+	let channelId = brand.bc.channelId;
+	let storefrontToken = env[tokenKey] || env.BIGCOMMERCE_STOREFRONT_TOKEN;
+	let tierActive = false;
+
+	// Merchant-tier demo toggle (Kibble only). A missing cookie or an
+	// unprovisioned tier's env pair leaves channelId/storefrontToken exactly
+	// as resolved above — this is the default-safe path.
+	if (brand.id === 'kibble') {
+		const activeTier = getActiveMerchantTier();
+		if (activeTier) {
+			const tierConfig = getMerchantTierChannelConfig(activeTier);
+			if (tierConfig) {
+				channelId = tierConfig.channelId;
+				storefrontToken = tierConfig.storefrontToken;
+				tierActive = true;
+			}
+		}
+	}
+
+	return { channelId, storefrontToken, tokenKey, tierActive };
+}
+
+function getGraphQLConfig(requirePrivateToken = false) {
+	const brand = getBrand();
 	const storeHash = env.BIGCOMMERCE_STORE_HASH;
-	const storefrontToken = env[tokenKey] || env.BIGCOMMERCE_STOREFRONT_TOKEN;
+	const { channelId, storefrontToken, tokenKey, tierActive } = resolveStorefrontChannel();
+
 	// Kibble prefers the current server-to-server private token for every
 	// provider call once configured. Other brands retain their existing token
 	// boundary until their merchant configuration is migrated independently.
-	const usePrivateToken = requirePrivateToken || (brand.id === 'kibble' && Boolean(env.BIGCOMMERCE_PRIVATE_TOKEN));
+	//
+	// Not while a merchant tier is active: BigCommerce storefront tokens are
+	// minted per channel, and BIGCOMMERCE_PRIVATE_TOKEN belongs to the brand's
+	// default channel. Substituting it here would send a default-channel token
+	// to a tier host and fail every request. A caller that explicitly demands
+	// the private token still gets it — those paths need customer scope, which
+	// the tier tokens do not carry.
+	const usePrivateToken =
+		requirePrivateToken ||
+		(brand.id === 'kibble' && !tierActive && Boolean(env.BIGCOMMERCE_PRIVATE_TOKEN));
 	const token = usePrivateToken ? env.BIGCOMMERCE_PRIVATE_TOKEN : storefrontToken;
 
 	if (!storeHash) throw new Error('BIGCOMMERCE_STORE_HASH not configured');
@@ -30,14 +94,8 @@ function getGraphQLConfig(requirePrivateToken = false) {
 		);
 	}
 
-	// Non-default channels need channel ID in the URL hostname
-	const channelId = brand.bc.channelId;
-	const host = channelId === 1
-		? `store-${storeHash}.mybigcommerce.com`
-		: `store-${storeHash}-${channelId}.mybigcommerce.com`;
-
 	return {
-		url: `https://${host}/graphql`,
+		url: `${storefrontOrigin(storeHash, channelId)}/graphql`,
 		token,
 	};
 }
@@ -220,18 +278,17 @@ export interface BCPageInfo {
 	endCursor: string | null;
 }
 
+export interface BCCategoryTreeNode {
+	entityId: number;
+	name: string;
+	path: string;
+	productCount: number;
+	children?: BCCategoryTreeNode[];
+}
+
 interface CategoriesResponse {
 	site: {
-		categoryTree: Array<{
-			entityId: number;
-			name: string;
-			path: string;
-			children: Array<{
-				entityId: number;
-				name: string;
-				path: string;
-			}>;
-		}>;
+		categoryTree: BCCategoryTreeNode[];
 	};
 }
 
@@ -615,10 +672,18 @@ export async function getCategories() {
 					entityId
 					name
 					path
+					productCount
 					children {
 						entityId
 						name
 						path
+						productCount
+						children {
+							entityId
+							name
+							path
+							productCount
+						}
 					}
 				}
 			}

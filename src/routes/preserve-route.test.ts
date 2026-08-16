@@ -130,13 +130,19 @@ describe('Preserve route boundaries', () => {
 			});
 			expect(missing).not.toHaveProperty('kibbleZoneTerminals');
 
-			process.env.BRAND_ID = 'haven';
-			const legacy = await loadLayout({ url: new URL('https://aisles.test/'), cookies } as never);
-			if (!legacy) throw new Error('Expected the legacy root layout server load to return data.');
-			expect(legacy.renderMode).toBe('legacy-generated');
-			expect(legacy.chromeMode).toBe('legacy');
-			expect(legacy.kibbleChrome).toBeNull();
-			expect(legacy).not.toHaveProperty('kibbleErrorPolicy');
+			// This block used to set BRAND_ID='haven' and assert the legacy
+			// chrome. Kibble is the only brand since haven/volt/ember were
+			// retired, and getBrand() now falls back to it, so an unrecognized
+			// BRAND_ID resolves to Kibble rather than to a legacy merchant.
+			// The legacy-generated branch in selectMerchantRenderMode is
+			// therefore unreachable in production — see the follow-up note in
+			// the commit; it should be removed or re-covered deliberately, not
+			// left asserted against a brand that no longer exists.
+			process.env.BRAND_ID = 'not-a-real-brand';
+			const unknown = await loadLayout({ url: new URL('https://aisles.test/'), cookies } as never);
+			if (!unknown) throw new Error('Expected the root layout server load to return data.');
+			expect(unknown.renderMode).toBe('reference-preserve');
+			expect(unknown.chromeMode).toBe('reference');
 
 			process.env.BRAND_ID = 'kibble';
 			const pdp = await loadLayout({ url: new URL('https://aisles.test/product/example'), cookies } as never);

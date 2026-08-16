@@ -19,10 +19,39 @@ import { logGeneration } from '$lib/server/generation-log';
 import { sanitizeInspectorInference } from '$lib/components/kibble/kibble-dev-inspector';
 import { executeKibbleHomeZoneAdapters } from '$lib/brand/reference/kibble-zone-executor.server';
 import { throwKibblePreserveError } from '$lib/brand/reference/kibble-error.server';
+import { loadTierStorefrontHome } from '$lib/server/tier-storefront';
 
 export const load: PageServerLoad = async ({ url, request, cookies, parent }) => {
 	const { devMode, renderMode, observeMode } = await parent();
 	const brand = getBrand();
+
+	// Merchant-tier demo: an active tier renders from its channel's own
+	// catalog. The preserve contract below asserts the curated channel-1
+	// composition and would fail closed against a tier channel.
+	const tierStorefront = await loadTierStorefrontHome();
+	if (tierStorefront) {
+		return {
+			renderMode,
+			tierStorefront,
+			provenance: null,
+			kibbleHome: null,
+			kibbleHomeInspector: null,
+			featured: [],
+			categories: [],
+			storedPersona: null,
+			storedCategory: null,
+			brandName: brand.name,
+			brandTagline: brand.tagline,
+			brandDomain: brand.domain,
+			homepage: brand.homepage,
+			products: [],
+			inference: null,
+			persona: 'gatherer',
+			devMode,
+			sessionId: cookies.get('aisles_session') || null,
+			incentivesPromptContext: null,
+		};
+	}
 	const loadRequestState = async () => {
 		const { store, visitCount } = await createStoreFromRequest({ url, request, cookies, category: 'home' });
 		const inferenceContext = store.toInferenceContext();
@@ -112,6 +141,7 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 				: null;
 			return {
 				renderMode,
+				tierStorefront: null,
 				provenance,
 				kibbleHome,
 				kibbleHomeInspector,
@@ -176,6 +206,7 @@ export const load: PageServerLoad = async ({ url, request, cookies, parent }) =>
 
 	return {
 		renderMode,
+		tierStorefront: null,
 		provenance: null,
 		kibbleHome: null,
 		kibbleHomeInspector: null,

@@ -132,7 +132,9 @@ const EnrichmentSchema = z.object({
 
 // ─── BigCommerce GraphQL ───────────────────────────────────────────
 
-const CHANNEL_ID = process.env.BIGCOMMERCE_CHANNEL_ID || '1';
+// Defaults to Kibble's channel, matching brand config. It read '1' while the
+// storefront read 1853406, so enrichment and the catalog disagreed by default.
+const CHANNEL_ID = process.env.BIGCOMMERCE_CHANNEL_ID || '1853406';
 const BC_HOST = CHANNEL_ID === '1'
 	? `store-${STORE_HASH}.mybigcommerce.com`
 	: `store-${STORE_HASH}-${CHANNEL_ID}.mybigcommerce.com`;

@@ -1,6 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { env } from '$env/dynamic/private';
-import { getBrand } from '$lib/brand/config';
+import { resolveStorefrontChannel, storefrontOrigin } from '$lib/server/bigcommerce';
 import type { KibbleProduct, KibbleSearchResponseProvenance } from '$lib/components/kibble/types';
 import { z } from 'zod';
 import { parseKibblePlpCursor } from './kibble-plp';
@@ -112,9 +112,11 @@ export async function searchKibbleCatalog(input: {
 }> {
 	const query = parseKibbleSearchQuery(input.query);
 	const after = parseKibbleSearchCursor(input.after ?? null);
-	const brand = getBrand();
 	const storeHash = env.BIGCOMMERCE_STORE_HASH;
-	const token = env[`${brand.id.toUpperCase()}_STOREFRONT_TOKEN`] || env.BIGCOMMERCE_STOREFRONT_TOKEN;
+	// Channel + token come from the shared resolver so search follows the
+	// visitor's active merchant tier. Reading brand.bc.channelId here searched
+	// the default channel while the catalog rendered a tier channel.
+	const { channelId, storefrontToken: token } = resolveStorefrontChannel();
 	const emptyPageInfo = { hasNextPage: false, hasPreviousPage: false, startCursor: null, endCursor: null };
 	if (!query) {
 		return {
@@ -126,10 +128,7 @@ export async function searchKibbleCatalog(input: {
 		};
 	}
 	if (!storeHash || !token) throw new Error('Kibble read-only catalog search is not configured.');
-	const host = brand.bc.channelId === 1
-		? `store-${storeHash}.mybigcommerce.com`
-		: `store-${storeHash}-${brand.bc.channelId}.mybigcommerce.com`;
-	const response = await (input.fetchImpl ?? fetch)(`https://${host}/graphql`, {
+	const response = await (input.fetchImpl ?? fetch)(`${storefrontOrigin(storeHash, channelId)}/graphql`, {
 		method: 'POST',
 		headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
 		body: JSON.stringify({ query: KIBBLE_SEARCH_PRODUCTS_QUERY, variables: { searchTerm: query, first: KIBBLE_SEARCH_PAGE_SIZE, after } }),

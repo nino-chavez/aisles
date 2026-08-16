@@ -14,6 +14,13 @@ import { buildKibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibb
 import { getCommerceServiceBoundary } from '$lib/server/commerce/boundary';
 import { customerService } from '$lib/server/commerce/customer-service';
 import { commerceSessionId } from '$lib/server/commerce/session';
+import {
+	MERCHANT_TIER_COOKIE,
+	MERCHANT_TIERS,
+	isMerchantTierProvisioned,
+	resolveTierFromCookieValue,
+} from '$lib/server/merchant-tier';
+import { getActiveProvisionedTier, loadTierCatalogTree } from '$lib/server/tier-storefront';
 
 function routeAudience(pathname: string): 'shopper' | 'operator' | 'development' {
 	if (pathname === '/observe' || pathname.startsWith('/observe/')) return 'operator';
@@ -110,11 +117,43 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		cookies.set('aisles_session', observeSessionId, { path: '/', maxAge: 60 * 60 * 24 * 30 });
 	}
 
+	// Merchant-tier demo: an active tier's header nav derives from its
+	// channel's own category tree, so the store visibly restructures when
+	// the visitor switches tiers. Default (no cookie) keeps the static
+	// brand-config nav untouched.
+	let tierNavItems: Array<{ label: string; href: string }> | null = null;
+	if (audience === 'shopper' && chromeMode === 'reference' && getActiveProvisionedTier()) {
+		try {
+			tierNavItems = (await loadTierCatalogTree()).map(({ name, href }) => ({ label: name, href }));
+		} catch (cause) {
+			console.warn('[merchant-tier] tier nav derivation failed, keeping default nav:', cause);
+		}
+	}
+
+	// The footer's category groups come from the manifest's brand-config slugs
+	// (dog-food, supplements, …). Those categories do not exist in a tier
+	// channel's tree, so in tier mode every footer category link 404s. Replace
+	// them with one group built from the same tree the header uses. The
+	// manifest's three-way grouping is not reproduced: it is editorial
+	// (Food & wellness / Care & gear / Bundles) and a tier tree is organized
+	// by species, so there is nothing to map it onto.
+	const tierFooterGroups = tierNavItems?.length
+		? [{ label: 'Categories', links: tierNavItems }]
+		: null;
+
+	const kibbleChromeBase = chromeMode === 'reference' ? buildKibbleChrome(brand) : null;
+
 	return {
 		renderMode,
 		chromeMode,
 		routeAudience: audience,
-		kibbleChrome: chromeMode === 'reference' ? buildKibbleChrome(brand) : null,
+		kibbleChrome: kibbleChromeBase && tierNavItems?.length
+			? {
+					...kibbleChromeBase,
+					navItems: tierNavItems,
+					footer: { ...kibbleChromeBase.footer, groups: tierFooterGroups ?? kibbleChromeBase.footer.groups },
+				}
+			: kibbleChromeBase,
 		kibbleRoutePolicy,
 		...(kibble404State ? {
 			kibbleError,
@@ -141,6 +180,10 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 			theme: brand.theme,
 			categories: brand.categories,
 		},
+		merchantTier: audience === 'shopper' && brand.id === 'kibble' ? {
+			active: resolveTierFromCookieValue(cookies.get(MERCHANT_TIER_COOKIE)),
+			tiers: MERCHANT_TIERS.map((id) => ({ id, provisioned: isMerchantTierProvisioned(id) })),
+		} : null,
 		devMode,
 		observeMode,
 		observeEnableHref: buildObserveModeHref(url, true),

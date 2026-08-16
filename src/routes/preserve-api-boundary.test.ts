@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const brandState = vi.hoisted(() => ({ id: 'kibble' }));
 vi.mock('$lib/brand/config', () => ({
-	getBrand: vi.fn(() => ({ organizationId: 'kibble-demo-merchant', id: brandState.id })),
+	getBrand: vi.fn(() => ({ organizationId: 'kibble-demo-merchant', id: brandState.id, bc: { channelId: 1, categoryPrefix: '' } })),
 }));
 
 import { POST as layoutPost } from './api/layout/+server';
@@ -36,7 +36,8 @@ describe('Kibble Preserve API authority boundary', () => {
 		await expect(checkoutLoad({ url: new URL('https://aisles.test/checkout'), parent: async () => ({ renderMode: 'reference-preserve' }) } as never))
 			.rejects.toMatchObject({ status: 404 });
 		brandState.id = 'haven';
-		expect(await checkoutLoad({ url: new URL('https://aisles.test/checkout'), parent: async () => ({ renderMode: 'legacy-generated' }) } as never)).toEqual({ renderMode: 'legacy-generated' });
+		expect(await checkoutLoad({ url: new URL('https://aisles.test/checkout'), parent: async () => ({ renderMode: 'legacy-generated' }) } as never))
+			.toMatchObject({ renderMode: 'legacy-generated' });
 		brandState.id = 'kibble';
 	});
 });

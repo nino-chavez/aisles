@@ -12,8 +12,9 @@
  * - Instance ID parsing: indexed instances resolve to correct family + index
  *
  * Ported from bealls-aisles' resolve-zone.test.ts, adapted to Aisles'
- * narrower zone catalog (see zones.ts) and multi-brand fixtures (haven /
- * volt, both real BRANDS entries in $lib/brand/config.ts).
+ * narrower zone catalog (see zones.ts). Kibble is the only BRANDS entry since
+ * the haven/volt/ember demo brands were retired, so brand ids other than
+ * 'kibble' in this file are deliberately-unknown fixtures.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -64,7 +65,7 @@ describe('cascade precedence: engine > admin > fallback', () => {
 	it('engine wins when both engine + admin present', () => {
 		const r = resolveZone({
 			zoneId: 'home.hero',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'home.hero': heroEditorial } },
 			adminContent: { zones: { 'home.hero': heroFromAdmin } },
 		});
@@ -75,7 +76,7 @@ describe('cascade precedence: engine > admin > fallback', () => {
 	it('admin wins when no engine output', () => {
 		const r = resolveZone({
 			zoneId: 'home.hero',
-			brandId: 'haven',
+			brandId: 'kibble',
 			adminContent: { zones: { 'home.hero': heroFromAdmin } },
 		});
 		expect(r.source).toBe('admin');
@@ -83,25 +84,23 @@ describe('cascade precedence: engine > admin > fallback', () => {
 	});
 
 	it('fallback fires when neither engine nor admin', () => {
-		const r = resolveZone({ zoneId: 'home.hero', brandId: 'haven' });
+		const r = resolveZone({ zoneId: 'home.hero', brandId: 'kibble' });
 		expect(r.source).toBe('fallback');
 		expect((r.content as { component?: string }).component).toBe('editorial-header');
 	});
 
 	it('zones with no registered fallback resolve to source=fallback, content=null', () => {
 		// home.editorial-strip is intentionally left Hidden — see fallbacks/home.ts.
-		const r = resolveZone({ zoneId: 'home.editorial-strip', brandId: 'haven' });
+		const r = resolveZone({ zoneId: 'home.editorial-strip', brandId: 'kibble' });
 		expect(r.source).toBe('fallback');
 		expect(r.content).toBeNull();
 	});
 
-	it('home.hero fallback differs by brand (brand-aware)', () => {
-		const haven = resolveZone({ zoneId: 'home.hero', brandId: 'haven' });
-		const volt = resolveZone({ zoneId: 'home.hero', brandId: 'volt' });
-		const havenHeadline = (haven.content as { props: { headline: string } }).props.headline;
-		const voltHeadline = (volt.content as { props: { headline: string } }).props.headline;
-		expect(havenHeadline).not.toBe(voltHeadline);
-	});
+	// Removed with the haven/volt/ember demo brands: 'home.hero fallback differs
+	// by brand'. It compared two shipped brands' headlines, and Kibble is now
+	// the only brand, so there is nothing to compare against. The brand-aware
+	// lookup itself is still covered by the fallbacks reading brand config
+	// below; restore a two-brand assertion if a second brand ever ships.
 
 	it('unknown brandId resolves to source=fallback, content=null', () => {
 		const r = resolveZone({ zoneId: 'home.hero', brandId: 'not-a-brand' });
@@ -114,7 +113,7 @@ describe('schema validation rejects invalid content; cascade continues', () => {
 	it('invalid engine content is rejected, cascade falls through to admin', () => {
 		const r = resolveZone({
 			zoneId: 'home.hero',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'home.hero': { component: 'product-grid', props: {} } } }, // wrong block for hero
 			adminContent: { zones: { 'home.hero': heroFromAdmin } },
 		});
@@ -124,7 +123,7 @@ describe('schema validation rejects invalid content; cascade continues', () => {
 	it('engine content missing props falls through to fallback', () => {
 		const r = resolveZone({
 			zoneId: 'home.hero',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'home.hero': { component: 'editorial-header' } } }, // missing props
 		});
 		expect(r.source).toBe('fallback');
@@ -136,7 +135,7 @@ describe('zone metadata gates which sources can populate', () => {
 		// pdp.recently-viewed is engineComposable: true, adminAuthorable: false
 		const r = resolveZone({
 			zoneId: 'pdp.recently-viewed',
-			brandId: 'haven',
+			brandId: 'kibble',
 			adminContent: {
 				zones: {
 					'pdp.recently-viewed': productCarousel,
@@ -150,7 +149,7 @@ describe('zone metadata gates which sources can populate', () => {
 		// plp.below-grid is engineComposable: false, adminAuthorable: true
 		const r = resolveZone({
 			zoneId: 'plp.below-grid',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'plp.below-grid': { component: 'category-tile-grid', props: { tiles: [] } } } },
 		});
 		expect(r.source).toBe('fallback');
@@ -161,7 +160,7 @@ describe('indexed zones resolve through family schema + index', () => {
 	it('indexed instance resolves with engine content', () => {
 		const r = resolveZone({
 			zoneId: 'home.featured-row.1',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'home.featured-row.1': productCarousel } },
 		});
 		expect(r.source).toBe('engine');
@@ -172,7 +171,7 @@ describe('indexed zones resolve through family schema + index', () => {
 	it('max-index instance accepted', () => {
 		const r = resolveZone({
 			zoneId: 'home.featured-row.3',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'home.featured-row.3': productCarousel } },
 		});
 		expect(r.source).toBe('engine');
@@ -180,7 +179,7 @@ describe('indexed zones resolve through family schema + index', () => {
 	});
 
 	it('out-of-range index throws (catalog max is 3)', () => {
-		expect(() => resolveZone({ zoneId: 'home.featured-row.4', brandId: 'haven' })).toThrow();
+		expect(() => resolveZone({ zoneId: 'home.featured-row.4', brandId: 'kibble' })).toThrow();
 	});
 });
 
@@ -211,21 +210,21 @@ describe('catalog integrity', () => {
 
 describe('unknown zone IDs', () => {
 	it('unknown zone ID throws', () => {
-		expect(() => resolveZone({ zoneId: 'home.does-not-exist', brandId: 'haven' })).toThrow();
+		expect(() => resolveZone({ zoneId: 'home.does-not-exist', brandId: 'kibble' })).toThrow();
 	});
 
 	it.each(['toString', '__proto__', 'constructor', 'toString.1', '__proto__.1'])(
 		'rejects inherited-object zone instance %s',
 		(zoneId) => {
 			expect(parseZoneInstance(zoneId)).toBeNull();
-			expect(() => resolveZone({ zoneId, brandId: 'haven' })).toThrow(/unknown zone instance/);
+			expect(() => resolveZone({ zoneId, brandId: 'kibble' })).toThrow(/unknown zone instance/);
 		},
 	);
 
 	it.each(['toString', '__proto__', 'constructor'])(
 		'keeps inherited-object fallback key %s hidden',
 		(zoneId) => {
-			expect(getFallback(zoneId as never, 'haven')).toBeNull();
+			expect(getFallback(zoneId as never, 'kibble')).toBeNull();
 		},
 	);
 });
@@ -247,7 +246,7 @@ describe('PDP recommendation zones', () => {
 	it('pdp.related accepts product-carousel from engine', () => {
 		const r = resolveZone({
 			zoneId: 'pdp.related',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'pdp.related': pdpProductCarousel } },
 		});
 		expect(r.source).toBe('engine');
@@ -256,7 +255,7 @@ describe('PDP recommendation zones', () => {
 	it('pdp.cross-sell accepts product-carousel from engine', () => {
 		const r = resolveZone({
 			zoneId: 'pdp.cross-sell',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'pdp.cross-sell': pdpProductCarousel } },
 		});
 		expect(r.source).toBe('engine');
@@ -265,14 +264,14 @@ describe('PDP recommendation zones', () => {
 	it('pdp.recently-viewed accepts product-carousel from engine', () => {
 		const r = resolveZone({
 			zoneId: 'pdp.recently-viewed',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'pdp.recently-viewed': pdpProductCarousel } },
 		});
 		expect(r.source).toBe('engine');
 	});
 
 	it('pdp.below-description has no fallback — Hidden by default', () => {
-		const r = resolveZone({ zoneId: 'pdp.below-description', brandId: 'haven' });
+		const r = resolveZone({ zoneId: 'pdp.below-description', brandId: 'kibble' });
 		expect(r.source).toBe('fallback');
 		expect(r.content).toBeNull();
 	});
@@ -282,7 +281,7 @@ describe('cart specialization', () => {
 	it('cart.above-checkout-cta accepts product-carousel from engine', () => {
 		const r = resolveZone({
 			zoneId: 'cart.above-checkout-cta',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'cart.above-checkout-cta': productCarousel } },
 		});
 		expect(r.source).toBe('engine');
@@ -291,7 +290,7 @@ describe('cart specialization', () => {
 	it('cart.above-checkout-cta rejects out-of-vocabulary block', () => {
 		const r = resolveZone({
 			zoneId: 'cart.above-checkout-cta',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: {
 				zones: {
 					'cart.above-checkout-cta': {
@@ -309,7 +308,7 @@ describe('cart specialization', () => {
 	});
 
 	it('cart.above-checkout-cta has Hidden default fallback', () => {
-		const r = resolveZone({ zoneId: 'cart.above-checkout-cta', brandId: 'haven' });
+		const r = resolveZone({ zoneId: 'cart.above-checkout-cta', brandId: 'kibble' });
 		expect(r.source).toBe('fallback');
 		expect(r.content).toBeNull();
 	});
@@ -331,14 +330,14 @@ describe('checkout specialization', () => {
 	it('checkout.assurance-strip accepts engine variant', () => {
 		const r = resolveZone({
 			zoneId: 'checkout.assurance-strip',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'checkout.assurance-strip': assuranceStripEngine } },
 		});
 		expect(r.source).toBe('engine');
 	});
 
 	it('checkout.assurance-strip falls back to brand-default trust strip', () => {
-		const r = resolveZone({ zoneId: 'checkout.assurance-strip', brandId: 'haven' });
+		const r = resolveZone({ zoneId: 'checkout.assurance-strip', brandId: 'kibble' });
 		const c = r.content as { component?: string; props?: { callouts?: unknown[] } } | null;
 		expect(r.source).toBe('fallback');
 		expect(c?.component).toBe('service-callouts-grid');
@@ -349,7 +348,7 @@ describe('checkout specialization', () => {
 	it('checkout.last-chance-upsell accepts product-carousel from engine', () => {
 		const r = resolveZone({
 			zoneId: 'checkout.last-chance-upsell',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'checkout.last-chance-upsell': productCarousel } },
 		});
 		expect(r.source).toBe('engine');
@@ -358,21 +357,21 @@ describe('checkout specialization', () => {
 
 describe('search + error rescues', () => {
 	it('search.empty-state falls back to brand-aware copy', () => {
-		const r = resolveZone({ zoneId: 'search.empty-state', brandId: 'haven' });
+		const r = resolveZone({ zoneId: 'search.empty-state', brandId: 'kibble' });
 		const c = r.content as { component?: string } | null;
 		expect(r.source).toBe('fallback');
 		expect(c?.component).toBe('editorial-header');
 	});
 
 	it('error-404.rescue falls back to brand-aware copy', () => {
-		const r = resolveZone({ zoneId: 'error-404.rescue', brandId: 'haven' });
+		const r = resolveZone({ zoneId: 'error-404.rescue', brandId: 'kibble' });
 		const c = r.content as { component?: string } | null;
 		expect(r.source).toBe('fallback');
 		expect(c?.component).toBe('editorial-header');
 	});
 
 	it('error-empty.rescue falls back to brand-aware copy', () => {
-		const r = resolveZone({ zoneId: 'error-empty.rescue', brandId: 'haven' });
+		const r = resolveZone({ zoneId: 'error-empty.rescue', brandId: 'kibble' });
 		const c = r.content as { component?: string } | null;
 		expect(r.source).toBe('fallback');
 		expect(c?.component).toBe('editorial-header');
@@ -402,7 +401,7 @@ function makePolicy(overrides: PolicyOverrides = {}): EffectiveCompositionPolicy
 			kind: 'compiled',
 			organizationId: 'example-org',
 			organizationPolicyVersion,
-			brandId: 'haven',
+			brandId: 'kibble',
 			brandPolicyVersion,
 			referenceId: 'haven-reference',
 			referenceVersion: 'reference-v1',
@@ -434,7 +433,7 @@ function makeTrusted(
 ): TrustedCompositionContext {
 	return {
 		organizationId: 'example-org',
-		brandId: 'haven',
+		brandId: 'kibble',
 		surface: 'home',
 		zoneId: 'home.hero',
 		...overrides,
@@ -446,7 +445,7 @@ function makeApproval(policy: EffectiveCompositionPolicy): TrustedCompositionApp
 		approved: true,
 		approvalId: 'approval-1',
 		organizationId: 'example-org',
-		brandId: 'haven',
+		brandId: 'kibble',
 		surface: 'home',
 		zoneId: 'home.hero',
 		policyVersion: policy.policyVersion,
@@ -460,7 +459,7 @@ function makeMerchantOverride(policy: EffectiveCompositionPolicy): TrustedMercha
 		authorized: true,
 		authorizationId: 'merchant-pin-1',
 		organizationId: 'example-org',
-		brandId: 'haven',
+		brandId: 'kibble',
 		surface: 'home',
 		zoneId: 'home.hero',
 		policyVersion: policy.policyVersion,
@@ -487,7 +486,7 @@ function makePolicyOpts({
 	return {
 		mode: 'policy',
 		zoneId: 'home.hero',
-		brandId: 'haven',
+		brandId: 'kibble',
 		policy,
 		trustedContext: trustedContext ?? makeTrusted(policy),
 		trustedEngineDecisions: decision ? { zones: { 'home.hero': decision } } : undefined,
@@ -525,7 +524,7 @@ describe('policy-aware zone resolution', () => {
 		const r = resolveZone({
 			mode: 'legacy',
 			zoneId: 'home.hero',
-			brandId: 'haven',
+			brandId: 'kibble',
 			engineOutput: { zones: { 'home.hero': heroEditorial } },
 			adminContent: { zones: { 'home.hero': heroFromAdmin } },
 		});
@@ -746,8 +745,7 @@ describe('policy-aware zone resolution', () => {
 		);
 
 		expect(r.source).toBe('fallback');
-		expect(r.content).toEqual(getFallback('home.hero', 'haven'));
-		expect(r.content).not.toEqual(getFallback('home.hero', 'volt'));
+		expect(r.content).toEqual(getFallback('home.hero', 'kibble'));
 		expect(r.policyTrace?.policy.rejectionReason).toBe('trusted_identity_mismatch');
 	});
 

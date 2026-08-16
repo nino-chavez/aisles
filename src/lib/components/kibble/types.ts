@@ -203,3 +203,18 @@ export type KibbleSearchResponseProvenance = {
 	resultSha256: string;
 	fixedDataIdentity?: string;
 };
+
+/**
+ * A node in a merchant-tier category tree.
+ *
+ * Lives here rather than inside each component: an interface declared in a
+ * component's instance script is not in scope for the `$props()` type
+ * annotation, so the local copies resolved as `Cannot find name 'TierNode'`.
+ */
+export type KibbleTierNode = {
+	entityId: number;
+	name: string;
+	href: string;
+	productCount: number;
+	children: KibbleTierNode[];
+};

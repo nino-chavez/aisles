@@ -5,14 +5,14 @@
 	import Footer from '$lib/components/Footer.svelte';
 	import CartDrawer from '$lib/components/CartDrawer.svelte';
 	import PicksTray from '$lib/components/PicksTray.svelte';
-	import { KibbleFooter, KibbleHeader } from '$lib/components/kibble';
+	import { KibbleFooter, KibbleHeader, KibbleMerchantTierToggle } from '$lib/components/kibble';
 	import KibbleObserveRail from '$lib/components/kibble/KibbleObserveRail.svelte';
 	import { pickCount } from '$lib/stores/picks.svelte';
 	import { initEmitter, destroyEmitter, getEmitter } from '$lib/signals/emitter';
 	import type { LayoutData } from './$types';
 
 	let { children, data }: { children: any; data: LayoutData } = $props();
-	let brandName = $derived(data.brand?.name ?? 'Haven');
+	let brandName = $derived(data.brand?.name ?? 'Kibble & Co.');
 	let brandTagline = $derived(data.brand?.tagline ?? '');
 	let brandFooterNote = $derived(data.brand?.footerNote ?? '');
 	let themeStyle = $derived.by(() => {
@@ -157,6 +157,9 @@
 					accountHref={data.kibbleChrome.accountHref}
 					cartHref={data.kibbleChrome.cartHref}
 				/>
+				{#if data.merchantTier}
+					<KibbleMerchantTierToggle activeTier={data.merchantTier.active} tiers={data.merchantTier.tiers} />
+				{/if}
 			{:else}
 				<Nav {cartCount} {picksCount} onCartClick={openCart} onPicksClick={() => picksOpen = true} {brandName} categories={data.brand?.categories ?? {}} />
 			{/if}

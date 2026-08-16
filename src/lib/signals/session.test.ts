@@ -22,7 +22,7 @@ import { findSessionStore, getSessionStore, listSessionIds, persistSession } fro
 import { SignalStore } from './store';
 
 const ownedSessionId = 'owned-id';
-const havenKey = `aisles:session:haven-demo-merchant:haven:${ownedSessionId}`;
+const kibbleKey = `aisles:session:kibble-demo-merchant:kibble:${ownedSessionId}`;
 
 describe('scoped signal sessions', () => {
 	const previousBrand = process.env.BRAND_ID;
@@ -30,7 +30,7 @@ describe('scoped signal sessions', () => {
 	const previousToken = process.env.KV_REST_API_TOKEN;
 
 	beforeEach(() => {
-		process.env.BRAND_ID = 'haven';
+		process.env.BRAND_ID = 'kibble';
 		process.env.KV_REST_API_URL = 'https://redis.test';
 		process.env.KV_REST_API_TOKEN = 'test-token';
 		redisState.values.clear();
@@ -50,15 +50,15 @@ describe('scoped signal sessions', () => {
 		store.emit('nav.product_view', 'navigation', {});
 		await persistSession(store);
 
-		expect(redisState.values.get(havenKey)).toMatchObject({
-			crossSession: { organizationId: 'haven-demo-merchant', brandId: 'haven' },
+		expect(redisState.values.get(kibbleKey)).toMatchObject({
+			crossSession: { organizationId: 'kibble-demo-merchant', brandId: 'kibble' },
 		});
 		expect(await listSessionIds()).toEqual([ownedSessionId]);
 	});
 
 	it('fails closed for a stored snapshot with foreign identity', async () => {
 		const foreignSessionId = 'foreign-id';
-		redisState.values.set(`aisles:session:haven-demo-merchant:haven:${foreignSessionId}`, {
+		redisState.values.set(`aisles:session:kibble-demo-merchant:kibble:${foreignSessionId}`, {
 			sessionId: foreignSessionId,
 			events: [],
 			crossSession: {
@@ -76,26 +76,26 @@ describe('scoped signal sessions', () => {
 		redisState.values.set(`aisles:session:${legacySessionId}`, {
 			sessionId: legacySessionId,
 			events: [],
-			crossSession: { brandId: 'haven', storedPersona: null, storedCategory: null, visitCount: 0, currentCategory: '' },
+			crossSession: { brandId: 'kibble', storedPersona: null, storedCategory: null, visitCount: 0, currentCategory: '' },
 		});
 
 		expect((await findSessionStore(legacySessionId, { fresh: true }))?.getCrossSessionContext()).toMatchObject({
-			organizationId: 'haven-demo-merchant', brandId: 'haven',
+			organizationId: 'kibble-demo-merchant', brandId: 'kibble',
 		});
 	});
 
 	it('does not let a crafted cookie ID alias a scoped Redis key through the legacy reader', async () => {
 		const victimSessionId = 'victim-id';
-		redisState.values.set(`aisles:session:haven-demo-merchant:haven:${victimSessionId}`, {
+		redisState.values.set(`aisles:session:kibble-demo-merchant:kibble:${victimSessionId}`, {
 			sessionId: victimSessionId,
 			events: [],
 			crossSession: {
-				organizationId: 'haven-demo-merchant', brandId: 'haven', storedPersona: null,
+				organizationId: 'kibble-demo-merchant', brandId: 'kibble', storedPersona: null,
 				storedCategory: null, visitCount: 0, currentCategory: '',
 			},
 		});
 
-		expect(await findSessionStore(`haven-demo-merchant:haven:${victimSessionId}`, { fresh: true })).toBeNull();
+		expect(await findSessionStore(`kibble-demo-merchant:kibble:${victimSessionId}`, { fresh: true })).toBeNull();
 	});
 
 	it('rejects a write whose stored identity is outside the active scope', async () => {
