@@ -121,9 +121,15 @@ const BRANDS: Record<string, BrandConfig> = {
 		footerNote: 'Kibble & Co. is a fictional demo merchant. An independent demonstration by Nino Chavez — not a BigCommerce product.',
 
 		bc: {
-			// Kibble Co Storefront. Channel 1 belongs to the Stencil demo alone;
-			// sharing it made every catalog change move both storefronts at once.
-			channelId: 1853406,
+			// Kibble Aisles — this storefront's own channel.
+			//
+			// It previously shared 1853406 with storefront.bcsubs.app, the canonical
+			// headless subscriptions demo. One channel means one cart, one hosted
+			// checkout, and one catalog: a product added for an Aisles demo appeared
+			// on the subscriptions storefront too. 1890570 carries its own copy of
+			// Kibble's eight categories and the same 49 products, so the two
+			// storefronts start identical and can now diverge independently.
+			channelId: 1890570,
 			categoryPrefix: '',
 		},
 

@@ -65,7 +65,7 @@ describe('Kibble read-only Storefront search', () => {
 		const result = await searchKibbleCatalog({ query: '  goodgut  ', fetchImpl });
 		expect(fetchImpl).toHaveBeenCalledOnce();
 		const [url, init] = fetchImpl.mock.calls[0];
-		expect(url).toBe('https://store-kibble-parity-fixture-1853406.mybigcommerce.com/graphql');
+		expect(url).toBe('https://store-kibble-parity-fixture-1890570.mybigcommerce.com/graphql');
 		expect(init).toMatchObject({ method: 'POST', headers: { Accept: 'application/json', Authorization: 'Bearer fixture-token' } });
 		const body = JSON.parse(String(init?.body));
 		expect(body).toEqual({ query: KIBBLE_SEARCH_PRODUCTS_QUERY, variables: { searchTerm: 'goodgut', first: KIBBLE_SEARCH_PAGE_SIZE, after: null } });
