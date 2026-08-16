@@ -15,18 +15,19 @@ export const load: PageServerLoad = async ({ params, url, request, cookies, pare
 	const routePolicy = getTrustedKibbleRoutePolicy(getBrand().id, url.pathname);
 	if (!routePolicy || routePolicy.surface !== 'checkout') throw error(404, 'Not found');
 	const subtype = params.subtype as 'gift' | 'prepaid' | 'confirmation';
-	const { observeMode } = await parent();
+	const { observeMode, kibbleCommerceServices } = await parent();
 	const modelSubtype = subtype === 'gift' || subtype === 'prepaid' ? subtype : null;
 	const modelEnabled = Boolean(modelSubtype) && observeMode && privateEnv.KIBBLE_DEMO_AI_ENABLED === 'true';
 	if (modelEnabled) await createStoreFromRequest({ url, request, cookies, category: 'checkout' });
 	const availabilityMessage = subtype === 'gift'
-		? 'Gift checkout is unavailable. No product, plan, recipient, amount, payment method, or purchase request was loaded.'
+		? 'Gift checkout requires customer identity, a provider-confirmed subscription plan, and an approved payment adapter. None is connected, and no product, recipient, payment method, or purchase request was loaded.'
 		: subtype === 'prepaid'
-			? 'Prepaid checkout is unavailable. No plan, term, savings, total, payment method, or purchase request was loaded.'
-			: 'Order confirmation is unavailable because no checkout or order service was called.';
+			? 'Prepaid checkout requires customer identity, a provider-confirmed plan, and an approved payment adapter. None is connected, and no term, total, payment method, or purchase request was loaded.'
+			: 'A return route does not confirm an order. Aisles did not call authenticated order history or subscription reconciliation.';
 	return {
 		kibbleCheckout: {
 			subtype, availabilityMessage, recipeId: KIBBLE_REFERENCE_CONTRACT.recipes.checkout.id, policyVersion: routePolicy.policy.policyVersion,
+			services: kibbleCommerceServices ?? undefined,
 			assuranceZoneAdapter: modelSubtype ? await executeKibbleCheckoutAssuranceZoneAdapter({ routePath: `/checkout/${modelSubtype}`, assurance: materializeKibbleCheckoutPresentation(KIBBLE_CHECKOUT_DEFAULT_PRESENTATION).assurance }) : null,
 			checkoutModelDecision: modelSubtype && modelEnabled
 				? getKibbleObserveCopyModelPolicyDescriptor({ surface: 'checkout', familyId: 'checkout.assurance-strip', instanceId: 'checkout.assurance-strip', routePath: `/checkout/${modelSubtype}` })

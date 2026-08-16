@@ -1115,6 +1115,19 @@
 .kc-reference-pdp__autorefill dt { color:var(--kc-action-hover); font-size:.72rem; font-weight:800; }
 .kc-reference-pdp__autorefill dd { margin:.15rem 0 0; color:var(--kc-muted-text); font-size:.7rem; line-height:1.45; }
 .kc-reference-pdp__autorefill small { color:var(--kc-muted-text); line-height:1.5; }
+.kc-reference-pdp__purchase-modes { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.55rem; margin:.2rem 0; border:0; padding:0; }
+.kc-reference-pdp__purchase-modes legend { grid-column:1 / -1; color:var(--kc-muted-text); font-size:.72rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
+.kc-reference-pdp__purchase-modes label { display:flex; align-items:flex-start; gap:.5rem; border:1px solid var(--kc-border); border-radius:var(--kc-radius-sm); background:var(--kc-panel); padding:.65rem; cursor:pointer; }
+.kc-reference-pdp__purchase-modes label span { display:grid; gap:.15rem; }
+.kc-reference-pdp__purchase-modes label small { font-size:.75rem; }
+.kc-reference-pdp__cadence { display:grid; gap:.35rem; color:var(--kc-identity); font-size:.78rem; font-weight:800; }
+.kc-reference-pdp__cadence select { min-height:44px; border:1px solid var(--kc-border-strong); border-radius:var(--kc-radius-sm); background:var(--kc-panel); color:var(--kc-identity); padding:.55rem; }
+.kc-reference-pdp__subscription-gate { border-left:3px solid var(--kc-action); padding-left:.65rem; color:var(--kc-muted-text); font-size:.82rem; line-height:1.45; }
+.kc-reference-pdp__subscription-gate a { color:var(--kc-action); font-weight:800; }
+.kc-reference-cart__subscription { display:grid; gap:.15rem; width:max-content; max-width:100%; border-left:3px solid var(--kc-accent, #37bfa2); background:var(--kc-muted-surface); padding:.4rem .6rem; }
+.kc-reference-cart__subscription strong { color:var(--kc-identity); font-size:.75rem; }
+.kc-reference-cart__subscription span { color:var(--kc-muted-text); font-size:.72rem; }
+.kc-reference-cart__subscription-warning { grid-column:1 / -1; margin:0; border-left:3px solid var(--kc-action); background:var(--kc-muted-surface); padding:.75rem; color:var(--kc-muted-text); }
 .kc-reference-pdp__bundle-contents { margin-top: 1.5rem; border: 1px solid var(--kc-border); border-radius: var(--kc-radius-lg); background: var(--kc-surface); padding: 1.25rem; }
 .kc-reference-pdp__bundle-contents h2 { margin: 0; }
 .kc-reference-pdp__bundle-contents ul { display: grid; gap: .8rem; margin: 1rem 0 0; padding: 0; list-style: none; }

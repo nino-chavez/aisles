@@ -16,6 +16,8 @@ const LOCK_TTL_SECONDS = 120;
 const RATE_WINDOW_SECONDS = 60;
 export const COMMERCE_MUTATION_CLIENT_LIMIT = 20;
 const COMMERCE_MUTATION_GLOBAL_LIMIT = 300;
+export const CUSTOMER_AUTH_CLIENT_LIMIT = 5;
+const CUSTOMER_AUTH_GLOBAL_LIMIT = 100;
 const SESSION_ID_PATTERN = /^[a-f0-9-]{36}$/;
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 
@@ -24,7 +26,18 @@ export interface CommerceSessionState {
 	organizationId: string;
 	brandId: string;
 	cartEntityId: string | null;
+	/** Server-only provider credential. The browser receives only sessionId. */
+	customerSession: CustomerSessionReference | null;
+	/** Prevents checkout when a subscription-intent outcome cannot be reconciled. */
+	checkoutBlock: { reason: 'subscription_intent_unconfirmed'; setAt: string } | null;
 	updatedAt: string;
+}
+
+export interface CustomerSessionReference {
+	provider: 'bigcommerce';
+	customerEntityId: number;
+	customerAccessToken: string;
+	expiresAt: string;
 }
 
 interface StoredResult<T> {
@@ -86,6 +99,8 @@ function freshState(sessionId: string): CommerceSessionState {
 		sessionId,
 		...scope(),
 		cartEntityId: null,
+		customerSession: null,
+		checkoutBlock: null,
 		updatedAt: new Date().toISOString(),
 	};
 }
@@ -95,6 +110,48 @@ function validState(value: unknown, sessionId: string): value is CommerceSession
 	const state = value as CommerceSessionState;
 	const active = scope();
 	return state.sessionId === sessionId && state.organizationId === active.organizationId && state.brandId === active.brandId;
+}
+
+function normalizeState(state: CommerceSessionState): CommerceSessionState {
+	return {
+		...state,
+		customerSession: validCustomerSessionReference(state.customerSession)
+			? state.customerSession
+			: null,
+		checkoutBlock: state.checkoutBlock?.reason === 'subscription_intent_unconfirmed' && Number.isFinite(Date.parse(state.checkoutBlock.setAt))
+			? state.checkoutBlock
+			: null,
+	};
+}
+
+function validCustomerSessionReference(value: unknown): value is CustomerSessionReference {
+	if (!value || typeof value !== 'object') return false;
+	const session = value as CustomerSessionReference;
+	return session.provider === 'bigcommerce' &&
+		Number.isInteger(session.customerEntityId) &&
+		session.customerEntityId > 0 &&
+		typeof session.customerAccessToken === 'string' &&
+		session.customerAccessToken.length > 0 &&
+		typeof session.expiresAt === 'string' &&
+		Number.isFinite(Date.parse(session.expiresAt));
+}
+
+export function activeCustomerSession(
+	state: CommerceSessionState,
+	now = Date.now(),
+): CustomerSessionReference | null {
+	const session = state.customerSession;
+	return validCustomerSessionReference(session) && Date.parse(session.expiresAt) > now
+		? session
+		: null;
+}
+
+export function clearExpiredCustomerSession(
+	state: CommerceSessionState,
+	now = Date.now(),
+): CommerceSessionState {
+	if (state.customerSession && !activeCustomerSession(state, now)) state.customerSession = null;
+	return state;
 }
 
 function requireStore(redisClient: import('@upstash/redis').Redis | null): 'redis' | 'memory' {
@@ -152,6 +209,19 @@ export function requireSameOrigin(request: Request): void {
  * the raw address is neither stored nor returned as evidence.
  */
 export async function requireCommerceMutationCapacity(clientAddress: string): Promise<void> {
+	return requireRateCapacity(clientAddress, 'cart', COMMERCE_MUTATION_CLIENT_LIMIT, COMMERCE_MUTATION_GLOBAL_LIMIT);
+}
+
+export async function requireCustomerAuthenticationCapacity(clientAddress: string): Promise<void> {
+	return requireRateCapacity(clientAddress, 'customer-auth', CUSTOMER_AUTH_CLIENT_LIMIT, CUSTOMER_AUTH_GLOBAL_LIMIT);
+}
+
+async function requireRateCapacity(
+	clientAddress: string,
+	scopeName: string,
+	clientLimit: number,
+	globalLimit: number,
+): Promise<void> {
 	if (!clientAddress || clientAddress.length > 256) {
 		throw new CommerceSessionUnavailableError('Commerce mutation identity is unavailable.');
 	}
@@ -161,10 +231,10 @@ export async function requireCommerceMutationCapacity(clientAddress: string): Pr
 	const base = scopePrefix();
 	if (store === 'memory') {
 		const now = Date.now();
-		if (!reserveMemoryRate(`${base}:rate:client:${addressKey}`, COMMERCE_MUTATION_CLIENT_LIMIT, now)) {
+		if (!reserveMemoryRate(`${base}:rate:${scopeName}:client:${addressKey}`, clientLimit, now)) {
 			throw new CommerceRateLimitError('Commerce mutation rate limit exceeded.');
 		}
-		if (!reserveMemoryRate(`${base}:rate:global`, COMMERCE_MUTATION_GLOBAL_LIMIT, now)) {
+		if (!reserveMemoryRate(`${base}:rate:${scopeName}:global`, globalLimit, now)) {
 			throw new CommerceRateLimitError('Commerce mutation rate limit exceeded.');
 		}
 		return;
@@ -173,8 +243,8 @@ export async function requireCommerceMutationCapacity(clientAddress: string): Pr
 	try {
 		const result = await redisClient!.eval(
 			RATE_LIMIT_SCRIPT,
-			[`${base}:rate:client:${addressKey}`, `${base}:rate:global`],
-			[String(COMMERCE_MUTATION_CLIENT_LIMIT), String(COMMERCE_MUTATION_GLOBAL_LIMIT), String(RATE_WINDOW_SECONDS)],
+			[`${base}:rate:${scopeName}:client:${addressKey}`, `${base}:rate:${scopeName}:global`],
+			[String(clientLimit), String(globalLimit), String(RATE_WINDOW_SECONDS)],
 		);
 		if (!Array.isArray(result) || result.length !== 3) {
 			throw new CommerceSessionUnavailableError('Commerce rate limit returned an invalid result.');
@@ -189,9 +259,9 @@ export async function requireCommerceMutationCapacity(clientAddress: string): Pr
 export async function loadCommerceSession(sessionId: string): Promise<CommerceSessionState> {
 	const redisClient = await getRedis();
 	const store = requireStore(redisClient);
-	if (store === 'memory') return memorySessions.get(stateKey(sessionId)) ?? freshState(sessionId);
+	if (store === 'memory') return normalizeState(memorySessions.get(stateKey(sessionId)) ?? freshState(sessionId));
 	const value = await redisClient!.get<CommerceSessionState>(stateKey(sessionId));
-	return validState(value, sessionId) ? value : freshState(sessionId);
+	return validState(value, sessionId) ? normalizeState(value) : freshState(sessionId);
 }
 
 export async function saveCommerceSession(state: CommerceSessionState): Promise<void> {
@@ -235,7 +305,7 @@ export async function coordinateCommerceMutation<T>(options: {
 		memoryClaims.add(claimKey);
 		memoryLocks.add(lockKey);
 		try {
-			const current = memorySessions.get(stateKey(sessionId)) ?? freshState(sessionId);
+			const current = normalizeState(memorySessions.get(stateKey(sessionId)) ?? freshState(sessionId));
 			const completed = await execute(structuredClone(current));
 			completed.state.updatedAt = new Date().toISOString();
 			memorySessions.set(stateKey(sessionId), structuredClone(completed.state));
@@ -268,7 +338,7 @@ export async function coordinateCommerceMutation<T>(options: {
 
 	try {
 		const stateValue = await redisClient!.get<CommerceSessionState>(stateKey(sessionId));
-		const current = validState(stateValue, sessionId) ? stateValue : freshState(sessionId);
+		const current = validState(stateValue, sessionId) ? normalizeState(stateValue) : freshState(sessionId);
 		const completed = await execute(current);
 		completed.state.updatedAt = new Date().toISOString();
 		const finished = await redisClient!.eval(

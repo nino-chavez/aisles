@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$env/dynamic/private', () => ({
-	env: { KIBBLE_COMMERCE_MODE: 'sandbox' },
+const privateEnv = vi.hoisted(() => ({
+	KIBBLE_COMMERCE_MODE: 'sandbox',
+	KIBBLE_CUSTOMER_IDENTITY_MODE: '',
+	BIGCOMMERCE_STORE_HASH: '',
+	KIBBLE_STOREFRONT_TOKEN: '',
+	BIGCOMMERCE_STOREFRONT_TOKEN: '',
+	BIGCOMMERCE_PRIVATE_TOKEN: '',
+	KV_REST_API_URL: '',
+	KV_REST_API_TOKEN: '',
 }));
 
+vi.mock('$env/dynamic/private', () => ({ env: privateEnv }));
+
 import { BigCommerceGraphQLError, type CartResponse } from '$lib/server/bigcommerce';
-import { _resetCommerceSessionMemoryForTests } from './session';
+import { _resetCommerceSessionMemoryForTests, coordinateCommerceMutation } from './session';
 import { createCommerceService } from './service';
 
 function cart(version: number, quantity = 1, isMutable = true): CartResponse {
@@ -48,7 +57,49 @@ function cart(version: number, quantity = 1, isMutable = true): CartResponse {
 describe('Kibble BigCommerce cart service integration', () => {
 	beforeEach(() => {
 		vi.stubEnv('BRAND_ID', 'kibble');
+		privateEnv.KIBBLE_CUSTOMER_IDENTITY_MODE = '';
+		privateEnv.BIGCOMMERCE_STORE_HASH = '';
+		privateEnv.KIBBLE_STOREFRONT_TOKEN = '';
+		privateEnv.BIGCOMMERCE_PRIVATE_TOKEN = '';
 		_resetCommerceSessionMemoryForTests();
+	});
+
+	it('carries the server-held customer token into authenticated cart reads', async () => {
+		privateEnv.KIBBLE_CUSTOMER_IDENTITY_MODE = 'bigcommerce';
+		privateEnv.BIGCOMMERCE_STORE_HASH = 'configured';
+		privateEnv.KIBBLE_STOREFRONT_TOKEN = 'configured';
+		privateEnv.BIGCOMMERCE_PRIVATE_TOKEN = 'configured';
+		const provider = {
+			getCartProductEligibility: vi.fn(),
+			createCart: vi.fn(),
+			addToCart: vi.fn(),
+			getCart: vi.fn(async () => cart(1)),
+			updateCartLineItem: vi.fn(),
+			deleteCartLineItem: vi.fn(),
+			deleteCart: vi.fn(),
+			createCartRedirectUrl: vi.fn(),
+		};
+		const sessionId = crypto.randomUUID();
+		await coordinateCommerceMutation({
+			sessionId,
+			idempotencyKey: 'request-auth1',
+			fingerprint: 'account.login',
+			execute: async (state) => {
+				state.cartEntityId = 'bc-cart-one';
+				state.customerSession = {
+					provider: 'bigcommerce',
+					customerEntityId: 42,
+					customerAccessToken: 'server-only-token',
+					expiresAt: '2099-01-01T00:00:00.000Z',
+				};
+				return { state, value: true };
+			},
+		});
+
+		await expect(createCommerceService(provider as never).read(sessionId)).resolves.toMatchObject({ ok: true });
+		expect(provider.getCart).toHaveBeenCalledWith('bc-cart-one', {
+			customerAccessToken: 'server-only-token',
+		});
 	});
 
 	it('creates, reads, updates, removes, and safely replays a cart operation', async () => {
@@ -101,7 +152,7 @@ describe('Kibble BigCommerce cart service integration', () => {
 			quantity: 3,
 		});
 		expect(updated.ok && updated.data.itemCount).toBe(3);
-		expect(provider.updateCartLineItem).toHaveBeenCalledWith('bc-cart-one', 'line-one', 3071, 3, 1);
+		expect(provider.updateCartLineItem).toHaveBeenCalledWith('bc-cart-one', 'line-one', 3071, 3, 1, undefined);
 
 		const removed = await service.remove(sessionId, 'request-rem1', {
 			lineId: 'line-one',
@@ -110,7 +161,7 @@ describe('Kibble BigCommerce cart service integration', () => {
 			cart: null,
 			itemCount: 0,
 		});
-		expect(provider.deleteCartLineItem).toHaveBeenCalledWith('bc-cart-one', 'line-one', 2);
+		expect(provider.deleteCartLineItem).toHaveBeenCalledWith('bc-cart-one', 'line-one', 2, undefined);
 
 		await service.add(sessionId, 'request-add2', {
 			productEntityId: 3071,
@@ -121,7 +172,7 @@ describe('Kibble BigCommerce cart service integration', () => {
 			cart: null,
 			itemCount: 0,
 		});
-		expect(provider.deleteCart).toHaveBeenCalledWith('bc-cart-one');
+		expect(provider.deleteCart).toHaveBeenCalledWith('bc-cart-one', undefined);
 	});
 
 	it('rejects provider-immutable line changes before either mutation is sent', async () => {

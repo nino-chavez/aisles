@@ -10,6 +10,7 @@ declare global {
 			env?: {
 				HYPERDRIVE?: Hyperdrive;
 				OBSERVE_ACCESS_TOKEN?: string;
+				SUBS_API?: Fetcher;
 			};
 		}
 	}

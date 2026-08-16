@@ -33,7 +33,7 @@
 		sessionId = null,
 		initialPersona = null,
 		capabilityCoverage = null,
-		commerceServices = { mode: 'off', cart: 'not_connected', checkout: 'not_connected', orderCreation: 'not_exposed', account: 'not_configured', payment: 'provider_owned', subscription: 'not_configured' },
+		commerceServices = { mode: 'off', cart: 'not_connected', checkout: 'not_connected', orderCreation: 'not_exposed', orderHistory: 'customer_session_required', account: 'merchant_decision_required', payment: 'provider_owned', subscription: 'provider_not_connected', subscriptionPortal: 'portal_session_required' },
 	}: {
 		active: boolean;
 		enableHref: string;
@@ -609,7 +609,7 @@
 			<section class="aisles-observe__boundary" aria-labelledby="aisles-commerce-boundary">
 				<h3 id="aisles-commerce-boundary">Commerce service boundary</h3>
 				<p><b>Cart:</b> {commerceServices.cart === 'bigcommerce_sandbox' ? 'BigCommerce sandbox connected' : 'not connected'}. <b>Checkout:</b> {commerceServices.checkout === 'bigcommerce_hosted_handoff' ? 'BigCommerce hosted handoff connected' : 'not connected'}.</p>
-				<p><b>Orders:</b> no Aisles creation endpoint. <b>Accounts:</b> not configured. <b>Payments:</b> provider-owned. <b>Auto-Refill:</b> subscription service not configured.</p>
+				<p><b>Orders:</b> no Aisles creation endpoint; history requires a customer session. <b>Accounts:</b> merchant identity decision required. <b>Payments:</b> provider-owned. <b>Auto-Refill:</b> subscription provider not connected; portal session required.</p>
 				{#if commerceEvidence}<p><b>Latest browser-received service outcome:</b> {commerceEvidence.operation} · attempted {commerceEvidence.attempted ? 'yes' : 'no'} · confirmed {commerceEvidence.confirmed ? 'yes' : 'no'} · state change {commerceEvidence.commerceStateChanged} · model calls {commerceEvidence.modelCalls}.</p>{/if}
 				<a href="https://storefront.bcsubs.app/" target="_blank" rel="noopener">Open the connected reference store <span aria-hidden="true">↗</span></a>
 			</section>

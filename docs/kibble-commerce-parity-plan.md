@@ -1,18 +1,23 @@
 # Kibble commerce parity plan
 
-**Status:** Phase 1 sandbox cart implemented on
-`codex/kibble-real-commerce-operations`; not deployed; not authorization to
-charge, create accounts, create orders, create subscriptions, or change
-production
+**Status:** Phase 1 sandbox cart and hosted-checkout handoff are deployed. Phase
+2 has the customer-session foundation, BigCommerce-native identity selection,
+and a scoped private token. Live customer acceptance still needs an authorized
+sandbox login. Phase 3 now has live provider plan reads plus a customer-gated,
+idempotent cart-intent seam. The
+provider still owns post-checkout subscription creation. This is not
+authorization to create accounts, submit orders, charge payment instruments,
+or create subscriptions during verification.
 
 **Audience:** the engineer implementing Kibble commerce and the human who owns
 the BigCommerce store, payment provider, subscription provider, and release
 decision
 
-**Source snapshot:** Aisles `origin/main` at `97134b599da7f2b0794bb61267c430ed4a65aba7`;
+**Source snapshot:** Aisles `origin/main` at `20f3da770279dff2689994945748724cbc004eb2`;
 the Bealls-family checkout scaffold at `bealls-aisles` `0edd3ea79235953c834b00d96e6ae6b4fddf2833`;
 the internal commerce reference at `bc-subscriptions` `ef122b8e17b9eb0b327c9d42491c44a61577ead4`;
-read-only public reference checks on 2026-08-13
+authentication, login, logout, and order documentation rechecked on 2026-08-15;
+other public ledger checks remain dated 2026-08-13
 
 ## Recommendation
 
@@ -20,7 +25,8 @@ Build Kibble commerce as a server-owned adapter seam around two existing
 providers:
 
 1. BigCommerce owns catalog, cart, checkout, taxes, shipping, promotions,
-   customer identity, orders, and hosted payment.
+   orders, and hosted payment. It owns customer identity only if the merchant
+   approves the BigCommerce-native mode.
 2. `bc-subscriptions` owns Auto-Refill plans, recurring charges, subscription
    lifecycle, stored payment instruments, portal actions, and provider
    reconciliation.
@@ -45,13 +51,12 @@ subscription engine. The reference implementation already solves the hard
 provider seams, and BigCommerce explicitly separates payment processing from
 the GraphQL Storefront API.
 
-## What this branch implements
+## What is implemented
 
-This branch implements the one-time sandbox cart slice. Every committed
-Cloudflare environment stays off in `wrangler.toml` because the durable Redis
-gate did not pass. Local verification selects sandbox mode explicitly.
-Preview or production activation requires a working Redis round trip and a
-separate release approval.
+The deployed production configuration enables the one-time sandbox cart slice.
+Upstash now owns durable session, lock, rate-limit, and idempotency records.
+Cloudflare still fails closed when either the BigCommerce or Redis connection is
+missing.
 
 ```text
 Browser
@@ -62,6 +67,9 @@ Browser
        -> hashed-address and global mutation limits
        -> BigCommerce Storefront GraphQL cart + cart version
        -> one-use hosted-checkout URL only when requested
+       -> optional BigCommerce customer token held only in Redis
+       -> customer-token cart context after confirmed login
+       -> read-only customer order adapter after confirmed login
 
 No path
   -> customer account creation
@@ -70,18 +78,23 @@ No path
   -> subscription creation or renewal
 ```
 
-The working operations are add, read, update quantity, remove line, empty cart,
-header item count, browser-session persistence, and hosted-checkout handoff.
+The deployed working operations are add, read, update quantity, remove line,
+empty cart, header item count, browser-session persistence, and hosted-checkout
+handoff. The account adapter and UI remain inactive in production.
 BigCommerce remains the only cart and price authority. Aisles stores only the
 opaque browser session, its server-side cart reference, cart replay result, and
 redacted attempted/confirmed evidence. Presentation AI receives no mutation
 authority and every commerce response reports zero model calls.
 
-Aisles uses BigCommerce's stateless server-to-server Storefront GraphQL mode:
-the server sends the Storefront bearer token and the opaque cart entity ID, but
-does not set an `Origin` header or replay a BigCommerce shopper cookie. The
-Bealls visitor-cookie cache belongs to BigCommerce's separate stateful request
-mode and is intentionally not copied into this slice.
+The deployed anonymous cart still uses the existing Storefront bearer token and
+opaque cart entity ID without replaying a BigCommerce shopper cookie. That is a
+migration bridge, not the target credential. BigCommerce now deprecates
+Storefront tokens for server-to-server requests. New customer calls require a
+private token, and authenticated cart calls add the server-held
+`X-Bc-Customer-Access-Token`. The anonymous cart transport must also move to a
+private token before existing originless Storefront tokens stop being accepted
+on March 31, 2027. The Bealls visitor-cookie cache belongs to BigCommerce's
+separate stateful request mode and is still intentionally not copied.
 
 The server requires an idempotency key for each mutation. It atomically reserves
 the key, serializes mutations by commerce session, sends the current
@@ -106,7 +119,7 @@ Verified 2026-08-14 against BigCommerce’s current
 [GraphQL cart and checkout guide](https://docs.bigcommerce.com/developer/docs/admin/checkout-and-cart/custom-checkouts/graphql-storefront)
 and [checkout redirect example](https://docs.bigcommerce.com/developer/learn/courses/graphql-storefront-api/checkout/lab-query-practice).
 
-### Sandbox verification on 2026-08-14
+### Deployed sandbox verification on 2026-08-15
 
 The real Kibble sandbox confirmed create/add, read after navigation, quantity
 update, line removal, full-cart deletion, header count, and hosted-checkout
@@ -119,11 +132,14 @@ shopper action. The hosted handoff resolved to the configured
 HTTPS Kibble checkout host; the proof did not follow the URL or submit checkout.
 The final proof operation deleted the sandbox cart.
 
-The current Upstash credential did not pass a live ping. Production therefore
-remains off and the durable-session release gate remains closed. Rendered local
-proof used the development-only in-memory session adapter with the real
-BigCommerce sandbox. A working Redis round trip is required before any deployed
-sandbox or production enablement.
+Upstash returned `PONG` before release. The deployed smoke test then confirmed
+reload persistence, terminal idempotency replay, one-success/one-blocked
+concurrency, empty-and-recreate recovery, rendered cart controls, and one
+HTTPS hosted-checkout handoff that was not opened. The final operation deleted
+the test cart. PRs [#26](https://github.com/nino-chavez/aisles/pull/26) and
+[#27](https://github.com/nino-chavez/aisles/pull/27) are merged. Cloudflare
+deployment `3d906469-696d-49c8-95fb-a5a11b90fb16` serves merge commit
+`a0e03be5c31bf8ce7ba6dd90ec5ee9fb990dd656`.
 
 ## What existed before this branch
 
@@ -402,17 +418,17 @@ official source. It does not mean the Kibble implementation is complete.
 
 | Surface | Reference behavior | Current Aisles state | Target implementation and proof |
 |---|---|---|---|
-| Cart | Anonymous cart can be empty; authenticated and guest carts are read through the same server cart adapter; line quantity/removal and totals are visible. | Phase 1 implements anonymous sandbox read/add/update/remove/empty, provider totals, cart versioning, persistence, and failure recovery. Deployed mode remains off because durable Redis did not pass. | Pass the Redis and release gates. Add customer context and guest-cart merge only with account authorization. |
+| Cart | Anonymous cart can be empty; authenticated and guest carts are read through the same server cart adapter; line quantity/removal and totals are visible. | Deployed sandbox read/add/update/remove/empty, provider totals, cart versioning, durable persistence, and controlled recovery are verified. | Add customer context and guest-cart merge only with account authorization. |
 | PDP purchase | Reference product flow supports one-time purchase and Auto-Refill intent with a cadence and saved plan mapping. | An in-stock optionless product can use the real one-time sandbox cart. Options remain disabled, and Auto-Refill remains display-only. | Resolve merchant-approved variants/options server-side. Add Auto-Refill only after plan lookup and intent confirmation. |
-| Checkout | Ordinary cart checkout is BigCommerce hosted. Gift and prepaid are separate subscription-service flows with sign-in and stored payment method behavior. | The cart mints `createCartRedirectUrls` only on handoff. The sandbox proof did not follow or submit checkout. Bare `/checkout` remains 404; gift/prepaid remain disabled shells. | Verify the hosted flow after deployed sandbox approval. Keep gift/prepaid separate and provider-backed; do not submit an order or payment without explicit authorization. |
-| Account and identity | Password login and magic-link sign-in are both represented. Login can merge a guest cart. Private account routes gate on customer session. | Account routes render disabled forms and do no customer request. `aisles_session` is only a signal session. | Add server form actions for login/register/logout. Use `guestCartEntityId` on login, replace cart cookie with the returned cart, and gate private loads. Use an opaque httpOnly session; do not put provider tokens in page data. |
-| Orders | Authenticated account shows BigCommerce customer order summaries. | Bealls dashboard has mock orders; Kibble has no order data. | Query `customer.orders` server-side with customer access token. Label the order surface empty, unavailable, or live from provider state. Test customer ownership and no cross-account leakage. |
+| Checkout | Ordinary cart checkout is BigCommerce hosted. Gift and prepaid are separate subscription-service flows with sign-in and stored payment method behavior. | The deployed cart mints `createCartRedirectUrls` only on handoff. The proof did not follow or submit checkout. Bare `/checkout` remains 404; gift/prepaid name their identity, plan, and payment-adapter gates. | Keep gift/prepaid separate and provider-backed; do not submit an order or payment without explicit authorization. |
+| Account and identity | Password login and magic-link sign-in are both represented. Login can merge a guest cart. Private account routes gate on customer session. | Account routes state `merchant_decision_required`, render disabled forms, and make no customer request. `aisles_session` remains a signal session, not identity. | Choose BigCommerce-native or subscription-service identity ownership. Then add server form actions and an opaque httpOnly customer session; never put provider tokens in page data. |
+| Orders | Authenticated account shows BigCommerce customer order summaries. | Kibble exposes no order-creation endpoint or mock order rows. Order history states `customer_session_required`. | Query `customer.orders` server-side with customer access token. Label the result empty, unavailable, or live from provider state. Test customer ownership and no cross-account leakage. |
 | Auto-Refill plan selection | Product can expose one-time versus subscription mode, cadence, subscribe price, savings, and next-charge preview. | Kibble card “Auto-Refill” data is presentational only; no plan request or cart intent. | `GET /api/subscriptions/plans?bc_product_id=` through Aisles to the subscription service. Resolve plan server-side. Store intent through `/api/v1/storefront/cart/:cartId/intents`; expose confirmed/failed state. Never use line custom fields. |
 | Subscription creation | Subscription is materialized after the relevant order flow and reconciled by signed webhooks. | No provider integration or subscriber state exists. | Subscription service owns materialization, cycle ledger, provider charge, dunning, and webhook retry. Aisles displays only service responses. Test duplicate delivery and timeout-before-response. |
-| Subscription portal | List, detail, skip, swap, pause, resume, cancel, cadence, quantity, addresses, payment method, upcoming charges, and preferences are represented in the reference portal. | Kibble portal detail is an unavailable shell; account subscriptions is unavailable. | Proxy the existing subscription service API with a same-origin route or service binding. Require portal session and customer ownership on every action. Test every action against provider mocks before sandbox. |
+| Subscription portal | List, detail, skip, swap, pause, resume, cancel, cadence, quantity, addresses, payment method, upcoming charges, and preferences are represented in the reference portal. | Kibble states `provider_not_connected` and `portal_session_required`; no identifier triggers a provider read. | Proxy the existing subscription service API with a same-origin route or service binding. Require portal session and customer ownership on every action. Test every action against provider mocks before sandbox. |
 | Gift / prepaid | Gift validates plan, cycles, recipient, and stored instrument. Prepaid charges upfront and creates an active subscription with a prepaid extension. | Disabled inputs and no plan or total. | Reuse reference checkout contracts. BC Payments uses order-first; Stripe uses charge-first. Idempotency keys are deterministic and scoped to customer/plan/cycles/payment instrument/recipient. |
-| Taxes | Checkout provider computes taxes in the checkout context. | No Kibble cart or tax read. | Aisles displays only BigCommerce checkout/cart values. Tax jurisdiction and exemption decisions remain merchant/provider decisions. |
-| Shipping | BigCommerce checkout calculates available methods and shipping cost. | No Kibble shipping path. | Use BigCommerce checkout shipping APIs only if building an embedded checkout is approved; otherwise hosted checkout owns it. Never show “free shipping” unless the merchant config and provider response support it. |
+| Taxes | Checkout provider computes taxes in the checkout context. | Provider cart totals are live; Aisles does not calculate or present a separate tax estimate before hosted checkout. | Aisles displays only BigCommerce checkout/cart values. Tax jurisdiction and exemption decisions remain merchant/provider decisions. |
+| Shipping | BigCommerce checkout calculates available methods and shipping cost. | Hosted checkout owns shipping; Aisles does not expose a shipping-method API. | Use BigCommerce checkout shipping APIs only if building an embedded checkout is approved; otherwise hosted checkout owns it. Never show “free shipping” unless the merchant config and provider response support it. |
 | Promotions | Reference checkout/provider owns discount and subscription pricing; plan discount is merchant-declared. | Generic local/Voucherify evaluator produces UI incentives but Kibble cart is disabled. | Choose one real promotion authority. For the first slice, omit promotion mutation or pass code to BigCommerce and display its result. Do not connect the local evaluator to order totals without a contract. |
 | Payments and PCI | Reference adapters distinguish BC Payments order-first from Stripe charge-first; hosted checkout keeps card entry outside the storefront server. | No Kibble payment path. Generic checkout does not prove a PCI-safe implementation. | First slice uses hosted checkout only. Later stored instruments remain in the provider/service boundary. Aisles handles tokens/last4 only where the provider contract requires it. |
 | Sessions and identity | Reference passes customer token server-to-server, uses a session cookie, and passes guest cart ID during login. | Aisles has signal session and cart cookie only; generic cart does not accept customer token. | Keep `aisles_session`, `bc_cart_id`, and `commerce_session` separate. Bind the cart to the provider customer context and rotate/clear on logout. |
@@ -486,9 +502,9 @@ validates the product/variant/option tuple against BigCommerce and ignores
 client prices.
 
 `POST /api/checkout/redirect` calls the GraphQL
-`cart.createCartRedirectUrls` mutation with the anonymous cart entity ID in
-this phase. No customer access token exists yet. A later authorized account
-phase must add that token server-side before claiming authenticated checkout.
+`cart.createCartRedirectUrls` mutation with the current cart entity ID. The
+deployed anonymous path has no customer access token. The inactive authenticated
+path now adds the server-held customer token before minting the same handoff.
 BigCommerce documents both redirect URL forms
 and the GraphQL cart capability in [Carts and
 Checkout](https://docs.bigcommerce.com/developer/docs/admin/checkout-and-cart/custom-checkouts/graphql-storefront).
@@ -498,10 +514,11 @@ only when the shopper clicks checkout and never cache it in HTML or Redis.
 ### Account and subscription boundary
 
 ```text
-POST /api/account/login       { email, password, returnTo? }
-POST /api/account/register    { firstName, lastName, email, password }
-POST /api/account/logout
-GET  /api/account/orders
+GET    /api/account/session
+POST   /api/account/session   { email, password }
+DELETE /api/account/session
+GET    /api/account/orders
+NO ROUTE: account registration, password reset, or magic link
 GET  /api/subscriptions/plans?bc_product_id=<id>
 POST /api/cart/:cartId/intents { cartLineId, planId, cycles? }
 GET  /api/portal/session
@@ -509,11 +526,20 @@ GET  /api/portal/subscriptions
 POST /api/portal/subscriptions/:id/{skip,swap,pause,resume,cancel,...}
 ```
 
-The account routes call BigCommerce GraphQL. The subscription and portal routes
+When identity is enabled, the account routes call BigCommerce GraphQL. The
+subscription and portal routes
 proxy the existing service API through a Cloudflare service binding in deployed
 environments and a server-side HTTPS origin in local development. The browser
 uses same-origin Aisles routes and never receives the service binding or its
 credentials.
+
+BigCommerce customer access tokens are server-to-server state and can scope
+customer and order queries. See [GraphQL Storefront authentication](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/authentication),
+[customer registration](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/customers),
+and [customer orders](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/orders).
+BigCommerce's REST "Storefront Subscriptions" resource manages newsletter and
+marketing email subscriptions; it is not the recurring Auto-Refill provider.
+See [Storefront Subscriptions](https://docs.bigcommerce.com/developer/api-reference/rest/storefront/subscriptions).
 
 ### Safe response rules
 
@@ -532,15 +558,16 @@ credentials.
 ```text
 Anonymous visit
   1. Aisles may create `aisles_session` only for Observe/inference.
-  2. PDP add action creates or updates a BigCommerce guest cart.
-  3. Aisles stores only `bc_cart_id` plus provider-required visitor context.
+  2. Aisles sets a separate opaque Kibble commerce-session cookie.
+  3. PDP add action creates or updates a BigCommerce guest cart.
+  4. Redis holds the cart reference, locks, and idempotency results.
 
 Login
-  1. Server reads `bc_cart_id` as an optional guest cart.
+  1. Server reads the Redis cart reference as an optional guest cart.
   2. Server calls BigCommerce `login(..., guestCartEntityId)`.
-  3. Server stores customer identity and customer access token in the
-     server-owned commerce session.
-  4. Server replaces `bc_cart_id` with the returned customer cart ID.
+  3. Server stores only the customer entity ID, customer access token, and token
+     expiry in the durable commerce session. It stores no profile PII.
+  4. Server replaces the Redis cart reference with the returned customer cart ID.
   5. Every later cart and customer query sends the customer token server-side.
 
 Checkout
@@ -552,14 +579,14 @@ Checkout
 
 Logout / expiry
   1. Server calls BigCommerce logout when a provider customer session exists.
-  2. Server destroys the commerce session and clears the customer cookie.
-  3. The guest cart policy is explicit: preserve the cart only if the merchant
-     accepts it, otherwise clear and require a fresh guest cart.
-  4. `aisles_session` remains an anonymous signal session and is never promoted
+  2. Server clears the customer reference only after provider confirmation.
+  3. Server adopts the anonymous cart ID returned by BigCommerce logout.
+  4. An expired token is ignored and cleared on the next serialized mutation.
+  5. `aisles_session` remains an anonymous signal session and is never promoted
      to a customer identity.
 ```
 
-Use an opaque, signed and preferably server-side commerce session ID in an
+Use an opaque, server-owned commerce session ID in an
 httpOnly, `SameSite=Lax`, `Secure` cookie. The internal reference stores the BC
 customer access token inside a signed JWT cookie. Aisles already has Redis and
 should store the provider token server-side instead, because BigCommerce says
@@ -780,13 +807,13 @@ Dependencies:
 - inventory secret names only; do not expose or copy values.
 
 Exit gate: a named human owner signs off the provider map and confirms that all
-tests can stay in sandbox or mock mode. If any provider answer is unknown, keep
-Kibble commerce disabled.
+tests can stay in sandbox or mock mode. Unknown account or subscription answers
+keep those capabilities disabled without disabling the verified one-time cart.
 
 ### Phase 1 — one-time cart to hosted checkout (first implementable slice)
 
-Branch status: implemented for sandbox, with the option/variant limitation and
-provider gates named below. Production remains off.
+Release status: deployed in sandbox mode, with the option/variant limitation
+and remaining provider gates named below.
 
 Implementation order:
 
@@ -824,41 +851,61 @@ Acceptance tests:
   responses, concurrency, replay, invalid optioned products, stale references,
   session lifecycle, and delayed-read recovery.
 
-Release gate: local tests and staging provider reads pass; a human reviews the
-rendered Kibble cart and handoff; no paid or production mutation is part of this
-phase’s automated suite.
+Release receipt: local tests, deployed provider reads, rendered cart controls,
+durable session behavior, and hosted handoff passed. No order, payment,
+customer-account, or subscription mutation was part of the proof.
 
-### Phase 2 — customer account and cart merge
+### Phase 2 — customer account and cart merge foundation
 
-Dependencies: Phase 1 cart adapter; private token; customer account capability;
-session secret/storage; human-approved registration and password policy.
+Implemented in code: opaque Redis customer session; exact
+`login(..., guestCartEntityId)` adapter; server-only customer token; returned
+cart replacement; customer-context cart and checkout calls; confirmed logout;
+read-only order summaries; login idempotency and per-session serialization;
+stricter authentication rate limits; redacted evidence; and conditional account
+UI. Registration, password reset, and magic link have no runtime endpoint.
 
-Implement login/register/logout, opaque commerce session, `guestCartEntityId`
-merge, account route gating, and authenticated order reads. Verify that every
-customer cart read, mutation, and checkout redirect carries the same customer
-access-token context. Add password reset or magic-link only after the merchant
-chooses BigCommerce-native versus subscription-service identity ownership.
+Activation state: BigCommerce-native identity is selected and the deployed
+private token has `Unauthenticated` and `Customer` scope. A named sandbox test
+account still must be authorized for live login acceptance. Registration,
+password reset, and magic link remain disabled pending merchant policy.
 
-Acceptance: guest cart survives login into the returned customer cart; a second
-customer cannot read it; logout does not leave an authenticated portal session;
-orders are real provider data or an explicit empty state; no mock account data
-remains in live mode.
+Unit and browser acceptance is complete for successful merge, replay,
+concurrency, ambiguous-provider recovery, expiry, authenticated cart headers,
+read-only order normalization, confirmed logout, redaction, and fail-closed UI.
+Live provider acceptance remains: authorized sandbox login, cross-customer
+isolation, returned-cart contents, logout behavior, and provider-backed empty or
+real order history. No customer account was created or signed into for this
+implementation proof.
 
 ### Phase 3 — Auto-Refill selection and post-checkout materialization
 
-Dependencies: Phase 2 customer identity; subscription plan mapping; cart-intent
-endpoint; signed BigCommerce webhook ownership; service-side idempotency and
-reconciliation tests.
+Implemented in Aisles: the existing `subs-api` Worker is connected through a
+Cloudflare service binding; eligible PDPs read and strictly normalize live
+plans; one-time versus Auto-Refill selection and cadence render from provider
+data; and `POST /api/subscriptions/cart-intent` validates the plan/product pair,
+requires a server-held customer session, serializes per commerce session, and
+replays terminal results by idempotency key. A new line is removed when a known
+intent failure occurs. An ambiguous existing-line outcome blocks checkout until
+a later provider read confirms the intent. Emptying the cart also clears that
+block.
 
-Implement plan lookup, purchase-mode/cadence UI, intent confirmation, and the
-service-owned order webhook path. Keep one-time purchase available. Block a
-requested subscription when its intent cannot be confirmed. Add sanitized
-status/read models only after the subscription service confirms state.
+Production mutation acceptance dependencies: an authorized sandbox customer;
+live cart-intent proof; and provider
+confirmation that its signed order webhook verifies order and payment state
+before materializing a recurring schedule. Aisles does not receive the order
+webhook and does not create the subscription. One-time purchase stays
+available when identity or Auto-Refill is gated.
 
-Acceptance: a plan maps to the correct BC product; the cart shows the selected
-cadence and provider price; duplicate order events create one subscription;
-incomplete/failed orders do not become active subscriptions; missing intent is a
-reconciliation exception; no line custom-field assumption exists.
+Local acceptance complete: plan/product mismatch rejection, provider response
+bounds, customer gate, line add plus intent confirmation, replay, concurrent
+request serialization, compensation, ambiguous-outcome checkout block,
+provider-read recovery, redaction, rendered live plan/cadence controls, and a
+cart reload read model that shows provider-confirmed cadence and recurring
+price without exposing the provider cart ID.
+Remaining live acceptance: confirmed sandbox intent on an authenticated cart;
+hosted checkout handoff without order submission; duplicate order events create
+one subscription; incomplete/failed orders do not become active subscriptions;
+and missing intent is a reconciliation exception.
 
 ### Phase 4 — portal, orders, addresses, payment methods
 
@@ -944,9 +991,10 @@ support needs it.
 | Production canary | One approved test account and test product, live result independently verified in BigCommerce and subscription service; no claim based only on Aisles logs. | Named operator |
 | Closeout | Functional parity matrix, visual route/viewport approval, security/PII review, reconciliation dashboard, and release receipt. | Human release owner |
 
-This branch was implemented without creating an account, order, subscription,
-charge, or payment instrument, and without changing production. Sandbox cart
-mutations are verified separately from this document.
+The deployed slice was verified without creating an account, order,
+subscription, charge, or payment instrument. Sandbox cart mutations and the
+unused hosted-checkout handoff are recorded separately from those unopened
+provider boundaries.
 
 ## Effort drivers and explicit decisions
 
@@ -980,12 +1028,14 @@ approval.
 
 ### Verified in code now
 
-- Aisles has live Kibble catalog reads and deterministic/presentation-bounded
-  Kibble routes. This branch adds an anonymous BigCommerce sandbox cart and
-  hosted-checkout handoff. Account, order creation, payment, and subscription
-  mutation capability remains unavailable.
-- The current generic Aisles cart is not a complete customer-aware commerce
-  adapter.
+- Aisles has live Kibble catalog reads, an anonymous BigCommerce sandbox cart,
+  and hosted-checkout handoff. This branch adds the server-only customer-session
+  and order-read foundation. Production customer identity remains disabled.
+  Account creation, order creation, payment, and subscription mutation
+  capability remains unavailable.
+- Authenticated cart functions now carry the server-held customer token and use
+  the private-token transport. The deployed anonymous cart credential still
+  needs migration from its existing Storefront token.
 - The Bealls-family path demonstrates a Redis-backed cart-context cache and
   server-created BigCommerce hosted-checkout handoff, while its account page
   remains mock data.
@@ -1008,11 +1058,13 @@ approval.
 - Customer-account settings, checkout domain, hosted
   checkout enablement, tax/shipping configuration, promotion rules, and payment
   methods for that store.
-- Whether the existing subscription service is authorized for the Kibble store,
-  which plans are active, and whether its webhook/cart-intent contract is
-  provisioned for this channel.
-- Whether the merchant wants BigCommerce password login, magic-link login, or a
-  hybrid identity experience.
+- The existing subscription service is reachable for the Kibble store and
+  product 3023 has three active monthly plans. Live authenticated cart-intent
+  and webhook materialization behavior remain unverified for this Aisles
+  release.
+- BigCommerce password login is the selected Phase 2 identity mode. Magic-link
+  and hybrid identity remain unselected, and account registration remains
+  disabled.
 - Which provider owns recurring payment instruments and whether the chosen
   provider can support the required gift/prepaid and renewal behavior.
 - The actual production behavior of order, transaction, refund, and webhook
@@ -1056,11 +1108,15 @@ The recommendation changes if any of these becomes true:
 
 Internal sources were read at the commits listed at the top of this document.
 The following external links were fetched directly and returned HTTP 200 on
-2026-08-13; the claim next to each link was checked against the page content.
+2026-08-15. Authentication, login, logout, and order claims were rechecked
+against page content on that date. The remaining claim checks are retained from
+the document's 2026-08-13 verification.
 
 | Source | Claim checked |
 |---|---|
-| [GraphQL Storefront authentication](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/authentication) | Customer access tokens are server-to-server; private tokens are for server-side/headless use; customer token is sent in `X-Bc-Customer-Access-Token`. |
+| [GraphQL Storefront authentication](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/authentication) | Customer access tokens are server-to-server; private tokens are for server-side/headless use; customer token is sent in `X-Bc-Customer-Access-Token`; originless Storefront tokens stop being accepted on March 31, 2027. |
+| [GraphQL customer login](https://docs.bigcommerce.com/developer/api-reference/graphql/storefront/mutations/login) | `login` accepts optional `guestCartEntityId` and returns the assigned cart plus a server-to-server customer access token and expiry. |
+| [GraphQL customer logout](https://docs.bigcommerce.com/developer/api-reference/graphql/storefront/mutations/logout) | `logout` accepts an optional customer cart ID and can return the cart unassignment result. |
 | [GraphQL Storefront customers](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/customers) | The customer surface supports registration, account updates, address-book operations, password changes, and stored payment-instrument reads. Authentication mechanics are cited separately above. |
 | [GraphQL Storefront orders](https://docs.bigcommerce.com/developer/docs/storefront/guides/graphql-storefront-api/orders) | Customer order history is available through the Storefront GraphQL customer order surface, with current capability limits. |
 | [GraphQL Storefront carts and checkout](https://docs.bigcommerce.com/developer/docs/admin/checkout-and-cart/custom-checkouts/graphql-storefront) | GraphQL supports cart management, redirect URLs, cart metafields, checkout, and separates payment handling. |

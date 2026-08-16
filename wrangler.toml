@@ -11,6 +11,12 @@ KIBBLE_DEMO_AI_ENABLED = "true"
 # The runtime boundary still fails closed unless the BigCommerce and durable
 # session secrets are present; this release enables sandbox mutations.
 KIBBLE_COMMERCE_MODE = "sandbox"
+KIBBLE_SUBSCRIPTION_MODE = "sandbox"
+KIBBLE_CUSTOMER_IDENTITY_MODE = "bigcommerce"
+
+[[services]]
+binding = "SUBS_API"
+service = "subs-api"
 
 [[hyperdrive]]
 binding = "HYPERDRIVE"
@@ -30,3 +36,9 @@ BRAND_ID = "kibble"
 VITE_BRAND_ID = "kibble"
 KIBBLE_DEMO_AI_ENABLED = "true"
 KIBBLE_COMMERCE_MODE = "sandbox"
+KIBBLE_SUBSCRIPTION_MODE = "sandbox"
+KIBBLE_CUSTOMER_IDENTITY_MODE = "bigcommerce"
+
+[[env.production.services]]
+binding = "SUBS_API"
+service = "subs-api"
