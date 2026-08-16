@@ -10,6 +10,7 @@
 		products,
 		hasMore,
 		totalItems = null,
+		productHrefs = {},
 	}: {
 		category: { entityId: number; name: string };
 		breadcrumb: Array<{ label: string; href: string }>;
@@ -18,6 +19,7 @@
 		hasMore: boolean;
 		/** Exact subtree total when known; falls back to the loaded page count. */
 		totalItems?: number | null;
+		productHrefs?: Partial<Record<string, string>>;
 	} = $props();
 
 	// products.length is only the first page, so "24 products" on a 487-product
@@ -58,7 +60,7 @@
 		{#if products.length}
 			<div class="kc-reference-product-grid">
 				{#each products as product (product.entityId)}
-					<KibbleProductCard {product} />
+					<KibbleProductCard {product} productHref={productHrefs[product.id]} />
 				{/each}
 			</div>
 		{:else}

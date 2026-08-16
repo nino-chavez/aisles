@@ -8,11 +8,13 @@
 		tree,
 		categoryCount,
 		rails,
+		productHrefs = {},
 	}: {
 		tier: 'small' | 'medium' | 'enterprise';
 		tree: KibbleTierNode[];
 		categoryCount: number;
 		rails: Array<{ title: string; href: string; products: KibbleProduct[] }>;
+		productHrefs?: Partial<Record<string, string>>;
 	} = $props();
 
 	const TIER_COPY: Record<string, { title: string; body: string }> = {
@@ -73,7 +75,7 @@
 				</div>
 				<div class="kc-reference-product-grid">
 					{#each rail.products as product (product.entityId)}
-						<KibbleProductCard {product} />
+						<KibbleProductCard {product} productHref={productHrefs[product.id]} />
 					{/each}
 				</div>
 			</section>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { render } from 'svelte/server';
 import { chromium } from 'playwright';
@@ -240,5 +240,23 @@ describe('Kibble reference components fail closed', () => {
 	it('exposes the full fixed-data parity marker set at the PDP route root', () => {
 		const page = readFileSync(resolve(import.meta.dirname, '../../../routes/product/[slug]/+page.svelte'), 'utf8');
 		for (const marker of ['data-reference-id', 'data-reference-contract-version', 'data-reference-fixture', 'data-reference-fixture-sha256']) expect(page).toContain(marker);
+	});
+
+	it('never renders KibbleProductCard without a productHref — a missing wire is a silent dead card, not a render error', () => {
+		const srcRoot = resolve(import.meta.dirname, '../../..');
+		const offenders: string[] = [];
+		const walk = (dir: string) => {
+			for (const entry of readdirSync(dir, { withFileTypes: true })) {
+				const full = resolve(dir, entry.name);
+				if (entry.isDirectory()) { if (entry.name !== 'node_modules' && entry.name !== '.svelte-kit') walk(full); continue; }
+				if (!entry.name.endsWith('.svelte')) continue;
+				const source = readFileSync(full, 'utf8');
+				for (const line of source.split('\n')) {
+					if (line.includes('<KibbleProductCard') && !line.includes('productHref')) offenders.push(`${full}: ${line.trim()}`);
+				}
+			}
+		};
+		walk(srcRoot);
+		expect(offenders).toEqual([]);
 	});
 });
