@@ -125,6 +125,17 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		}
 	}
 
+	// The footer's category groups come from the manifest's brand-config slugs
+	// (dog-food, supplements, …). Those categories do not exist in a tier
+	// channel's tree, so in tier mode every footer category link 404s. Replace
+	// them with one group built from the same tree the header uses. The
+	// manifest's three-way grouping is not reproduced: it is editorial
+	// (Food & wellness / Care & gear / Bundles) and a tier tree is organized
+	// by species, so there is nothing to map it onto.
+	const tierFooterGroups = tierNavItems?.length
+		? [{ label: 'Categories', links: tierNavItems }]
+		: null;
+
 	const kibbleChromeBase = chromeMode === 'reference' ? buildKibbleChrome(brand) : null;
 
 	return {
@@ -132,7 +143,11 @@ export const load: LayoutServerLoad = async ({ url, cookies }) => {
 		chromeMode,
 		routeAudience: audience,
 		kibbleChrome: kibbleChromeBase && tierNavItems?.length
-			? { ...kibbleChromeBase, navItems: tierNavItems }
+			? {
+					...kibbleChromeBase,
+					navItems: tierNavItems,
+					footer: { ...kibbleChromeBase.footer, groups: tierFooterGroups ?? kibbleChromeBase.footer.groups },
+				}
 			: kibbleChromeBase,
 		kibbleRoutePolicy,
 		...(kibble404State ? {
