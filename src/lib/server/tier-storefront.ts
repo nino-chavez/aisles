@@ -13,7 +13,12 @@
  * (`/category/dry-food-c451`) so slugs resolve without any name mapping.
  */
 import { getActiveMerchantTier, isMerchantTierProvisioned, type MerchantTier } from './merchant-tier';
-import { getCategories, getProductsByCategory, type BCCategoryTreeNode } from './bigcommerce';
+import {
+	getCategories,
+	getProductsByCategory,
+	getSubtreeProductCounts,
+	type BCCategoryTreeNode,
+} from './bigcommerce';
 import { transformProduct } from './catalog';
 import type { Product } from '$lib/types';
 
@@ -39,6 +44,8 @@ export interface TierCategoryPage {
 	children: TierCategoryNode[];
 	products: Product[];
 	hasMore: boolean;
+	/** Exact subtree total, or null when the category is a leaf. */
+	totalItems: number | null;
 }
 
 export function getActiveProvisionedTier(): MerchantTier | null {
@@ -85,6 +92,15 @@ function findNode(nodes: TierCategoryNode[], entityId: number): TierCategoryNode
 	return null;
 }
 
+/**
+ * A node's own id plus every descendant id, which is what both the product
+ * query and the count query filter on. See getProductsByCategory's
+ * `descendantIds` note for why the subtree has to be enumerated explicitly.
+ */
+function subtreeIds(node: TierCategoryNode): number[] {
+	return [node.entityId, ...node.children.flatMap(subtreeIds)];
+}
+
 function pathToNode(
 	nodes: TierCategoryNode[],
 	entityId: number,
@@ -104,11 +120,18 @@ export async function loadTierStorefrontHome(): Promise<TierStorefrontHome | nul
 	const tier = getActiveProvisionedTier();
 	if (!tier) return null;
 	const tree = await loadTierCatalogTree();
-	const railSources = tree.filter((node) => node.productCount > 0).slice(0, 3);
+	// Every top-level node, not just those the tree claims hold products: on the
+	// larger tiers the roots carry no directly-assigned products at all, so the
+	// old `productCount > 0` filter kept the wrong three and then dropped them
+	// again for coming back empty.
+	const railSources = tree.slice(0, 3);
 	const rails = (
 		await Promise.all(
 			railSources.map(async (node) => {
-				const result = await getProductsByCategory(node.entityId, { first: 8 });
+				const result = await getProductsByCategory(node.entityId, {
+					first: 8,
+					descendantIds: subtreeIds(node),
+				});
 				return { title: node.name, href: node.href, products: result.products.map(transformProduct) };
 			}),
 		)
@@ -122,20 +145,37 @@ export async function loadTierCategoryPage(slug: string): Promise<TierCategoryPa
 	if (!tier) return null;
 	const entityId = parseTierCategorySlug(slug);
 	if (entityId === null) return null;
+	// Tree first: the products query needs the subtree's ids, and the child
+	// chips need exact counts rather than the tree's own unreliable ones.
+	const tree = await loadTierCatalogTree();
+	const node = findNode(tree, entityId);
 	let result;
 	try {
-		result = await getProductsByCategory(entityId, { first: 24 });
+		result = await getProductsByCategory(entityId, {
+			first: 24,
+			descendantIds: node ? subtreeIds(node) : undefined,
+		});
 	} catch {
 		return null;
 	}
-	const tree = await loadTierCatalogTree();
-	const node = findNode(tree, entityId);
+	const children = node?.children ?? [];
+	let counted = children;
+	if (children.length) {
+		const counts = await getSubtreeProductCounts(
+			children.map((child) => ({ entityId: child.entityId, ids: subtreeIds(child) })),
+		);
+		counted = children.map((child) => ({
+			...child,
+			productCount: counts.get(child.entityId) ?? child.productCount,
+		}));
+	}
 	return {
 		tier,
 		category: { entityId, name: result.category.name },
 		breadcrumb: pathToNode(tree, entityId) ?? [],
-		children: node?.children ?? [],
+		children: counted,
 		products: result.products.map(transformProduct),
 		hasMore: result.pageInfo.hasNextPage,
+		totalItems: result.totalItems,
 	};
 }

@@ -271,6 +271,21 @@ interface CategoryProductsResponse {
 	};
 }
 
+interface CategorySubtreeProductsResponse {
+	site: {
+		category: { name: string; description: string } | null;
+		search: {
+			searchProducts: {
+				products: {
+					edges: Array<{ node: BCProduct }>;
+					pageInfo: BCPageInfo;
+					collectionInfo: { totalItems: number } | null;
+				};
+			};
+		};
+	};
+}
+
 export interface BCPageInfo {
 	hasNextPage: boolean;
 	hasPreviousPage: boolean;
@@ -379,6 +394,53 @@ export async function getNewestProducts(limit = 8): Promise<BCProduct[]> {
 }
 
 /**
+ * Exact product totals for a set of category subtrees, in one round trip.
+ *
+ * The `productCount` on a categoryTree node is only trustworthy at a leaf.
+ * At interior nodes it is sometimes a rollup and sometimes the direct-assigned
+ * count: measured 2026-08-16 on the enterprise tier, Birds > Food(425) reported
+ * 124 (correct) while Dogs(421) reported 8 against an actual 709. Rendering a
+ * subtree's products under the node's own count therefore shows 709 products
+ * beneath a chip reading "8", so counts come from here instead.
+ *
+ * Each group is a category id plus every descendant id; one aliased
+ * searchProducts field per group.
+ */
+export async function getSubtreeProductCounts(
+	groups: Array<{ entityId: number; ids: number[] }>,
+): Promise<Map<number, number>> {
+	const counts = new Map<number, number>();
+	if (!groups.length) return counts;
+
+	const fields = groups
+		.map(
+			(g, i) =>
+				`g${i}: searchProducts(filters: { categoryEntityIds: $ids${i} }) { products(first: 0) { collectionInfo { totalItems } } }`,
+		)
+		.join('\n\t\t\t\t');
+	const params = groups.map((_, i) => `$ids${i}: [Int!]`).join(', ');
+	const variables = Object.fromEntries(groups.map((g, i) => [`ids${i}`, g.ids]));
+
+	const data = await query<{
+		site: { search: Record<string, { products: { collectionInfo: { totalItems: number } | null } }> };
+	}>(`
+		query GetSubtreeProductCounts(${params}) {
+			site {
+				search {
+					${fields}
+				}
+			}
+		}
+	`, variables);
+
+	groups.forEach((g, i) => {
+		const total = data.site.search[`g${i}`]?.products?.collectionInfo?.totalItems;
+		if (typeof total === 'number') counts.set(g.entityId, total);
+	});
+	return counts;
+}
+
+/**
  * Category PLP connection. Callers own the requested page size and validated
  * cursor; BigCommerce owns the selected category ordering.
  *
@@ -393,12 +455,86 @@ export async function getProductsByCategory(
 		first?: number;
 		after?: string | null;
 		sortBy?: BigCommerceCategoryProductSort;
+		/**
+		 * The category's own id plus every descendant id. Supply this for a
+		 * category that has children; omit it for a leaf.
+		 *
+		 * `site.category.products` returns only DIRECTLY assigned products, so an
+		 * interior category whose products all live on its leaves renders empty.
+		 * Measured 2026-08-16 on the enterprise tier: Birds(419) holds 487
+		 * products across its leaves and 0 directly, so the PLP said "0 products".
+		 *
+		 * `searchSubCategories: true` is the documented rollup and it is NOT
+		 * reliable here — it returned 487 for Birds(419) but 3 for Birds > Food(425),
+		 * which holds 124. Filtering on an explicit id list is exact: measured
+		 * against a full page-through of the Dogs subtree, both report 709.
+		 */
+		descendantIds?: number[];
 	} = {},
 ): Promise<{
 	category: { name: string; description: string };
 	products: BCProduct[];
 	pageInfo: BCPageInfo;
+	totalItems: number | null;
 }> {
+	const subtreeIds = options.descendantIds ?? [];
+	if (subtreeIds.length > 1) {
+		const data = await query<CategorySubtreeProductsResponse>(`
+			query GetCategorySubtreeProducts(
+				$categoryId: Int!
+				$ids: [Int!]
+				$first: Int!
+				$after: String
+				$sortBy: SearchProductsSortInput
+			) {
+				site {
+					category(entityId: $categoryId) {
+						name
+						description
+					}
+					search {
+						searchProducts(filters: { categoryEntityIds: $ids }, sort: $sortBy) {
+							products(first: $first, after: $after) {
+								edges {
+									node {
+										${PRODUCT_FRAGMENT}
+									}
+								}
+								pageInfo {
+									hasNextPage
+									hasPreviousPage
+									startCursor
+									endCursor
+								}
+								collectionInfo {
+									totalItems
+								}
+							}
+						}
+					}
+				}
+			}
+		`, {
+			categoryId: categoryEntityId,
+			ids: subtreeIds,
+			first: options.first ?? 24,
+			after: options.after ?? null,
+			sortBy: options.sortBy ?? null,
+		});
+
+		if (!data.site.category) {
+			throw new Error(`Category ${categoryEntityId} not found`);
+		}
+
+		const products = data.site.search.searchProducts.products;
+		return {
+			category: { name: data.site.category.name, description: data.site.category.description },
+			products: products.edges.map((e) => e.node),
+			pageInfo: products.pageInfo,
+			totalItems: products.collectionInfo?.totalItems ?? null,
+		};
+	}
+
 	const data = await query<CategoryProductsResponse>(`
 		query GetCategoryProducts(
 			$categoryId: Int!
@@ -445,6 +581,7 @@ export async function getProductsByCategory(
 		},
 		products: data.site.category.products.edges.map((e) => e.node),
 		pageInfo: data.site.category.products.pageInfo,
+		totalItems: null,
 	};
 }
 
