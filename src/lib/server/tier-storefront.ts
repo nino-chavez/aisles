@@ -159,6 +159,15 @@ export async function loadTierCategoryPage(slug: string): Promise<TierCategoryPa
 		return null;
 	}
 	const children = node?.children ?? [];
+	// A leaf takes the plain category connection, which carries no total, so its
+	// header would read "24+" on a 31-product shelf. One count query fixes it.
+	let totalItems = result.totalItems;
+	if (totalItems === null && node && !children.length) {
+		const own = await getSubtreeProductCounts([{ entityId: node.entityId, ids: [node.entityId] }]).catch(
+			() => new Map<number, number>(),
+		);
+		totalItems = own.get(node.entityId) ?? null;
+	}
 	let counted = children;
 	if (children.length) {
 		// Never let a count failure take the page down — the products above it
@@ -178,6 +187,6 @@ export async function loadTierCategoryPage(slug: string): Promise<TierCategoryPa
 		children: counted,
 		products: result.products.map(transformProduct),
 		hasMore: result.pageInfo.hasNextPage,
-		totalItems: result.totalItems,
+		totalItems,
 	};
 }
