@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aisles — Competitive Position Assessment</title>
+<style>
+  :root {
+    color-scheme: light dark;
+
+    /* Neutrals carry a slight violet bias toward the accent — picked, not inherited. */
+    --ground:      #faf9fc;
+    --ground-2:    #f2f0f7;
+    --card:        #ffffff;
+    --ink:         #141019;
+    --ink-2:       #3d3648;
+    --ink-3:       #635b71;
+    --ink-4:       #8d8599;
+    --rule:        #e4e1ec;
+    --rule-2:      #cfcada;
+
+    /* House accent (Signal Forge violet), darkened for contrast on light ground. */
+    --accent:      #6d28d9;
+    --accent-deep: #4c1d95;
+    --accent-wash: #f3eefe;
+
+    /* Semantic verdict colors — deliberately not the accent. */
+    --ok:          #15803d;
+    --ok-wash:     #eef7f1;
+    --gap:         #b45309;
+    --gap-wash:    #fdf4e9;
+    --flat:        #635b71;
+    --flat-wash:   #f2f0f7;
+
+    --rail:   276px;
+    --bar:    54px;
+    --measure: 68ch;
+
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, "Helvetica Neue", sans-serif;
+    --serif: "Iowan Old Style", "Charter", "Bitstream Charter", Georgia, "Times New Roman", serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:      #100d16;
+      --ground-2:    #191521;
+      --card:        #17131f;
+      --ink:         #eae7f2;
+      --ink-2:       #c3bdd1;
+      --ink-3:       #9a93a9;
+      --ink-4:       #736c81;
+      --rule:        #2a2436;
+      --rule-2:      #3b3349;
+
+      --accent:      #a78bfa;
+      --accent-deep: #c4b5fd;
+      --accent-wash: #1e1730;
+
+      --ok:          #4ade80;
+      --ok-wash:     #12211a;
+      --gap:         #fbbf24;
+      --gap-wash:    #241c10;
+      --flat:        #9a93a9;
+      --flat-wash:   #191521;
+    }
+  }
+
+  /* The viewer's toggle must win over the media query in both directions. */
+  :root[data-theme="dark"] {
+    --ground: #100d16; --ground-2: #191521; --card: #17131f;
+    --ink: #eae7f2; --ink-2: #c3bdd1; --ink-3: #9a93a9; --ink-4: #736c81;
+    --rule: #2a2436; --rule-2: #3b3349;
+    --accent: #a78bfa; --accent-deep: #c4b5fd; --accent-wash: #1e1730;
+    --ok: #4ade80; --ok-wash: #12211a; --gap: #fbbf24; --gap-wash: #241c10;
+    --flat: #9a93a9; --flat-wash: #191521;
+  }
+  :root[data-theme="light"] {
+    --ground: #faf9fc; --ground-2: #f2f0f7; --card: #ffffff;
+    --ink: #141019; --ink-2: #3d3648; --ink-3: #635b71; --ink-4: #8d8599;
+    --rule: #e4e1ec; --rule-2: #cfcada;
+    --accent: #6d28d9; --accent-deep: #4c1d95; --accent-wash: #f3eefe;
+    --ok: #15803d; --ok-wash: #eef7f1; --gap: #b45309; --gap-wash: #fdf4e9;
+    --flat: #635b71; --flat-wash: #f2f0f7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+
+  body {
+    font-family: var(--sans);
+    font-size: 15.5px;
+    line-height: 1.66;
+    color: var(--ink-2);
+    background: var(--ground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  a { color: var(--accent-deep); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+  a:hover { border-bottom-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+
+  /* ── Fixed bar ─────────────────────────────────────────── */
+  header.bar {
+    position: fixed; inset: 0 0 auto 0; height: var(--bar); z-index: 100;
+    display: flex; align-items: center; gap: 14px; padding: 0 22px;
+    background: var(--ink); color: var(--ground);
+    border-bottom: 1px solid var(--rule-2);
+  }
+  header.bar .mark {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ground);
+    background: var(--accent); padding: 3px 8px; border-radius: 3px;
+  }
+  header.bar .t { font-weight: 600; font-size: 13.5px; letter-spacing: -0.01em; }
+  header.bar .s {
+    font-size: 12px; opacity: 0.62;
+    padding-left: 14px; border-left: 1px solid color-mix(in srgb, var(--ground) 22%, transparent);
+  }
+  header.bar .m {
+    margin-left: auto; font-family: var(--mono); font-size: 10.5px;
+    opacity: 0.5; letter-spacing: 0.05em; font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Rail ──────────────────────────────────────────────── */
+  aside.rail {
+    position: fixed; top: var(--bar); left: 0; bottom: 0; width: var(--rail);
+    background: var(--card); border-right: 1px solid var(--rule);
+    overflow-y: auto; padding: 26px 0 40px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  aside.rail h4 {
+    font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.13em; color: var(--ink-4);
+    padding: 0 26px; margin: 20px 0 7px;
+  }
+  aside.rail h4:first-child { margin-top: 0; }
+  aside.rail a {
+    display: block; padding: 6px 26px; font-size: 13px; color: var(--ink-2);
+    border-left: 2px solid transparent; border-bottom: none;
+  }
+  aside.rail a:hover { background: var(--ground-2); color: var(--ink); border-left-color: var(--accent); }
+  aside.rail a .vd {
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-right: 8px; color: var(--ink-4);
+  }
+
+  /* ── Main ──────────────────────────────────────────────── */
+  main {
+    margin-left: var(--rail); margin-top: var(--bar);
+    padding: 52px 64px 110px;
+    max-width: calc(var(--rail) + 860px + 128px);
+    display: flex; flex-direction: column; gap: 0;
+  }
+  section { margin-bottom: 66px; scroll-margin-top: calc(var(--bar) + 18px); }
+  section:last-of-type { margin-bottom: 0; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent);
+    display: block; margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 34px; font-weight: 700; letter-spacing: -0.024em; line-height: 1.16;
+    color: var(--ink); text-wrap: balance; max-width: 22ch; margin-bottom: 14px;
+  }
+  h2 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.021em; color: var(--ink);
+    margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--rule-2);
+    text-wrap: balance;
+  }
+  h3 {
+    font-size: 16.5px; font-weight: 650; letter-spacing: -0.012em; color: var(--ink);
+    margin: 26px 0 9px; text-wrap: balance;
+  }
+  h4 {
+    font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--ink-4);
+    text-transform: uppercase; letter-spacing: 0.13em; margin: 22px 0 8px;
+  }
+
+  p { margin-bottom: 13px; max-width: var(--measure); }
+  p:last-child { margin-bottom: 0; }
+  .lead { font-size: 17.5px; line-height: 1.62; color: var(--ink); max-width: 62ch; }
+  strong { color: var(--ink); font-weight: 650; }
+  em { font-style: italic; color: var(--ink); }
+
+  ul, ol { margin: 10px 0 16px 20px; max-width: var(--measure); }
+  li { margin-bottom: 7px; }
+  li::marker { color: var(--ink-4); }
+
+  code {
+    font-family: var(--mono); font-size: 0.87em; background: var(--ground-2);
+    padding: 2px 5px; border-radius: 3px; color: var(--ink);
+  }
+
+  /* ── Thesis (serif, the one flourish) ──────────────────── */
+  .thesis {
+    font-family: var(--serif); font-size: 20px; line-height: 1.5;
+    color: var(--ink); max-width: 56ch;
+    border-left: 3px solid var(--accent); padding: 4px 0 4px 22px;
+    margin: 24px 0;
+  }
+  .thesis p { max-width: none; margin-bottom: 10px; }
+
+  blockquote {
+    font-family: var(--serif); font-size: 16px; line-height: 1.55; font-style: italic;
+    color: var(--ink-2); border-left: 2px solid var(--rule-2);
+    padding-left: 18px; margin: 16px 0; max-width: 62ch;
+  }
+  blockquote cite {
+    display: block; font-family: var(--mono); font-style: normal;
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-4); margin-top: 8px;
+  }
+
+  /* ── SCQA frame ────────────────────────────────────────── */
+  .scqa {
+    display: grid; grid-template-columns: 120px 1fr; gap: 0;
+    border: 1px solid var(--rule); border-radius: 6px; overflow: hidden;
+    background: var(--card); margin: 20px 0; max-width: 78ch;
+  }
+  .scqa dt {
+    font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-4);
+    padding: 15px 18px; background: var(--ground-2);
+    border-bottom: 1px solid var(--rule);
+  }
+  .scqa dd {
+    padding: 15px 20px; border-bottom: 1px solid var(--rule);
+    font-size: 14.5px; color: var(--ink-2);
+  }
+  .scqa dt:last-of-type, .scqa dd:last-of-type { border-bottom: none; }
+  .scqa dd.answer { color: var(--ink); font-weight: 550; background: var(--accent-wash); }
+  .scqa dt.answer { background: var(--accent-wash); color: var(--accent); }
+
+  /* ── Findings ──────────────────────────────────────────── */
+  .finding {
+    border: 1px solid var(--rule); border-radius: 7px; background: var(--card);
+    padding: 22px 26px 24px; margin-bottom: 18px;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .finding > h3 { margin-top: 0; }
+  .finding-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .chip {
+    font-family: var(--mono); font-size: 9.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    padding: 4px 9px; border-radius: 3px; white-space: nowrap;
+  }
+  .chip.ok   { color: var(--ok);   background: var(--ok-wash);   border: 1px solid color-mix(in srgb, var(--ok) 28%, transparent); }
+  .chip.flat { color: var(--flat); background: var(--flat-wash); border: 1px solid var(--rule-2); }
+  .chip.own  { color: var(--accent); background: var(--accent-wash); border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); }
+  .chip.gap  { color: var(--gap);  background: var(--gap-wash);  border: 1px solid color-mix(in srgb, var(--gap) 30%, transparent); }
+
+  .sowhat {
+    margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--rule-2);
+    font-size: 14.5px; color: var(--ink);
+  }
+  .sowhat b {
+    font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-4); display: block; margin-bottom: 5px;
+  }
+
+  /* ── Tables ────────────────────────────────────────────── */
+  .tw { overflow-x: auto; margin: 16px 0; border: 1px solid var(--rule); border-radius: 6px; background: var(--card); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 520px; }
+  th {
+    text-align: left; padding: 11px 15px; background: var(--ground-2);
+    font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3);
+    border-bottom: 1px solid var(--rule-2); white-space: nowrap;
+  }
+  td { padding: 11px 15px; border-bottom: 1px solid var(--rule); color: var(--ink-2); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td strong { color: var(--ink); }
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink); }
+
+  /* ── Recommendation (a real sequence, so numbered) ─────── */
+  ol.steps { list-style: none; margin: 18px 0 0; padding: 0; counter-reset: s; max-width: var(--measure); }
+  ol.steps li {
+    counter-increment: s; position: relative; padding-left: 44px; margin-bottom: 20px;
+  }
+  ol.steps li::before {
+    content: counter(s, decimal-leading-zero);
+    position: absolute; left: 0; top: 1px;
+    font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    color: var(--accent); background: var(--accent-wash);
+    padding: 3px 7px; border-radius: 3px;
+  }
+  ol.steps li b { display: block; color: var(--ink); font-weight: 650; font-size: 15.5px; margin-bottom: 3px; }
+
+  .note {
+    background: var(--gap-wash); border: 1px solid color-mix(in srgb, var(--gap) 26%, transparent);
+    border-radius: 6px; padding: 16px 20px; margin: 18px 0; max-width: 74ch; font-size: 14.5px;
+  }
+  .note h4 { margin-top: 0; color: var(--gap); }
+
+  .prov {
+    background: var(--ground-2); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 18px 22px; font-size: 13.5px; color: var(--ink-3); max-width: 78ch;
+  }
+  .prov dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; }
+  .prov dt {
+    font-family: var(--mono); font-size: 9.5px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--ink-4); padding-top: 3px;
+  }
+  .prov dd { color: var(--ink-2); }
+
+  footer.end {
+    margin-top: 74px; padding-top: 26px; border-top: 1px solid var(--rule);
+    font-size: 12.5px; color: var(--ink-4); max-width: var(--measure);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  @media (max-width: 940px) {
+    aside.rail { display: none; }
+    main { margin-left: 0; padding: 34px 22px 70px; }
+    header.bar .s { display: none; }
+    .scqa { grid-template-columns: 1fr; }
+    .scqa dt { padding-bottom: 0; background: var(--card); border-bottom: none; }
+    .scqa dt.answer { background: var(--accent-wash); }
+    h1 { font-size: 27px; }
+  }
+
+  @media print {
+    aside.rail, header.bar { display: none; }
+    main { margin: 0; padding: 0; max-width: 100%; }
+    section { page-break-inside: avoid; margin-bottom: 30px; }
+    .finding { break-inside: avoid; }
+    body { font-size: 10.5pt; background: #fff; }
+  }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <span class="mark">Aisles</span>
+  <span class="t">Competitive Position Assessment</span>
+  <span class="s">Executive advisory &middot; VP Product</span>
+  <span class="m">v3.0 &middot; 2026-07-30</span>
+</header>
+
+<aside class="rail">
+  <h4>Open</h4>
+  <a href="#bottom-line">Bottom line</a>
+  <a href="#frame">Why this memo exists</a>
+
+  <h4>Findings</h4>
+  <a href="#f-market"><span class="vd">Validated</span>The market pays</a>
+  <a href="#f-inference"><span class="vd">Commoditized</span>Intent inference</a>
+  <a href="#f-structure"><span class="vd">Defensible</span>Composition latitude</a>
+  <a href="#f-calibration"><span class="vd">Measured</span>Rules don't transfer</a>
+  <a href="#f-proof"><span class="vd">Missing</span>No proof of revenue</a>
+
+  <h4>Decision</h4>
+  <a href="#recommendation">What I'd do next</a>
+  <a href="#falsify">What would change this</a>
+
+  <h4>Reference</h4>
+  <a href="#inventory">What actually exists</a>
+  <a href="#compare">Side-by-side</a>
+  <a href="#figures">Published figures</a>
+  <a href="#provenance">Provenance &amp; method</a>
+</aside>
+
+<main>
+
+  <section id="bottom-line">
+    <span class="eyebrow">Bottom line</span>
+    <h1>Aisles has legs. Not the legs its own documentation claims.</h1>
+
+    <p class="lead">Aisles is an R&amp;D prototype: a storefront that reads the intent behind a visit and composes the page to match. A Swiss company called Behamics has been selling nearly the same thesis to enterprise retail since 2019 &mdash; and independently landed on the same shopper-intent taxonomy I did. This memo is about which parts of Aisles are worth pulling into the platform, and what evidence would justify that.</p>
+
+    <div class="thesis">
+      <p>The intent-inference engine is table stakes. Two things here are not: a principled model of <em>where</em> an AI may compose a page, and hard evidence that persona rules invert across retail categories. Neither has ever been measured against revenue.</p>
+    </div>
+
+    <p>Four things follow, in order of how much they should change what happens next:</p>
+    <ul>
+      <li><strong>The category is real and monetized.</strong> The risk here was never "will anyone want it." Somebody has been paid for this thesis for seven years.</li>
+      <li><strong>The part I invested most in is the part the market already solved.</strong> Leading with inference sophistication loses to a live demo. Leading with the two findings below does not.</li>
+      <li><strong>Real traffic proved the rules do not transfer between categories.</strong> Scored against a mattress retailer's session data, three of ten testable rules pointed the wrong way. That produced per-brand rule gating &mdash; and a warning that applies to anyone building persona models.</li>
+      <li><strong>Nobody has measured whether any of it makes money.</strong> That is the one gap with no apparatus at all, and it is the evidence any investment decision would rest on.</li>
+    </ul>
+  </section>
+
+  <section id="frame">
+    <span class="eyebrow">Situation &middot; Complication &middot; Question</span>
+    <h2>Why this memo exists</h2>
+
+    <dl class="scqa">
+      <dt>Situation</dt>
+      <dd>Aisles is a working R&amp;D prototype across three repositories. A storefront reads the signals behind a visit, infers one of four shopper personas from weighted rules, and has a model compose the page &mdash; blocks, product order, copy &mdash; inside a typed schema. The most developed instance composes eight canonical retail surfaces from a 36-block vocabulary and runs three distinct brands off one codebase. A separate BigCommerce embedded app gives a merchandiser the controls. Its own charter calls it an artifact for commerce.com teams to react to and pull capabilities from, not a product being sold.</dd>
+
+      <dt>Complication</dt>
+      <dd>Behamics (St.&nbsp;Gallen and New York, founded 2019, roughly 30 staff) sells behavioral-intent optimization to enterprise retail today. Their Signals product classifies live sessions using a vocabulary that maps almost one-to-one onto my persona set. Two teams converged on the same taxonomy without contact.</dd>
+
+      <dt>Question</dt>
+      <dd>Which capabilities here are worth pulling into the platform, and what evidence would justify the investment?</dd>
+
+      <dt class="answer">Answer</dt>
+      <dd class="answer">Take the composition-latitude model, not the inference engine. Nothing should be committed to until the engine has been calibrated against real production traffic, which has never happened.</dd>
+    </dl>
+  </section>
+
+  <section id="findings">
+    <span class="eyebrow">Supporting findings</span>
+    <h2>Five findings, in the order they matter</h2>
+    <p>These are a set, not a sequence. Each carries its own verdict.</p>
+
+    <!-- ── 1 ── -->
+    <div class="finding" id="f-market">
+      <div class="finding-head">
+        <span class="chip ok">Validated</span>
+        <h3>Somebody already pays for this</h3>
+      </div>
+      <p>Behamics has been selling behavioral-intent optimization to enterprise retail for seven years. Two offices, roughly 30 staff, named enterprise references across retail, beauty, fashion and travel, and pricing tied to performance rather than a flat fee.</p>
+      <p>The pricing model is the strongest signal in that list. A vendor only prices on outcome when it can measure the outcome — which becomes the fourth finding below.</p>
+      <div class="sowhat"><b>What it means</b>The demand-side risk in Aisles is low. The category is real, funded by real budgets, and has been for years.</div>
+    </div>
+
+    <!-- ── 2 ── -->
+    <div class="finding" id="f-inference">
+      <div class="finding-head">
+        <span class="chip flat">Commoditized</span>
+        <h3>The inference engine is table stakes</h3>
+      </div>
+      <p>Behamics describes what their Signals product detects in a live session:</p>
+      <blockquote>
+        Signals interprets contextual signals to understand whether users are exploring, comparing, deciding, hesitating, price-sensitive, or likely to need support next.
+        <cite>behamics.com/signals, retrieved 2026-07-30</cite>
+      </blockquote>
+      <p>That is the Aisles model with different labels:</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Behamics decision state</th><th>Aisles equivalent</th></tr></thead>
+          <tbody>
+            <tr><td>Exploring</td><td><strong>Gatherer</strong> — browsing to discover</td></tr>
+            <tr><td>Comparing</td><td><strong>Researcher</strong> — evaluating specs</td></tr>
+            <tr><td>Deciding</td><td><strong>Hunter</strong> — buying with intent</td></tr>
+            <tr><td>Hesitating, price-sensitive</td><td>Behavioral modifiers — <code>urgency</code>, <code>priceSensitivity</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Two teams reached the same taxonomy independently. That is strong evidence the taxonomy is <em>correct</em>, and equally strong evidence it is not a moat. The 31-rule inference engine is the part of Aisles I put the most work into and the part the market solved years ago.</p>
+      <div class="sowhat"><b>What it means</b>Stop leading with rule counts and inference sophistication. Anyone who has seen a Behamics demo will read it as parity, not differentiation.</div>
+    </div>
+
+    <!-- ── 3 ── -->
+    <div class="finding" id="f-structure">
+      <div class="finding-head">
+        <span class="chip own">Defensible</span>
+        <h3>Composition latitude &mdash; knowing where the AI may not compose</h3>
+      </div>
+      <p>Behamics installs as one line of JavaScript and runs isolated from the site. Their automations <em>do</em> change composition &mdash; which image appears in a listing, carousel order, cart sort, which products get suppressed &mdash; but always inside a template the merchant already owns. They change what fills the slots.</p>
+      <p>Aisles decides what the slots are. Two constraints make that safe rather than reckless, and the second is the one worth taking.</p>
+
+      <h4>Constraint one &mdash; a closed vocabulary</h4>
+      <p>Every layout the model can emit is provably a member of a typed set defined in code: <code>&forall;I, &forall;P &middot; f(I,P) &rarr; S &isin; V</code>. The model chooses blocks, orders products, and writes copy. It cannot invent a block that isn't defined. That is also why the operator dashboard can explain any page it produced.</p>
+
+      <h4>Constraint two &mdash; latitude graduated by surface</h4>
+      <p>Not every surface should be composed to the same degree. Latitude is a function of how variable the surface is and how close it sits to conversion:</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Latitude</th><th>Surfaces</th><th>What the AI may do</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Wide</strong></td><td>Home, empty-state rescue</td><td>Compose the entire view; only brand chrome is fixed</td></tr>
+            <tr><td><strong>Medium</strong></td><td>Category listing, account</td><td>Compose inside a known scaffold of zones</td></tr>
+            <tr><td><strong>Narrow</strong></td><td>Product detail</td><td>Insert blocks at named anchors; gallery, variant selector and add-to-cart stay fixed and ordered</td></tr>
+            <tr><td><strong>Fixed</strong></td><td>Cart, checkout</td><td>Personalize copy and pick upsells; may not reorder steps</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>This is the part with no Behamics equivalent, and the reason is structural: they operate entirely in the narrow and fixed bands, so they never had to answer the question. Anyone who builds generative commerce UI eventually hits "isn't this dangerous near checkout." Aisles has a defensible answer written down.</p>
+
+      <p><strong>Build status, stated honestly:</strong> the taxonomy is draft v1. Thirty-six blocks are implemented against a stated target of 80&ndash;100, with six surface-specific schemas. Roughly a third built. The three brand demos referenced in the repository return 404 &mdash; the deploys are gone.</p>
+      <p><strong>The cost caveat:</strong> Behamics is a pixel with no engineering involvement. Aisles is a replatform. That difference, not the AI, is what makes this hard to adopt wholesale &mdash; which is why the latitude model, portable on its own, is the part worth extracting.</p>
+      <div class="sowhat"><b>What it means</b>The transferable asset is the latitude model, not the codebase. It is a design contract that could govern generative UI anywhere in the platform, independent of whether Aisles itself ever ships.</div>
+    </div>
+
+    <!-- ── 4 ── -->
+    <div class="finding" id="f-calibration">
+      <div class="finding-head">
+        <span class="chip ok">Measured</span>
+        <h3>It met real traffic once, and real traffic said the rules were wrong</h3>
+      </div>
+      <p>The engine <em>has</em> been scored against production data, exactly once. In May 2026 a seven-week anonymized BigQuery extract from Sleep Country &mdash; a Canadian mattress retailer, 29,870 events across 11,629 sessions &mdash; became the first external ground truth the persona engine had ever faced. Ten of the twenty-eight rules were testable against it. The rest consume signals the privacy filter stripped.</p>
+      <p><strong>Three of those ten pointed in the wrong direction.</strong> Not weak &mdash; inverted, on a single hop from off-price apparel to sleep retail:</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Rule</th><th>Designed to indicate</th><th>What real sessions showed</th></tr></thead>
+          <tbody>
+            <tr><td><code>referrer-social</code></td><td>Gatherer — social is inspiration browsing</td><td class="num">99.6% hunter</td></tr>
+            <tr><td><code>in-session-search</code> (hunter half)</td><td>Hunter — search means refining a known purchase</td><td class="num">1.4% hunter, 95.0% researcher</td></tr>
+            <tr><td><code>single-category-focus</code></td><td>Hunter — staying put means knowing what you want</td><td class="num">0% hunter, 81% researcher</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Each inverts for a legible reason. Paid social in sleep retail is ad-click purchase intent, not browsing. Someone searching for a mattress is comparison-shopping a high-stakes purchase, not narrowing a known one. Staying inside <code>/mattresses/</code> is deliberation, not decisiveness.</p>
+      <p>That result produced the second reusable idea in this project, alongside composition latitude: <strong>per-brand rule gating</strong>. The rule set is no longer global &mdash; inference branches its adjustment vectors on brand, which is the structural admission that retail category changes what a signal means. Cold start changed too: a shopper with zero signals now gets a referrer-keyed prior instead of an even split, and for paid-social traffic that prior is near-certain. Given a median session length of one event, most traffic never gets past cold start.</p>
+      <p><strong>The caveat, carried rather than smoothed over.</strong> The fingerprinter that labeled those sessions shares low-level signals with the rules it scored. The precision numbers are therefore internal-consistency checks, not external validation. The three overrides survive that objection because they correct rules pointing the wrong way, which is a directional claim; the absolute percentages do not.</p>
+      <p>The methodological residue is the part worth keeping: <em>calibrate per category before assuming a persona model transfers.</em> Three of ten rules inverted across one category hop.</p>
+      <p><strong>One distinction, so the repository does not appear to contradict this.</strong> There are two calibration mechanisms and only one has ever run. The Sleep Country work above was a one-off offline scoring pass, and it lives on the unmerged branch. Separately, the main line carries a <em>continuous</em> learning pipeline &mdash; a session-outcomes table, a beacon that finalizes each session into it, and a script that fits empirical likelihood ratios. That one has never produced anything: its output file is committed reading <code>totalSessions: 0</code>, and the reason is mechanical rather than neglectful &mdash; the table it writes to was never created in the live database, so every write silently fails. Anyone who opens the repo today sees the zero and not the Sleep Country result.</p>
+      <p>The mechanism that makes this provable is a <strong>holdout</strong>: a slice of shoppers you deliberately do not give the new experience to. They see the plain, static page; everyone else sees the generated one. Compare the two groups &mdash; same store, same week, same traffic mix &mdash; and the difference is what the product actually did. Without it, a rise in conversion could just as easily be the season, a promotion, or a change in traffic.</p>
+      <p>Behamics publishes uplift figures with this attached:</p>
+      <blockquote>
+        75% of Controlled Tests Showed a Positive Impact. These KPIs are based on valid completed Signals tests with randomized control or holdout groups. Median relative uplift versus control.
+        <cite>behamics.com/signals, retrieved 2026-07-30</cite>
+      </blockquote>
+      <p>That measurement discipline is what makes performance-based pricing possible. It is the most credible thing on their site.</p>
+      <p>Aisles has an operator dashboard that shows every signal received, every inference rule that fired, and why the model chose the layout it chose. That answers <em>why did the store do that</em>. It does not answer <em>did this make money</em>. A merchandiser asks the second question first.</p>
+      <div class="sowhat"><b>What it means</b>This is the most credible thing in the project and it is currently invisible. The work sits on an unmerged branch; the main line has none of it. Lead with it &mdash; "we tested our model against a real retailer's traffic and it told us three of our assumptions were backwards" is a stronger opening than any architecture diagram.</div>
+    </div>
+
+    <!-- ── 5 ── -->
+    <div class="finding" id="f-proof">
+      <div class="finding-head">
+        <span class="chip gap">Missing</span>
+        <h3>Nobody has measured whether any of it makes money</h3>
+      </div>
+      <p>Calibration answers whether the persona guess is right. It does not answer whether acting on that guess produces revenue, and those are different questions with different apparatus.</p>
+      <p>Behamics publishes uplift against randomized control and holdout groups &mdash; that is what makes performance-based pricing possible for them. Aisles has an operator dashboard that explains why the store behaved as it did. That answers <em>why</em>, never <em>was it worth it</em>. A merchandiser asks the second question first.</p>
+      <p>The architecture decision record specifies a holdout cohort and an evaluation harness. Both are unchecked, and I searched all three repositories &mdash; storefront, multi-brand instance, admin control plane. No holdout, no control group, no experiment logic anywhere.</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Question</th><th>Apparatus</th><th>Evidence to date</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Is the persona guess right?</strong></td><td>Built</td><td>One external test. Three of ten rules corrected.</td></tr>
+            <tr><td><strong>Does the generated layout make money?</strong></td><td>Not built</td><td class="num">None.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>A second, narrower gap: the general-purpose extraction of this engine, <code>@bcss/persona-core</code>, was lifted from Aisles 0.3.0 <em>before</em> the calibration and carries no per-brand gating and no referrer priors. It still contains all three wrong-direction rules. Pointed at a non-apparel vertical, that is a live defect rather than a theoretical one.</p>
+      <div class="sowhat"><b>What it means</b>The holdout is the one piece of evidence that would justify commerce.com productizing any of this, and it is a modest build. Separately, the uncalibrated extraction should be corrected or labeled before anyone adopts it.</div>
+    </div>
+  </section>
+
+  <section id="recommendation">
+    <span class="eyebrow">Decision</span>
+    <h2>What I'd do next</h2>
+    <p>These are ordered, and they answer an investment question rather than a sales question. Each depends on the one above it.</p>
+
+    <ol class="steps">
+      <li>
+        <b>Land the calibration work on the main line.</b>
+        The Sleep Country calibration, the per-brand rule gating, the referrer priors, and twelve replayable real shopper journeys all sit on an unmerged branch. The main line has none of it. This is the most credible evidence the project has, and today it is invisible to anyone who looks at the repository. Merging it is the cheapest thing on this list.
+      </li>
+      <li>
+        <b>Build the holdout.</b>
+        A fixed fraction of sessions get the static baseline layout instead of the generated one, decided once on first visit and remembered for the rest of the session. Log which group each shopper landed in, then compare conversion, average order value, and revenue per session. This is the evidence that would justify commerce.com productizing any of it.
+      </li>
+      <li>
+        <b>Extract the latitude model regardless.</b>
+        The composition-latitude contract is portable and does not depend on Aisles shipping. Any generative interface the platform builds will need a rule for where a model may compose and where it must not. That document is worth promoting into platform guidance on its own merits, independent of the two steps above.
+      </li>
+      <li>
+        <b>Revive one demo, and correct the uncalibrated extraction.</b>
+        All four brand deploys return 404 on both Vercel and Cloudflare. One engine rendering four visibly different brands, with a real anonymized shopper journey replaying live, is the most persuasive artifact in this whole effort and nobody can currently see it. Separately: <code>@bcss/persona-core</code> was extracted before the calibration and still carries all three wrong-direction rules. Fix or label it before anyone points it at a non-apparel vertical.
+      </li>
+      <li>
+        <b>Set the outcome bar where the evidence puts it.</b>
+        Behamics' published numbers put this category at single-digit medians with high teens as a stated ceiling. That is both the floor Aisles must clear to be interesting and the most it should promise. Promising more invites a comparison the prototype cannot survive.
+      </li>
+    </ol>
+  </section>
+
+  <section id="falsify">
+    <span class="eyebrow">Limits of this read</span>
+    <h2>What would change this assessment</h2>
+
+    <div class="note">
+      <h4>Open check — not run</h4>
+      <p>The composition-latitude differentiator rests on Nosto and Dynamic Yield still being template-bound in 2026. I did not re-verify that. Behamics cannot falsify it &mdash; as a JavaScript overlay it has no access to the render pipeline &mdash; but either of those two shipping graduated generative composition would collapse the third finding. That check is worth running before anyone spends real money on this direction.</p>
+    </div>
+
+    <p>Two smaller caveats, recorded so nobody inherits them as fact:</p>
+    <ul>
+      <li>Behamics claims "patented AI" and a "patented invention" on their site. I could not surface a corresponding filing in any patent register. It is their claim, not a verified one.</li>
+      <li>Their published uplift figures are self-reported. The methodology footnote is unusually specific for marketing copy, which is why I weight it — but it is still their measurement of their own product.</li>
+    </ul>
+  </section>
+
+  <section id="inventory">
+    <span class="eyebrow">Reference</span>
+    <h2>What actually exists</h2>
+    <p>"Aisles" names three repositories at very different stages. The spread matters, because the weakest one is the one most easily mistaken for the whole.</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>Repository</th><th>What it is</th><th>Scale</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>bealls-aisles</strong><br><span style="color:var(--ink-4);font-size:12.5px;">most advanced</span></td>
+            <td>Full storefront composition across eight retail surfaces, three brands off one codebase, graduated composition latitude.</td>
+            <td class="num">36 blocks &middot; 6 surface schemas &middot; 28 rules</td>
+          </tr>
+          <tr>
+            <td><strong>aisles-admin</strong></td>
+            <td>BigCommerce embedded app. Seven working tabs: rules, brand voice, content authoring, inspector, persona fit, preview, analytics. Writes merchandising rules to Postgres the storefront reads at generation time.</td>
+            <td class="num">~2,100 lines</td>
+          </tr>
+          <tr>
+            <td><strong>aisles</strong><br><span style="color:var(--ink-4);font-size:12.5px;">earliest</span></td>
+            <td>Category page only. The original proof of the invariant.</td>
+            <td class="num">4 blocks &middot; 31 rules</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Three brand demos were deployed. All three now return 404.</p>
+  </section>
+
+  <section id="compare">
+    <span class="eyebrow">Reference</span>
+    <h2>Side-by-side</h2>
+    <p>Where the two approaches genuinely diverge, independent of positioning.</p>
+
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Dimension</th><th>Behamics</th><th>Aisles</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Deployment</strong></td>
+            <td>One line of JavaScript. Platform-agnostic, runs isolated from the site.</td>
+            <td>Replaces the storefront. SvelteKit against BigCommerce Storefront GraphQL.</td>
+          </tr>
+          <tr>
+            <td><strong>Who signs</strong></td>
+            <td>CMO or head of e-commerce. No engineering migration.</td>
+            <td>CTO. A replatform decision.</td>
+          </tr>
+          <tr>
+            <td><strong>Unit of change</strong></td>
+            <td>Selection and ordering inside a fixed template — listing image choice, carousel order, cart sort, product suppression — plus overlay interventions.</td>
+            <td>Page structure — which blocks exist, their order, copy, and CTA pattern — across eight surfaces.</td>
+          </tr>
+          <tr>
+            <td><strong>Where generation is allowed</strong></td>
+            <td>Implicitly narrow everywhere. Never composes, so the question never arises.</td>
+            <td>Explicit and graduated: wide on home, medium on listings, narrow on product detail, near-fixed at checkout.</td>
+          </tr>
+          <tr>
+            <td><strong>AI approach</strong></td>
+            <td>Predictive and causal machine learning, self-training on session data.</td>
+            <td>Language-model generation constrained by a typed component vocabulary.</td>
+          </tr>
+          <tr>
+            <td><strong>Operator surface</strong></td>
+            <td>Incrementality — randomized control and holdout groups.</td>
+            <td>Explainability — which rules fired, and why the layout was chosen.</td>
+          </tr>
+          <tr>
+            <td><strong>Commercial model</strong></td>
+            <td>Performance-based pricing, enabled by the holdout measurement.</td>
+            <td>None. Chartered as an internal capability demo, not a product.</td>
+          </tr>
+          <tr>
+            <td><strong>Scope</strong></td>
+            <td>Six products spanning nudging, SEO, diagnostics, merchandising, audiences.</td>
+            <td>One thing: the category page.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="figures">
+    <span class="eyebrow">Reference</span>
+    <h2>Published figures</h2>
+    <p>Behamics' own claimed uplift, read directly from their page markup rather than the animated counters. These set the yardstick Aisles would be measured against.</p>
+
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Product</th><th>Claimed uplift</th><th>Stated basis</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Nudge</strong></td>
+            <td class="num">+12% revenue &middot; +10% conversion &middot; +5% AOV</td>
+            <td>None stated</td>
+          </tr>
+          <tr>
+            <td><strong>Signals</strong></td>
+            <td class="num">+5% incremental revenue &middot; +4% conversion</td>
+            <td>Median versus randomized control or holdout</td>
+          </tr>
+          <tr>
+            <td><strong>Signals &mdash; Intent</strong></td>
+            <td class="num">+10% conversion &middot; +18% engagement &middot; &minus;15% drop-offs</td>
+            <td>Framed as "results up to" &mdash; a ceiling, not a median</td>
+          </tr>
+          <tr>
+            <td><strong>Diagnostic</strong></td>
+            <td class="num">+4% revenue &middot; +6% conversion &middot; &minus;10% bounce</td>
+            <td>None stated</td>
+          </tr>
+          <tr>
+            <td><strong>Merchandise</strong></td>
+            <td class="num">+4% revenue &middot; +6% conversion &middot; &minus;10% bounce</td>
+            <td>None stated &mdash; identical figures to Diagnostic</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Only the Signals row carries a methodology. Diagnostic and Merchandise publish the same three numbers under the same three labels, which reads as platform-level figures presented per product rather than a measurement of each product. Take the range rather than any single row: <strong>single-digit medians, high teens as a stated ceiling</strong>. Seven years and roughly 30 people produced that. It cuts two ways at once &mdash; the category monetizes, and it has not yet produced a runaway winner.</p>
+  </section>
+
+  <section id="provenance">
+    <span class="eyebrow">Reference</span>
+    <h2>Provenance &amp; method</h2>
+
+    <div class="prov">
+      <dl>
+        <dt>Assessed</dt>
+        <dd>2026-07-30</dd>
+
+        <dt>Primary source</dt>
+        <dd>behamics.com — all six product pages, platform and technology pages, and company page, fetched and read in full during the assessment. Not search-result summaries.</dd>
+
+        <dt>Figures</dt>
+        <dd>Read from the counter target values in the page markup, because the on-screen counters animate from zero and a screenshot would have captured the wrong number.</dd>
+
+        <dt>Company facts</dt>
+        <dd>Public company profiles (Tracxn, Crunchbase). Founded 2019; approximately 30 staff as of May 2026 &mdash; a single-source figure, not independently confirmed. Funding data across those profiles contradicted itself, so no funding claim appears in this memo.</dd>
+
+        <dt>Not verified</dt>
+        <dd>The "patented AI" claim — no corresponding register filing surfaced. Whether Nosto and Dynamic Yield remain template-bound in 2026.</dd>
+
+        <dt>Aisles claims</dt>
+        <dd>Checked against the codebases, not the documentation. The absence of holdout, control-group, or experiment logic was confirmed by search across all three repositories. Block counts, rule counts, and surface schemas were counted from source. Demo URLs were requested; all three returned 404.</dd>
+
+        <dt>Session data</dt>
+        <dd>The Sleep Country calibration was done on a different machine and is not in this machine's session history &mdash; an initial search here found nothing, which was a false negative. The work was located on branch <code>worktree-spike-cloudflare-portkey</code>, fetched from origin, and read directly: the handoff document, ADR-011, the rule-transferability tables, and the referrer prior tables. Raw event data is gitignored and machine-local; every derived artifact is committed, so the conclusions transfer but re-running the analysis requires a fresh BigQuery export.</dd>
+
+        <dt>Calibration caveat</dt>
+        <dd>Carried from ADR-011 rather than smoothed over: the fingerprinter that labeled the 11,629 sessions shares low-level signals with the rules it scored, so the precision figures are internal-consistency checks, not external validation. The directional finding &mdash; three rules pointing the wrong way &mdash; survives that objection. The absolute percentages do not.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <footer class="end">
+    <p><strong>Structure of this memo.</strong> Framed with SCQA, ordered with Minto — the answer sits at the top and everything below supports it, so the memo can be stopped after the first screen without losing the conclusion. Diátaxis separates the two jobs: the argument explains, the reference section holds the evidence, and neither is interleaved with the other.</p>
+    <p>Nino Chavez &middot; v3.0 &middot; 2026-07-30 &middot; Aisles is a private prototype; all rights reserved by the author.</p>
+  </footer>
+
+</main>
+
+</body>
+</html>
