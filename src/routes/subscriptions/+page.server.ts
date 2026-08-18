@@ -8,7 +8,7 @@ import { buildKibbleMerchantCapabilityCoverage } from '$lib/brand/reference/kibb
 export const load: PageServerLoad = async ({ url, parent }) => {
 	const routePolicy = getTrustedKibbleRoutePolicy(getBrand().id, url.pathname);
 	if (!routePolicy || routePolicy.surface !== 'account') throw error(404, 'Not found');
-	const { kibbleCommerceServices } = await parent();
+	const { kibbleCommerceServices, kibbleCustomerSessionState } = await parent();
 	return {
 		kibbleSubscriptions: {
 			subtype: 'portal' as const,
@@ -20,6 +20,7 @@ export const load: PageServerLoad = async ({ url, parent }) => {
 			policyVersion: routePolicy.policy.policyVersion,
 			capabilityCoverage: buildKibbleMerchantCapabilityCoverage(),
 			services: kibbleCommerceServices ?? undefined,
+			customerSessionState: kibbleCustomerSessionState,
 		},
 	};
 };

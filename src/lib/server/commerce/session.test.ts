@@ -149,8 +149,16 @@ describe('server-owned commerce session and mutation coordination', () => {
 				state.customerSession = {
 					provider: 'bigcommerce',
 					customerEntityId: 42,
+					customerEmail: 'shopper@example.test',
 					customerAccessToken: 'server-only-token',
 					expiresAt: '2026-08-15T15:00:00.000Z',
+				};
+				state.subscriptionPortalSession = {
+					provider: 'bc-subscriptions',
+					bigCommerceCustomerEntityId: 42,
+					providerCustomerId: 'provider-customer-one',
+					sessionToken: 'server-only-portal-token',
+					expiresAt: '2026-08-16T15:00:00.000Z',
 				};
 				return { state, value: true };
 			},
@@ -160,6 +168,7 @@ describe('server-owned commerce session and mutation coordination', () => {
 		expect(activeCustomerSession(state, Date.parse('2026-08-15T15:00:00.000Z'))).toBeNull();
 		clearExpiredCustomerSession(state, Date.parse('2026-08-15T15:00:00.000Z'));
 		expect(state.customerSession).toBeNull();
+		expect(state.subscriptionPortalSession).toBeNull();
 	});
 
 	it('rejects a reused key with a different operation fingerprint', async () => {

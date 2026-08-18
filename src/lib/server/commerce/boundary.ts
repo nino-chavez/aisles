@@ -22,6 +22,11 @@ export function getCommerceServiceBoundary(): CommerceServiceBoundary {
 			? 'private_token_required'
 			: 'bigcommerce_login_ready';
 	const subscriptionPlansReady = enabled && env.KIBBLE_SUBSCRIPTION_MODE === 'sandbox';
+	const subscriptionPortal = !subscriptionPlansReady
+		? 'provider_not_connected'
+		: !env.SSO_HANDOFF_SECRET
+			? 'handoff_secret_required'
+			: 'portal_session_required';
 	return {
 		mode: enabled ? 'sandbox' : 'off',
 		cart: enabled ? 'bigcommerce_sandbox' : 'not_connected',
@@ -40,7 +45,7 @@ export function getCommerceServiceBoundary(): CommerceServiceBoundary {
 			: account === 'bigcommerce_login_ready'
 				? 'authenticated_intent_ready'
 				: 'plan_lookup_ready',
-		subscriptionPortal: 'portal_session_required',
+		subscriptionPortal,
 	};
 }
 

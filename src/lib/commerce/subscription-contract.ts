@@ -9,9 +9,11 @@ export interface SubscriptionPlan {
 	interval: SubscriptionInterval;
 	intervalCount: number;
 	price: { value: number; currencyCode: string };
-	salesMode: 'subscription_only' | 'subscribe_and_one_time';
+	salesMode: 'subscribe_only' | 'subscribe_and_one_time' | 'one_time_only';
 	trialDays: number;
 	commitmentCycles: number;
+	introDiscountPercent: number;
+	introDiscountCycles: number;
 }
 
 export interface SubscriptionPlansPayload {

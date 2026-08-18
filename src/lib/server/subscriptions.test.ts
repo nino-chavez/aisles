@@ -11,7 +11,8 @@ import { createSubscriptionProvider, SubscriptionProviderError } from './subscri
 
 const rawPlan = {
 	id: 'plan-dog-food-1mo', bc_product_id: 3023, name: 'Dog food monthly', interval: 'month', interval_count: 1,
-	amount_cents: 2974, currency: 'USD', sales_mode: 'subscribe_and_one_time', trial_days: 0, commitment_cycles: 0,
+	amount_cents: 2974, currency: 'USD', sales_mode: 'subscribe_and_one_time', trial_days: 0, minimum_term_cycles: 3,
+	cycle_discount_pct: 50, cycle_discount_scope: 'first_cycle_only', cycle_discount_count: null,
 };
 
 describe('bc-subscriptions server adapter', () => {
@@ -21,11 +22,19 @@ describe('bc-subscriptions server adapter', () => {
 		const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ plans: [rawPlan] }), { status: 200 }));
 		await expect(createSubscriptionProvider().listPlans(3023)).resolves.toEqual([{
 			id: rawPlan.id, productEntityId: 3023, name: rawPlan.name, interval: 'month', intervalCount: 1,
-			price: { value: 29.74, currencyCode: 'USD' }, salesMode: 'subscribe_and_one_time', trialDays: 0, commitmentCycles: 0,
+			price: { value: 29.74, currencyCode: 'USD' }, salesMode: 'subscribe_and_one_time', trialDays: 0, commitmentCycles: 3,
+			introDiscountPercent: 50, introDiscountCycles: 1,
 		}]);
 		const url = new URL(String(fetchMock.mock.calls[0][0]));
 		expect(url.pathname).toBe('/api/v1/storefront/plans');
 		expect(Object.fromEntries(url.searchParams)).toEqual({ bc_product_id: '3023', store_hash: 'store-hash', channel_id: '1853406' });
+	});
+
+	it('does not expose a provider plan whose effective sales mode is one-time only', async () => {
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+			plans: [{ ...rawPlan, sales_mode: 'one_time_only' }],
+		}), { status: 200 }));
+		await expect(createSubscriptionProvider().listPlans(3023)).resolves.toEqual([]);
 	});
 
 	it('rejects a provider plan mapped to a different product', async () => {

@@ -909,19 +909,44 @@ and missing intent is a reconciliation exception.
 
 ### Phase 4 — portal, orders, addresses, payment methods
 
-Dependencies: Phase 3 subscription materialization and portal session exchange;
-provider-specific stored-instrument readiness; privacy and support decisions.
+Implemented in Aisles: an explicit customer-authorized portal connection;
+server-only provider session storage bound to the active BigCommerce customer;
+same-origin list, detail, and charge-history reads; skip, pause, resume,
+reschedule, cancel, and reactivate actions; per-session serialization;
+idempotent terminal-response replay; ambiguous-outcome recovery; normalized
+errors; and redacted evidence that reports provider attempts separately from
+confirmed outcomes. Login, logout, and customer-session expiry clear the
+provider session. The browser receives neither the provider token nor the
+provider customer ID. AI cannot call these routes or mutate subscription state.
 
-Proxy and render the reference portal capabilities in dependency order: list and
-detail, skip/swap/pause/resume/cancel, cadence/quantity, shipping/billing
-addresses, upcoming charges, then payment method updates. Keep provider error
-states and ownership checks server-side. Add account order detail only after
-the order query shape is approved.
+The PDP now renders provider-confirmed introductory discounts, the next renewal
+price, trial timing, and minimum commitment when the plan supplies them. Aisles
+does not calculate these terms from catalog copy.
 
-Acceptance: each action has a service response and audit record; repeated
-submits do not double-apply; a URL for another customer’s subscription returns
-not found/forbidden without revealing existence; payment method UI never sees
-raw card data.
+Deployment gate: the same existing `SSO_HANDOFF_SECRET` value must be configured
+on Aisles and `subs-api`. The secret has not been created, copied, or deployed as
+part of this code change. Connecting remains an explicit customer action because
+the provider exchange may create its customer reference.
+
+Still provider-gated: product swap needs a verified eligible-variant read
+contract; cadence changes need the plan's offered intervals in the detail
+response; quantity needs current quantity and bounds; address and preferences
+need owned read/write contracts; payment-method updates need a provider-hosted
+or tokenized flow whose credentials never enter Aisles; and prepaid needs the
+provider preflight and term contract. The reference storefront's hard-coded
+variant and cadence choices are not copied into Aisles.
+
+Local acceptance complete: customer, configuration, and connection gates;
+token non-disclosure; list/detail/charge normalization; cross-customer
+ownership delegation to the provider session; success, replay, concurrency,
+idempotency mismatch, expiry, disconnect, rate limit, provider conflict,
+provider timeout, and outcome-unknown paths; strict action inputs; and rendered
+anonymous, connect, empty, detail, and recovery states. Live acceptance remains:
+configure the shared secret; connect an authorized sandbox customer; read that
+customer's real subscriptions; exercise only pre-authorized lifecycle actions;
+and confirm another customer's identifier is denied without disclosing whether
+it exists. No subscription, charge, payment instrument, account, or order is
+created by this phase.
 
 ### Phase 5 — gift, prepaid, promotions, and parity closeout
 

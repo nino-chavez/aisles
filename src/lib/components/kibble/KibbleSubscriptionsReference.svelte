@@ -1,8 +1,10 @@
 <script lang="ts">
 	import './kibble-reference.css';
 	import KibbleAccountReference from './KibbleAccountReference.svelte';
+	import KibbleSubscriptionPortal from './KibbleSubscriptionPortal.svelte';
 	import type { KibbleMerchantCapabilityCoverage, KibbleObserveCountExpectation } from '$lib/brand/reference/kibble-catalog-enrichment';
 	import type { CommerceServiceBoundary } from '$lib/commerce/cart-contract';
+	import type { CustomerSessionStateView } from '$lib/commerce/customer-contract';
 
 	type SubscriptionSubtype = 'portal' | 'account' | 'detail';
 	let {
@@ -11,7 +13,9 @@
 		policyVersion,
 		brandName,
 		capabilityCoverage = null,
-		services = { mode: 'off', cart: 'not_connected', checkout: 'not_connected', orderCreation: 'not_exposed', orderHistory: 'customer_session_required', account: 'merchant_decision_required', payment: 'provider_owned', subscription: 'provider_not_connected', subscriptionPortal: 'portal_session_required' },
+		customerSessionState = 'disabled',
+		subscriptionId = null,
+		services = { mode: 'off', cart: 'not_connected', checkout: 'not_connected', orderCreation: 'not_exposed', orderHistory: 'customer_session_required', account: 'merchant_decision_required', payment: 'provider_owned', subscription: 'provider_not_connected', subscriptionPortal: 'provider_not_connected' },
 	}: {
 		subtype: SubscriptionSubtype;
 		availabilityMessage: string;
@@ -19,6 +23,8 @@
 		brandName: string;
 		capabilityCoverage?: KibbleMerchantCapabilityCoverage | null;
 		services?: CommerceServiceBoundary;
+		customerSessionState?: CustomerSessionStateView;
+		subscriptionId?: string | null;
 	} = $props();
 
 	function countLabel(expectation: KibbleObserveCountExpectation): string {
@@ -35,7 +41,7 @@
 				<div><dt>One-time purchase</dt><dd>{services.cart === 'bigcommerce_sandbox' ? 'Live through the BigCommerce sandbox cart and hosted checkout.' : 'Not connected.'}</dd></div>
 				<div><dt>Plan and cart intent</dt><dd>{services.subscription === 'authenticated_intent_ready' ? 'Provider-backed plan lookup and authenticated cart-intent confirmation are ready.' : services.subscription === 'plan_lookup_ready' ? 'Provider-backed plan lookup is ready. Cart-intent writes remain customer-session gated.' : 'Subscription provider not connected.'}</dd></div>
 				<div><dt>Recurring schedule</dt><dd>Created only by the provider after its signed order webhook verifies the completed order and payment state.</dd></div>
-				<div><dt>Portal</dt><dd>Provider-backed portal session and customer ownership check required.</dd></div>
+				<div><dt>Portal</dt><dd>{services.subscriptionPortal === 'provider_not_connected' ? 'Subscription provider not connected.' : services.subscriptionPortal === 'handoff_secret_required' ? 'Shared server-to-server handoff secret required.' : 'Provider-backed portal session and customer ownership check required.'}</dd></div>
 				<div><dt>Payment</dt><dd>Provider-owned. Aisles does not collect or authorize payment credentials here.</dd></div>
 			</dl>
 		</section>
@@ -112,19 +118,18 @@
 				</aside>
 			</section>
 		{/if}
-		<div data-kibble-source-resolution="account-login" data-kibble-backend-state={services.subscription}>
-			<KibbleAccountReference subtype="login" {brandName} {availabilityMessage} {policyVersion} {services} pageHeadingLevel={capabilityCoverage ? 'h2' : 'h1'} />
+		<div class="kc-reference-container kc-reference-subscriptions-page__portal" data-kibble-source-resolution={customerSessionState === 'authenticated' ? 'provider-portal' : 'account-login'} data-kibble-backend-state={services.subscription}>
+			{#if customerSessionState === 'authenticated'}
+				<KibbleSubscriptionPortal {customerSessionState} />
+			{:else}
+				<KibbleAccountReference subtype="login" {brandName} {availabilityMessage} {policyVersion} {services} {customerSessionState} pageHeadingLevel={capabilityCoverage ? 'h2' : 'h1'} />
+			{/if}
 		</div>
 	{:else}
 		<div class="kc-reference-container kc-reference-subscriptions-page__content kc-reference-subscriptions-page__content--detail" data-kibble-backend-state={services.subscriptionPortal} data-kibble-subscription-state={services.subscription}>
-			<a class="kc-reference-route__text-link kc-reference-focus" href="/subscriptions">← Back to subscriptions</a>
 			<h1 id="kibble-subscriptions-heading">Subscription detail</h1>
 			<p>{availabilityMessage}</p>
-			<div class="kc-reference-subscriptions-page__detail">
-				<h2>Subscription unavailable</h2>
-				<p>No plan, status, charge, renewal, address, or payment data was requested.</p>
-				<button type="button" disabled>Manage subscription unavailable</button>
-			</div>
+			<KibbleSubscriptionPortal {customerSessionState} {subscriptionId} />
 		</div>
 	{/if}
 </div>
@@ -137,6 +142,7 @@
 	.kc-subscription-boundary dl > div { border:1px solid var(--kc-border); background:var(--kc-surface); padding:.8rem; }
 	.kc-subscription-boundary dt { color:var(--kc-identity); font-size:.72rem; font-weight:900; letter-spacing:.06em; text-transform:uppercase; }
 	.kc-subscription-boundary dd { margin:.25rem 0 0; color:var(--kc-muted-text); line-height:1.5; }
+	.kc-reference-subscriptions-page__portal { margin-top:1.5rem; margin-bottom:2rem; }
 	.kc-reference-capability-matrix { display:grid; grid-template-columns:minmax(0, 1fr); gap:1rem; margin:1rem 0 0; padding:0; list-style:none; }
 	.kc-reference-capability-matrix > li { display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:0; min-width:0; border:1px solid var(--kc-border); background:var(--kc-surface); padding:clamp(1rem, 2.5vw, 1.4rem); }
 	.kc-reference-capability-matrix header { display:flex; align-items:start; justify-content:space-between; gap:1rem; }

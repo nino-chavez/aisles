@@ -107,9 +107,13 @@ async function loginCustomer(
 					state.customerSession = {
 						provider: 'bigcommerce',
 						customerEntityId: login.customerEntityId,
+						customerEmail: credentials.email.trim().toLowerCase(),
 						customerAccessToken: login.customerAccessToken,
 						expiresAt: login.expiresAt,
 					};
+					// A portal token is customer-bound. A successful login always
+					// requires an explicit portal reconnect for the newly verified identity.
+					state.subscriptionPortalSession = null;
 					state.cartEntityId = login.cartEntityId;
 					return {
 						state,
@@ -176,6 +180,7 @@ async function logoutCustomer(
 					providerAttempted = true;
 					const cartEntityId = await provider.logout(context(customer), state.cartEntityId);
 					state.customerSession = null;
+					state.subscriptionPortalSession = null;
 					state.cartEntityId = cartEntityId;
 					return {
 						state,

@@ -82,7 +82,8 @@ describe('Kibble route-specific unavailable shells', () => {
 	it.each(['portal', 'account', 'detail'] as const)('renders the %s subscription subtype without subscriber data', (subtype) => {
 		const body = render(KibbleSubscriptionsReference, { props: { subtype, brandName: 'Trusted Tenant', availabilityMessage: 'Subscriptions unavailable.', capabilityCoverage: subtype === 'detail' ? null : buildKibbleMerchantCapabilityCoverage() } }).body;
 		expect(body).toContain(`data-kibble-subscriptions-subtype="${subtype}"`);
-		expect(body).toContain('disabled');
+		if (subtype === 'detail') expect(body).toContain('Sign in with your BigCommerce customer account');
+		else expect(body).toContain('disabled');
 		if (subtype !== 'detail') expect(body).toContain('Trusted Tenant');
 		expect(body).not.toMatch(/active subscription|next charge|renewal date|payment ending/i);
 		if (subtype !== 'detail') {

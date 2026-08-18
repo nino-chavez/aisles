@@ -7,7 +7,7 @@ const MAX_PLANS = 10;
 const PLAN_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/;
 const LINE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const INTERVALS = new Set<SubscriptionInterval>(['day', 'week', 'month', 'year']);
-const SALES_MODES = new Set<SubscriptionPlan['salesMode']>(['subscription_only', 'subscribe_and_one_time']);
+const SALES_MODES = new Set<SubscriptionPlan['salesMode']>(['subscribe_only', 'subscribe_and_one_time', 'one_time_only']);
 
 export class SubscriptionProviderError extends Error {
 	constructor(
@@ -65,7 +65,9 @@ export function createSubscriptionProvider(platform?: App.Platform): Subscriptio
 			if (!isRecord(body) || !Array.isArray(body.plans) || body.plans.length > MAX_PLANS) {
 				throw new SubscriptionProviderError('Subscription provider returned an invalid plan list.');
 			}
-			return body.plans.map((value) => normalizePlan(value, productEntityId));
+			return body.plans
+				.map((value) => normalizePlan(value, productEntityId))
+				.filter((plan) => plan.salesMode !== 'one_time_only');
 		},
 
 		async listCartIntents(cartEntityId) {
@@ -149,9 +151,23 @@ function normalizePlan(value: unknown, expectedProductEntityId?: number): Subscr
 	const currency = stringField(value, 'currency', 3).toUpperCase();
 	const salesMode = value.sales_mode ?? 'subscribe_and_one_time';
 	const trialDays = optionalNonnegativeNumberField(value, 'trial_days', 3650);
-	const commitmentCycles = optionalNonnegativeNumberField(value, 'commitment_cycles', 1200);
+	const commitmentCycles = value.minimum_term_cycles === undefined
+		? optionalNonnegativeNumberField(value, 'commitment_cycles', 1200)
+		: optionalNonnegativeNumberField(value, 'minimum_term_cycles', 1200);
+	const introDiscountPercent = optionalNonnegativeNumberField(value, 'cycle_discount_pct', 100);
+	const introScope = value.cycle_discount_scope;
+	const introDiscountCycles = introDiscountPercent === 0
+		? 0
+		: introScope === 'first_cycle_only'
+			? 1
+			: introScope === 'first_n_cycles'
+				? optionalNonnegativeNumberField(value, 'cycle_discount_count', 1200)
+				: 0;
 	if (!PLAN_ID_PATTERN.test(id) || !INTERVALS.has(interval as SubscriptionInterval) || !SALES_MODES.has(salesMode as SubscriptionPlan['salesMode']) || !/^[A-Z]{3}$/.test(currency)) {
 		throw new SubscriptionProviderError('Subscription provider returned an invalid plan.');
+	}
+	if ((introDiscountPercent > 0 && introDiscountCycles === 0) || (introDiscountPercent === 0 && introScope !== undefined && introScope !== null)) {
+		throw new SubscriptionProviderError('Subscription provider returned invalid introductory terms.');
 	}
 	if (expectedProductEntityId !== undefined && 'bc_product_id' in value && Number(value.bc_product_id) !== expectedProductEntityId) {
 		throw new SubscriptionProviderError('Subscription plan product mapping is invalid.');
@@ -166,6 +182,8 @@ function normalizePlan(value: unknown, expectedProductEntityId?: number): Subscr
 		salesMode: salesMode as SubscriptionPlan['salesMode'],
 		trialDays,
 		commitmentCycles,
+		introDiscountPercent,
+		introDiscountCycles,
 	};
 }
 
